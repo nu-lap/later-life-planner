@@ -28,3 +28,8 @@ node_modules
 
 # local Codex orchestration
 .codex-orchestrator/
+
+codex-review-schema.json
+codex-review-prompt.md
+review-context.json
+codex-review*.md
