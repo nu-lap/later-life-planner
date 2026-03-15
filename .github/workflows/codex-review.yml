@@ -17,6 +17,7 @@ concurrency:
 jobs:
   review:
     permissions:
+      actions: write
       contents: read
     outputs:
       verdict: ${{ steps.extract.outputs.verdict }}
@@ -511,6 +512,8 @@ jobs:
       github.event.pull_request.head.repo.full_name == github.repository &&
       github.event.pull_request.user.login != 'dependabot[bot]'
     permissions:
+      actions: read
+      contents: read
       pull-requests: write
     runs-on: ubuntu-latest
     steps:
@@ -539,8 +542,7 @@ jobs:
           BASE_REF: ${{ github.base_ref }}
         run: |
           set -euo pipefail
-          cd codex-review
-          VERDICT=$(jq -r '.verdict' codex-review.json)
+          VERDICT=$(jq -r '.verdict' codex-review/codex-review.json)
           case "$VERDICT" in
             pass)
               EVENT="APPROVE"
@@ -556,7 +558,7 @@ jobs:
               ;;
           esac
           COMMENTS=$(python3 .github/scripts/prepare_review_comments.py codex-review/codex-review.json)
-          BODY=$(cat codex-review-comment.md)
+          BODY=$(cat codex-review/codex-review-comment.md)
           PAYLOAD=$(jq -n --arg body "$BODY" --arg event "$EVENT" --argjson comments "$COMMENTS" '
             {body: $body, event: $event} |
             if ($comments | length) > 0 then . + {comments: $comments} else . end
