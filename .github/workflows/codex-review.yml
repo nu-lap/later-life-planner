@@ -19,6 +19,7 @@ jobs:
     permissions:
       actions: write
       contents: read
+      id-token: write
     outputs:
       verdict: ${{ steps.extract.outputs.verdict }}
       summary: ${{ steps.extract.outputs.summary }}
@@ -76,24 +77,37 @@ jobs:
           cli_auth_credentials_store = "file"
           EOF
 
-      - name: Azure login via Codex credential
-        uses: azure/login@a457da9ea143d694b1b9c7c869ebb04ebe844ef5 # v2.3.0 — current official release still runs on Node 20; update when Azure ships a Node 24 build
+      - name: Authenticate to Azure via OIDC and fetch auth.json secret
+        uses: azure/cli@v1
+        env:
+          KEYVAULT_NAME: ${{ secrets.AZURE_KEYVAULT_NAME }}
+          KEYVAULT_SECRET_NAME: codex-auth-json
         with:
-          creds: ${{ secrets.AZURE_CREDENTIALS_CODEX_KV }}
+          inlineScript: |
+            set -euo pipefail
+            TOKEN_URL="${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=api://AzureADTokenExchange"
+            ID_RESPONSE="$(curl -sSf -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$TOKEN_URL")"
+            ID_TOKEN="$(printf '%s' "$ID_RESPONSE" | jq -r '.value')"
+            az login \
+              --service-principal \
+              --username "${{ secrets.CODEX_SP_APPLICATION_ID }}" \
+              --tenant "${{ secrets.CODEX_SP_TENANT_ID }}" \
+              --federated-token "$ID_TOKEN"
+            az account set --subscription "${{ secrets.CODEX_SP_SUBSCRIPTION_ID }}"
+            SECRET="$(az keyvault secret show \
+              --vault-name "$KEYVAULT_NAME" \
+              --name "$KEYVAULT_SECRET_NAME" \
+              --query value \
+              --output tsv)"
+            echo "CODEX_AUTH_JSON_B64=$(printf '%s' "$SECRET" | base64 -w 0)" >> "$GITHUB_ENV"
 
-      - name: Restore auth.json from Azure Key Vault
+      - name: Write auth.json
         shell: bash
         env:
           CODEX_HOME: ${{ runner.temp }}/.codex
-          KEYVAULT_NAME: ${{ secrets.AZURE_KEYVAULT_NAME }}
-          KEYVAULT_SECRET_NAME: codex-auth-json
         run: |
           set -euo pipefail
-          az keyvault secret show \
-            --vault-name "$KEYVAULT_NAME" \
-            --name "$KEYVAULT_SECRET_NAME" \
-            --query value \
-            --output tsv > "$CODEX_HOME/auth.json"
+          printf '%s' "$CODEX_AUTH_JSON_B64" | base64 -d > "$CODEX_HOME/auth.json"
           chmod 600 "$CODEX_HOME/auth.json"
 
       - name: Prepare review schema
