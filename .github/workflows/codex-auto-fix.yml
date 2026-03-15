@@ -72,10 +72,10 @@ jobs:
             TOKEN_URL="${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=api://AzureADTokenExchange"
             ID_RESPONSE="$(curl -sSf -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$TOKEN_URL")"
             ID_TOKEN="$(printf '%s' "$ID_RESPONSE" | python - <<'PY'
-import json, sys
-print(json.load(sys.stdin)["value"])
-PY
-)"
+              import json, sys
+              print(json.load(sys.stdin)["value"])
+              PY
+            )"
             az login \
               --service-principal \
               --username "${{ secrets.CODEX_SP_APPLICATION_ID }}" \
