@@ -87,10 +87,14 @@ jobs:
         shell: bash
         env:
           CODEX_HOME: ${{ runner.temp }}/.codex
+          CODEX_AUTO_FIX_MODEL: ${{ vars.CODEX_AUTO_FIX_MODEL || 'gpt-5.2-codex' }}
         run: |
           set -euo pipefail
           cd "$GITHUB_WORKSPACE"
-          codex exec --sandbox workspace-write --json "Review this Next.js repository, identify what is broken by reading the test files and source files under src/. Apply the minimal change to one or more files under src/ that fixes the failing tests. Do not modify any file under tests/ or docs/."
+          codex exec \
+            --model "$CODEX_AUTO_FIX_MODEL" \
+            --sandbox workspace-write \
+            --json "Review this Next.js repository, identify what is broken by reading the test files and source files under src/. Apply the minimal change to one or more files under src/ that fixes the failing tests. Do not modify any file under tests/ or docs/."
           if git diff --quiet; then
             echo "::error::Codex made no changes to the workspace — cannot create a fix PR." >&2
             exit 1
