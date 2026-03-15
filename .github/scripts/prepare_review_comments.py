@@ -83,8 +83,6 @@ def main():
         comments.append(
             {
                 "path": path,
-                "line": line,
-                "side": "RIGHT",
                 "position": pos,
                 "body": f"[{severity}] {title}\n{details}",
             }
