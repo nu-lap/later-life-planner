@@ -86,7 +86,7 @@ jobs:
               --name "$KEYVAULT_SECRET_NAME" \
               --query value \
               --output tsv)"
-            echo "CODEX_AUTH_JSON=$SECRET" >> "$GITHUB_ENV"
+            echo "CODEX_AUTH_JSON_B64=$(printf '%s' "$SECRET" | base64 -w 0)" >> "$GITHUB_ENV"
 
       - name: Write auth.json
         shell: bash
@@ -94,7 +94,7 @@ jobs:
           CODEX_HOME: ${{ runner.temp }}/.codex
         run: |
           set -euo pipefail
-          printf '%s' "$CODEX_AUTH_JSON" > "$CODEX_HOME/auth.json"
+          printf '%s' "$CODEX_AUTH_JSON_B64" | base64 -d > "$CODEX_HOME/auth.json"
           chmod 600 "$CODEX_HOME/auth.json"
 
       - name: Run Codex auto-fix
