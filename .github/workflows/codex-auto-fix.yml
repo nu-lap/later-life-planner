@@ -8,6 +8,7 @@ on:
 permissions:
   contents: write
   pull-requests: write
+  id-token: write
 
 jobs:
   auto-fix:
@@ -63,10 +64,22 @@ jobs:
           cli_auth_credentials_store = "file"
           EOF
 
-      - name: Azure login via Codex credential
-        uses: azure/login@a457da9ea143d694b1b9c7c869ebb04ebe844ef5 # v2.3.0 — current official release still runs on Node 20; update when Azure ships a Node 24 build
+      - name: Authenticate to Azure via OIDC
+        uses: azure/cli@v1
         with:
-          creds: ${{ secrets.AZURE_CREDENTIALS_CODEX_KV }}
+          inlineScript: |
+            set -euo pipefail
+            TOKEN_URL="${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=api://AzureADTokenExchange"
+            apt-get update >/dev/null
+            apt-get install -y jq >/dev/null
+            ID_RESPONSE="$(curl -sSf -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$TOKEN_URL")"
+            ID_TOKEN="$(printf '%s' "$ID_RESPONSE" | jq -r '.value')"
+            az login \
+              --service-principal \
+              --username "${{ secrets.CODEX_SP_APPLICATION_ID }}" \
+              --tenant "${{ secrets.CODEX_SP_TENANT_ID }}" \
+              --federated-token "$ID_TOKEN"
+            az account set --subscription "${{ secrets.CODEX_SP_SUBSCRIPTION_ID }}"
 
       - name: Restore auth.json from Azure Key Vault
         shell: bash
