@@ -86,9 +86,11 @@ jobs:
 
       - name: Fetch base branch
         shell: bash
+        env:
+          BASE_REF: ${{ steps.pr.outputs.base_ref }}
         run: |
           set -euo pipefail
-          git fetch --no-tags origin "${{ steps.pr.outputs.base_ref }}:refs/remotes/origin/${{ steps.pr.outputs.base_ref }}"
+          git fetch --no-tags origin "${BASE_REF}:refs/remotes/origin/${BASE_REF}"
 
       - name: Setup Node.js
         uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
@@ -102,10 +104,12 @@ jobs:
       - name: Capture lint output
         id: lint
         shell: bash
+        env:
+          INCLUDE_LINT: ${{ inputs.include_lint }}
         run: |
           set -euo pipefail
           mkdir -p codex-review-artifacts
-          if [ "${{ inputs.include_lint }}" != "true" ]; then
+          if [ "$INCLUDE_LINT" != "true" ]; then
             echo "status=skipped" >> "$GITHUB_OUTPUT"
             exit 0
           fi
@@ -121,10 +125,11 @@ jobs:
         shell: bash
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          INCLUDE_TESTS: ${{ inputs.include_tests }}
         run: |
           set -euo pipefail
           mkdir -p codex-review-artifacts
-          if [ "${{ inputs.include_tests }}" != "true" ]; then
+          if [ "$INCLUDE_TESTS" != "true" ]; then
             echo "status=skipped" >> "$GITHUB_OUTPUT"
             exit 0
           fi
@@ -137,9 +142,18 @@ jobs:
 
       - name: Prepare review prompt
         shell: bash
+        env:
+          REVIEW_FOCUS: ${{ inputs.review_focus }}
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
+          PR_TITLE: ${{ steps.pr.outputs.title }}
+          PR_URL: ${{ steps.pr.outputs.html_url }}
+          BASE_REF: ${{ steps.pr.outputs.base_ref }}
+          HEAD_REF: ${{ steps.pr.outputs.head_ref }}
+          LINT_STATUS: ${{ steps.lint.outputs.status }}
+          TEST_STATUS: ${{ steps.test.outputs.status }}
         run: |
           set -euo pipefail
-          case "${{ inputs.review_focus }}" in
+          case "$REVIEW_FOCUS" in
             deep)
               FOCUS_INSTRUCTIONS="Perform a broad, high-effort review. Prioritise correctness, behavioural regressions, security issues, workflow or deployment breakage, data loss risk, and missing tests. Spend extra attention on subtle edge cases and cross-file interactions."
               ;;
@@ -153,7 +167,7 @@ jobs:
               FOCUS_INSTRUCTIONS="Focus on GitHub Actions, Docker, Azure deployment wiring, build-time versus runtime env mistakes, branch gating, and CI reliability regressions."
               ;;
             *)
-              echo "::error::Unsupported review focus: ${{ inputs.review_focus }}" >&2
+              echo "::error::Unsupported review focus: $REVIEW_FOCUS" >&2
               exit 1
               ;;
           esac
@@ -162,16 +176,16 @@ jobs:
             echo "Review this pull request for the Later Life Planner repository."
             echo
             echo "Pull request:"
-            echo "- Number: #${{ steps.pr.outputs.number }}"
-            echo "- Title: ${{ steps.pr.outputs.title }}"
-            echo "- URL: ${{ steps.pr.outputs.html_url }}"
-            echo "- Base branch: origin/${{ steps.pr.outputs.base_ref }}"
-            echo "- Head ref: ${{ steps.pr.outputs.head_ref }}"
-            echo "- Review focus: ${{ inputs.review_focus }}"
+            echo "- Number: #${PR_NUMBER}"
+            echo "- Title: ${PR_TITLE}"
+            echo "- URL: ${PR_URL}"
+            echo "- Base branch: origin/${BASE_REF}"
+            echo "- Head ref: ${HEAD_REF}"
+            echo "- Review focus: ${REVIEW_FOCUS}"
             echo
             echo "Verification context:"
-            echo "- npm run lint: ${{ steps.lint.outputs.status }}"
-            echo "- npm test: ${{ steps.test.outputs.status }}"
+            echo "- npm run lint: ${LINT_STATUS}"
+            echo "- npm test: ${TEST_STATUS}"
             echo "- Supplemental logs, if present: codex-review-artifacts/lint.txt and codex-review-artifacts/test.txt"
             echo
             echo "Instructions:"
@@ -242,15 +256,20 @@ jobs:
 
       - name: Prepare sticky comment
         shell: bash
+        env:
+          REVIEW_FOCUS: ${{ inputs.review_focus }}
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
+          LINT_STATUS: ${{ steps.lint.outputs.status }}
+          TEST_STATUS: ${{ steps.test.outputs.status }}
         run: |
           set -euo pipefail
           {
-            echo "<!-- codex-deep-pr-review:${{ inputs.review_focus }} -->"
+            echo "<!-- codex-deep-pr-review:${REVIEW_FOCUS} -->"
             echo "## Codex Deep PR Review"
             echo
-            echo "- Focus: \`${{ inputs.review_focus }}\`"
-            echo "- Lint: \`${{ steps.lint.outputs.status }}\`"
-            echo "- Tests: \`${{ steps.test.outputs.status }}\`"
+            echo "- Focus: \`${REVIEW_FOCUS}\`"
+            echo "- Lint: \`${LINT_STATUS}\`"
+            echo "- Tests: \`${TEST_STATUS}\`"
             echo
             cat codex-review.md
           } > codex-review-comment.md
@@ -260,6 +279,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ steps.pr.outputs.number }}
+          REVIEW_FOCUS: ${{ inputs.review_focus }}
         run: |
           set -euo pipefail
           API_ROOT="https://api.github.com/repos/${GITHUB_REPOSITORY}"
@@ -320,7 +340,7 @@ jobs:
             fi
             unset API_STATUS
             PAGE_COMMENT_ID=$(printf '%s' "$PAGE_JSON" |
-              jq -r '.[] | select(.user.login == "github-actions[bot]" and (.body | contains("<!-- codex-deep-pr-review:${{ inputs.review_focus }} -->"))) | .id' |
+              jq -r --arg focus "$REVIEW_FOCUS" '.[] | select(.user.login == "github-actions[bot]" and (.body | contains("<!-- codex-deep-pr-review:\($focus) -->"))) | .id' |
               tail -n 1)
             if [ -n "$PAGE_COMMENT_ID" ]; then
               COMMENT_ID="$PAGE_COMMENT_ID"
@@ -340,15 +360,20 @@ jobs:
 
       - name: Add job summary
         shell: bash
+        env:
+          REVIEW_FOCUS: ${{ inputs.review_focus }}
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
+          LINT_STATUS: ${{ steps.lint.outputs.status }}
+          TEST_STATUS: ${{ steps.test.outputs.status }}
         run: |
           set -euo pipefail
           {
             echo '## Codex Deep PR Review'
             echo
-            echo "- Pull request: #${{ steps.pr.outputs.number }}"
-            echo "- Focus: ${{ inputs.review_focus }}"
-            echo "- Lint: ${{ steps.lint.outputs.status }}"
-            echo "- Tests: ${{ steps.test.outputs.status }}"
+            echo "- Pull request: #${PR_NUMBER}"
+            echo "- Focus: ${REVIEW_FOCUS}"
+            echo "- Lint: ${LINT_STATUS}"
+            echo "- Tests: ${TEST_STATUS}"
             echo
             cat codex-review.md
           } >> "$GITHUB_STEP_SUMMARY"
