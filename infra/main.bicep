@@ -75,6 +75,12 @@ resource webApp 'Microsoft.App/containerApps@2023-05-01' = {
       secrets: [
         { name: 'anthropic-api-key', value: anthropicApiKey }
       ]
+      registries: [
+        {
+          server: acr.properties.loginServer
+          identity: 'SystemAssigned'
+        }
+      ]
     }
     template: {
       containers: [
