@@ -514,12 +514,6 @@ jobs:
       pull-requests: write
     runs-on: ubuntu-latest
     steps:
-      - name: Download review artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: codex-review
-          path: codex-review
-
       - name: Checkout repo for diff lookup
         uses: actions/checkout@v4
         with:
@@ -529,6 +523,12 @@ jobs:
       - name: Fetch base branch
         run: |
           git fetch origin "${{ github.base_ref }}"
+
+      - name: Download review artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: codex-review
+          path: codex-review
 
       - name: Submit PR review
         shell: bash
