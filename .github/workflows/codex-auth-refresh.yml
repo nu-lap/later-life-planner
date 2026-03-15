@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: read
+  id-token: write
 
 jobs:
   refresh-auth:
@@ -14,10 +15,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
         with:
           node-version: "20"
           cache: "npm"
@@ -47,24 +48,37 @@ jobs:
           cli_auth_credentials_store = "file"
           EOF
 
-      - name: Azure login via credential
-        uses: azure/login@v2 # Current official release still runs on Node 20; update when Azure ships a Node 24 build
+      - name: Authenticate to Azure via OIDC and fetch auth.json secret
+        uses: azure/cli@4db43908b9df2e7ac93c8275a8f9a448c59338dd # v1
+        env:
+          KEYVAULT_NAME: ${{ secrets.AZURE_KEYVAULT_NAME }}
+          KEYVAULT_SECRET_NAME: codex-auth-json
         with:
-          creds: ${{ secrets.AZURE_CREDENTIALS_CODEX_KV }}
+          inlineScript: |
+            set -euo pipefail
+            TOKEN_URL="${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=api://AzureADTokenExchange"
+            ID_RESPONSE="$(curl -sSf -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$TOKEN_URL")"
+            ID_TOKEN="$(printf '%s' "$ID_RESPONSE" | jq -r '.value')"
+            az login \
+              --service-principal \
+              --username "${{ secrets.CODEX_SP_APPLICATION_ID }}" \
+              --tenant "${{ secrets.CODEX_SP_TENANT_ID }}" \
+              --federated-token "$ID_TOKEN"
+            az account set --subscription "${{ secrets.CODEX_SP_SUBSCRIPTION_ID }}"
+            SECRET="$(az keyvault secret show \
+              --vault-name "$KEYVAULT_NAME" \
+              --name "$KEYVAULT_SECRET_NAME" \
+              --query value \
+              --output tsv)"
+            echo "CODEX_AUTH_JSON_B64=$(printf '%s' "$SECRET" | base64 -w 0)" >> "$GITHUB_ENV"
 
-      - name: Restore auth.json from Azure Key Vault
+      - name: Write auth.json
         shell: bash
         env:
           CODEX_HOME: ${{ runner.temp }}/.codex
-          KEYVAULT_NAME: ${{ secrets.AZURE_KEYVAULT_NAME }}
-          KEYVAULT_SECRET_NAME: codex-auth-json
         run: |
           set -euo pipefail
-          az keyvault secret show \
-            --vault-name "$KEYVAULT_NAME" \
-            --name "$KEYVAULT_SECRET_NAME" \
-            --query value \
-            --output tsv > "$CODEX_HOME/auth.json"
+          printf '%s' "$CODEX_AUTH_JSON_B64" | base64 -d > "$CODEX_HOME/auth.json"
           chmod 600 "$CODEX_HOME/auth.json"
 
       - name: Refresh auth.json
@@ -76,16 +90,36 @@ jobs:
           cd "$GITHUB_WORKSPACE"
           codex exec --json "Refresh the authentication credentials stored in auth.json without touching repository files."
 
-      - name: Persist refreshed auth.json back to Azure Key Vault
+      - name: Read refreshed auth.json
         shell: bash
         env:
           CODEX_HOME: ${{ runner.temp }}/.codex
-          KEYVAULT_NAME: ${{ secrets.AZURE_KEYVAULT_NAME }}
-          KEYVAULT_SECRET_NAME: codex-auth-json
         run: |
           set -euo pipefail
-          az keyvault secret set \
-            --vault-name "$KEYVAULT_NAME" \
-            --name "$KEYVAULT_SECRET_NAME" \
-            --value "$(cat "$CODEX_HOME/auth.json")" \
-            --output none
+          echo "REFRESHED_AUTH_JSON_B64=$(base64 -w 0 < "$CODEX_HOME/auth.json")" >> "$GITHUB_ENV"
+
+      - name: Persist refreshed auth.json back to Azure Key Vault via OIDC
+        uses: azure/cli@4db43908b9df2e7ac93c8275a8f9a448c59338dd # v1
+        env:
+          KEYVAULT_NAME: ${{ secrets.AZURE_KEYVAULT_NAME }}
+          KEYVAULT_SECRET_NAME: codex-auth-json
+        with:
+          inlineScript: |
+            set -euo pipefail
+            TOKEN_URL="${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=api://AzureADTokenExchange"
+            ID_RESPONSE="$(curl -sSf -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$TOKEN_URL")"
+            ID_TOKEN="$(printf '%s' "$ID_RESPONSE" | jq -r '.value')"
+            az login \
+              --service-principal \
+              --username "${{ secrets.CODEX_SP_APPLICATION_ID }}" \
+              --tenant "${{ secrets.CODEX_SP_TENANT_ID }}" \
+              --federated-token "$ID_TOKEN"
+            az account set --subscription "${{ secrets.CODEX_SP_SUBSCRIPTION_ID }}"
+            printf '%s' "$REFRESHED_AUTH_JSON_B64" | base64 -d > /tmp/auth_refresh.json
+            chmod 600 /tmp/auth_refresh.json
+            az keyvault secret set \
+              --vault-name "$KEYVAULT_NAME" \
+              --name "$KEYVAULT_SECRET_NAME" \
+              --file /tmp/auth_refresh.json \
+              --output none
+            rm -f /tmp/auth_refresh.json
