@@ -374,6 +374,7 @@ jobs:
           cd "$GITHUB_WORKSPACE"
           codex exec \
             --ephemeral \
+            --model gpt-4.1-mini \
             --full-auto \
             --output-schema codex-review-schema.json \
             -o codex-review.json \
