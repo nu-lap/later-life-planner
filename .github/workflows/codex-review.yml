@@ -558,9 +558,7 @@ jobs:
             -H "Accept: application/vnd.github+json" \
             -H "Content-Type: application/json" \
             -X POST "https://api.github.com/repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/reviews" \
-            --data @- <<'EOF'
-          $PAYLOAD
-          EOF
+            --data "$PAYLOAD"
 
   review-gate:
     needs: review
