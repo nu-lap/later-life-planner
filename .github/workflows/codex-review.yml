@@ -171,7 +171,7 @@ jobs:
           DIFF_STATUS=$(git diff --name-status "$BASE_REF"..."$HEAD_SHA" || true)
           ADDED_FILES=$(printf '%s\n' "$DIFF_STATUS" | awk '$1=="A"{c++} END{print c+0}')
           DELETED_FILES=$(printf '%s\n' "$DIFF_STATUS" | awk '$1=="D"{c++} END{print c+0}')
-          RENAMED_FILES=$(printf '%s\n' "$DIFF_STATUS" | awk '$1=="R"{c++} END{print c+0}')
+          RENAMED_FILES=$(printf '%s\n' "$DIFF_STATUS" | awk '$1 ~ /^R/{c++} END{print c+0}')
           MODIFIED_FILES=$(printf '%s\n' "$DIFF_STATUS" | awk '$1=="M"{c++} END{print c+0}')
 
           ADDITIONS=$(git diff --numstat "$BASE_REF"..."$HEAD_SHA" | awk '$1 ~ /^[0-9]+$/ {add+=$1} END{print add+0}')
@@ -218,8 +218,28 @@ jobs:
           git ls-tree -r --name-only "$BASE_REF" > "$tmpdir/base_files.txt" || true
           printf '%s\n' "$CHANGED_FILES" > "$tmpdir/changed_files.txt"
 
-          sed -n 's/.*\\.//p' "$tmpdir/base_files.txt" | tr '[:upper:]' '[:lower:]' | sort -u > "$tmpdir/base_exts.txt"
-          sed -n 's/.*\\.//p' "$tmpdir/changed_files.txt" | tr '[:upper:]' '[:lower:]' | sort -u > "$tmpdir/changed_exts.txt"
+          extract_exts() {
+            local input=$1
+            while IFS= read -r file; do
+              [ -z "$file" ] && continue
+              base=$(basename "$file")
+              ext=""
+              if [[ "$base" == .* && "$base" != *.* ]]; then
+                ext=""
+              else
+                ext="${base##*.}"
+                if [ "$ext" = "$base" ]; then
+                  ext=""
+                fi
+              fi
+              if [ -n "$ext" ]; then
+                printf '%s\n' "$ext"
+              fi
+            done < "$input" | tr '[:upper:]' '[:lower:]' | sort -u
+          }
+
+          extract_exts "$tmpdir/base_files.txt" > "$tmpdir/base_exts.txt"
+          extract_exts "$tmpdir/changed_files.txt" > "$tmpdir/changed_exts.txt"
           NEW_EXTS=$(comm -13 "$tmpdir/base_exts.txt" "$tmpdir/changed_exts.txt" | tr '\n' ',' | sed 's/,$//')
 
           DEP_FILES_CHANGED=$(printf '%s\n' "$CHANGED_FILES" | grep -E -c '(^package.json$|^package-lock.json$|^pnpm-lock.yaml$|^yarn.lock$|^requirements.txt$|^pyproject.toml$|^poetry.lock$|^go.mod$|^Cargo.toml$|^Gemfile$)' || true)
