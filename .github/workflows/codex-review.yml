@@ -554,11 +554,16 @@ jobs:
             {body: $body, event: $event} |
             if ($comments | length) > 0 then . + {comments: $comments} else . end
           ')
-          curl -sS -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+          RESPONSE_FILE=$(mktemp)
+          trap 'rm -f "$RESPONSE_FILE"' EXIT
+          curl -sS --fail-with-body \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
             -H "Accept: application/vnd.github+json" \
             -H "Content-Type: application/json" \
             -X POST "https://api.github.com/repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/reviews" \
-            --data "$PAYLOAD"
+            --data "$PAYLOAD" \
+            -o "$RESPONSE_FILE"
+          cat "$RESPONSE_FILE"
 
   review-gate:
     needs: review
