@@ -496,7 +496,7 @@ jobs:
           cat codex-review-summary.md >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload review artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
           name: codex-review
           path: |
@@ -518,7 +518,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repo for diff lookup
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
         with:
           fetch-depth: 0
           ref: ${{ github.event.pull_request.head.sha }}
@@ -528,7 +528,7 @@ jobs:
           git fetch origin "${{ github.base_ref }}"
 
       - name: Download review artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
           name: codex-review
           path: codex-review
@@ -540,6 +540,7 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           GITHUB_REPOSITORY: ${{ github.repository }}
           BASE_REF: ${{ github.base_ref }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           set -euo pipefail
           VERDICT=$(jq -r '.verdict' codex-review/codex-review.json)
@@ -559,8 +560,8 @@ jobs:
           esac
           COMMENTS=$(python3 .github/scripts/prepare_review_comments.py codex-review/codex-review.json)
           BODY=$(cat codex-review/codex-review-comment.md)
-          PAYLOAD=$(jq -n --arg body "$BODY" --arg event "$EVENT" --argjson comments "$COMMENTS" '
-            {body: $body, event: $event} |
+          PAYLOAD=$(jq -n --arg body "$BODY" --arg event "$EVENT" --argjson comments "$COMMENTS" --arg commit_id "$HEAD_SHA" '
+            {body: $body, event: $event, commit_id: $commit_id} |
             if ($comments | length) > 0 then . + {comments: $comments} else . end
           ')
           RESPONSE_FILE=$(mktemp)
