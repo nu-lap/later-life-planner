@@ -154,6 +154,161 @@ jobs:
           }
           EOF
 
+      - name: Gather review context
+        id: review_context
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          cd "$GITHUB_WORKSPACE"
+          BASE_REF="origin/${{ github.base_ref }}"
+          HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+          EVENT_JSON="$GITHUB_EVENT_PATH"
+
+          CHANGED_FILES=$(git diff --name-only "$BASE_REF"..."$HEAD_SHA" || true)
+          TOTAL_FILES=$(printf '%s\n' "$CHANGED_FILES" | sed '/^$/d' | wc -l | tr -d ' ')
+          DIFF_STATUS=$(git diff --name-status "$BASE_REF"..."$HEAD_SHA" || true)
+          ADDED_FILES=$(printf '%s\n' "$DIFF_STATUS" | awk '$1=="A"{c++} END{print c+0}')
+          DELETED_FILES=$(printf '%s\n' "$DIFF_STATUS" | awk '$1=="D"{c++} END{print c+0}')
+          RENAMED_FILES=$(printf '%s\n' "$DIFF_STATUS" | awk '$1=="R"{c++} END{print c+0}')
+          MODIFIED_FILES=$(printf '%s\n' "$DIFF_STATUS" | awk '$1=="M"{c++} END{print c+0}')
+
+          ADDITIONS=$(git diff --numstat "$BASE_REF"..."$HEAD_SHA" | awk '$1 ~ /^[0-9]+$/ {add+=$1} END{print add+0}')
+          DELETIONS=$(git diff --numstat "$BASE_REF"..."$HEAD_SHA" | awk '$2 ~ /^[0-9]+$/ {del+=$2} END{print del+0}')
+          TOTAL_CHURN=$((ADDITIONS + DELETIONS))
+
+          DOC_FILES=0
+          CODE_FILES=0
+          CONFIG_FILES=0
+          OTHER_FILES=0
+
+          doc_exts="md mdx txt rst adoc"
+          code_exts="ts tsx js jsx py go rb java kt cs cpp c h rs php swift sql"
+          config_exts="yml yaml json toml ini env"
+
+          while IFS= read -r file; do
+            [ -z "$file" ] && continue
+            base=$(basename "$file")
+            ext="${file##*.}"
+            ext=$(printf '%s' "$ext" | tr '[:upper:]' '[:lower:]')
+
+            if [[ "$file" == docs/* ]] || [[ "$base" == README* ]] || [[ " $doc_exts " == *" $ext "* ]]; then
+              DOC_FILES=$((DOC_FILES + 1))
+              continue
+            fi
+            if [[ " $code_exts " == *" $ext "* ]]; then
+              CODE_FILES=$((CODE_FILES + 1))
+              continue
+            fi
+            if [[ " $config_exts " == *" $ext "* ]] || [[ "$base" == "Dockerfile" ]] || [[ "$base" == "Makefile" ]] || [[ "$file" == .github/workflows/* ]]; then
+              CONFIG_FILES=$((CONFIG_FILES + 1))
+              continue
+            fi
+            OTHER_FILES=$((OTHER_FILES + 1))
+          done <<< "$CHANGED_FILES"
+
+          DOC_ONLY="false"
+          if [ "$TOTAL_FILES" -gt 0 ] && [ "$CODE_FILES" -eq 0 ] && [ "$CONFIG_FILES" -eq 0 ] && [ "$OTHER_FILES" -eq 0 ]; then
+            DOC_ONLY="true"
+          fi
+
+          tmpdir=$(mktemp -d)
+          trap 'rm -rf "$tmpdir"' EXIT
+          git ls-tree -r --name-only "$BASE_REF" > "$tmpdir/base_files.txt" || true
+          printf '%s\n' "$CHANGED_FILES" > "$tmpdir/changed_files.txt"
+
+          sed -n 's/.*\\.//p' "$tmpdir/base_files.txt" | tr '[:upper:]' '[:lower:]' | sort -u > "$tmpdir/base_exts.txt"
+          sed -n 's/.*\\.//p' "$tmpdir/changed_files.txt" | tr '[:upper:]' '[:lower:]' | sort -u > "$tmpdir/changed_exts.txt"
+          NEW_EXTS=$(comm -13 "$tmpdir/base_exts.txt" "$tmpdir/changed_exts.txt" | tr '\n' ',' | sed 's/,$//')
+
+          DEP_FILES_CHANGED=$(printf '%s\n' "$CHANGED_FILES" | grep -E -c '(^package.json$|^package-lock.json$|^pnpm-lock.yaml$|^yarn.lock$|^requirements.txt$|^pyproject.toml$|^poetry.lock$|^go.mod$|^Cargo.toml$|^Gemfile$)' || true)
+          ADDED_DEPS=""
+          if printf '%s\n' "$CHANGED_FILES" | grep -qx "package.json"; then
+            git show "$BASE_REF:package.json" > "$tmpdir/base_package.json" 2>/dev/null || echo '{}' > "$tmpdir/base_package.json"
+            cp package.json "$tmpdir/head_package.json"
+            jq -r '(.dependencies // {}) + (.devDependencies // {}) + (.peerDependencies // {}) + (.optionalDependencies // {}) | keys[]' \
+              "$tmpdir/base_package.json" | sort -u > "$tmpdir/base_deps.txt" || true
+            jq -r '(.dependencies // {}) + (.devDependencies // {}) + (.peerDependencies // {}) + (.optionalDependencies // {}) | keys[]' \
+              "$tmpdir/head_package.json" | sort -u > "$tmpdir/head_deps.txt" || true
+            ADDED_DEPS=$(comm -13 "$tmpdir/base_deps.txt" "$tmpdir/head_deps.txt" | tr '\n' ',' | sed 's/,$//')
+          fi
+
+          AUTHOR_LOGIN=$(jq -r '.pull_request.user.login // ""' "$EVENT_JSON")
+          AUTHOR_ASSOC=$(jq -r '.pull_request.author_association // ""' "$EVENT_JSON")
+          FIRST_TIME_CONTRIB=$(jq -r '.pull_request.author_association == "FIRST_TIME_CONTRIBUTOR"' "$EVENT_JSON")
+
+          PR_COUNT_TOTAL="unknown"
+          PR_COUNT_MERGED="unknown"
+          PR_COUNT_RECENT="unknown"
+          if [ -n "${GITHUB_TOKEN:-}" ] && [ -n "$AUTHOR_LOGIN" ]; then
+            API_BASE="https://api.github.com/search/issues"
+            QUERY_TOTAL="repo:${GITHUB_REPOSITORY} type:pr author:${AUTHOR_LOGIN}"
+            QUERY_MERGED="repo:${GITHUB_REPOSITORY} type:pr author:${AUTHOR_LOGIN} is:merged"
+            RECENT_DATE=$(date -u -d '180 days ago' +%F)
+            QUERY_RECENT="repo:${GITHUB_REPOSITORY} type:pr author:${AUTHOR_LOGIN} merged:>=${RECENT_DATE}"
+
+            api_count() {
+              local query=$1
+              local response
+              response=$(curl -sS -H "Authorization: Bearer ${GITHUB_TOKEN}" -H "Accept: application/vnd.github+json" \
+                "${API_BASE}?q=$(printf '%s' "$query" | sed 's/ /+/g')") || return 1
+              printf '%s' "$response" | jq -r '.total_count // empty'
+            }
+
+            PR_COUNT_TOTAL=$(api_count "$QUERY_TOTAL" || echo "unknown")
+            PR_COUNT_MERGED=$(api_count "$QUERY_MERGED" || echo "unknown")
+            PR_COUNT_RECENT=$(api_count "$QUERY_RECENT" || echo "unknown")
+          fi
+
+          SCORE=0
+          if [ "$TOTAL_CHURN" -gt 800 ]; then SCORE=$((SCORE + 2)); elif [ "$TOTAL_CHURN" -gt 200 ]; then SCORE=$((SCORE + 1)); fi
+          if [ "$CODE_FILES" -gt 10 ]; then SCORE=$((SCORE + 2)); elif [ "$CODE_FILES" -gt 3 ]; then SCORE=$((SCORE + 1)); fi
+          if [ -n "$NEW_EXTS" ]; then SCORE=$((SCORE + 2)); fi
+          if [ -n "$ADDED_DEPS" ]; then SCORE=$((SCORE + 2)); fi
+          if [ "$DELETED_FILES" -gt 5 ]; then SCORE=$((SCORE + 1)); fi
+          if [ "$FIRST_TIME_CONTRIB" = "true" ]; then SCORE=$((SCORE + 2)); fi
+          if [ "$PR_COUNT_MERGED" = "0" ]; then SCORE=$((SCORE + 2)); fi
+          if [ "$DOC_ONLY" = "true" ]; then SCORE=$((SCORE - 2)); fi
+          if [ "$SCORE" -lt 0 ]; then SCORE=0; fi
+
+          REVIEW_LEVEL="standard"
+          if [ "$SCORE" -le 1 ]; then REVIEW_LEVEL="light"; fi
+          if [ "$SCORE" -ge 5 ]; then REVIEW_LEVEL="deep"; fi
+
+          cat > review-context.json <<EOF
+          {
+            "pr_number": ${{ github.event.pull_request.number }},
+            "base_ref": "${{ github.base_ref }}",
+            "head_sha": "${{ github.event.pull_request.head.sha }}",
+            "files_changed": $TOTAL_FILES,
+            "files_added": $ADDED_FILES,
+            "files_deleted": $DELETED_FILES,
+            "files_renamed": $RENAMED_FILES,
+            "files_modified": $MODIFIED_FILES,
+            "lines_added": $ADDITIONS,
+            "lines_deleted": $DELETIONS,
+            "total_churn": $TOTAL_CHURN,
+            "doc_files": $DOC_FILES,
+            "code_files": $CODE_FILES,
+            "config_files": $CONFIG_FILES,
+            "other_files": $OTHER_FILES,
+            "doc_only": $DOC_ONLY,
+            "new_extensions": "${NEW_EXTS}",
+            "dependency_files_changed": $DEP_FILES_CHANGED,
+            "added_dependencies": "${ADDED_DEPS}",
+            "author": {
+              "login": "${AUTHOR_LOGIN}",
+              "association": "${AUTHOR_ASSOC}",
+              "first_time_contributor": $FIRST_TIME_CONTRIB,
+              "prior_prs_total": "${PR_COUNT_TOTAL}",
+              "prior_prs_merged": "${PR_COUNT_MERGED}",
+              "prior_prs_recent_180d": "${PR_COUNT_RECENT}"
+            },
+            "review_level_suggestion": "${REVIEW_LEVEL}"
+          }
+          EOF
+
       - name: Prepare review prompt
         shell: bash
         run: |
@@ -163,6 +318,9 @@ jobs:
           Review pull request #${{ github.event.pull_request.number }} for the Later Life Planner repository against origin/${{ github.base_ref }}.
 
           Return only a JSON object that matches the provided schema.
+
+          Determine the appropriate review depth (light, standard, deep) using the provided review context. Your summary must begin with "Review level: <level>.".
+          Use these factors when selecting depth: nature of changes (docs vs code), complexity and churn, number of new/deleted files, introduction of new libraries, introduction of new languages, potential coding style shifts, and author experience/history. If a factor is unknown, treat it as unknown; do not assume.
 
           Verdict rules:
           - Use "pass" when there are no material issues that require developer re-work before merge.
@@ -179,6 +337,11 @@ jobs:
           - If verdict is "pass", findings must be empty.
           - If verdict is "rework_required", findings must not be empty.
           - Residual risks should list brief verification gaps or follow-up concerns.
+
+          Review context (authoritative):
+          \`\`\`json
+          $(cat review-context.json)
+          \`\`\`
           EOF
 
       - name: Run Codex review
