@@ -547,6 +547,7 @@ jobs:
           COMMENTS=$(jq -c '[.findings[] | select(.file != null and .file != "" and (.line // 0) > 0) | {
             path: .file,
             line: .line,
+            side: "RIGHT",
             body: "[\(.severity | ascii_upcase)] \(.title)\n\(.details)"
           }]' codex-review.json)
           BODY=$(cat codex-review-comment.md)
