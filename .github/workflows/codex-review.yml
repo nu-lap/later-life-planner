@@ -556,7 +556,6 @@ jobs:
               ;;
           esac
           COMMENTS=$(python3 .github/scripts/prepare_review_comments.py codex-review/codex-review.json)
-          )
           BODY=$(cat codex-review-comment.md)
           PAYLOAD=$(jq -n --arg body "$BODY" --arg event "$EVENT" --argjson comments "$COMMENTS" '
             {body: $body, event: $event} |
