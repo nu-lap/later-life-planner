@@ -70,7 +70,8 @@ jobs:
           inlineScript: |
             set -euo pipefail
             TOKEN_URL="${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=api://AzureADTokenExchange"
-            ID_TOKEN="$(curl -sSf -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$TOKEN_URL")"
+            ID_RESPONSE="$(curl -sSf -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$TOKEN_URL")"
+            ID_TOKEN="$(printf '%s' "$ID_RESPONSE" | jq -r '.value')"
             az login \
               --service-principal \
               --username "${{ secrets.CODEX_SP_APPLICATION_ID }}" \
