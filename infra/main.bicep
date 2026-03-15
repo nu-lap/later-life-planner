@@ -19,18 +19,20 @@ param prefix string = 'llp'
 param acrName string
 
 @description('Azure DevOps organisation URL, e.g. https://dev.azure.com/blackdog69')
-param adoOrgUrl string
+param adoOrgUrl string = ''
 
 @description('Azure DevOps agent pool name')
-param adoPoolName string
+param adoPoolName string = ''
 
 @secure()
-@description('Azure DevOps Personal Access Token (needs Agent Pools: read & manage scope)')
-param adoToken string
+@description('Azure DevOps Personal Access Token (needs Agent Pools: read & manage scope). Leave empty to skip the Azure Pipelines agent job.')
+param adoToken string = ''
 
 @secure()
 @description('Anthropic API key for the web app')
 param anthropicApiKey string
+
+var adoEnabled = (adoToken != '' && adoOrgUrl != '' && adoPoolName != '')
 
 // ── Log Analytics ─────────────────────────────────────────────────────────────
 resource logAnalytics 'Microsoft.OperationalInsights/workspaces@2022-10-01' = {
@@ -47,7 +49,7 @@ resource acr 'Microsoft.ContainerRegistry/registries@2023-07-01' = {
   name: acrName
   location: location
   sku: { name: 'Basic' }
-  properties: { adminUserEnabled: true }
+  properties: { adminUserEnabled: false }
 }
 
 // ── Container Apps Environment ────────────────────────────────────────────────
@@ -69,7 +71,7 @@ resource cae 'Microsoft.App/managedEnvironments@2023-05-01' = {
 // Uses KEDA Azure Pipelines scaler.
 // Starts a new container per queued pipeline job; exits (and deregisters) when done.
 // minExecutions=0 means zero cost when idle.
-resource agentJob 'Microsoft.App/jobs@2023-05-01' = {
+resource agentJob 'Microsoft.App/jobs@2023-05-01' = if (adoEnabled) {
   name: 'job-ado-agent-${prefix}'
   location: location
   properties: {
@@ -110,14 +112,6 @@ resource agentJob 'Microsoft.App/jobs@2023-05-01' = {
       secrets: [
         { name: 'ado-pat', value: adoToken }
         { name: 'ado-org-url', value: adoOrgUrl }
-        { name: 'acr-password', value: acr.listCredentials().passwords[0].value }
-      ]
-      registries: [
-        {
-          server: acr.properties.loginServer
-          username: acr.name
-          passwordSecretRef: 'acr-password'
-        }
       ]
     }
     template: {
@@ -140,6 +134,22 @@ resource agentJob 'Microsoft.App/jobs@2023-05-01' = {
       ]
     }
   }
+  identity: {
+    type: 'SystemAssigned'
+  }
+}
+
+resource agentJobAcrRole 'Microsoft.Authorization/roleAssignments@2020-04-01-preview' = if (adoEnabled) {
+  name: guid(agentJob.id, acr.id, 'agent-acr-pull')
+  scope: acr
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '7f951dda-4ed3-4680-a7ca-43fe172d538d')
+    principalId: agentJob.identity.principalId
+    principalType: 'ServicePrincipal'
+  }
+  dependsOn: [
+    agentJob
+  ]
 }
 
 // ── Web App — ACA App ─────────────────────────────────────────────────────────
@@ -157,15 +167,7 @@ resource webApp 'Microsoft.App/containerApps@2023-05-01' = {
         allowInsecure: false
       }
       secrets: [
-        { name: 'acr-password', value: acr.listCredentials().passwords[0].value }
         { name: 'anthropic-api-key', value: anthropicApiKey }
-      ]
-      registries: [
-        {
-          server: acr.properties.loginServer
-          username: acr.name
-          passwordSecretRef: 'acr-password'
-        }
       ]
     }
     template: {
@@ -202,6 +204,22 @@ resource webApp 'Microsoft.App/containerApps@2023-05-01' = {
       }
     }
   }
+  identity: {
+    type: 'SystemAssigned'
+  }
+}
+
+resource webAppAcrRole 'Microsoft.Authorization/roleAssignments@2020-04-01-preview' = {
+  name: guid(webApp.id, acr.id, 'webapp-acr-pull')
+  scope: acr
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '7f951dda-4ed3-4680-a7ca-43fe172d538d')
+    principalId: webApp.identity.principalId
+    principalType: 'ServicePrincipal'
+  }
+  dependsOn: [
+    webApp
+  ]
 }
 
 // ── Outputs ───────────────────────────────────────────────────────────────────
