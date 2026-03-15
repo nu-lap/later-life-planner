@@ -520,12 +520,23 @@ jobs:
           name: codex-review
           path: codex-review
 
+      - name: Checkout repo for diff lookup
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Fetch base branch
+        run: |
+          git fetch origin "${{ github.base_ref }}"
+
       - name: Submit PR review
         shell: bash
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           GITHUB_REPOSITORY: ${{ github.repository }}
+          BASE_REF: ${{ github.base_ref }}
         run: |
           set -euo pipefail
           cd codex-review
@@ -544,12 +555,61 @@ jobs:
               EVENT="COMMENT"
               ;;
           esac
-          COMMENTS=$(jq -c '[.findings[] | select(.file != null and .file != "" and (.line // 0) > 0) | {
-            path: .file,
-            line: .line,
-            side: "RIGHT",
-            body: "[\(.severity | ascii_upcase)] \(.title)\n\(.details)"
-          }]' codex-review.json)
+          COMMENTS=$(python3 <<'PY'
+import json, os, re, subprocess
+
+base_ref=os.environ["BASE_REF"]
+
+def map_position(path, target):
+    try:
+        diff=subprocess.run(["git", "diff", "--unified=0", f"origin/{base_ref}", "--", path],
+                            capture_output=True, text=True, check=True).stdout
+    except subprocess.CalledProcessError:
+        return None
+    position = 0
+    cur_line = None
+    for row in diff.splitlines():
+        if row.startswith("@@"):
+            m = re.search(r'\+(\d+)', row)
+            if m:
+                cur_line = int(m.group(1)) - 1
+            else:
+                cur_line = None
+            continue
+        if cur_line is None:
+            continue
+        position += 1
+        if row.startswith("+"):
+            cur_line += 1
+            if cur_line == target:
+                return position
+        elif row.startswith(" "):
+            cur_line += 1
+    return None
+
+review = json.load(open("codex-review.json"))
+comments = []
+for finding in review.get("findings", []):
+    path = finding.get("file")
+    line = finding.get("line")
+    if not path or not isinstance(line, int) or line <= 0:
+        continue
+    pos = map_position(path, line)
+    if pos is None:
+        continue
+    severity = finding.get("severity", "medium").upper()
+    title = finding.get("title", "")
+    details = finding.get("details", "")
+    comments.append({
+        "path": path,
+        "line": line,
+        "side": "RIGHT",
+        "position": pos,
+        "body": f"[{severity}] {title}\n{details}"
+    })
+print(json.dumps(comments))
+PY
+          )
           BODY=$(cat codex-review-comment.md)
           PAYLOAD=$(jq -n --arg body "$BODY" --arg event "$EVENT" --argjson comments "$COMMENTS" '
             {body: $body, event: $event} |
