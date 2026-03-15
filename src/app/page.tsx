@@ -28,6 +28,7 @@ export default function Home() {
   const hasClerkPublishableKey = Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY);
   const { currentStep, maxVisitedStep, setCurrentStep, resetPlan } = usePlannerStore();
   const [accepted, setAccepted] = useState<boolean | null>(null);
+  const debugMessage = 'Pipeline debug run 1 — this text lets us confirm the new build reached production.';
 
   useEffect(() => {
     setAccepted(localStorage.getItem(DISCLAIMER_KEY) === '1');
@@ -67,6 +68,13 @@ export default function Home() {
         saveStatus="local"
         authControls={hasClerkPublishableKey ? <UserButton /> : undefined}
       />
+
+      <div
+        className="mx-auto max-w-5xl px-4 pt-4 text-sm text-orange-900"
+        data-testid="cicd-debug-banner"
+      >
+        {debugMessage}
+      </div>
 
       {/* Step navigation bar */}
       <div className="sticky top-[56px] z-10 bg-white/80 backdrop-blur-sm border-b border-orange-100/60 no-print">
