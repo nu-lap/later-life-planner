@@ -78,7 +78,7 @@ jobs:
           EOF
 
       - name: Authenticate to Azure via OIDC and fetch auth.json secret
-        uses: azure/cli@v1
+        uses: azure/cli@4db43908b9df2e7ac93c8275a8f9a448c59338dd # v1
         env:
           KEYVAULT_NAME: ${{ secrets.AZURE_KEYVAULT_NAME }}
           KEYVAULT_SECRET_NAME: codex-auth-json
