@@ -190,8 +190,8 @@ export function createDefaultState(primaryAge: number = DEFAULT_ASSUMPTIONS.DEFA
 
   return {
     currentStep: 0,
-    maxVisitedStep: 0,
-    mode: 'single',
+  maxVisitedStep: 0,
+  mode: 'joint',
     person1: {
       name: '',
       dateOfBirth: dobFromAge(normalizedPrimaryAge),
