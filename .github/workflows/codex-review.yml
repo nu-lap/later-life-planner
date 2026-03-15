@@ -347,6 +347,7 @@ jobs:
           - Use "pass" when there are no material issues that require developer re-work before merge.
           - Use "rework_required" when one or more material issues require developer changes before merge.
           - Use "review_error" only when you cannot complete the review from the available repository state.
+          - Treat obviously unsafe patterns (eval on user input, shell=True, pickle.loads of untrusted data, hardcoded secrets such as keys starting with \"sk_\") as material issues even if they appear in fixtures or test files.
 
           Review rules:
           - Prioritise bugs, behavioural regressions, security issues, deployment or workflow breakage, and missing tests.
@@ -369,11 +370,13 @@ jobs:
         shell: bash
         env:
           CODEX_HOME: ${{ runner.temp }}/.codex
+          REVIEW_MODEL: ${{ vars.CODEX_REVIEW_MODEL || 'gpt-5.2-codex' }}
         run: |
           set -euo pipefail
           cd "$GITHUB_WORKSPACE"
           codex exec \
             --ephemeral \
+            --model "$REVIEW_MODEL" \
             --full-auto \
             --output-schema codex-review-schema.json \
             -o codex-review.json \
@@ -566,13 +569,25 @@ jobs:
           ')
           RESPONSE_FILE=$(mktemp)
           trap 'rm -f "$RESPONSE_FILE"' EXIT
-          curl -sS --fail-with-body \
+          HTTP_STATUS=$(curl -sS -o "$RESPONSE_FILE" -w '%{http_code}' \
             -H "Authorization: Bearer ${GITHUB_TOKEN}" \
             -H "Accept: application/vnd.github+json" \
             -H "Content-Type: application/json" \
             -X POST "https://api.github.com/repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/reviews" \
-            --data "$PAYLOAD" \
-            -o "$RESPONSE_FILE"
+            --data "$PAYLOAD" || true)
+
+          if [ -z "$HTTP_STATUS" ]; then
+            echo "::error::Failed to submit PR review: no HTTP status returned from GitHub API" >&2
+            cat "$RESPONSE_FILE" >&2 || true
+            exit 1
+          fi
+
+          if [ "$HTTP_STATUS" -lt 200 ] || [ "$HTTP_STATUS" -ge 300 ]; then
+            echo "::error::Failed to submit PR review (status ${HTTP_STATUS}). Response:" >&2
+            cat "$RESPONSE_FILE" >&2 || true
+            exit 1
+          fi
+
           cat "$RESPONSE_FILE"
 
   review-gate:
