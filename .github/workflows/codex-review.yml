@@ -369,12 +369,13 @@ jobs:
         shell: bash
         env:
           CODEX_HOME: ${{ runner.temp }}/.codex
+          REVIEW_MODEL: ${{ vars.CODEX_REVIEW_MODEL || 'gpt-5.2-codex' }}
         run: |
           set -euo pipefail
           cd "$GITHUB_WORKSPACE"
           codex exec \
             --ephemeral \
-            --model gpt-4.1-mini \
+            --model "$REVIEW_MODEL" \
             --full-auto \
             --output-schema codex-review-schema.json \
             -o codex-review.json \
