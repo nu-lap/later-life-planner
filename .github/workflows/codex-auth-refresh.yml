@@ -85,10 +85,11 @@ jobs:
         shell: bash
         env:
           CODEX_HOME: ${{ runner.temp }}/.codex
+          CODEX_AUTH_REFRESH_MODEL: ${{ vars.CODEX_AUTH_REFRESH_MODEL || 'gpt-5.2-codex' }}
         run: |
           set -euo pipefail
           cd "$GITHUB_WORKSPACE"
-          codex exec --json "Refresh the authentication credentials stored in auth.json without touching repository files."
+          codex exec --model "$CODEX_AUTH_REFRESH_MODEL" --json "Refresh the authentication credentials stored in auth.json without touching repository files."
 
       - name: Read refreshed auth.json
         shell: bash
