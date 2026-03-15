@@ -244,7 +244,7 @@ jobs:
 
           DEP_FILES_CHANGED=$(printf '%s\n' "$CHANGED_FILES" | grep -E -c '(^package.json$|^package-lock.json$|^pnpm-lock.yaml$|^yarn.lock$|^requirements.txt$|^pyproject.toml$|^poetry.lock$|^go.mod$|^Cargo.toml$|^Gemfile$)' || true)
           ADDED_DEPS=""
-          if printf '%s\n' "$CHANGED_FILES" | grep -qx "package.json"; then
+          if printf '%s\n' "$CHANGED_FILES" | grep -qx "package.json" && [ -f package.json ]; then
             git show "$BASE_REF:package.json" > "$tmpdir/base_package.json" 2>/dev/null || echo '{}' > "$tmpdir/base_package.json"
             cp package.json "$tmpdir/head_package.json"
             jq -r '(.dependencies // {}) + (.devDependencies // {}) + (.peerDependencies // {}) + (.optionalDependencies // {}) | keys[]' \
