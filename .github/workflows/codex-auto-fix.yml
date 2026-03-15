@@ -64,10 +64,9 @@ jobs:
           cli_auth_credentials_store = "file"
           EOF
 
-      - name: Authenticate to Azure via OIDC and restore auth.json
+      - name: Authenticate to Azure via OIDC and fetch auth.json secret
         uses: azure/cli@v1
         env:
-          CODEX_HOME: ${{ runner.temp }}/.codex
           KEYVAULT_NAME: ${{ secrets.AZURE_KEYVAULT_NAME }}
           KEYVAULT_SECRET_NAME: codex-auth-json
         with:
@@ -82,14 +81,21 @@ jobs:
               --tenant "${{ secrets.CODEX_SP_TENANT_ID }}" \
               --federated-token "$ID_TOKEN"
             az account set --subscription "${{ secrets.CODEX_SP_SUBSCRIPTION_ID }}"
-            mkdir -p "$CODEX_HOME"
-            chmod 700 "$CODEX_HOME"
-            az keyvault secret show \
+            SECRET="$(az keyvault secret show \
               --vault-name "$KEYVAULT_NAME" \
               --name "$KEYVAULT_SECRET_NAME" \
               --query value \
-              --output tsv > "$CODEX_HOME/auth.json"
-            chmod 600 "$CODEX_HOME/auth.json"
+              --output tsv)"
+            echo "CODEX_AUTH_JSON=$SECRET" >> "$GITHUB_ENV"
+
+      - name: Write auth.json
+        shell: bash
+        env:
+          CODEX_HOME: ${{ runner.temp }}/.codex
+        run: |
+          set -euo pipefail
+          printf '%s' "$CODEX_AUTH_JSON" > "$CODEX_HOME/auth.json"
+          chmod 600 "$CODEX_HOME/auth.json"
 
       - name: Run Codex auto-fix
         shell: bash
