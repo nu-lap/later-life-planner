@@ -70,8 +70,6 @@ jobs:
           inlineScript: |
             set -euo pipefail
             TOKEN_URL="${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=api://AzureADTokenExchange"
-            apt-get update >/dev/null
-            apt-get install -y jq >/dev/null
             ID_RESPONSE="$(curl -sSf -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$TOKEN_URL")"
             ID_TOKEN="$(printf '%s' "$ID_RESPONSE" | jq -r '.value')"
             az login \
