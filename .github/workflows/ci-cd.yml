@@ -19,7 +19,6 @@ jobs:
   # Detect whether a change should run CI and whether it should rebuild the container.
   # workflow_dispatch always sets both outputs to true so manual runs execute the full pipeline on master.
   changes:
-    runs-on: ubuntu-latest
     outputs:
       ci: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.ci }}
       container: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.container }}
