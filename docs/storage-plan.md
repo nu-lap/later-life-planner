@@ -372,6 +372,15 @@ Recommended baseline:
 - Azure Cosmos DB continuous backup with point-in-time restore
 - the 7-day continuous backup tier for the initial release, unless a longer recovery window is explicitly justified
 - same-account restore for accidentally deleted Cosmos databases or containers where Azure supports it
+
+Current provisioned backup policy:
+
+- periodic backup
+- 4-hour interval
+- 8-hour retention
+- local redundancy
+
+This means point-in-time restore is not currently available. If PITR is required for production, switch to continuous 7-day and update the runbooks.
 - Azure Key Vault soft delete and purge protection for the application key vault
 - Azure activity logs and diagnostics for restore actions and key operations
 
@@ -381,6 +390,20 @@ Later phases can additionally use:
 - a separate deletion-ledger or tombstone container if the team needs stronger guardrails against accidental reintroduction of deleted records
 
 ## Backup, Recovery, And Deletion Operations
+
+### Operational ownership
+
+Restore and deletion operations must be restricted to a small, explicitly named operator group for `NxLap Ltd`.
+
+Initial ownership model:
+
+- operators: Azure AD group `nxlap-data-ops` (initial members: engineering lead + one designated backup operator)
+- approvals: any restore or deletion workflow requires explicit human approval, not just automated jobs
+- access control: use Azure RBAC roles scoped to the specific Cosmos account and Key Vault, preferably with time-bounded access
+
+This prevents accidental restores into production and creates a clear accountability trail.
+
+If the `nxlap-data-ops` group is not yet provisioned, use a break-glass owner temporarily and record the membership in the ops log.
 
 ### Administrative posture
 
@@ -392,8 +415,8 @@ They need documented runbooks, narrow permissions, and auditable approvals.
 
 | Scenario | Azure capability | Initial posture | Later-phase enhancement |
 | --- | --- | --- | --- |
-| Accidental overwrite or corruption of planner data | Cosmos DB continuous backup restore to a new account | Restore to an isolated recovery account, validate the target point in time, and manually extract the user's encrypted document only after approval | Add a tested runbook and scripted extraction process |
-| Accidental deletion of a database or container | Cosmos DB same-account restore for deleted resources | Enable continuous backup and document same-account restore usage for deleted databases or containers | Add alerting and regular restore drills |
+| Accidental overwrite or corruption of planner data | Cosmos DB periodic backup restore | Restore the latest periodic backup (RPO up to 4 hours) into a recovery account, then manually extract the user's encrypted document only after approval | Switch to continuous 7-day for PITR and add a scripted extraction workflow |
+| Accidental deletion of a database or container | Cosmos DB periodic backup restore | Restore from periodic backup into a recovery account and manually copy the needed data | Switch to continuous backup to unlock same-account restore and add alerting/restore drills |
 | Accidental deletion of wrap/unwrap key material | Key Vault soft delete and purge protection | Enable both at vault creation and recover deleted key versions instead of recreating keys | Add a formal key-rotation and rewrap runbook |
 | User-requested deletion | Live Cosmos document deletion plus backup expiry | Delete the active document promptly and let backup copies age out within the configured retention window | Add a deletion ledger, self-serve delete UI, and automated purge safeguards |
 | Inactive-user purge | Cosmos TTL or scheduled purge worker | Defer from the initial release | Add warning notices, a retention policy, and TTL-driven cleanup if justified |

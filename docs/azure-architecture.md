@@ -66,6 +66,10 @@ Target persistence extension:
 | Container registry | Azure Container Registry | `acrblackdog69llp` | Stores app images |
 | Runtime | Azure Container Apps | `ca-later-life-planner` | Hosts the Next.js app |
 | CI deploy identity | Azure service principal | via `AZURE_CREDENTIALS` | Lets GitHub Actions push and deploy |
+| Planner persistence account | Azure Cosmos DB | `cosmos-llp-uks` | Stores encrypted planner documents (manual provision) |
+| Planner database | Cosmos DB SQL database | `later-life-planner` | Logical database for planner storage (manual provision) |
+| Planner container | Cosmos DB SQL container | `user-plans` | Partition key `/id` (manual provision) |
+| Application key vault | Azure Key Vault | `kv-llp-app` | Wrap/unwrap support for data keys (manual provision) |
 
 ### Operational Azure dependencies already in use
 
@@ -79,14 +83,15 @@ The Codex automation vault is an operations concern. It should remain separate f
 ## Target Azure Additions For Persistence
 
 These resources are required before the encrypted persistence phases are complete.
+They currently exist in the live Azure subscription but are not yet represented in IaC.
 
 | Component | Service | Target state | Notes |
 | --- | --- | --- | --- |
-| Planner persistence account | Azure Cosmos DB | Planned | Stores encrypted planner documents |
+| Planner persistence account | Azure Cosmos DB | Provisioned manually | Stores encrypted planner documents |
 | Logical database | Cosmos DB database | `later-life-planner` | Defined in `docs/storage-plan.md` |
 | Logical container | Cosmos DB container | `user-plans` | Partition key `/id`, one doc per Clerk user |
-| Application key vault | Azure Key Vault | Planned | Wraps and unwraps per-user data keys |
-| Runtime app identity | Managed identity | Planned | Preferred auth path from ACA to Cosmos DB and Key Vault |
+| Application key vault | Azure Key Vault | Provisioned manually | Wraps and unwraps per-user data keys |
+| Runtime app identity | Managed identity | Provisioned manually | ACA system-assigned identity for Cosmos DB and Key Vault |
 
 ## Recommended Resource Layout
 
@@ -106,6 +111,28 @@ Recommended default for v1:
 - separate Key Vaults for:
   - operations automation secrets
   - application wrapped-key support
+
+Current decision:
+
+- use the existing `rg-later-life-planner` for v1 persistence resources
+
+## IaC Backfill Required
+
+The persistence resources were created directly in Azure to unblock Phase 1.5.
+
+Before production persistence ships, add these to `infra/main.bicep` (or a dedicated data stack):
+
+- Cosmos DB account `cosmos-llp-uks`
+- SQL database `later-life-planner`
+- SQL container `user-plans` with partition key `/id`
+- Key Vault `kv-llp-app` with RBAC and purge protection
+- ACA system-assigned identity and role assignments for Cosmos DB + Key Vault
+
+## Deployment Wiring Status
+
+The ACA environment variables for Cosmos DB and Key Vault are set manually in Azure today.
+
+The CI/CD workflow does not yet write these values during deploy, so it should be updated before automated redeploys become the default path for persistence work.
 
 ## High-Level Architecture
 
