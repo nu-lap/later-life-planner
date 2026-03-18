@@ -109,13 +109,13 @@ def get_text(item: Dict[str, Any]) -> str:
 
 
 def get_result_value(item: Dict[str, Any], text: str) -> str:
-    for key in ("result", "verdict", "status"):
+    for key in ("result", "verdict", "status", "state"):
         raw = item.get(key)
         if isinstance(raw, str) and raw.strip():
             return normalize_result_value(raw)
     payload = parse_json_payload(text)
     if payload:
-        for key in ("result", "verdict", "status"):
+        for key in ("result", "verdict", "status", "state"):
             raw = payload.get(key)
             if isinstance(raw, str) and raw.strip():
                 return normalize_result_value(raw)
@@ -219,18 +219,18 @@ def has_clear_marker(text: str) -> bool:
 
 
 def parse_json_payload(text: str) -> Optional[Dict[str, Any]]:
-    for line in text.splitlines():
-        candidate = line.strip()
-        if not candidate:
-            continue
-        if candidate.startswith("{") and candidate.endswith("}"):
-            try:
-                payload = json.loads(candidate)
-            except json.JSONDecodeError:
-                return None
-            if isinstance(payload, dict):
-                return payload
-        break
+    if not text:
+        return None
+    candidate = text.lstrip()
+    if not candidate.startswith("{"):
+        return None
+    decoder = json.JSONDecoder()
+    try:
+        payload, _ = decoder.raw_decode(candidate)
+    except json.JSONDecodeError:
+        return None
+    if isinstance(payload, dict):
+        return payload
     return None
 
 
