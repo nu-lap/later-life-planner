@@ -30,17 +30,6 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout PR head
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.head.ref || github.event.issue.pull_request.head.ref }}
-          fetch-depth: 0
-
-      - name: Install gh and jq
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y jq
-
       - name: Gather PR metadata
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -50,7 +39,24 @@ jobs:
           else
             PR_NUMBER="${{ github.event.pull_request.number }}"
           fi
-          echo "PR_NUMBER=$PR_NUMBER" >> $GITHUB_ENV
+
+          echo "PR_NUMBER=$PR_NUMBER" >> "$GITHUB_ENV"
+
+      - name: Checkout PR head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref || github.head_ref }}
+          fetch-depth: 0
+
+      - name: Install jq
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq
+
+      - name: Prepare working directories
+        run: |
+          mkdir -p .github/agent-input
+          mkdir -p .github/agent-output
 
       - name: Fetch reviews and comments
         env:
@@ -67,13 +73,13 @@ jobs:
             --review-comments review_comments.json \
             --issue-comments issue_comments.json \
             --codex-actor "codex" \
-            --out fix_requests.json
+            --out .github/agent-input/fix_requests.json
 
-          cat fix_requests.json
+          cat .github/agent-input/fix_requests.json
 
       - name: Stop if nothing to fix
         run: |
-          COUNT=$(jq '.requests | length' fix_requests.json)
+          COUNT=$(jq '.requests | length' .github/agent-input/fix_requests.json)
           if [ "$COUNT" -eq 0 ]; then
             echo "No actionable Codex findings."
             exit 0
@@ -89,8 +95,6 @@ jobs:
             --max-iterations 3
 
       - name: Run repair agent
-        env:
-          FIX_REQUESTS_JSON: ${{ toJson(fromJson(steps.none.outputs.none || '{}')) }}
         run: |
           codex exec "
           You are repairing PR #$PR_NUMBER in repo ${{ github.repository }}.
@@ -110,8 +114,33 @@ jobs:
             git push
           fi
 
+      - name: Build summary
+        run: |
+          mkdir -p .github/agent-output
+
+          if [ -f agent_result.json ]; then
+            python .github/scripts/summarize_agent_result.py \
+              --input agent_result.json \
+              --output .github/agent-output/summary.md
+          else
+            cat > .github/agent-output/summary.md <<EOF
+          ⚠️ **Automated repair finished**
+
+          - **Status:** \`unknown\`
+          - **Validation:** not reported
+
+          No \`agent_result.json\` file was produced by the repair agent.
+          EOF
+          fi
+
+          cat .github/agent-output/summary.md
+
       - name: Comment result
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh pr comment $PR_NUMBER --body-file .github/agent-output/summary.md
+          if [ -s .github/agent-output/summary.md ]; then
+            gh pr comment "$PR_NUMBER" --repo ${{ github.repository }} --body-file .github/agent-output/summary.md
+          else
+            echo "No summary file to post."
+          fi
