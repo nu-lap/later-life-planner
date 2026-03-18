@@ -4,7 +4,6 @@ import argparse
 import json
 import re
 import sys
-from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 START_MARKER = "[CODEX_FIX_REQUEST]"
