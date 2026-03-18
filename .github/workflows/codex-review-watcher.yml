@@ -30,7 +30,7 @@ jobs:
       )
     runs-on: ubuntu-latest
     env:
-      CODEX_ACTORS: openai-codex[bot],codex
+      CODEX_ACTORS: openai-codex[bot],codex,chatgpt-codex-connector[bot],chatgpt-codex-connector
 
     steps:
       - name: Resolve PR context
