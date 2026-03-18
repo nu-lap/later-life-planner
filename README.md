@@ -4,6 +4,8 @@ A UK later-life financial planning tool for people aged 50–75. Aspiration-firs
 
 Built with Next.js 14, TypeScript, TailwindCSS, and Recharts. The app now includes a Clerk auth foundation while planner data remains local-first until encrypted persistence lands. The canonical auth and storage plan lives in `docs/`.
 
+Test change to exercise the Codex review gate.
+
 ---
 
 ## What it does
