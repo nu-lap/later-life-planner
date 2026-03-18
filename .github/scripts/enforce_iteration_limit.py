@@ -6,10 +6,10 @@ import re
 import subprocess
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
-ITERATION_LABEL_PREFIX = "codex-repair-pass:"
-AUTOMATION_COMMENT_MARKER = "<!-- codex-repair-iteration:"
+AUTOMATION_COMMENT_MARKER_PREFIX = "<!-- codex-repair-iteration:"
+AUTOMATION_COMMENT_PATTERN = re.compile(r"<!--\s*codex-repair-iteration:\s*(\d+)\s*-->")
 DEFAULT_STATE_PATH = ".github/agent-output/codex_repair_iteration_state.json"
 
 
@@ -34,7 +34,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--write-state-only",
         action="store_true",
-        help="Do not modify labels/comments remotely; only inspect PR state and write local state file",
+        help="Do not modify PR comments remotely; only inspect PR state and write local state file",
     )
     return parser.parse_args()
 
@@ -61,16 +61,17 @@ def run_gh_json(args: List[str]) -> Any:
         raise RuntimeError(f"gh command returned invalid JSON: {' '.join(command)}") from error
 
 
-def run_gh(args: List[str]) -> None:
+def run_gh(args: List[str]) -> str:
     command = ["gh"] + args
     try:
-        subprocess.run(
+        completed = subprocess.run(
             command,
             check=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
         )
+        return completed.stdout
     except FileNotFoundError as error:
         raise RuntimeError("GitHub CLI 'gh' was not found in PATH.") from error
     except subprocess.CalledProcessError as error:
@@ -87,7 +88,7 @@ def fetch_pr(repo: str, pr_number: str) -> Dict[str, Any]:
             "--repo",
             repo,
             "--json",
-            "number,labels,comments,url",
+            "number,comments,url",
         ]
     )
     if not isinstance(data, dict):
@@ -95,89 +96,70 @@ def fetch_pr(repo: str, pr_number: str) -> Dict[str, Any]:
     return data
 
 
-def extract_label_iteration(labels: Any) -> Optional[int]:
-    if not isinstance(labels, list):
-        return None
-
-    highest: Optional[int] = None
-    for label in labels:
-        if not isinstance(label, dict):
-            continue
-        name = label.get("name")
-        if not isinstance(name, str):
-            continue
-        if not name.startswith(ITERATION_LABEL_PREFIX):
-            continue
-        suffix = name[len(ITERATION_LABEL_PREFIX) :].strip()
-        if suffix.isdigit():
-            value = int(suffix)
-            if highest is None or value > highest:
-                highest = value
-    return highest
-
-
-def extract_comment_iteration(comments: Any) -> Optional[int]:
+def extract_iteration_comment(comments: Any) -> Optional[Dict[str, Any]]:
     if not isinstance(comments, list):
         return None
 
-    highest: Optional[int] = None
-    pattern = re.compile(r"<!--\s*codex-repair-iteration:\s*(\d+)\s*-->")
+    highest_comment: Optional[Dict[str, Any]] = None
+    highest_iteration = -1
 
     for comment in comments:
         if not isinstance(comment, dict):
             continue
+
         body = comment.get("body")
         if not isinstance(body, str):
             continue
 
-        for match in pattern.finditer(body):
-            value = int(match.group(1))
-            if highest is None or value > highest:
-                highest = value
+        match = AUTOMATION_COMMENT_PATTERN.search(body)
+        if not match:
+            continue
 
-    return highest
+        iteration = int(match.group(1))
+        if iteration > highest_iteration:
+            highest_iteration = iteration
+            highest_comment = {
+                "id": comment.get("id"),
+                "url": comment.get("url", ""),
+                "body": body,
+                "iteration": iteration,
+            }
+
+    return highest_comment
 
 
 def determine_current_iteration(pr_data: Dict[str, Any]) -> int:
-    label_iteration = extract_label_iteration(pr_data.get("labels"))
-    comment_iteration = extract_comment_iteration(pr_data.get("comments"))
-
-    candidates = [value for value in (label_iteration, comment_iteration) if value is not None]
-    return max(candidates) if candidates else 0
-
-
-def replace_iteration_label(repo: str, pr_number: str, labels: Any, new_iteration: int) -> None:
-    existing_iteration_labels: List[str] = []
-
-    if isinstance(labels, list):
-        for label in labels:
-            if not isinstance(label, dict):
-                continue
-            name = label.get("name")
-            if isinstance(name, str) and name.startswith(ITERATION_LABEL_PREFIX):
-                existing_iteration_labels.append(name)
-
-    for label_name in existing_iteration_labels:
-        run_gh(["pr", "edit", pr_number, "--repo", repo, "--remove-label", label_name])
-
-    run_gh(
-        [
-            "pr",
-            "edit",
-            pr_number,
-            "--repo",
-            repo,
-            "--add-label",
-            f"{ITERATION_LABEL_PREFIX}{new_iteration}",
-        ]
-    )
+    comment_data = extract_iteration_comment(pr_data.get("comments"))
+    if not comment_data:
+        return 0
+    return int(comment_data["iteration"])
 
 
-def add_iteration_comment(repo: str, pr_number: str, iteration: int) -> None:
-    body = (
-        f"{AUTOMATION_COMMENT_MARKER}{iteration} -->\n"
+def build_iteration_comment_body(iteration: int) -> str:
+    return (
+        f"{AUTOMATION_COMMENT_MARKER_PREFIX}{iteration} -->\n"
         f"Automated Codex repair iteration reserved: **{iteration}**."
     )
+
+
+def upsert_iteration_comment(repo: str, pr_number: str, pr_data: Dict[str, Any], iteration: int) -> None:
+    existing = extract_iteration_comment(pr_data.get("comments"))
+    body = build_iteration_comment_body(iteration)
+
+    if existing and existing.get("id") is not None:
+        comment_id = str(existing["id"])
+        run_gh(
+            [
+                "api",
+                f"repos/{repo}/issues/comments/{comment_id}",
+                "--method",
+                "PATCH",
+                "--field",
+                f"body={body}",
+            ]
+        )
+        return
+
     run_gh(["pr", "comment", pr_number, "--repo", repo, "--body", body])
 
 
@@ -200,7 +182,6 @@ def main() -> int:
         current_iteration = determine_current_iteration(pr_data)
 
         if args.mode == "check":
-            next_iteration = current_iteration
             if current_iteration >= args.max_iterations:
                 raise RuntimeError(
                     f"Iteration limit reached for PR #{args.pr}: "
@@ -228,8 +209,7 @@ def main() -> int:
             )
 
         if not args.write_state_only:
-            replace_iteration_label(args.repo, args.pr, pr_data.get("labels"), reserved_iteration)
-            add_iteration_comment(args.repo, args.pr, reserved_iteration)
+            upsert_iteration_comment(args.repo, args.pr, pr_data, reserved_iteration)
 
         state_payload = {
             "repo": args.repo,
