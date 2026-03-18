@@ -52,22 +52,22 @@ jobs:
           fi
 
           python - <<'PY'
-import json
-import os
+          import json
+          import os
 
-with open("pr.json", "r", encoding="utf-8") as handle:
-    data = json.load(handle)
+          with open("pr.json", "r", encoding="utf-8") as handle:
+              data = json.load(handle)
 
-head = data.get("head", {})
-base = data.get("base", {})
-repo = head.get("repo") or {}
+          head = data.get("head", {})
+          base = data.get("base", {})
+          repo = head.get("repo") or {}
 
-with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as env:
-    env.write(f"HEAD_SHA={head.get('sha','')}\n")
-    env.write(f"HEAD_REF={head.get('ref','')}\n")
-    env.write(f"HEAD_REPO={repo.get('full_name','')}\n")
-    env.write(f"BASE_REF={base.get('ref','')}\n")
-PY
+          with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as env:
+              env.write(f"HEAD_SHA={head.get('sha','')}\n")
+              env.write(f"HEAD_REF={head.get('ref','')}\n")
+              env.write(f"HEAD_REPO={repo.get('full_name','')}\n")
+              env.write(f"BASE_REF={base.get('ref','')}\n")
+          PY
 
       - name: Checkout base branch scripts
         if: env.SKIP != 'true'
