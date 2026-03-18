@@ -109,16 +109,19 @@ def get_text(item: Dict[str, Any]) -> str:
 
 
 def get_result_value(item: Dict[str, Any], text: str) -> str:
-    for key in ("result", "verdict", "status", "state"):
-        raw = item.get(key)
-        if isinstance(raw, str) and raw.strip():
-            return normalize_result_value(raw)
     payload = parse_json_payload(text)
     if payload:
         for key in ("result", "verdict", "status", "state"):
             raw = payload.get(key)
             if isinstance(raw, str) and raw.strip():
                 return normalize_result_value(raw)
+    for key in ("result", "verdict", "status", "state"):
+        raw = item.get(key)
+        if isinstance(raw, str) and raw.strip():
+            normalized = normalize_result_value(raw)
+            if key == "state" and normalized == "COMMENTED":
+                continue
+            return normalized
     return ""
 
 
