@@ -1,0 +1,159 @@
+name: codex-review-watcher
+
+on:
+  pull_request:
+    types: [opened, synchronize, ready_for_review]
+  pull_request_review:
+    types: [submitted, edited, dismissed]
+  pull_request_review_comment:
+    types: [created, edited, deleted]
+  issue_comment:
+    types: [created, edited]
+
+permissions:
+  contents: read
+  issues: read
+  pull-requests: read
+
+concurrency:
+  group: codex-review-${{ github.event.pull_request.number || github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  codex-review-gate:
+    if: >
+      (
+        github.event_name == 'pull_request' ||
+        github.event_name == 'pull_request_review' ||
+        github.event_name == 'pull_request_review_comment' ||
+        github.event_name == 'issue_comment'
+      )
+    runs-on: ubuntu-latest
+    env:
+      CODEX_ACTORS: openai-codex[bot],codex
+
+    steps:
+      - name: Resolve PR context
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ "${{ github.event_name }}" = "issue_comment" ]; then
+            PR_NUMBER="${{ github.event.issue.number }}"
+          else
+            PR_NUMBER="${{ github.event.pull_request.number }}"
+          fi
+
+          echo "PR_NUMBER=$PR_NUMBER" >> "$GITHUB_ENV"
+
+          if ! gh api repos/${{ github.repository }}/pulls/$PR_NUMBER > pr.json; then
+            echo "SKIP=true" >> "$GITHUB_ENV"
+            echo "No PR context available for this event."
+            exit 0
+          fi
+
+          python - <<'PY'
+import json
+import os
+
+with open("pr.json", "r", encoding="utf-8") as handle:
+    data = json.load(handle)
+
+head = data.get("head", {})
+base = data.get("base", {})
+repo = head.get("repo") or {}
+
+with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as env:
+    env.write(f"HEAD_SHA={head.get('sha','')}\n")
+    env.write(f"HEAD_REF={head.get('ref','')}\n")
+    env.write(f"HEAD_REPO={repo.get('full_name','')}\n")
+    env.write(f"BASE_REF={base.get('ref','')}\n")
+PY
+
+      - name: Checkout base branch scripts
+        if: env.SKIP != 'true'
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository }}
+          ref: ${{ env.BASE_REF }}
+          fetch-depth: 0
+
+      - name: Prepare working directories
+        if: env.SKIP != 'true'
+        run: |
+          mkdir -p .github/agent-input
+          mkdir -p .github/agent-output
+
+      - name: Resolve head commit time
+        if: env.SKIP != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          HEAD_REPO="${HEAD_REPO:-${{ github.repository }}}"
+          HEAD_COMMIT_TIME=$(gh api "repos/$HEAD_REPO/commits/$HEAD_SHA" --jq '.commit.committer.date')
+          echo "HEAD_COMMIT_TIME=$HEAD_COMMIT_TIME" >> "$GITHUB_ENV"
+
+      - name: Fetch reviews and comments
+        if: env.SKIP != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh api --paginate repos/${{ github.repository }}/pulls/$PR_NUMBER/reviews > reviews.json
+          gh api --paginate repos/${{ github.repository }}/pulls/$PR_NUMBER/comments > review_comments.json
+          gh api --paginate repos/${{ github.repository }}/issues/$PR_NUMBER/comments > issue_comments.json
+
+      - name: Extract Codex fix requests
+        if: env.SKIP != 'true'
+        run: |
+          python .github/scripts/extract_codex_requests.py \
+            --reviews reviews.json \
+            --review-comments review_comments.json \
+            --issue-comments issue_comments.json \
+            --codex-actor "$CODEX_ACTORS" \
+            --commit-sha "$HEAD_SHA" \
+            --min-created-at "$HEAD_COMMIT_TIME" \
+            --out .github/agent-input/fix_requests.json
+
+          cat .github/agent-input/fix_requests.json
+
+      - name: Build gate summary
+        if: env.SKIP != 'true'
+        run: |
+          python .github/scripts/summarize_codex_review.py \
+            --input .github/agent-input/fix_requests.json \
+            --summary .github/agent-output/codex_review_summary.md \
+            --status .github/agent-output/codex_review_status.json \
+            --head-sha "$HEAD_SHA" \
+            --head-commit-time "$HEAD_COMMIT_TIME"
+
+          cat .github/agent-output/codex_review_summary.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload gate artifacts
+        if: env.SKIP != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: codex-review-gate
+          path: |
+            .github/agent-input/fix_requests.json
+            .github/agent-output/codex_review_status.json
+            .github/agent-output/codex_review_summary.md
+
+      - name: Enforce gate
+        if: env.SKIP != 'true'
+        run: |
+          STATUS=$(python - <<'PY'
+import json
+
+with open(".github/agent-output/codex_review_status.json", "r", encoding="utf-8") as handle:
+    data = json.load(handle)
+
+print(data.get("status", "pending"))
+PY
+)
+
+          if [ "$STATUS" = "clear" ]; then
+            echo "Codex review gate passed."
+            exit 0
+          fi
+
+          echo "::error::Codex review gate blocking merge. Status: $STATUS"
+          exit 1

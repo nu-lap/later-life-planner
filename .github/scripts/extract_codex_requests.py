@@ -1,0 +1,401 @@
+#!/usr/bin/env python3
+
+import argparse
+import json
+import re
+import sys
+from datetime import datetime
+from typing import Any, Dict, List, Optional, Tuple
+
+START_MARKER = "[CODEX_FIX_REQUEST]"
+END_MARKER = "[/CODEX_FIX_REQUEST]"
+CLEAR_MARKER = "[CODEX_REVIEW_CLEAR]"
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Extract structured Codex fix requests from GitHub PR reviews and comments."
+    )
+    parser.add_argument("--reviews", required=True, help="Path to PR reviews JSON")
+    parser.add_argument("--review-comments", required=True, help="Path to review comments JSON")
+    parser.add_argument("--issue-comments", required=True, help="Path to issue comments JSON")
+    parser.add_argument(
+        "--codex-actor",
+        required=True,
+        help=(
+            "GitHub login(s) of the Codex reviewer/bot to filter on, e.g. "
+            "'codex' or 'openai-codex[bot]'. Multiple actors may be provided "
+            "as a comma-separated list."
+        ),
+    )
+    parser.add_argument(
+        "--commit-sha",
+        default="",
+        help="Optional head commit SHA; when set, only review items for this SHA are considered.",
+    )
+    parser.add_argument(
+        "--min-created-at",
+        default="",
+        help=(
+            "Optional ISO 8601 timestamp; review/issue comments before this time are ignored "
+            "(useful for limiting to the latest commit time)."
+        ),
+    )
+    parser.add_argument("--out", required=True, help="Output path for normalized JSON")
+    return parser.parse_args()
+
+
+def load_json(path: str) -> Any:
+    try:
+        with open(path, "r", encoding="utf-8") as handle:
+            return json.load(handle)
+    except FileNotFoundError:
+        raise RuntimeError(f"File not found: {path}")
+    except json.JSONDecodeError as error:
+        raise RuntimeError(f"Invalid JSON in {path}: {error}") from error
+    except OSError as error:
+        raise RuntimeError(f"Failed to read {path}: {error}") from error
+
+
+def normalize_actor(actor: str) -> str:
+    return actor.strip().lower()
+
+
+def normalize_actors(raw: str) -> set[str]:
+    actors: set[str] = set()
+    for part in raw.split(","):
+        part = part.strip()
+        if part:
+            actors.add(normalize_actor(part))
+    return actors
+
+
+def get_login(item: Dict[str, Any]) -> str:
+    user = item.get("user")
+    if isinstance(user, dict):
+        login = user.get("login")
+        if isinstance(login, str):
+            return normalize_actor(login)
+    return ""
+
+
+def get_text(item: Dict[str, Any]) -> str:
+    for key in ("body", "body_text"):
+        value = item.get(key)
+        if isinstance(value, str):
+            return value
+    return ""
+
+
+def get_submitted_at(item: Dict[str, Any]) -> str:
+    for key in ("submitted_at", "updated_at", "created_at"):
+        value = item.get(key)
+        if isinstance(value, str):
+            return value
+    return ""
+
+
+def parse_timestamp(value: str) -> datetime:
+    if value.endswith("Z"):
+        value = value[:-1] + "+00:00"
+    return datetime.fromisoformat(value)
+
+
+def should_include_by_time(item: Dict[str, Any], min_created_at: Optional[datetime]) -> bool:
+    if min_created_at is None:
+        return True
+    timestamp = get_submitted_at(item)
+    if not timestamp:
+        return False
+    try:
+        parsed = parse_timestamp(timestamp)
+    except ValueError:
+        return False
+    return parsed >= min_created_at
+
+
+def slugify(value: str) -> str:
+    slug = re.sub(r"[^a-z0-9]+", "-", value.strip().lower())
+    slug = re.sub(r"-{2,}", "-", slug).strip("-")
+    return slug or "request"
+
+
+def derive_request_id(data: Dict[str, str]) -> str:
+    parts = [
+        data.get("file", ""),
+        data.get("line", ""),
+        data.get("title", ""),
+        data.get("fix", ""),
+    ]
+    joined = " ".join(part for part in parts if part)
+    return slugify(joined)[:120]
+
+
+def parse_fix_request_blocks(text: str) -> List[Dict[str, str]]:
+    requests: List[Dict[str, str]] = []
+    if not text:
+        return requests
+
+    pattern = re.compile(
+        re.escape(START_MARKER) + r"(.*?)" + re.escape(END_MARKER),
+        flags=re.DOTALL | re.IGNORECASE,
+    )
+
+    for match in pattern.finditer(text):
+        block = match.group(1).strip()
+        parsed = parse_fix_request_block(block)
+        if parsed:
+            requests.append(parsed)
+
+    return requests
+
+
+def parse_fix_request_block(block: str) -> Optional[Dict[str, str]]:
+    result: Dict[str, str] = {}
+    allowed_keys = {"severity", "category", "file", "line", "title", "fix", "id"}
+
+    for raw_line in block.splitlines():
+        line = raw_line.strip()
+        if not line or ":" not in line:
+            continue
+        key, value = line.split(":", 1)
+        normalized_key = key.strip().lower()
+        if normalized_key in allowed_keys:
+            result[normalized_key] = value.strip()
+
+    if not result.get("title") or not result.get("fix"):
+        return None
+
+    if "id" not in result or not result["id"]:
+        result["id"] = derive_request_id(result)
+
+    return result
+
+
+def has_clear_marker(text: str) -> bool:
+    return CLEAR_MARKER in text
+
+
+def item_source_type(item_type: str) -> str:
+    if item_type == "review":
+        return "review"
+    if item_type == "review_comment":
+        return "review_comment"
+    return "issue_comment"
+
+
+def normalize_request(
+    request: Dict[str, str],
+    *,
+    source_type: str,
+    source_id: str,
+    source_author: str,
+    source_created_at: str,
+    source_url: str,
+) -> Dict[str, str]:
+    return {
+        "id": request.get("id", ""),
+        "severity": request.get("severity", ""),
+        "category": request.get("category", ""),
+        "file": request.get("file", ""),
+        "line": request.get("line", ""),
+        "title": request.get("title", ""),
+        "fix": request.get("fix", ""),
+        "source_type": source_type,
+        "source_id": source_id,
+        "source_author": source_author,
+        "source_created_at": source_created_at,
+        "source_url": source_url,
+    }
+
+
+def dedupe_requests(requests: List[Dict[str, str]]) -> List[Dict[str, str]]:
+    seen: set[Tuple[str, str, str, str]] = set()
+    deduped: List[Dict[str, str]] = []
+
+    for item in requests:
+        key = (
+            item.get("file", "").strip().lower(),
+            item.get("line", "").strip().lower(),
+            item.get("title", "").strip().lower(),
+            item.get("fix", "").strip().lower(),
+        )
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(item)
+
+    return deduped
+
+
+def sort_requests(requests: List[Dict[str, str]]) -> List[Dict[str, str]]:
+    severity_rank = {"p0": 0, "p1": 1, "p2": 2, "": 9}
+
+    def sort_key(item: Dict[str, str]) -> Tuple[int, str, str, str]:
+        severity = item.get("severity", "").strip().lower()
+        return (
+            severity_rank.get(severity, 8),
+            item.get("file", ""),
+            item.get("line", ""),
+            item.get("title", ""),
+        )
+
+    return sorted(requests, key=sort_key)
+
+
+def extract_from_items(
+    items: Any,
+    *,
+    codex_actors: set[str],
+    item_type: str,
+    commit_sha: Optional[str] = None,
+    min_created_at: Optional[datetime] = None,
+) -> Tuple[List[Dict[str, str]], bool, int]:
+    if not isinstance(items, list):
+        return [], False, 0
+
+    requests: List[Dict[str, str]] = []
+    clear_seen = False
+    matched_items = 0
+
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+
+        author = get_login(item)
+        if author not in codex_actors:
+            continue
+
+        if commit_sha and item_type in ("review", "review_comment"):
+            commit_id = item.get("commit_id")
+            if not isinstance(commit_id, str) or not commit_id:
+                continue
+            if commit_id != commit_sha:
+                continue
+
+        if not should_include_by_time(item, min_created_at):
+            continue
+
+        matched_items += 1
+
+        text = get_text(item)
+        if not text:
+            continue
+
+        if has_clear_marker(text):
+            clear_seen = True
+
+        source_id = str(item.get("id", ""))
+        source_created_at = get_submitted_at(item)
+        source_url = str(
+            item.get("html_url")
+            or item.get("pull_request_url")
+            or item.get("url")
+            or ""
+        )
+
+        for request in parse_fix_request_blocks(text):
+            requests.append(
+                normalize_request(
+                    request,
+                    source_type=item_source_type(item_type),
+                    source_id=source_id,
+                    source_author=author,
+                    source_created_at=source_created_at,
+                    source_url=source_url,
+                )
+            )
+
+    return requests, clear_seen, matched_items
+
+
+def write_output(path: str, payload: Dict[str, Any]) -> None:
+    try:
+        with open(path, "w", encoding="utf-8") as handle:
+            json.dump(payload, handle, indent=2)
+            handle.write("\n")
+    except OSError as error:
+        raise RuntimeError(f"Failed to write {path}: {error}") from error
+
+
+def main() -> int:
+    try:
+        args = parse_args()
+        codex_actors = normalize_actors(args.codex_actor)
+        if not codex_actors:
+            raise RuntimeError("--codex-actor must include at least one actor.")
+
+        commit_sha = args.commit_sha.strip() or None
+        min_created_at = None
+        if args.min_created_at.strip():
+            try:
+                min_created_at = parse_timestamp(args.min_created_at.strip())
+            except ValueError as error:
+                raise RuntimeError(
+                    f"Invalid --min-created-at timestamp: {args.min_created_at}"
+                ) from error
+
+        reviews = load_json(args.reviews)
+        review_comments = load_json(args.review_comments)
+        issue_comments = load_json(args.issue_comments)
+
+        extracted_reviews, review_clear, review_matched = extract_from_items(
+            reviews,
+            codex_actors=codex_actors,
+            item_type="review",
+            commit_sha=commit_sha,
+            min_created_at=min_created_at,
+        )
+        extracted_review_comments, review_comment_clear, review_comment_matched = extract_from_items(
+            review_comments,
+            codex_actors=codex_actors,
+            item_type="review_comment",
+            commit_sha=commit_sha,
+            min_created_at=min_created_at,
+        )
+        extracted_issue_comments, issue_comment_clear, issue_comment_matched = extract_from_items(
+            issue_comments,
+            codex_actors=codex_actors,
+            item_type="issue_comment",
+            commit_sha=commit_sha,
+            min_created_at=min_created_at,
+        )
+
+        all_requests = (
+            extracted_reviews
+            + extracted_review_comments
+            + extracted_issue_comments
+        )
+        deduped = dedupe_requests(all_requests)
+        ordered = sort_requests(deduped)
+        matched_items = review_matched + review_comment_matched + issue_comment_matched
+
+        status = "pending"
+        if len(ordered) > 0:
+            status = "issues"
+        elif review_clear or review_comment_clear or issue_comment_clear:
+            status = "clear"
+        elif matched_items > 0:
+            status = "unstructured"
+
+        payload: Dict[str, Any] = {
+            "codex_actors": sorted(codex_actors),
+            "commit_sha": commit_sha or "",
+            "min_created_at": args.min_created_at.strip(),
+            "clear_seen": review_clear or review_comment_clear or issue_comment_clear,
+            "matched_item_count": matched_items,
+            "request_count": len(ordered),
+            "status": status,
+            "requests": ordered,
+        }
+
+        write_output(args.out, payload)
+        return 0
+
+    except RuntimeError as error:
+        print(f"Error: {error}", file=sys.stderr)
+        return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())
