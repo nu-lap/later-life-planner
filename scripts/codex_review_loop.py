@@ -6,6 +6,7 @@ import os
 import subprocess
 import sys
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -19,6 +20,7 @@ DEFAULT_MAX_WAIT_MINUTES = 30
 DEFAULT_MAX_ITERATIONS = 5
 DEFAULT_COMMIT_MESSAGE = "chore(ai): address Codex review findings"
 DEFAULT_WORK_DIR = ".codex-orchestrator"
+STATE_FILE = "state.json"
 
 
 class CommandError(RuntimeError):
@@ -114,13 +116,27 @@ def get_pr_data(repo: str, pr_number: int) -> Dict[str, Any]:
     return data
 
 
-def get_commit_time(repo: str, sha: str) -> str:
-    output = gh_text(
-        ["api", f"repos/{repo}/commits/{sha}", "--jq", ".commit.committer.date"]
-    )
-    if not output:
-        raise CommandError(f"Unable to fetch commit time for {sha}")
-    return output
+def now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def parse_iso(value: str) -> datetime:
+    if value.endswith("Z"):
+        value = value[:-1] + "+00:00"
+    return datetime.fromisoformat(value)
+
+
+def load_state(path: Path) -> Dict[str, Any]:
+    if not path.exists():
+        return {"first_seen": {}}
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as error:
+        raise CommandError(f"Invalid JSON in {path}") from error
+
+
+def save_state(path: Path, state: Dict[str, Any]) -> None:
+    path.write_text(json.dumps(state, indent=2) + "\n", encoding="utf-8")
 
 
 def fetch_reviews(repo: str, pr_number: int, output_dir: Path) -> Dict[str, Path]:
@@ -300,7 +316,12 @@ def main() -> int:
 
         iteration = 0
         current_sha = ""
-        wait_start = time.time()
+        state_path = work_dir / STATE_FILE
+        state = load_state(state_path)
+        first_seen = state.get("first_seen")
+        if not isinstance(first_seen, dict):
+            first_seen = {}
+            state["first_seen"] = first_seen
 
         while True:
             pr_data = get_pr_data(repo, pr_number)
@@ -312,7 +333,9 @@ def main() -> int:
 
             if head_sha != current_sha:
                 current_sha = head_sha
-                wait_start = time.time()
+                if head_sha not in first_seen:
+                    first_seen[head_sha] = now_iso()
+                    save_state(state_path, state)
                 set_status(
                     repo,
                     head_sha,
@@ -322,7 +345,7 @@ def main() -> int:
                     target_url=pr_url,
                 )
 
-            commit_time = get_commit_time(repo, head_sha)
+            min_created_at = first_seen.get(head_sha) or now_iso()
 
             inputs = fetch_reviews(repo, pr_number, work_dir)
             output_path = work_dir / "fix_requests.json"
@@ -331,7 +354,7 @@ def main() -> int:
                 inputs,
                 args.codex_actors,
                 head_sha,
-                commit_time,
+                min_created_at,
                 output_path,
             )
 
@@ -396,7 +419,12 @@ def main() -> int:
                 raise CommandError("Codex review missing structured markers.")
 
             # pending or unknown
-            elapsed_minutes = (time.time() - wait_start) / 60.0
+            try:
+                elapsed_minutes = (
+                    datetime.now(timezone.utc) - parse_iso(min_created_at)
+                ).total_seconds() / 60.0
+            except ValueError:
+                elapsed_minutes = 0.0
             if elapsed_minutes > args.max_wait_minutes:
                 set_status(
                     repo,
