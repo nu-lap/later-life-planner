@@ -4,6 +4,7 @@ import argparse
 import json
 import re
 import sys
+from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
 START_MARKER = "[CODEX_FIX_REQUEST]"
@@ -21,7 +22,24 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--codex-actor",
         required=True,
-        help="GitHub login of the Codex reviewer/bot to filter on, e.g. 'codex' or 'openai-codex[bot]'",
+        help=(
+            "GitHub login(s) of the Codex reviewer/bot to filter on, e.g. "
+            "'codex' or 'openai-codex[bot]'. Multiple actors may be provided "
+            "as a comma-separated list."
+        ),
+    )
+    parser.add_argument(
+        "--commit-sha",
+        default="",
+        help="Optional head commit SHA; when set, only review items for this SHA are considered.",
+    )
+    parser.add_argument(
+        "--min-created-at",
+        default="",
+        help=(
+            "Optional ISO 8601 timestamp; review/issue comments before this time are ignored "
+            "(useful for limiting to the latest commit time)."
+        ),
     )
     parser.add_argument("--out", required=True, help="Output path for normalized JSON")
     return parser.parse_args()
@@ -41,6 +59,15 @@ def load_json(path: str) -> Any:
 
 def normalize_actor(actor: str) -> str:
     return actor.strip().lower()
+
+
+def normalize_actors(raw: str) -> set[str]:
+    actors: set[str] = set()
+    for part in raw.split(","):
+        part = part.strip()
+        if part:
+            actors.add(normalize_actor(part))
+    return actors
 
 
 def get_login(item: Dict[str, Any]) -> str:
@@ -66,6 +93,25 @@ def get_submitted_at(item: Dict[str, Any]) -> str:
         if isinstance(value, str):
             return value
     return ""
+
+
+def parse_timestamp(value: str) -> datetime:
+    if value.endswith("Z"):
+        value = value[:-1] + "+00:00"
+    return datetime.fromisoformat(value)
+
+
+def should_include_by_time(item: Dict[str, Any], min_created_at: Optional[datetime]) -> bool:
+    if min_created_at is None:
+        return True
+    timestamp = get_submitted_at(item)
+    if not timestamp:
+        return False
+    try:
+        parsed = parse_timestamp(timestamp)
+    except ValueError:
+        return False
+    return parsed >= min_created_at
 
 
 def slugify(value: str) -> str:
@@ -200,22 +246,37 @@ def sort_requests(requests: List[Dict[str, str]]) -> List[Dict[str, str]]:
 def extract_from_items(
     items: Any,
     *,
-    codex_actor: str,
+    codex_actors: set[str],
     item_type: str,
-) -> Tuple[List[Dict[str, str]], bool]:
+    commit_sha: Optional[str] = None,
+    min_created_at: Optional[datetime] = None,
+) -> Tuple[List[Dict[str, str]], bool, int]:
     if not isinstance(items, list):
-        return [], False
+        return [], False, 0
 
     requests: List[Dict[str, str]] = []
     clear_seen = False
+    matched_items = 0
 
     for item in items:
         if not isinstance(item, dict):
             continue
 
         author = get_login(item)
-        if author != codex_actor:
+        if author not in codex_actors:
             continue
+
+        if commit_sha and item_type in ("review", "review_comment"):
+            commit_id = item.get("commit_id")
+            if not isinstance(commit_id, str) or not commit_id:
+                continue
+            if commit_id != commit_sha:
+                continue
+
+        if not should_include_by_time(item, min_created_at):
+            continue
+
+        matched_items += 1
 
         text = get_text(item)
         if not text:
@@ -245,7 +306,7 @@ def extract_from_items(
                 )
             )
 
-    return requests, clear_seen
+    return requests, clear_seen, matched_items
 
 
 def write_output(path: str, payload: Dict[str, Any]) -> None:
@@ -260,26 +321,44 @@ def write_output(path: str, payload: Dict[str, Any]) -> None:
 def main() -> int:
     try:
         args = parse_args()
-        codex_actor = normalize_actor(args.codex_actor)
+        codex_actors = normalize_actors(args.codex_actor)
+        if not codex_actors:
+            raise RuntimeError("--codex-actor must include at least one actor.")
+
+        commit_sha = args.commit_sha.strip() or None
+        min_created_at = None
+        if args.min_created_at.strip():
+            try:
+                min_created_at = parse_timestamp(args.min_created_at.strip())
+            except ValueError as error:
+                raise RuntimeError(
+                    f"Invalid --min-created-at timestamp: {args.min_created_at}"
+                ) from error
 
         reviews = load_json(args.reviews)
         review_comments = load_json(args.review_comments)
         issue_comments = load_json(args.issue_comments)
 
-        extracted_reviews, review_clear = extract_from_items(
+        extracted_reviews, review_clear, review_matched = extract_from_items(
             reviews,
-            codex_actor=codex_actor,
+            codex_actors=codex_actors,
             item_type="review",
+            commit_sha=commit_sha,
+            min_created_at=min_created_at,
         )
-        extracted_review_comments, review_comment_clear = extract_from_items(
+        extracted_review_comments, review_comment_clear, review_comment_matched = extract_from_items(
             review_comments,
-            codex_actor=codex_actor,
+            codex_actors=codex_actors,
             item_type="review_comment",
+            commit_sha=commit_sha,
+            min_created_at=min_created_at,
         )
-        extracted_issue_comments, issue_comment_clear = extract_from_items(
+        extracted_issue_comments, issue_comment_clear, issue_comment_matched = extract_from_items(
             issue_comments,
-            codex_actor=codex_actor,
+            codex_actors=codex_actors,
             item_type="issue_comment",
+            commit_sha=commit_sha,
+            min_created_at=min_created_at,
         )
 
         all_requests = (
@@ -289,11 +368,24 @@ def main() -> int:
         )
         deduped = dedupe_requests(all_requests)
         ordered = sort_requests(deduped)
+        matched_items = review_matched + review_comment_matched + issue_comment_matched
+
+        status = "pending"
+        if len(ordered) > 0:
+            status = "issues"
+        elif review_clear or review_comment_clear or issue_comment_clear:
+            status = "clear"
+        elif matched_items > 0:
+            status = "unstructured"
 
         payload: Dict[str, Any] = {
-            "codex_actor": codex_actor,
+            "codex_actors": sorted(codex_actors),
+            "commit_sha": commit_sha or "",
+            "min_created_at": args.min_created_at.strip(),
             "clear_seen": review_clear or review_comment_clear or issue_comment_clear,
+            "matched_item_count": matched_items,
             "request_count": len(ordered),
+            "status": status,
             "requests": ordered,
         }
 
