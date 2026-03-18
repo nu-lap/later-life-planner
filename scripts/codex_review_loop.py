@@ -44,20 +44,6 @@ def run_cmd(cmd: List[str], *, cwd: Optional[Path] = None, check: bool = True) -
     return completed.stdout.strip()
 
 
-def run_cmd_allow_fail(cmd: List[str], *, cwd: Optional[Path] = None) -> str:
-    completed = subprocess.run(
-        cmd,
-        cwd=str(cwd) if cwd else None,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-    )
-    if completed.returncode != 0:
-        stderr = completed.stderr.strip()
-        raise CommandError(f"Command failed: {' '.join(cmd)}\n{stderr}")
-    return completed.stdout.strip()
-
-
 def gh_json(args: List[str], *, paginate: bool = False, cwd: Optional[Path] = None) -> Any:
     cmd = ["gh", "api"]
     if paginate:
@@ -143,9 +129,9 @@ def fetch_reviews(repo: str, pr_number: int, output_dir: Path) -> Dict[str, Path
     review_comments_path = output_dir / "review_comments.json"
     issue_comments_path = output_dir / "issue_comments.json"
 
-    reviews = gh_json(["--paginate", f"repos/{repo}/pulls/{pr_number}/reviews"])
-    review_comments = gh_json(["--paginate", f"repos/{repo}/pulls/{pr_number}/comments"])
-    issue_comments = gh_json(["--paginate", f"repos/{repo}/issues/{pr_number}/comments"])
+    reviews = gh_json([f"repos/{repo}/pulls/{pr_number}/reviews"], paginate=True)
+    review_comments = gh_json([f"repos/{repo}/pulls/{pr_number}/comments"], paginate=True)
+    issue_comments = gh_json([f"repos/{repo}/issues/{pr_number}/comments"], paginate=True)
 
     reviews_path.write_text(json.dumps(reviews, indent=2) + "\n", encoding="utf-8")
     review_comments_path.write_text(
