@@ -69,12 +69,12 @@ with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as env:
     env.write(f"BASE_REF={base.get('ref','')}\n")
 PY
 
-      - name: Checkout PR head
+      - name: Checkout base branch scripts
         if: env.SKIP != 'true'
         uses: actions/checkout@v4
         with:
-          repository: ${{ env.HEAD_REPO }}
-          ref: ${{ env.HEAD_SHA }}
+          repository: ${{ github.repository }}
+          ref: ${{ env.BASE_REF }}
           fetch-depth: 0
 
       - name: Prepare working directories
@@ -85,8 +85,11 @@ PY
 
       - name: Resolve head commit time
         if: env.SKIP != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          HEAD_COMMIT_TIME=$(git show -s --format=%cI "$HEAD_SHA")
+          HEAD_REPO="${HEAD_REPO:-${{ github.repository }}}"
+          HEAD_COMMIT_TIME=$(gh api "repos/$HEAD_REPO/commits/$HEAD_SHA" --jq '.commit.committer.date')
           echo "HEAD_COMMIT_TIME=$HEAD_COMMIT_TIME" >> "$GITHUB_ENV"
 
       - name: Fetch reviews and comments
