@@ -10,6 +10,12 @@ from typing import Any, Dict, List, Optional, Tuple
 START_MARKER = "[CODEX_FIX_REQUEST]"
 END_MARKER = "[/CODEX_FIX_REQUEST]"
 CLEAR_MARKER = "[CODEX_REVIEW_CLEAR]"
+CLEAR_PHRASE_PATTERNS = [
+    re.compile(r"did(?:n't| not) find any major issues", re.IGNORECASE),
+    re.compile(r"did(?:n't| not) find any issues", re.IGNORECASE),
+    re.compile(r"no major issues found", re.IGNORECASE),
+    re.compile(r"no issues found", re.IGNORECASE),
+]
 
 
 def parse_args() -> argparse.Namespace:
@@ -173,7 +179,14 @@ def parse_fix_request_block(block: str) -> Optional[Dict[str, str]]:
 
 
 def has_clear_marker(text: str) -> bool:
-    return CLEAR_MARKER in text
+    if CLEAR_MARKER in text:
+        return True
+
+    for pattern in CLEAR_PHRASE_PATTERNS:
+        if pattern.search(text):
+            return True
+
+    return False
 
 
 def item_source_type(item_type: str) -> str:
