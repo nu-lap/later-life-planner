@@ -33,3 +33,4 @@ codex-review-schema.json
 codex-review-prompt.md
 review-context.json
 codex-review*.md
+!docs/codex-review-loop.md
