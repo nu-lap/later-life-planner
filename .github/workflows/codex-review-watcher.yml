@@ -141,14 +141,14 @@ jobs:
         if: env.SKIP != 'true'
         run: |
           STATUS=$(python - <<'PY'
-import json
+          import json
 
-with open(".github/agent-output/codex_review_status.json", "r", encoding="utf-8") as handle:
-    data = json.load(handle)
+          with open(".github/agent-output/codex_review_status.json", "r", encoding="utf-8") as handle:
+              data = json.load(handle)
 
-print(data.get("status", "pending"))
-PY
-)
+          print(data.get("status", "pending"))
+          PY
+          )
 
           if [ "$STATUS" = "clear" ]; then
             echo "Codex review gate passed."
