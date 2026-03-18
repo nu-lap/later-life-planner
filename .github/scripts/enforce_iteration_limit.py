@@ -88,13 +88,18 @@ def fetch_pr(repo: str, pr_number: str) -> Dict[str, Any]:
             "--repo",
             repo,
             "--json",
-            "number,comments,url",
+            "number,url",
         ]
     )
     if not isinstance(data, dict):
         raise RuntimeError("Unexpected PR payload returned by gh.")
-    return data
 
+    comments = run_gh_json(["api", f"repos/{repo}/issues/{pr_number}/comments"])
+    if not isinstance(comments, list):
+        raise RuntimeError("Unexpected issue comments payload returned by gh.")
+
+    data["comments"] = comments
+    return data
 
 def extract_iteration_comment(comments: Any) -> Optional[Dict[str, Any]]:
     if not isinstance(comments, list):
