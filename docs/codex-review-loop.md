@@ -56,3 +56,7 @@ The loop sets these environment variables for the repair command:
 - The loop **fails closed** if no Codex review arrives in time.
 - The loop uses the **first-seen time** for a head SHA (stored in `.codex-orchestrator/state.json`) to avoid stale reviews from earlier commits.
 - When Codex reports issues, the loop expects the repair command to fix them, then it will commit and push (if enabled) and wait for the next review.
+
+## Test note
+
+- This line exists to validate the codex-review-loop on a fresh PR.
