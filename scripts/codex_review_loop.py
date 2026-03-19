@@ -72,6 +72,10 @@ def git_branch() -> str:
     return run_cmd(["git", "rev-parse", "--abbrev-ref", "HEAD"])
 
 
+def git_head_sha() -> str:
+    return run_cmd(["git", "rev-parse", "HEAD"])
+
+
 def git_is_clean() -> bool:
     status = run_cmd(["git", "status", "--porcelain"])
     return status == ""
@@ -155,7 +159,7 @@ def earlier_iso(existing: Optional[str], candidate: str) -> str:
 
 def load_state(path: Path) -> Dict[str, Any]:
     if not path.exists():
-        return {"first_seen": {}}
+        return {"first_seen": {}, "awaiting_repaired_head": None}
     try:
         return json.loads(path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as error:
@@ -349,6 +353,10 @@ def main() -> int:
         if not isinstance(first_seen, dict):
             first_seen = {}
             state["first_seen"] = first_seen
+        awaiting_repaired_head = state.get("awaiting_repaired_head")
+        if not isinstance(awaiting_repaired_head, dict):
+            awaiting_repaired_head = None
+            state["awaiting_repaired_head"] = None
 
         while True:
             pr_data = get_pr_data(repo, pr_number)
@@ -357,6 +365,23 @@ def main() -> int:
             head_ref = head.get("ref", "")
             if not head_sha:
                 raise CommandError("Could not resolve PR head SHA.")
+
+            if awaiting_repaired_head:
+                repaired_sha = awaiting_repaired_head.get("reviewed_sha", "")
+                if isinstance(repaired_sha, str) and repaired_sha and head_sha == repaired_sha:
+                    set_status(
+                        repo,
+                        head_sha,
+                        state="pending",
+                        context=args.status_context,
+                        description="Waiting for PR head to update after repair.",
+                        target_url=pr_url,
+                    )
+                    time.sleep(args.poll_interval)
+                    continue
+                awaiting_repaired_head = None
+                state["awaiting_repaired_head"] = None
+                save_state(state_path, state)
 
             if head_sha != current_sha:
                 current_sha = head_sha
@@ -431,8 +456,18 @@ def main() -> int:
                 if args.auto_commit and git_has_changes():
                     git_commit(args.commit_message)
 
+                repaired_local_head = git_head_sha()
                 if args.push:
                     git_push()
+
+                if repaired_local_head != head_sha:
+                    awaiting_repaired_head = {
+                        "reviewed_sha": head_sha,
+                        "repaired_local_head": repaired_local_head,
+                        "updated_at": now_iso(),
+                    }
+                    state["awaiting_repaired_head"] = awaiting_repaired_head
+                    save_state(state_path, state)
 
                 continue
 
