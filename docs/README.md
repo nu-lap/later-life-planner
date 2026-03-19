@@ -26,6 +26,7 @@ Reusable prompt/reference material lives in [`prompts/`](/Users/pauldurbin/later
 These support implementation but are not the main execution-order docs:
 
 - `testing-plan.md`
+- `withdrawal-optimizer-mcp-design.md`
 - `codex-later-life-planner-engineer-prompt.md`
 - `privacy-notice-outline.md`
 
