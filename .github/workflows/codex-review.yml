@@ -582,6 +582,7 @@ jobs:
           BODY=$(cat codex-review/codex-review-comment.md)
           COMMENTS=$(python3 .github/scripts/prepare_review_comments.py codex-review/codex-review.json)
           build_payload() {
+            # shellcheck disable=SC2016
             jq -n --arg body "$1" --arg event "$2" --argjson comments "$COMMENTS" --arg commit_id "$HEAD_SHA" '
             {body: $body, event: $event, commit_id: $commit_id} |
             if ($comments | length) > 0 then . + {comments: $comments} else . end
