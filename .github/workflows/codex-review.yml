@@ -608,7 +608,7 @@ jobs:
             if jq -e '.message | strings | test("not permitted to approve pull requests")' "$RESPONSE_FILE" >/dev/null 2>&1 && [ "$EVENT" != "COMMENT" ]; then
               ORIGINAL_EVENT="$EVENT"
               EVENT="COMMENT"
-              BODY=$(printf '%s\n\n_Note: Repository workflow setting `Allow GitHub Actions to create and approve pull requests` is disabled, so this review was posted as a comment instead of `%s`._\n' "$BODY" "$ORIGINAL_EVENT")
+              BODY=$(printf '%s\n\n_Note: Repository workflow setting Allow GitHub Actions to create and approve pull requests is disabled, so this review was posted as a comment instead of %s._\n' "$BODY" "$ORIGINAL_EVENT")
               PAYLOAD=$(build_payload "$BODY" "$EVENT")
               HTTP_STATUS=$(curl -sS -o "$RESPONSE_FILE" -w '%{http_code}' \
                 -H "Authorization: Bearer ${GITHUB_TOKEN}" \
