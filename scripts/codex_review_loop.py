@@ -357,6 +357,10 @@ def main() -> int:
         if not isinstance(awaiting_repaired_head, dict):
             awaiting_repaired_head = None
             state["awaiting_repaired_head"] = None
+        elif not args.push:
+            awaiting_repaired_head = None
+            state["awaiting_repaired_head"] = None
+            save_state(state_path, state)
 
         while True:
             pr_data = get_pr_data(repo, pr_number)
@@ -459,15 +463,14 @@ def main() -> int:
                 repaired_local_head = git_head_sha()
                 if args.push:
                     git_push()
-
-                if repaired_local_head != head_sha:
-                    awaiting_repaired_head = {
-                        "reviewed_sha": head_sha,
-                        "repaired_local_head": repaired_local_head,
-                        "updated_at": now_iso(),
-                    }
-                    state["awaiting_repaired_head"] = awaiting_repaired_head
-                    save_state(state_path, state)
+                    if repaired_local_head != head_sha:
+                        awaiting_repaired_head = {
+                            "reviewed_sha": head_sha,
+                            "repaired_local_head": repaired_local_head,
+                            "updated_at": now_iso(),
+                        }
+                        state["awaiting_repaired_head"] = awaiting_repaired_head
+                        save_state(state_path, state)
 
                 continue
 
