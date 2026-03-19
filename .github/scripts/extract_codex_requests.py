@@ -10,6 +10,11 @@ from typing import Any, Dict, List, Optional, Tuple
 START_MARKER = "[CODEX_FIX_REQUEST]"
 END_MARKER = "[/CODEX_FIX_REQUEST]"
 CLEAR_MARKER = "[CODEX_REVIEW_CLEAR]"
+WORKFLOW_REVIEW_MARKER = "<!-- codex-pr-review -->"
+WORKFLOW_FINDINGS_HEADER = "### Findings"
+WORKFLOW_SECTION_HEADER_PREFIX = "### "
+WORKFLOW_NO_FINDINGS = "No findings."
+WORKFLOW_REVIEW_ACTORS = {"github-actions[bot]"}
 CLEAR_PHRASE_PATTERNS = [
     re.compile(r"did(?:n't| not) find any major issues", re.IGNORECASE),
     re.compile(r"did(?:n't| not) find any issues", re.IGNORECASE),
@@ -22,6 +27,7 @@ JSON_CLEAR_RESULTS = {
     "APPROVED",
     "LGTM",
     "CLEAR",
+    "PASS",
 }
 JSON_ISSUE_RESULTS = {
     "CHANGES_REQUESTED",
@@ -30,7 +36,11 @@ JSON_ISSUE_RESULTS = {
     "CHANGES_REQUIRED",
     "NEEDS_CHANGES",
     "ISSUES_FOUND",
+    "REWORK_REQUIRED",
 }
+WORKFLOW_FINDING_PATTERN = re.compile(
+    r"^- \[(?P<severity>[A-Z]+)\] (?P<title>.*?)(?: \(`(?P<location>[^`]+)`\))?$"
+)
 
 
 def parse_args() -> argparse.Namespace:
@@ -115,6 +125,11 @@ def get_result_value(item: Dict[str, Any], text: str) -> str:
             raw = payload.get(key)
             if isinstance(raw, str) and raw.strip():
                 return normalize_result_value(raw)
+    workflow_review = parse_workflow_review(text)
+    if workflow_review:
+        verdict = workflow_review.get("verdict")
+        if isinstance(verdict, str) and verdict.strip():
+            return normalize_result_value(verdict)
     for key in ("result", "verdict", "status", "state"):
         raw = item.get(key)
         if isinstance(raw, str) and raw.strip():
@@ -237,6 +252,79 @@ def parse_json_payload(text: str) -> Optional[Dict[str, Any]]:
     return None
 
 
+def is_workflow_review(text: str) -> bool:
+    return WORKFLOW_REVIEW_MARKER in text
+
+
+def split_location(location: str) -> Tuple[str, str]:
+    trimmed = location.strip()
+    if not trimmed:
+        return "", ""
+    match = re.match(r"^(?P<file>.+?):(?P<line>\d+)$", trimmed)
+    if match:
+        return match.group("file"), match.group("line")
+    return trimmed, ""
+
+
+def parse_workflow_review(text: str) -> Optional[Dict[str, Any]]:
+    if not is_workflow_review(text):
+        return None
+
+    verdict_match = re.search(r"- Verdict:\s*`([^`]+)`", text)
+    summary_match = re.search(r"- Summary:\s*(.+)", text)
+    findings: List[Dict[str, str]] = []
+    lines = text.splitlines()
+    in_findings = False
+    i = 0
+
+    while i < len(lines):
+        stripped = lines[i].strip()
+        if stripped == WORKFLOW_FINDINGS_HEADER:
+            in_findings = True
+            i += 1
+            continue
+        if in_findings and stripped.startswith(WORKFLOW_SECTION_HEADER_PREFIX):
+            break
+        if in_findings:
+            if not stripped or stripped == WORKFLOW_NO_FINDINGS:
+                i += 1
+                continue
+            finding_match = WORKFLOW_FINDING_PATTERN.match(stripped)
+            if finding_match:
+                severity = finding_match.group("severity").strip().lower()
+                title = finding_match.group("title").strip()
+                location = finding_match.group("location") or ""
+                file_value, line_value = split_location(location)
+                details_lines: List[str] = []
+                i += 1
+                while i < len(lines):
+                    next_stripped = lines[i].strip()
+                    if not next_stripped:
+                        i += 1
+                        continue
+                    if next_stripped.startswith("- [") or next_stripped.startswith(
+                        WORKFLOW_SECTION_HEADER_PREFIX
+                    ):
+                        break
+                    details_lines.append(next_stripped)
+                    i += 1
+                findings.append(
+                    {
+                        "severity": severity,
+                        "title": title,
+                        "details": " ".join(details_lines).strip(),
+                        "file": file_value,
+                        "line": line_value,
+                    }
+                )
+                continue
+        i += 1
+
+    verdict = verdict_match.group(1).strip() if verdict_match else ""
+    summary = summary_match.group(1).strip() if summary_match else ""
+    return {"verdict": verdict, "summary": summary, "findings": findings}
+
+
 def normalize_result_value(value: str) -> str:
     return value.strip().upper()
 
@@ -281,6 +369,33 @@ def extract_requests_from_json(payload: Dict[str, Any]) -> List[Dict[str, str]]:
                 }
                 request["id"] = derive_request_id(request)
                 requests.append(request)
+    return requests
+
+
+def extract_requests_from_workflow_review(payload: Dict[str, Any]) -> List[Dict[str, str]]:
+    requests: List[Dict[str, str]] = []
+    findings = payload.get("findings")
+    if not isinstance(findings, list):
+        return requests
+    for item in findings:
+        if not isinstance(item, dict):
+            continue
+        title = str(item.get("title") or "").strip()
+        if not title:
+            continue
+        details = str(item.get("details") or "").strip()
+        request = {
+            "severity": str(item.get("severity") or "").strip(),
+            "category": "workflow_review",
+            "file": str(item.get("file") or "").strip(),
+            "line": str(item.get("line") or "").strip(),
+            "title": title,
+            "fix": details or "Address the Codex workflow review finding.",
+            "id": str(item.get("id") or "").strip(),
+        }
+        if not request["id"]:
+            request["id"] = derive_request_id(request)
+        requests.append(request)
     return requests
 
 
@@ -337,7 +452,17 @@ def dedupe_requests(requests: List[Dict[str, str]]) -> List[Dict[str, str]]:
 
 
 def sort_requests(requests: List[Dict[str, str]]) -> List[Dict[str, str]]:
-    severity_rank = {"p0": 0, "p1": 1, "p2": 2, "": 9}
+    severity_rank = {
+        "critical": 0,
+        "p0": 0,
+        "high": 1,
+        "p1": 1,
+        "medium": 2,
+        "p2": 2,
+        "low": 3,
+        "p3": 3,
+        "": 9,
+    }
 
     def sort_key(item: Dict[str, str]) -> Tuple[int, str, str, str]:
         severity = item.get("severity", "").strip().lower()
@@ -371,8 +496,13 @@ def extract_from_items(
         if not isinstance(item, dict):
             continue
 
+        text = get_text(item)
+        workflow_review = parse_workflow_review(text) if item_type == "review" else None
         author = get_login(item)
-        if author not in codex_actors:
+        trusted_workflow_review = (
+            workflow_review is not None and author in WORKFLOW_REVIEW_ACTORS
+        )
+        if author not in codex_actors and not trusted_workflow_review:
             continue
 
         if commit_sha and item_type in ("review", "review_comment"):
@@ -387,7 +517,6 @@ def extract_from_items(
 
         matched_items += 1
 
-        text = get_text(item)
         if not text:
             continue
 
@@ -416,6 +545,19 @@ def extract_from_items(
                     normalize_request(
                         request,
                         source_type=item_source_type(item_type),
+                        source_id=source_id,
+                        source_author=author,
+                        source_created_at=source_created_at,
+                        source_url=source_url,
+                    )
+                )
+
+        if trusted_workflow_review:
+            for request in extract_requests_from_workflow_review(workflow_review):
+                requests.append(
+                    normalize_request(
+                        request,
+                        source_type="workflow_review",
                         source_id=source_id,
                         source_author=author,
                         source_created_at=source_created_at,
