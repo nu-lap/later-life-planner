@@ -389,8 +389,12 @@ def main() -> int:
 
             if head_sha != current_sha:
                 current_sha = head_sha
-                commit_seen_at = get_commit_seen_at(repo, head_sha)
-                normalized_first_seen = earlier_iso(first_seen.get(head_sha), commit_seen_at)
+                normalized_first_seen = first_seen.get(head_sha)
+                # Seed new heads from the commit timestamp so we can pick up
+                # reviews that were posted before the loop started, but do not
+                # move an existing first-seen time backwards on later runs.
+                if not isinstance(normalized_first_seen, str) or not normalized_first_seen.strip():
+                    normalized_first_seen = get_commit_seen_at(repo, head_sha)
                 if first_seen.get(head_sha) != normalized_first_seen:
                     first_seen[head_sha] = normalized_first_seen
                     save_state(state_path, state)
