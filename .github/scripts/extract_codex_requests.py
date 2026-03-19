@@ -14,6 +14,7 @@ WORKFLOW_REVIEW_MARKER = "<!-- codex-pr-review -->"
 WORKFLOW_FINDINGS_HEADER = "### Findings"
 WORKFLOW_SECTION_HEADER_PREFIX = "### "
 WORKFLOW_NO_FINDINGS = "No findings."
+WORKFLOW_REVIEW_ACTORS = {"github-actions[bot]"}
 CLEAR_PHRASE_PATTERNS = [
     re.compile(r"did(?:n't| not) find any major issues", re.IGNORECASE),
     re.compile(r"did(?:n't| not) find any issues", re.IGNORECASE),
@@ -498,7 +499,10 @@ def extract_from_items(
         text = get_text(item)
         workflow_review = parse_workflow_review(text) if item_type == "review" else None
         author = get_login(item)
-        if author not in codex_actors and workflow_review is None:
+        trusted_workflow_review = (
+            workflow_review is not None and author in WORKFLOW_REVIEW_ACTORS
+        )
+        if author not in codex_actors and not trusted_workflow_review:
             continue
 
         if commit_sha and item_type in ("review", "review_comment"):
@@ -548,7 +552,7 @@ def extract_from_items(
                     )
                 )
 
-        if workflow_review:
+        if trusted_workflow_review:
             for request in extract_requests_from_workflow_review(workflow_review):
                 requests.append(
                     normalize_request(
