@@ -116,6 +116,20 @@ def get_pr_data(repo: str, pr_number: int) -> Dict[str, Any]:
     return data
 
 
+def get_commit_seen_at(repo: str, sha: str) -> str:
+    data = gh_json([f"repos/{repo}/commits/{sha}"])
+    if isinstance(data, dict):
+        commit = data.get("commit")
+        if isinstance(commit, dict):
+            for key in ("committer", "author"):
+                person = commit.get(key)
+                if isinstance(person, dict):
+                    date_value = person.get("date")
+                    if isinstance(date_value, str) and date_value.strip():
+                        return date_value.strip()
+    return now_iso()
+
+
 def now_iso() -> str:
     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
@@ -124,6 +138,19 @@ def parse_iso(value: str) -> datetime:
     if value.endswith("Z"):
         value = value[:-1] + "+00:00"
     return datetime.fromisoformat(value)
+
+
+def earlier_iso(existing: Optional[str], candidate: str) -> str:
+    if not existing:
+        return candidate
+    try:
+        existing_dt = parse_iso(existing)
+        candidate_dt = parse_iso(candidate)
+    except ValueError:
+        return candidate
+    if candidate_dt < existing_dt:
+        return candidate
+    return existing
 
 
 def load_state(path: Path) -> Dict[str, Any]:
@@ -333,8 +360,10 @@ def main() -> int:
 
             if head_sha != current_sha:
                 current_sha = head_sha
-                if head_sha not in first_seen:
-                    first_seen[head_sha] = now_iso()
+                commit_seen_at = get_commit_seen_at(repo, head_sha)
+                normalized_first_seen = earlier_iso(first_seen.get(head_sha), commit_seen_at)
+                if first_seen.get(head_sha) != normalized_first_seen:
+                    first_seen[head_sha] = normalized_first_seen
                     save_state(state_path, state)
                 set_status(
                     repo,
