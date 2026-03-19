@@ -16,6 +16,21 @@ CLEAR_PHRASE_PATTERNS = [
     re.compile(r"no major issues found", re.IGNORECASE),
     re.compile(r"no issues found", re.IGNORECASE),
 ]
+JSON_CLEAR_RESULTS = {
+    "NO_CHANGES",
+    "NO_ISSUES",
+    "APPROVED",
+    "LGTM",
+    "CLEAR",
+}
+JSON_ISSUE_RESULTS = {
+    "CHANGES_REQUESTED",
+    "REQUESTED_CHANGES",
+    "REQUEST_CHANGES",
+    "CHANGES_REQUIRED",
+    "NEEDS_CHANGES",
+    "ISSUES_FOUND",
+}
 
 
 def parse_args() -> argparse.Namespace:
@@ -90,6 +105,23 @@ def get_text(item: Dict[str, Any]) -> str:
         value = item.get(key)
         if isinstance(value, str):
             return value
+    return ""
+
+
+def get_result_value(item: Dict[str, Any], text: str) -> str:
+    payload = parse_json_payload(text)
+    if payload:
+        for key in ("result", "verdict", "status", "state"):
+            raw = payload.get(key)
+            if isinstance(raw, str) and raw.strip():
+                return normalize_result_value(raw)
+    for key in ("result", "verdict", "status", "state"):
+        raw = item.get(key)
+        if isinstance(raw, str) and raw.strip():
+            normalized = normalize_result_value(raw)
+            if key == "state" and normalized == "COMMENTED":
+                continue
+            return normalized
     return ""
 
 
@@ -189,6 +221,69 @@ def has_clear_marker(text: str) -> bool:
     return False
 
 
+def parse_json_payload(text: str) -> Optional[Dict[str, Any]]:
+    if not text:
+        return None
+    candidate = text.lstrip()
+    if not candidate.startswith("{"):
+        return None
+    decoder = json.JSONDecoder()
+    try:
+        payload, _ = decoder.raw_decode(candidate)
+    except json.JSONDecodeError:
+        return None
+    if isinstance(payload, dict):
+        return payload
+    return None
+
+
+def normalize_result_value(value: str) -> str:
+    return value.strip().upper()
+
+
+def extract_requests_from_json(payload: Dict[str, Any]) -> List[Dict[str, str]]:
+    requests: List[Dict[str, str]] = []
+    for key in ("requests", "issues", "findings"):
+        raw_items = payload.get(key)
+        if not isinstance(raw_items, list):
+            continue
+        for item in raw_items:
+            if isinstance(item, dict):
+                title = str(item.get("title") or item.get("summary") or item.get("message") or "").strip()
+                fix = str(item.get("fix") or item.get("recommendation") or item.get("action") or "").strip()
+                if not title:
+                    continue
+                if not fix:
+                    fix = "Address the Codex review finding."
+                request = {
+                    "severity": str(item.get("severity") or ""),
+                    "category": str(item.get("category") or ""),
+                    "file": str(item.get("file") or ""),
+                    "line": str(item.get("line") or ""),
+                    "title": title,
+                    "fix": fix,
+                    "id": str(item.get("id") or ""),
+                }
+                if not request["id"]:
+                    request["id"] = derive_request_id(request)
+                requests.append(request)
+            elif isinstance(item, str):
+                title = item.strip()
+                if not title:
+                    continue
+                request = {
+                    "severity": "",
+                    "category": "",
+                    "file": "",
+                    "line": "",
+                    "title": title,
+                    "fix": "Address the Codex review finding.",
+                }
+                request["id"] = derive_request_id(request)
+                requests.append(request)
+    return requests
+
+
 def item_source_type(item_type: str) -> str:
     if item_type == "review":
         return "review"
@@ -263,12 +358,13 @@ def extract_from_items(
     item_type: str,
     commit_sha: Optional[str] = None,
     min_created_at: Optional[datetime] = None,
-) -> Tuple[List[Dict[str, str]], bool, int]:
+) -> Tuple[List[Dict[str, str]], bool, bool, int]:
     if not isinstance(items, list):
-        return [], False, 0
+        return [], False, False, 0
 
     requests: List[Dict[str, str]] = []
     clear_seen = False
+    issues_seen = False
     matched_items = 0
 
     for item in items:
@@ -295,9 +391,6 @@ def extract_from_items(
         if not text:
             continue
 
-        if has_clear_marker(text):
-            clear_seen = True
-
         source_id = str(item.get("id", ""))
         source_created_at = get_submitted_at(item)
         source_url = str(
@@ -306,6 +399,29 @@ def extract_from_items(
             or item.get("url")
             or ""
         )
+
+        result_value = get_result_value(item, text)
+        if result_value and result_value in JSON_CLEAR_RESULTS:
+            clear_seen = True
+        elif result_value and result_value in JSON_ISSUE_RESULTS:
+            issues_seen = True
+
+        if has_clear_marker(text):
+            clear_seen = True
+
+        json_payload = parse_json_payload(text)
+        if json_payload:
+            for request in extract_requests_from_json(json_payload):
+                requests.append(
+                    normalize_request(
+                        request,
+                        source_type=item_source_type(item_type),
+                        source_id=source_id,
+                        source_author=author,
+                        source_created_at=source_created_at,
+                        source_url=source_url,
+                    )
+                )
 
         for request in parse_fix_request_blocks(text):
             requests.append(
@@ -319,7 +435,7 @@ def extract_from_items(
                 )
             )
 
-    return requests, clear_seen, matched_items
+    return requests, clear_seen, issues_seen, matched_items
 
 
 def write_output(path: str, payload: Dict[str, Any]) -> None:
@@ -352,21 +468,21 @@ def main() -> int:
         review_comments = load_json(args.review_comments)
         issue_comments = load_json(args.issue_comments)
 
-        extracted_reviews, review_clear, review_matched = extract_from_items(
+        extracted_reviews, review_clear, review_issues, review_matched = extract_from_items(
             reviews,
             codex_actors=codex_actors,
             item_type="review",
             commit_sha=commit_sha,
             min_created_at=min_created_at,
         )
-        extracted_review_comments, review_comment_clear, review_comment_matched = extract_from_items(
+        extracted_review_comments, review_comment_clear, review_comment_issues, review_comment_matched = extract_from_items(
             review_comments,
             codex_actors=codex_actors,
             item_type="review_comment",
             commit_sha=commit_sha,
             min_created_at=min_created_at,
         )
-        extracted_issue_comments, issue_comment_clear, issue_comment_matched = extract_from_items(
+        extracted_issue_comments, issue_comment_clear, issue_comment_issues, issue_comment_matched = extract_from_items(
             issue_comments,
             codex_actors=codex_actors,
             item_type="issue_comment",
@@ -382,9 +498,12 @@ def main() -> int:
         deduped = dedupe_requests(all_requests)
         ordered = sort_requests(deduped)
         matched_items = review_matched + review_comment_matched + issue_comment_matched
+        issues_seen = review_issues or review_comment_issues or issue_comment_issues
 
         status = "pending"
         if len(ordered) > 0:
+            status = "issues"
+        elif issues_seen:
             status = "issues"
         elif review_clear or review_comment_clear or issue_comment_clear:
             status = "clear"
@@ -396,6 +515,7 @@ def main() -> int:
             "commit_sha": commit_sha or "",
             "min_created_at": args.min_created_at.strip(),
             "clear_seen": review_clear or review_comment_clear or issue_comment_clear,
+            "issues_seen": issues_seen,
             "matched_item_count": matched_items,
             "request_count": len(ordered),
             "status": status,
