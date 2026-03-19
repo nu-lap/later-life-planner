@@ -63,7 +63,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          npm install -g @openai/codex
+          # v0.115.0+ currently fails to execute sandboxed git commands on
+          # GitHub-hosted Ubuntu runners (loopback RTM_NEWADDR / bwrap failure).
+          npm install -g @openai/codex@0.114.0
 
       - name: Prepare CODEX_HOME
         shell: bash
@@ -99,7 +101,9 @@ jobs:
               --name "$KEYVAULT_SECRET_NAME" \
               --query value \
               --output tsv)"
-            echo "CODEX_AUTH_JSON_B64=$(printf '%s' "$SECRET" | base64 -w 0)" >> "$GITHUB_ENV"
+            CODEX_AUTH_JSON_B64="$(printf '%s' "$SECRET" | base64 -w 0)"
+            echo "::add-mask::$CODEX_AUTH_JSON_B64"
+            echo "CODEX_AUTH_JSON_B64=$CODEX_AUTH_JSON_B64" >> "$GITHUB_ENV"
 
       - name: Write auth.json
         shell: bash
