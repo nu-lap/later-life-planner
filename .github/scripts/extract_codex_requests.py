@@ -499,7 +499,9 @@ def extract_from_items(
         text = get_text(item)
         workflow_review = parse_workflow_review(text) if item_type == "review" else None
         author = get_login(item)
-        trusted_workflow_review = workflow_review is not None
+        trusted_workflow_review = (
+            workflow_review is not None and author in WORKFLOW_REVIEW_ACTORS
+        )
         if author not in codex_actors and not trusted_workflow_review:
             continue
 
