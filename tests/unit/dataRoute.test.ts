@@ -1,0 +1,210 @@
+import { beforeEach, describe, expect, test, vi } from 'vitest';
+
+const {
+  requireUserMock,
+  getPlannerPersistenceDocumentMock,
+  savePlannerPersistenceDocumentMock,
+} = vi.hoisted(() => ({
+  requireUserMock: vi.fn(),
+  getPlannerPersistenceDocumentMock: vi.fn(),
+  savePlannerPersistenceDocumentMock: vi.fn(),
+}));
+
+vi.mock('@/lib/auth/requireUser', () => {
+  class UnauthorizedError extends Error {
+    constructor(message = 'Authentication required.') {
+      super(message);
+      this.name = 'UnauthorizedError';
+    }
+  }
+
+  return {
+    UnauthorizedError,
+    requireUser: requireUserMock,
+  };
+});
+
+vi.mock('@/lib/cosmos', () => {
+  class PersistenceConfigError extends Error {
+    constructor(message: string) {
+      super(message);
+      this.name = 'PersistenceConfigError';
+    }
+  }
+
+  class RevisionConflictError extends Error {
+    currentRevision: number;
+
+    constructor(currentRevision: number) {
+      super('Revision conflict.');
+      this.name = 'RevisionConflictError';
+      this.currentRevision = currentRevision;
+    }
+  }
+
+  return {
+    PersistenceConfigError,
+    RevisionConflictError,
+    getPlannerPersistenceDocument: getPlannerPersistenceDocumentMock,
+    savePlannerPersistenceDocument: savePlannerPersistenceDocumentMock,
+  };
+});
+
+import { GET, PUT } from '@/app/api/data/route';
+import { UnauthorizedError } from '@/lib/auth/requireUser';
+import { PersistenceConfigError, RevisionConflictError } from '@/lib/cosmos';
+
+function createPayload(overrides: Record<string, unknown> = {}) {
+  return {
+    schemaVersion: 1,
+    baseRevision: 0,
+    iv: Buffer.alloc(12, 1).toString('base64'),
+    ciphertext: Buffer.alloc(32, 2).toString('base64'),
+    ...overrides,
+  };
+}
+
+describe('/api/data route', () => {
+  beforeEach(() => {
+    requireUserMock.mockReset();
+    getPlannerPersistenceDocumentMock.mockReset();
+    savePlannerPersistenceDocumentMock.mockReset();
+  });
+
+  test('GET returns 401 for unauthenticated requests', async () => {
+    requireUserMock.mockRejectedValue(new UnauthorizedError());
+
+    const response = await GET();
+
+    expect(response.status).toBe(401);
+    await expect(response.json()).resolves.toEqual({ error: 'Authentication required.' });
+  });
+
+  test('GET returns 404 when no planner document exists yet', async () => {
+    requireUserMock.mockResolvedValue({ userId: 'user_123' });
+    getPlannerPersistenceDocumentMock.mockResolvedValue(null);
+
+    const response = await GET();
+
+    expect(response.status).toBe(404);
+  });
+
+  test('GET returns encrypted planner document metadata', async () => {
+    requireUserMock.mockResolvedValue({ userId: 'user_123' });
+    getPlannerPersistenceDocumentMock.mockResolvedValue({
+      id: 'user_123',
+      schemaVersion: 1,
+      revision: 5,
+      iv: Buffer.alloc(12, 4).toString('base64'),
+      ciphertext: Buffer.alloc(64, 8).toString('base64'),
+      createdAt: '2026-03-20T10:00:00.000Z',
+      updatedAt: '2026-03-20T11:00:00.000Z',
+    });
+
+    const response = await GET();
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      schemaVersion: 1,
+      revision: 5,
+      iv: Buffer.alloc(12, 4).toString('base64'),
+      ciphertext: Buffer.alloc(64, 8).toString('base64'),
+      keyVersion: undefined,
+      wrappedKey: undefined,
+      createdAt: '2026-03-20T10:00:00.000Z',
+      updatedAt: '2026-03-20T11:00:00.000Z',
+    });
+  });
+
+  test('PUT rejects malformed payloads', async () => {
+    requireUserMock.mockResolvedValue({ userId: 'user_123' });
+
+    const response = await PUT(
+      new Request('http://localhost/api/data', {
+        method: 'PUT',
+        body: JSON.stringify({
+          schemaVersion: 1,
+          iv: 'not-base64',
+          ciphertext: 'bad',
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    expect(savePlannerPersistenceDocumentMock).not.toHaveBeenCalled();
+  });
+
+  test('PUT saves encrypted payload and returns revision metadata', async () => {
+    requireUserMock.mockResolvedValue({ userId: 'user_123' });
+    savePlannerPersistenceDocumentMock.mockResolvedValue({
+      id: 'user_123',
+      schemaVersion: 1,
+      revision: 2,
+      iv: Buffer.alloc(12, 1).toString('base64'),
+      ciphertext: Buffer.alloc(32, 2).toString('base64'),
+      createdAt: '2026-03-20T12:00:00.000Z',
+      updatedAt: '2026-03-20T12:05:00.000Z',
+    });
+
+    const response = await PUT(
+      new Request('http://localhost/api/data', {
+        method: 'PUT',
+        body: JSON.stringify(createPayload()),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(savePlannerPersistenceDocumentMock).toHaveBeenCalledWith({
+      userId: 'user_123',
+      schemaVersion: 1,
+      baseRevision: 0,
+      iv: Buffer.alloc(12, 1).toString('base64'),
+      ciphertext: Buffer.alloc(32, 2).toString('base64'),
+      keyVersion: undefined,
+      wrappedKey: undefined,
+    });
+    await expect(response.json()).resolves.toEqual({
+      schemaVersion: 1,
+      revision: 2,
+      createdAt: '2026-03-20T12:00:00.000Z',
+      updatedAt: '2026-03-20T12:05:00.000Z',
+    });
+  });
+
+  test('PUT returns 409 on revision conflicts', async () => {
+    requireUserMock.mockResolvedValue({ userId: 'user_123' });
+    savePlannerPersistenceDocumentMock.mockRejectedValue(new RevisionConflictError(7));
+
+    const response = await PUT(
+      new Request('http://localhost/api/data', {
+        method: 'PUT',
+        body: JSON.stringify(createPayload()),
+      }),
+    );
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toEqual({
+      error: 'Revision conflict.',
+      currentRevision: 7,
+    });
+  });
+
+  test('PUT returns 503 when persistence is not configured', async () => {
+    requireUserMock.mockResolvedValue({ userId: 'user_123' });
+    savePlannerPersistenceDocumentMock.mockRejectedValue(
+      new PersistenceConfigError('missing env'),
+    );
+
+    const response = await PUT(
+      new Request('http://localhost/api/data', {
+        method: 'PUT',
+        body: JSON.stringify(createPayload()),
+      }),
+    );
+
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toEqual({
+      error: 'Persistence is not configured.',
+    });
+  });
+});
