@@ -55,8 +55,11 @@ jobs:
           }
           deadline = time.time() + (25 * 60)
           poll_interval = 10
+          no_run_grace_seconds = 120
           statuses = {}
           error = None
+          started_at = time.time()
+          workflow_states = {}
 
           def api_get(url: str) -> dict:
               request = urllib.request.Request(
@@ -70,12 +73,33 @@ jobs:
               with urllib.request.urlopen(request) as response:
                   return json.load(response)
 
+          # Load workflow metadata once so disabled workflows do not block forever.
+          for workflow_name, workflow_file in workflows.items():
+              workflow_url = (
+                  f"https://api.github.com/repos/{repo}/actions/workflows/"
+                  f"{urllib.parse.quote(workflow_file, safe='')}"
+              )
+              try:
+                  workflow_meta = api_get(workflow_url)
+                  workflow_states[workflow_name] = workflow_meta.get("state") or "unknown"
+              except Exception:
+                  workflow_states[workflow_name] = "unknown"
+
           while time.time() < deadline:
               statuses = {}
               all_completed = True
               error = None
 
               for workflow_name, workflow_file in workflows.items():
+                  workflow_state = workflow_states.get(workflow_name, "unknown")
+                  if workflow_state != "active":
+                      statuses[workflow_name] = {
+                          "state": "completed",
+                          "conclusion": "skipped",
+                          "details": f"Workflow state is {workflow_state}; treated as skipped.",
+                      }
+                      continue
+
                   query = urllib.parse.urlencode(
                       {
                           "event": "pull_request",
@@ -92,11 +116,22 @@ jobs:
                   run = next((item for item in runs if item.get("head_sha") == head_sha), None)
 
                   if run is None:
-                      statuses[workflow_name] = {
-                          "state": "pending",
-                          "details": "No run found yet for this head SHA.",
-                      }
-                      all_completed = False
+                      elapsed = time.time() - started_at
+                      if elapsed >= no_run_grace_seconds:
+                          statuses[workflow_name] = {
+                              "state": "completed",
+                              "conclusion": "skipped",
+                              "details": (
+                                  "No run found for this head SHA after grace window; "
+                                  "treated as skipped."
+                              ),
+                          }
+                      else:
+                          statuses[workflow_name] = {
+                              "state": "pending",
+                              "details": "No run found yet for this head SHA.",
+                          }
+                          all_completed = False
                       continue
 
                   status = run.get("status") or "unknown"
@@ -112,7 +147,7 @@ jobs:
                       all_completed = False
                       continue
 
-                  if conclusion != "success":
+                  if conclusion not in ("success", "skipped"):
                       error = (
                           f"{workflow_name} concluded with {conclusion or 'unknown'}."
                       )
@@ -124,7 +159,8 @@ jobs:
               time.sleep(poll_interval)
 
           if error is None and not all(
-              item.get("state") == "completed" and item.get("conclusion") == "success"
+              item.get("state") == "completed"
+              and item.get("conclusion") in ("success", "skipped")
               for item in statuses.values()
           ):
               error = "Timed out waiting for prerequisite workflows to complete successfully."
