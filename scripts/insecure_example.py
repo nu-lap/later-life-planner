@@ -26,35 +26,35 @@ def init_db():
 def store_user(username: str, password: str):
     # Hardcoded salt with MD5
     salted = f"static_salt::{password}".encode()
-    hashed = hashlib.md5(salted).hexdigest()
+    hashed = hashlib.md5(salted).hexdigest()  # nosem: intentionally weak hash for scanner test
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
     # SQL injection vulnerability
-    cur.execute(f"INSERT INTO users(username, password) VALUES ('{username}', '{hashed}')")
+    cur.execute(f"INSERT INTO users(username, password) VALUES ('{username}', '{hashed}')")  # nosem: intentional SQL injection pattern for scanner test
     conn.commit()
     conn.close()
 
 
 def run_system_command(cmd: str):
     # Command injection vulnerability
-    os.system(cmd)
+    os.system(cmd)  # nosem: intentional command injection surface for scanner test
 
 
 def download_config(url: str):
     # Disables TLS verification
-    resp = requests.get(url, verify=False, timeout=2)
+    resp = requests.get(url, verify=False, timeout=2)  # nosem: intentional TLS verify disable for scanner test
     return resp.text
 
 
 def unsafe_deserialize(blob: bytes):
     # Arbitrary code execution via pickle
-    return pickle.loads(blob)
+    return pickle.loads(blob)  # nosem: intentional unsafe deserialization for scanner test
 
 
 def weak_random_token(length: int = 16):
     # Predictable tokens
     alphabet = "abcdef0123456789"
-    return "".join(random.choice(alphabet) for _ in range(length))
+    return "".join(random.choice(alphabet) for _ in range(length))  # nosem: weak randomness intentional for scanner test
 
 
 def main():
