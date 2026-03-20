@@ -420,6 +420,7 @@ export function usePlanSync(): UsePlanSyncResult {
     writeMigrationDecision(userId, 'start-fresh');
     clearLegacyLocalPlannerCache();
     awaitingMigrationChoiceRef.current = false;
+    skipNextSaveRef.current = false;
     setMigrationPrompt({ isOpen: false, hasRemotePlan: hasRemotePlanRef.current });
     lastSavedSerializedRef.current = null;
     resetPlan();
