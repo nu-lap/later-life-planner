@@ -81,47 +81,127 @@ function isStatusCode(error: unknown, statusCode: number): boolean {
   return candidate.code === statusCode || candidate.statusCode === statusCode;
 }
 
-export async function getPlannerPersistenceDocument(
-  userId: string,
-): Promise<PlannerPersistenceDocument | null> {
+interface ExistingPlannerDocument {
+  document: PlannerPersistenceDocument;
+  etag: string;
+}
+
+async function readExistingPlannerDocument(userId: string): Promise<ExistingPlannerDocument | null> {
   try {
     const { resource } = await getPlannerContainer()
       .item(userId, userId)
       .read<PlannerPersistenceDocument>();
 
-    return resource ?? null;
+    if (!resource) return null;
+
+    const resourceWithMetadata = resource as PlannerPersistenceDocument & { _etag?: string };
+    if (!resourceWithMetadata._etag) {
+      throw new Error('Missing _etag on planner persistence document.');
+    }
+
+    return {
+      document: {
+        id: resource.id,
+        schemaVersion: resource.schemaVersion,
+        revision: resource.revision,
+        iv: resource.iv,
+        ciphertext: resource.ciphertext,
+        createdAt: resource.createdAt,
+        updatedAt: resource.updatedAt,
+        keyVersion: resource.keyVersion,
+        wrappedKey: resource.wrappedKey,
+      },
+      etag: resourceWithMetadata._etag,
+    };
   } catch (error) {
     if (isStatusCode(error, 404)) return null;
     throw error;
   }
 }
 
+export async function getPlannerPersistenceDocument(
+  userId: string,
+): Promise<PlannerPersistenceDocument | null> {
+  const existing = await readExistingPlannerDocument(userId);
+  return existing?.document ?? null;
+}
+
 export async function savePlannerPersistenceDocument(
   input: SavePlannerPersistenceInput,
 ): Promise<PlannerPersistenceDocument> {
-  const existing = await getPlannerPersistenceDocument(input.userId);
+  const existing = await readExistingPlannerDocument(input.userId);
+  const existingDocument = existing?.document;
+
+  if (existingDocument && typeof input.baseRevision !== 'number') {
+    throw new RevisionConflictError(existingDocument.revision);
+  }
 
   if (
-    existing &&
+    existingDocument &&
     typeof input.baseRevision === 'number' &&
-    input.baseRevision !== existing.revision
+    input.baseRevision !== existingDocument.revision
   ) {
-    throw new RevisionConflictError(existing.revision);
+    throw new RevisionConflictError(existingDocument.revision);
   }
 
   const timestamp = new Date().toISOString();
-  const nextDocument: PlannerPersistenceDocument = {
+  const container = getPlannerContainer();
+
+  if (!existingDocument) {
+    const createdDocument: PlannerPersistenceDocument = {
+      id: input.userId,
+      schemaVersion: input.schemaVersion,
+      revision: 1,
+      iv: input.iv,
+      ciphertext: input.ciphertext,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+      keyVersion: input.keyVersion,
+      wrappedKey: input.wrappedKey,
+    };
+
+    try {
+      await container.items.create(createdDocument, {
+        accessCondition: {
+          type: 'IfNoneMatch',
+          condition: '*',
+        },
+      });
+      return createdDocument;
+    } catch (error) {
+      if (isStatusCode(error, 409) || isStatusCode(error, 412)) {
+        const current = await getPlannerPersistenceDocument(input.userId);
+        throw new RevisionConflictError(current?.revision ?? 1);
+      }
+      throw error;
+    }
+  }
+
+  const updatedDocument: PlannerPersistenceDocument = {
     id: input.userId,
     schemaVersion: input.schemaVersion,
-    revision: existing ? existing.revision + 1 : 1,
+    revision: existingDocument.revision + 1,
     iv: input.iv,
     ciphertext: input.ciphertext,
-    createdAt: existing?.createdAt ?? timestamp,
+    createdAt: existingDocument.createdAt,
     updatedAt: timestamp,
-    keyVersion: input.keyVersion ?? existing?.keyVersion,
-    wrappedKey: input.wrappedKey ?? existing?.wrappedKey,
+    keyVersion: input.keyVersion ?? existingDocument.keyVersion,
+    wrappedKey: input.wrappedKey ?? existingDocument.wrappedKey,
   };
 
-  await getPlannerContainer().items.upsert(nextDocument);
-  return nextDocument;
+  try {
+    await container.item(input.userId, input.userId).replace(updatedDocument, {
+      accessCondition: {
+        type: 'IfMatch',
+        condition: existing.etag,
+      },
+    });
+    return updatedDocument;
+  } catch (error) {
+    if (isStatusCode(error, 412) || isStatusCode(error, 409)) {
+      const current = await getPlannerPersistenceDocument(input.userId);
+      throw new RevisionConflictError(current?.revision ?? existingDocument.revision);
+    }
+    throw error;
+  }
 }
