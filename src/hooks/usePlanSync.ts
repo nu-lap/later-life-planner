@@ -137,9 +137,9 @@ export function usePlanSync(): UsePlanSyncResult {
   const legacyPlanRef = useRef<PersistedPlannerState | null>(null);
 
   const queueSave = useCallback(
-    async (plan: PersistedPlannerState, serialized: string): Promise<void> => {
-      if (!userId) return;
-      if (!syncEnabledRef.current) return;
+    async (plan: PersistedPlannerState, serialized: string): Promise<boolean> => {
+      if (!userId) return false;
+      if (!syncEnabledRef.current) return false;
 
       try {
         const key = await getOrCreateUserKey(userId);
@@ -168,7 +168,7 @@ export function usePlanSync(): UsePlanSyncResult {
           setRevision(currentRevisionRef.current);
           setSaveStatus('conflict');
           setSyncError('This plan was updated elsewhere. Reload the remote version to continue.');
-          return;
+          return false;
         }
 
         if (!response.ok) {
@@ -183,9 +183,11 @@ export function usePlanSync(): UsePlanSyncResult {
         setLastSavedAt(saved.updatedAt);
         setSaveStatus('saved');
         setSyncError(null);
+        return true;
       } catch (error) {
         setSaveStatus('error');
         setSyncError(safeErrorMessage(error));
+        return false;
       }
     },
     [userId],
@@ -396,13 +398,21 @@ export function usePlanSync(): UsePlanSyncResult {
 
     skipNextSaveRef.current = true;
     hydrateCanonicalPlan(legacyPlan);
-    writeMigrationDecision(userId, 'imported');
-    clearLegacyLocalPlannerCache();
-    setMigrationPrompt({ isOpen: false, hasRemotePlan: hasRemotePlanRef.current });
-    awaitingMigrationChoiceRef.current = false;
     setSaveStatus('saving');
     setSyncError(null);
-    await queueSave(legacyPlan, JSON.stringify(legacyPlan));
+    const didSave = await queueSave(legacyPlan, JSON.stringify(legacyPlan));
+
+    if (!didSave) {
+      awaitingMigrationChoiceRef.current = true;
+      setMigrationPrompt({ isOpen: true, hasRemotePlan: hasRemotePlanRef.current });
+      return;
+    }
+
+    writeMigrationDecision(userId, 'imported');
+    clearLegacyLocalPlannerCache();
+    legacyPlanRef.current = null;
+    setMigrationPrompt({ isOpen: false, hasRemotePlan: hasRemotePlanRef.current });
+    awaitingMigrationChoiceRef.current = false;
   }, [hydrateCanonicalPlan, queueSave, userId]);
 
   const startFreshPlan = useCallback((): void => {
