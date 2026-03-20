@@ -323,7 +323,7 @@ jobs:
           EXPECTED_COSMOS_ROLE_DEF_ID="${COSMOS_ID}/sqlRoleDefinitions/${COSMOS_DATA_CONTRIBUTOR_ROLE_ID}"
 
           COSMOS_ROLE_COUNT=0
-          for attempt in 1 2 3 4 5; do
+          for _ in 1 2 3 4 5; do
             COSMOS_ROLE_COUNT=$(az cosmosdb sql role assignment list \
               --account-name "$COSMOS_ACCOUNT" \
               --resource-group "$RESOURCE_GROUP" \
@@ -345,7 +345,7 @@ jobs:
             --query id \
             -o tsv)
           KEY_VAULT_ROLE_COUNT=0
-          for attempt in 1 2 3 4 5; do
+          for _ in 1 2 3 4 5; do
             KEY_VAULT_ROLE_COUNT=$(az role assignment list \
               --assignee-object-id "$PRINCIPAL_ID" \
               --scope "$KEY_VAULT_ID" \
