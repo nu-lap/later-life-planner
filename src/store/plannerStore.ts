@@ -13,7 +13,11 @@ import {
 import { clampDateOfBirth, normalizePlanningBounds } from '@/lib/planningBounds';
 import { STATE_PENSION } from '@/config/financialConstants';
 import { LEGACY_PLANNER_STORAGE_KEY } from '@/lib/browserStorageKeys';
-import { extractPlannerUiState, hydratePlannerState } from '@/lib/persistedPlan';
+import {
+  extractPersistedPlannerState,
+  extractPlannerUiState,
+  hydratePlannerState,
+} from '@/lib/persistedPlan';
 
 type Actions = {
   setCurrentStep: (step: number) => void;
@@ -84,6 +88,19 @@ function mergePersistedPlannerState(
       },
       persistedState as Partial<PersistedPlannerState>,
     ),
+  };
+}
+
+const HAS_CLERK_SYNC = Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY);
+
+function extractLocalPersistState(state: PlannerState & Actions): PlannerState | ReturnType<typeof extractPlannerUiState> {
+  if (HAS_CLERK_SYNC) {
+    return extractPlannerUiState(state);
+  }
+
+  return {
+    ...extractPersistedPlannerState(state),
+    ...extractPlannerUiState(state),
   };
 }
 
@@ -323,7 +340,7 @@ export const usePlannerStore = create<PlannerState & Actions>()(
     {
       name: LEGACY_PLANNER_STORAGE_KEY,
       merge: mergePersistedPlannerState,
-      partialize: (state) => extractPlannerUiState(state),
+      partialize: (state) => extractLocalPersistState(state),
     }
   )
 );
