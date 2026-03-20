@@ -54,6 +54,11 @@ function decodeBase64Bytes(value: string): Uint8Array {
   return bytes;
 }
 
+function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
+  const cloned = Uint8Array.from(bytes);
+  return cloned.buffer;
+}
+
 function getSubtleCrypto(): SubtleCrypto {
   if (!globalThis.crypto?.subtle) {
     throw new Error('Web Crypto API is unavailable in this runtime.');
@@ -68,10 +73,10 @@ function getWebCrypto(): Crypto {
   return globalThis.crypto;
 }
 
-function encodeAadBytes(aad?: AdditionalAuthenticatedData): Uint8Array | undefined {
+function encodeAadBytes(aad?: AdditionalAuthenticatedData): ArrayBuffer | undefined {
   if (!aad) return undefined;
   const stablePairs = Object.entries(aad).sort(([left], [right]) => left.localeCompare(right));
-  return new TextEncoder().encode(JSON.stringify(stablePairs));
+  return toArrayBuffer(new TextEncoder().encode(JSON.stringify(stablePairs)));
 }
 
 export function bytesToBase64(bytes: Uint8Array): string {
@@ -126,7 +131,7 @@ export async function importDataEncryptionKeyFromBase64(rawKeyBase64: string): P
   const rawKeyBytes = base64ToBytes(rawKeyBase64);
   return getSubtleCrypto().importKey(
     'raw',
-    rawKeyBytes,
+    toArrayBuffer(rawKeyBytes),
     { name: 'AES-GCM', length: DATA_ENCRYPTION_KEY_LENGTH_BITS },
     false,
     ['encrypt', 'decrypt'],
@@ -138,8 +143,9 @@ export async function encryptPlannerPayload(
   key: CryptoKey,
   aad?: AdditionalAuthenticatedData,
 ): Promise<CipherPayload> {
-  const iv = getWebCrypto().getRandomValues(new Uint8Array(AES_GCM_IV_BYTE_LENGTH));
-  const plaintextBytes = new TextEncoder().encode(plaintext);
+  const ivBytes = getWebCrypto().getRandomValues(new Uint8Array(AES_GCM_IV_BYTE_LENGTH));
+  const iv = toArrayBuffer(ivBytes);
+  const plaintextBytes = toArrayBuffer(new TextEncoder().encode(plaintext));
   const additionalData = encodeAadBytes(aad);
 
   const encrypted = await getSubtleCrypto().encrypt(
@@ -154,7 +160,7 @@ export async function encryptPlannerPayload(
   );
 
   return {
-    iv: bytesToBase64(iv),
+    iv: bytesToBase64(ivBytes),
     ciphertext: bytesToBase64(new Uint8Array(encrypted)),
   };
 }
@@ -164,8 +170,8 @@ export async function decryptPlannerPayload(
   key: CryptoKey,
   aad?: AdditionalAuthenticatedData,
 ): Promise<string> {
-  const iv = base64ToBytes(payload.iv);
-  const ciphertext = base64ToBytes(payload.ciphertext);
+  const iv = toArrayBuffer(base64ToBytes(payload.iv));
+  const ciphertext = toArrayBuffer(base64ToBytes(payload.ciphertext));
   const additionalData = encodeAadBytes(aad);
 
   const decrypted = await getSubtleCrypto().decrypt(
