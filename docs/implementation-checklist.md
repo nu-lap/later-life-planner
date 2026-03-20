@@ -81,23 +81,25 @@ Priority order:
 
 ## Phase 3: Sync and Migration UX
 
-- [ ] Add a canonical planner hydration action to the Zustand store.
-- [ ] Separate domain state from UI-only state for persistence purposes.
-- [ ] Add `src/hooks/usePlanSync.ts`.
-- [ ] Load, decrypt, and hydrate planner state on authenticated startup.
-- [ ] Debounce encrypt-and-save on canonical planner state changes.
-- [ ] Add save-state UX:
-- [ ] Loading
-- [ ] Saving
-- [ ] Saved
-- [ ] Conflict
-- [ ] Error
-- [ ] Add localStorage migration prompt for legacy local plans.
-- [ ] Prevent silent overwrite of an existing remote plan.
-- [ ] Add a minimal account-data panel for lifecycle actions once the persistence core is stable.
-- [ ] Add browser-side export of canonical planner data.
-- [ ] Decide whether users can delete only planner data or must delete the full account.
-- [ ] Add self-serve delete UI only when the support and recovery path is ready.
+- [x] Add a canonical planner hydration action to the Zustand store.
+- [x] Separate domain state from UI-only state for persistence purposes.
+- [x] Add `src/hooks/usePlanSync.ts`.
+- [x] Load, decrypt, and hydrate planner state on authenticated startup.
+- [x] Debounce encrypt-and-save on canonical planner state changes.
+- [x] Add save-state UX:
+- [x] Loading
+- [x] Saving
+- [x] Saved
+- [x] Conflict
+- [x] Error
+- [x] Add localStorage migration prompt for legacy local plans.
+- [x] Prevent silent overwrite of an existing remote plan.
+- [x] Add a minimal account-data panel for lifecycle actions once the persistence core is stable.
+- [x] Add browser-side export of canonical planner data.
+- [x] Decide whether users can delete only planner data or must delete the full account.
+  Decision: keep deletion support-led in-product for now; no self-serve planner delete until recovery runbooks are validated.
+- [x] Add self-serve delete UI only when the support and recovery path is ready.
+  Current implementation: gated off and intentionally not exposed.
 
 ## Phase 4: Security and Reliability
 

@@ -20,6 +20,38 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
 
+export function parseLegacyPlannerStoragePayload(
+  rawPayload: string | null,
+  fallbackState: PlannerState,
+): PersistedPlannerState | null {
+  if (!rawPayload) return null;
+
+  let parsedPayload: unknown;
+  try {
+    parsedPayload = JSON.parse(rawPayload);
+  } catch {
+    return null;
+  }
+
+  const rootPayload = isRecord(parsedPayload)
+    ? ('state' in parsedPayload ? parsedPayload.state : parsedPayload)
+    : parsedPayload;
+
+  if (!isRecord(rootPayload)) return null;
+  const hasCanonicalDomainShape = PERSISTED_PLANNER_KEYS.some((key) => key in rootPayload);
+  if (!hasCanonicalDomainShape) return null;
+
+  const hydrated = hydratePlannerState(
+    {
+      ...fallbackState,
+      ...extractPlannerUiState(fallbackState),
+    },
+    rootPayload as Partial<PersistedPlannerState>,
+  );
+
+  return extractPersistedPlannerState(hydrated);
+}
+
 export function extractPlannerUiState(state: PlannerState): PlannerUiState {
   return {
     currentStep: state.currentStep,

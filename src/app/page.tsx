@@ -8,7 +8,11 @@ import Header from '@/components/Header';
 import StepIndicator from '@/components/StepIndicator';
 import SummaryBar from '@/components/SummaryBar';
 import DisclaimerGate from '@/components/DisclaimerGate';
+import AccountDataPanel from '@/components/AccountDataPanel';
+import MigrationPromptModal from '@/components/MigrationPromptModal';
 import { DISCLAIMER_KEY } from '@/lib/browserStorageKeys';
+import { usePlanSync } from '@/hooks/usePlanSync';
+import type { PlannerSaveStatus } from '@/models/types';
 import Step1HouseholdSetup from '@/components/steps/Step1HouseholdSetup';
 import Step1LifeVision from '@/components/steps/Step1LifeVision';
 import Step2SpendingGoals from '@/components/steps/Step2SpendingGoals';
@@ -24,8 +28,21 @@ const STEPS = [
   { label: 'Dashboard',     description: 'See your lifetime plan' },
 ];
 
-export default function Home() {
-  const hasClerkPublishableKey = Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY);
+interface PlannerShellProps {
+  saveStatus: PlannerSaveStatus;
+  authControls?: React.ReactNode;
+  isSyncReady?: boolean;
+  accountPanel?: React.ReactNode;
+  migrationPrompt?: React.ReactNode;
+}
+
+function PlannerShell({
+  saveStatus,
+  authControls,
+  isSyncReady = true,
+  accountPanel,
+  migrationPrompt,
+}: PlannerShellProps) {
   const { currentStep, maxVisitedStep, setCurrentStep, resetPlan } = usePlannerStore();
   const [accepted, setAccepted] = useState<boolean | null>(null);
 
@@ -60,12 +77,33 @@ export default function Home() {
   if (accepted === null) return null;
   if (!accepted) return <DisclaimerGate onAccept={handleAccept} />;
 
+  if (!isSyncReady) {
+    return (
+      <div className="min-h-screen flex flex-col bg-cream-100">
+        <Header
+          onReset={handleReset}
+          saveStatus={saveStatus}
+          authControls={authControls}
+        />
+        <main className="flex-1 max-w-5xl mx-auto w-full px-4 py-12">
+          <section className="game-card text-center">
+            <p className="text-xs font-bold uppercase tracking-[0.2em] text-orange-500">Secure Sync</p>
+            <h2 className="mt-2 text-2xl font-black text-slate-900">Loading your encrypted plan</h2>
+            <p className="mt-2 text-sm text-slate-500">
+              Your account data is being fetched and decrypted in this browser.
+            </p>
+          </section>
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex flex-col bg-cream-100">
       <Header
         onReset={handleReset}
-        saveStatus="local"
-        authControls={hasClerkPublishableKey ? <UserButton /> : undefined}
+        saveStatus={saveStatus}
+        authControls={authControls}
       />
 
       {/* Step navigation bar */}
@@ -85,12 +123,57 @@ export default function Home() {
         </div>
       </main>
 
+      {accountPanel ? (
+        <div className="max-w-5xl mx-auto w-full px-4 pb-6">
+          {accountPanel}
+        </div>
+      ) : null}
+
       {/* Live summary bar */}
       {currentStep < 4 && (
         <div className="sticky bottom-0 bg-white/90 backdrop-blur-sm border-t border-orange-100/60 shadow-game no-print">
           <SummaryBar />
         </div>
       )}
+
+      {migrationPrompt}
     </div>
   );
+}
+
+function AuthenticatedPlannerShell() {
+  const sync = usePlanSync();
+
+  return (
+    <PlannerShell
+      saveStatus={sync.saveStatus}
+      authControls={<UserButton />}
+      isSyncReady={sync.isSyncReady}
+      accountPanel={(
+        <AccountDataPanel
+          saveStatus={sync.saveStatus}
+          lastSavedAt={sync.lastSavedAt}
+          revision={sync.revision}
+          syncError={sync.syncError}
+          onReloadRemote={sync.reloadRemotePlan}
+          onExportPlan={sync.exportCanonicalPlan}
+        />
+      )}
+      migrationPrompt={(
+        <MigrationPromptModal
+          isOpen={sync.migrationPrompt.isOpen}
+          hasRemotePlan={sync.migrationPrompt.hasRemotePlan}
+          onImportLocal={sync.importLegacyPlan}
+          onStartFresh={sync.startFreshPlan}
+          onKeepRemote={sync.keepRemotePlan}
+        />
+      )}
+    />
+  );
+}
+
+export default function Home() {
+  const hasClerkPublishableKey = Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY);
+  if (hasClerkPublishableKey) return <AuthenticatedPlannerShell />;
+  return <PlannerShell saveStatus="local" />;
 }

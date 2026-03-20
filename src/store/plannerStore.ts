@@ -46,6 +46,7 @@ type Actions = {
   setRlssStandard: (standard: RlssStandard | null) => void;
 
   loadDemo: () => void;
+  hydrateCanonicalPlan: (persistedState: Partial<PersistedPlannerState>) => void;
   loadState: (persistedState: Partial<PersistedPlannerState>) => void;
   resetPlan: () => void;
 };
@@ -88,7 +89,7 @@ function mergePersistedPlannerState(
 
 export const usePlannerStore = create<PlannerState & Actions>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       ...createDefaultState(STATE_PENSION.DEFAULT_AGE),
 
       setCurrentStep: (step) => set((s) => ({
@@ -305,12 +306,24 @@ export const usePlannerStore = create<PlannerState & Actions>()(
       setRlssStandard: (rlssStandard) => set({ rlssStandard }),
 
       loadDemo: () => set(createMockDemoState()),
-      loadState: (persistedState) => set((s) => hydratePlannerState(s, persistedState)),
+      hydrateCanonicalPlan: (persistedState) =>
+        set((s) => ({
+          ...hydratePlannerState(
+            {
+              ...s,
+              ...extractPlannerUiState(s),
+            },
+            persistedState,
+          ),
+          ...extractPlannerUiState(s),
+        })),
+      loadState: (persistedState) => get().hydrateCanonicalPlan(persistedState),
       resetPlan: () => set(createDefaultState(STATE_PENSION.DEFAULT_AGE)),
     }),
     {
       name: LEGACY_PLANNER_STORAGE_KEY,
       merge: mergePersistedPlannerState,
+      partialize: (state) => extractPlannerUiState(state),
     }
   )
 );
