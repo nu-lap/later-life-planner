@@ -1,6 +1,10 @@
 import { describe, expect, test } from 'vitest';
 import { createDefaultState } from '@/lib/mockData';
-import { extractPersistedPlannerState, hydratePlannerState } from '@/lib/persistedPlan';
+import {
+  extractPersistedPlannerState,
+  hydratePlannerState,
+  parseLegacyPlannerStoragePayload,
+} from '@/lib/persistedPlan';
 import { MAX_PLANNING_HORIZON, MAX_SUPPORTED_CURRENT_AGE } from '@/lib/planningBounds';
 
 describe('extractPersistedPlannerState', () => {
@@ -15,6 +19,49 @@ describe('extractPersistedPlannerState', () => {
     expect(persistedState).not.toHaveProperty('maxVisitedStep');
     expect(persistedState.fiAge).toBe(state.fiAge);
     expect(persistedState.lifeVision).toBe(state.lifeVision);
+  });
+});
+
+describe('parseLegacyPlannerStoragePayload', () => {
+  test('extracts legacy Zustand persisted state payloads', () => {
+    const base = createDefaultState(57);
+    const legacy = {
+      state: {
+        ...base,
+        lifeVision: 'A long coast-to-coast train journey every year',
+        currentStep: 4,
+        maxVisitedStep: 4,
+      },
+      version: 0,
+    };
+
+    const parsed = parseLegacyPlannerStoragePayload(JSON.stringify(legacy), base);
+
+    expect(parsed).not.toBeNull();
+    expect(parsed?.lifeVision).toBe('A long coast-to-coast train journey every year');
+    expect(parsed).not.toHaveProperty('currentStep');
+    expect(parsed).not.toHaveProperty('maxVisitedStep');
+  });
+
+  test('returns null for malformed legacy payload JSON', () => {
+    const base = createDefaultState(57);
+    const parsed = parseLegacyPlannerStoragePayload('{invalid-json', base);
+    expect(parsed).toBeNull();
+  });
+
+  test('returns null for UI-only persisted payloads', () => {
+    const base = createDefaultState(57);
+    const parsed = parseLegacyPlannerStoragePayload(
+      JSON.stringify({
+        state: {
+          currentStep: 2,
+          maxVisitedStep: 3,
+        },
+        version: 0,
+      }),
+      base,
+    );
+    expect(parsed).toBeNull();
   });
 });
 

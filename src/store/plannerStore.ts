@@ -13,7 +13,11 @@ import {
 import { clampDateOfBirth, normalizePlanningBounds } from '@/lib/planningBounds';
 import { STATE_PENSION } from '@/config/financialConstants';
 import { LEGACY_PLANNER_STORAGE_KEY } from '@/lib/browserStorageKeys';
-import { extractPlannerUiState, hydratePlannerState } from '@/lib/persistedPlan';
+import {
+  extractPersistedPlannerState,
+  extractPlannerUiState,
+  hydratePlannerState,
+} from '@/lib/persistedPlan';
 
 type Actions = {
   setCurrentStep: (step: number) => void;
@@ -46,6 +50,7 @@ type Actions = {
   setRlssStandard: (standard: RlssStandard | null) => void;
 
   loadDemo: () => void;
+  hydrateCanonicalPlan: (persistedState: Partial<PersistedPlannerState>) => void;
   loadState: (persistedState: Partial<PersistedPlannerState>) => void;
   resetPlan: () => void;
 };
@@ -86,9 +91,22 @@ function mergePersistedPlannerState(
   };
 }
 
+const HAS_CLERK_SYNC = Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY);
+
+function extractLocalPersistState(state: PlannerState & Actions): PlannerState | ReturnType<typeof extractPlannerUiState> {
+  if (HAS_CLERK_SYNC) {
+    return extractPlannerUiState(state);
+  }
+
+  return {
+    ...extractPersistedPlannerState(state),
+    ...extractPlannerUiState(state),
+  };
+}
+
 export const usePlannerStore = create<PlannerState & Actions>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       ...createDefaultState(STATE_PENSION.DEFAULT_AGE),
 
       setCurrentStep: (step) => set((s) => ({
@@ -305,12 +323,24 @@ export const usePlannerStore = create<PlannerState & Actions>()(
       setRlssStandard: (rlssStandard) => set({ rlssStandard }),
 
       loadDemo: () => set(createMockDemoState()),
-      loadState: (persistedState) => set((s) => hydratePlannerState(s, persistedState)),
+      hydrateCanonicalPlan: (persistedState) =>
+        set((s) => ({
+          ...hydratePlannerState(
+            {
+              ...s,
+              ...extractPlannerUiState(s),
+            },
+            persistedState,
+          ),
+          ...extractPlannerUiState(s),
+        })),
+      loadState: (persistedState) => get().hydrateCanonicalPlan(persistedState),
       resetPlan: () => set(createDefaultState(STATE_PENSION.DEFAULT_AGE)),
     }),
     {
       name: LEGACY_PLANNER_STORAGE_KEY,
       merge: mergePersistedPlannerState,
+      partialize: (state) => extractLocalPersistState(state),
     }
   )
 );
