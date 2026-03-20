@@ -2,10 +2,7 @@
 
 import { useAuth } from '@clerk/nextjs';
 import { useEffect, useRef } from 'react';
-import {
-  getSyncKeyStorageKey,
-  getSyncMigrationDecisionStorageKey,
-} from '@/lib/browserStorageKeys';
+import { getSyncMigrationDecisionStorageKey } from '@/lib/browserStorageKeys';
 import { usePlannerStore } from '@/store/plannerStore';
 
 export default function AuthStateSync() {
@@ -27,7 +24,6 @@ export default function AuthStateSync() {
 
     const previousUserId = lastSignedInUserId.current;
     if (previousUserId) {
-      localStorage.removeItem(getSyncKeyStorageKey(previousUserId));
       localStorage.removeItem(getSyncMigrationDecisionStorageKey(previousUserId));
     }
 

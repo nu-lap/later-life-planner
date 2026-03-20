@@ -52,7 +52,7 @@ describe('AuthStateSync', () => {
       expect(usePlannerStore.getState().currentStep).toBe(0);
       expect(localStorage.getItem(LEGACY_PLANNER_STORAGE_KEY)).toBeNull();
       expect(localStorage.getItem(DISCLAIMER_KEY)).toBe('1');
-      expect(localStorage.getItem(getSyncKeyStorageKey(userId))).toBeNull();
+      expect(localStorage.getItem(getSyncKeyStorageKey(userId))).toBe('raw-key');
       expect(localStorage.getItem(getSyncMigrationDecisionStorageKey(userId))).toBeNull();
     });
   });
