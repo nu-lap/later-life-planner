@@ -57,10 +57,12 @@ Priority order:
 - [x] Enable Key Vault soft delete and purge protection.
 - [x] Decide and provision runtime Azure auth for app data access.
   Recommended: Azure Container Apps managed identity with data-plane access to Cosmos DB and Key Vault.
-- [x] Wire Azure resource identifiers and access settings into Azure Container Apps (manual update).
-- [ ] Update CI/CD to set Cosmos DB and Key Vault env vars on deploy.
-- [ ] Backfill IaC for Cosmos DB, Key Vault, and ACA managed identity (currently provisioned manually).
-- [ ] Smoke-test non-production access to Cosmos DB and Key Vault before writing persistence code.
+- [x] Wire Azure resource identifiers and access settings into Azure Container Apps.
+  Current: deployed via CI/CD `deploy` job env wiring.
+- [x] Update CI/CD to set Cosmos DB and Key Vault env vars on deploy.
+- [x] Backfill IaC for Cosmos DB, Key Vault, and ACA managed identity (currently provisioned manually).
+- [x] Smoke-test non-production access to Cosmos DB and Key Vault before writing persistence code.
+  Current: automated post-deploy `persistence-smoke-test` job validates ACA managed identity role wiring and persistence env configuration.
 - [x] Document who can run restore and deletion operations for planner data.
 - [x] Keep ACR and ACA deployment resources as-is; this phase adds persistence resources rather than changing the release platform.
 
