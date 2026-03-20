@@ -68,16 +68,16 @@ Priority order:
 
 ## Phase 2: Encrypted Persistence Backbone
 
-- [ ] Add `src/lib/crypto.ts`.
-- [ ] Add `src/lib/cosmos.ts`.
-- [ ] Add authenticated `GET /api/data`.
-- [ ] Add authenticated `PUT /api/data`.
-- [ ] Enforce identity from verified Clerk auth only.
-- [ ] Create the remote planner document only on first successful save or migration.
-- [ ] Persist ciphertext only; never persist plaintext planner data.
-- [ ] Introduce `createdAt`, `schemaVersion`, `revision`, and `updatedAt` handling.
-- [ ] Add validation for ciphertext payload shape and size.
-- [ ] Keep deletion support-led in the initial persistence release.
+- [x] Add `src/lib/crypto.ts`.
+- [x] Add `src/lib/cosmos.ts`.
+- [x] Add authenticated `GET /api/data`.
+- [x] Add authenticated `PUT /api/data`.
+- [x] Enforce identity from verified Clerk auth only.
+- [x] Create the remote planner document only on first successful save or migration.
+- [x] Persist ciphertext only; never persist plaintext planner data.
+- [x] Introduce `createdAt`, `schemaVersion`, `revision`, and `updatedAt` handling.
+- [x] Add validation for ciphertext payload shape and size.
+- [x] Keep deletion support-led in the initial persistence release.
 
 ## Phase 3: Sync and Migration UX
 
