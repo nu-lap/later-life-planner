@@ -354,10 +354,16 @@ export async function consumeApprovedWrappedDek(input: {
   const container = getPlannerContainer();
   const now = new Date().toISOString();
 
-  await container.item(doc.id, doc.id).replace(
-    { ...doc, consumedAt: now },
-    { accessCondition: { type: 'IfMatch', condition: existing.etag } },
-  );
+  try {
+    await container.item(doc.id, doc.id).replace(
+      { ...doc, consumedAt: now },
+      { accessCondition: { type: 'IfMatch', condition: existing.etag } },
+    );
+  } catch (error) {
+    // If another request consumed the package first, treat it as unavailable.
+    if (isStatusCode(error, 409) || isStatusCode(error, 412)) return null;
+    throw error;
+  }
 
   const deviceExisting = await readExistingDeviceDocument(input.userId, input.deviceId);
   if (deviceExisting && deviceExisting.document.status !== 'revoked') {
@@ -369,9 +375,14 @@ export async function consumeApprovedWrappedDek(input: {
       requestExpiresAt: null,
       lastSeenAt: now,
     };
-    await container.item(device.id, device.id).replace(updated, {
-      accessCondition: { type: 'IfMatch', condition: deviceExisting.etag },
-    });
+    try {
+      await container.item(device.id, device.id).replace(updated, {
+        accessCondition: { type: 'IfMatch', condition: deviceExisting.etag },
+      });
+    } catch {
+      // Best-effort. The wrapped DEK has already been consumed and returned to the device.
+      // Device status can be repaired on the next registration/list refresh.
+    }
   }
 
   return doc.wrappedKeyPackage;
