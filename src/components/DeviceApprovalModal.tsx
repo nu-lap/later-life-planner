@@ -5,6 +5,7 @@ interface Props {
   deviceId: string;
   requestId: string;
   expiresAt: string;
+  publicKeyFingerprint: string;
   error: string | null;
   onClose: () => void;
 }
@@ -20,12 +21,19 @@ export default function DeviceApprovalModal({
   deviceId,
   requestId,
   expiresAt,
+  publicKeyFingerprint,
   error,
   onClose,
 }: Props) {
   if (!isOpen) return null;
 
-  const codePayload = JSON.stringify({ deviceId, requestId, expiresAt });
+  const codePayload = JSON.stringify({
+    v: 1,
+    deviceId,
+    requestId,
+    expiresAt,
+    publicKeyFingerprint,
+  });
 
   return (
     <div
@@ -70,4 +78,3 @@ export default function DeviceApprovalModal({
     </div>
   );
 }
-

@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import type { PlannerSaveStatus } from '@/models/types';
 import type { DeviceRegistrationDocument } from '@/lib/cosmos';
 
@@ -12,7 +13,7 @@ interface Props {
   onReloadRemote: () => void | Promise<void>;
   onExportPlan: () => void;
   onRefreshDevices: () => void | Promise<void>;
-  onApproveDevice: (deviceId: string) => void | Promise<void>;
+  onApproveDevice: (approvalCode: string) => void | Promise<void>;
 }
 
 function formatTimestamp(value: string | null): string {
@@ -33,6 +34,9 @@ export default function AccountDataPanel({
   onRefreshDevices,
   onApproveDevice,
 }: Props) {
+  const [approvalCode, setApprovalCode] = useState('');
+  const [approvalError, setApprovalError] = useState<string | null>(null);
+
   const pendingDevices = devices.filter((device) => (
     device.status === 'pending' &&
     typeof device.requestId === 'string' &&
@@ -95,6 +99,44 @@ export default function AccountDataPanel({
           </button>
         </div>
 
+        <div className="mt-3 rounded-2xl border border-slate-200 bg-white p-3">
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Approve a device</p>
+          <p className="mt-1 text-xs text-slate-600">
+            Paste the approval code shown on the new device, then approve.
+          </p>
+          <textarea
+            value={approvalCode}
+            onChange={(event) => {
+              setApprovalCode(event.target.value);
+              setApprovalError(null);
+            }}
+            className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 font-mono text-xs text-slate-800"
+            rows={3}
+            placeholder='{"v":1,"deviceId":"...","requestId":"...","expiresAt":"...","publicKeyFingerprint":"..."}'
+          />
+          {approvalError && (
+            <p className="mt-2 rounded-xl border border-rose-100 bg-rose-50 px-3 py-2 text-xs text-rose-700">
+              {approvalError}
+            </p>
+          )}
+          <div className="mt-2 flex justify-end">
+            <button
+              onClick={async () => {
+                try {
+                  await onApproveDevice(approvalCode);
+                  setApprovalCode('');
+                  setApprovalError(null);
+                } catch (error) {
+                  setApprovalError(error instanceof Error ? error.message : 'Failed to approve device.');
+                }
+              }}
+              className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-bold text-emerald-700 hover:bg-emerald-100"
+            >
+              Approve
+            </button>
+          </div>
+        </div>
+
         {pendingDevices.length === 0 ? (
           <p className="mt-3 text-sm text-slate-600">No pending device approvals.</p>
         ) : (
@@ -112,12 +154,6 @@ export default function AccountDataPanel({
                     Device ID: <span className="font-mono">{device.deviceId}</span>
                   </p>
                 </div>
-                <button
-                  onClick={() => onApproveDevice(device.deviceId)}
-                  className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-bold text-emerald-700 hover:bg-emerald-100"
-                >
-                  Approve
-                </button>
               </div>
             ))}
           </div>

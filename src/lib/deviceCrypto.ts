@@ -25,6 +25,15 @@ function normalizeHpkeBytes(value: Uint8Array | ArrayBuffer): Uint8Array {
   return value instanceof ArrayBuffer ? new Uint8Array(value) : value;
 }
 
+export async function publicKeyFingerprintB64(publicKeyB64: string): Promise<string> {
+  const bytes = Uint8Array.from(base64ToBytes(publicKeyB64));
+  if (!globalThis.crypto?.subtle) {
+    throw new Error('Web Crypto API is unavailable in this runtime.');
+  }
+  const digest = await globalThis.crypto.subtle.digest('SHA-256', bytes);
+  return bytesToBase64(new Uint8Array(digest));
+}
+
 export function hpkeSuite() {
   return new CipherSuite({
     kem: new DhkemX25519HkdfSha256(),

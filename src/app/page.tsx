@@ -177,6 +177,7 @@ function AuthenticatedPlannerShell() {
             deviceId={sync.deviceApprovalPrompt.deviceId}
             requestId={sync.deviceApprovalPrompt.requestId}
             expiresAt={sync.deviceApprovalPrompt.expiresAt}
+            publicKeyFingerprint={sync.deviceApprovalPrompt.publicKeyFingerprint}
             error={sync.deviceApprovalPrompt.error}
             onClose={sync.closeDeviceApprovalPrompt}
           />

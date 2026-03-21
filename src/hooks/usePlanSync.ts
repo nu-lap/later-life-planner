@@ -2,6 +2,7 @@
 
 import { useAuth } from '@clerk/nextjs';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { z } from 'zod';
 import { STATE_PENSION } from '@/config/financialConstants';
 import {
   base64ToBytes,
@@ -30,6 +31,7 @@ import {
   getUserDekB64,
   hpkeSealForRecipient,
   plannerDekWrapAad,
+  publicKeyFingerprintB64,
   setUserDekB64,
   unwrapDekToBase64,
 } from '@/lib/deviceCrypto';
@@ -67,6 +69,7 @@ interface DeviceApprovalPromptState {
   deviceId: string;
   requestId: string;
   expiresAt: string;
+  publicKeyFingerprint: string;
   error: string | null;
 }
 
@@ -80,7 +83,7 @@ interface UsePlanSyncResult {
   deviceApprovalPrompt: DeviceApprovalPromptState;
   devices: DeviceRegistrationDocument[];
   refreshDevices: () => Promise<void>;
-  approvePendingDevice: (deviceId: string) => Promise<void>;
+  approvePendingDevice: (approvalCode: string) => Promise<void>;
   closeDeviceApprovalPrompt: () => void;
   reloadRemotePlan: () => Promise<void>;
   importLegacyPlan: () => Promise<void>;
@@ -88,6 +91,14 @@ interface UsePlanSyncResult {
   keepRemotePlan: () => void;
   exportCanonicalPlan: () => void;
 }
+
+const ApprovalCodeSchema = z.object({
+  v: z.literal(1),
+  deviceId: z.string().min(8).max(128),
+  requestId: z.string().min(8).max(128),
+  expiresAt: z.string().min(10).max(64),
+  publicKeyFingerprint: z.string().min(16).max(128),
+});
 
 function plannerAad(userId: string): Record<string, string | number> {
   return {
@@ -147,6 +158,7 @@ export function usePlanSync(): UsePlanSyncResult {
     deviceId: '',
     requestId: '',
     expiresAt: '',
+    publicKeyFingerprint: '',
     error: null,
   });
   const [devices, setDevices] = useState<DeviceRegistrationDocument[]>([]);
@@ -236,16 +248,45 @@ export function usePlanSync(): UsePlanSyncResult {
     setDevices(list);
   }, [userId]);
 
-  const approvePendingDevice = useCallback(async (deviceId: string): Promise<void> => {
+  const approvePendingDevice = useCallback(async (approvalCode: string): Promise<void> => {
     if (!userId) return;
     const dekB64 = await getUserDekB64(userId);
     if (!dekB64) {
       throw new Error('This device cannot approve others until it has access to the saved plan.');
     }
 
-    const target = devices.find((candidate) => candidate.deviceId === deviceId);
+    const trimmed = approvalCode.trim();
+    if (!trimmed) {
+      throw new Error('Approval code is required.');
+    }
+
+    let parsedJson: unknown;
+    try {
+      parsedJson = JSON.parse(trimmed) as unknown;
+    } catch {
+      throw new Error('Invalid approval code.');
+    }
+
+    const parsed = ApprovalCodeSchema.safeParse(parsedJson);
+    if (!parsed.success) {
+      throw new Error('Invalid approval code.');
+    }
+
+    const code = parsed.data;
+    const target = devices.find((candidate) => candidate.deviceId === code.deviceId);
     if (!target || !target.requestId || !target.requestExpiresAt) {
       throw new Error('Device approval request not found.');
+    }
+    if (target.requestId !== code.requestId || target.requestExpiresAt !== code.expiresAt) {
+      throw new Error('Approval code does not match the pending device request.');
+    }
+    if (new Date(target.requestExpiresAt).getTime() <= Date.now()) {
+      throw new Error('Approval request expired.');
+    }
+
+    const expectedFingerprint = await publicKeyFingerprintB64(target.publicKey);
+    if (expectedFingerprint !== code.publicKeyFingerprint) {
+      throw new Error('Approval code does not match the device key fingerprint.');
     }
 
     const aadBytes = plannerDekWrapAad({
@@ -374,11 +415,13 @@ export function usePlanSync(): UsePlanSyncResult {
           const deviceKeyPair = await getOrCreateDeviceKeyPair(userId);
           const approval = createApprovalRequest(DEVICE_APPROVAL_TTL_MS);
 
+          const fingerprint = await publicKeyFingerprintB64(deviceKeyPair.publicKeyB64);
           setDeviceApprovalPrompt({
             isOpen: true,
             deviceId,
             requestId: approval.requestId,
             expiresAt: approval.expiresAt,
+            publicKeyFingerprint: fingerprint,
             error: null,
           });
 
@@ -536,6 +579,7 @@ export function usePlanSync(): UsePlanSyncResult {
         deviceId: '',
         requestId: '',
         expiresAt: '',
+        publicKeyFingerprint: '',
         error: null,
       });
       setDevices([]);
