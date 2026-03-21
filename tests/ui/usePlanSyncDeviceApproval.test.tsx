@@ -200,4 +200,30 @@ describe('usePlanSync device approval', () => {
 
     view.unmount();
   });
+
+  test('falls back to local mode with a clear error when IndexedDB is unavailable', async () => {
+    mockUseAuth.mockReturnValue({ isLoaded: true, userId: 'user_123' });
+
+    const originalIndexedDb = (globalThis as unknown as { indexedDB?: IDBFactory }).indexedDB;
+    Object.defineProperty(globalThis, 'indexedDB', { value: undefined, configurable: true });
+
+    const fetchMock = vi.fn(async () => new Response('Unexpected', { status: 500 }));
+    // @ts-expect-error test override
+    globalThis.fetch = fetchMock;
+
+    try {
+      const view = render(<Harness />);
+
+      await waitFor(() => {
+        expect(view.getByTestId('status').textContent).toBe('local');
+        expect(view.getByTestId('approval-open').textContent).toBe('no');
+        expect(view.getByTestId('error').textContent).toContain('IndexedDB');
+      });
+
+      expect(fetchMock).not.toHaveBeenCalled();
+      view.unmount();
+    } finally {
+      Object.defineProperty(globalThis, 'indexedDB', { value: originalIndexedDb, configurable: true });
+    }
+  });
 });

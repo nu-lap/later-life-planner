@@ -43,6 +43,7 @@ import { createDefaultState } from '@/lib/mockData';
 import type { PersistedPlannerState, PlannerSaveStatus, PlannerState } from '@/models/types';
 import { usePlannerStore } from '@/store/plannerStore';
 import type { DeviceRegistrationDocument, WrappedDekPackage } from '@/lib/cosmos';
+import { probeIndexedDb } from '@/lib/indexedDbKv';
 
 const SAVE_DEBOUNCE_MS = 900;
 const DEVICE_APPROVAL_TTL_MS = 10 * 60 * 1000;
@@ -172,11 +173,30 @@ export function usePlanSync(): UsePlanSyncResult {
   const awaitingMigrationChoiceRef = useRef(false);
   const legacyPlanRef = useRef<PersistedPlannerState | null>(null);
   const deviceApprovalIntervalRef = useRef<number | null>(null);
+  const indexedDbAvailableRef = useRef<boolean | null>(null);
+
+  const ensureKeyStorageAvailable = useCallback(async (): Promise<boolean> => {
+    if (indexedDbAvailableRef.current === true) return true;
+    if (indexedDbAvailableRef.current === false) return false;
+
+    const ok = await probeIndexedDb();
+    indexedDbAvailableRef.current = ok;
+    if (!ok) {
+      syncEnabledRef.current = false;
+      setSaveStatus('local');
+      setSyncError(
+        'Plan sync is unavailable because this browser blocks IndexedDB (site storage). Use a non-private window or allow site storage, then reload.',
+      );
+      setIsSyncReady(true);
+    }
+    return ok;
+  }, []);
 
   const queueSave = useCallback(
     async (plan: PersistedPlannerState, serialized: string): Promise<boolean> => {
       if (!userId) return false;
       if (!syncEnabledRef.current) return false;
+      if (!(await ensureKeyStorageAvailable())) return false;
 
       try {
         let dekB64 = await getUserDekB64(userId);
@@ -237,7 +257,7 @@ export function usePlanSync(): UsePlanSyncResult {
         return false;
       }
     },
-    [userId],
+    [ensureKeyStorageAvailable, userId],
   );
 
   const refreshDevices = useCallback(async (): Promise<void> => {
@@ -348,6 +368,7 @@ export function usePlanSync(): UsePlanSyncResult {
         setIsSyncReady(true);
         return;
       }
+      if (!(await ensureKeyStorageAvailable())) return;
 
       const sequenceId = loadSequenceRef.current + 1;
       loadSequenceRef.current = sequenceId;
@@ -561,7 +582,7 @@ export function usePlanSync(): UsePlanSyncResult {
         syncEnabledRef.current = false;
       }
     },
-    [hydrateCanonicalPlan, refreshDevices, userId],
+    [ensureKeyStorageAvailable, hydrateCanonicalPlan, refreshDevices, userId],
   );
 
   useEffect(() => {

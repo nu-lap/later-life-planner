@@ -6,7 +6,13 @@ const DB_VERSION = 1;
 
 function openDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, DB_VERSION);
+    let request: IDBOpenDBRequest;
+    try {
+      request = indexedDB.open(DB_NAME, DB_VERSION);
+    } catch (error) {
+      reject(error instanceof Error ? error : new Error('Failed to open IndexedDB.'));
+      return;
+    }
     request.onupgradeneeded = () => {
       const db = request.result;
       if (!db.objectStoreNames.contains(STORE_NAME)) {
@@ -16,6 +22,17 @@ function openDb(): Promise<IDBDatabase> {
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error ?? new Error('Failed to open IndexedDB.'));
   });
+}
+
+export async function probeIndexedDb(): Promise<boolean> {
+  if (typeof indexedDB === 'undefined') return false;
+  try {
+    const db = await openDb();
+    db.close();
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 async function withStore<T>(
