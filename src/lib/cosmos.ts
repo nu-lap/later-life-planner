@@ -281,7 +281,6 @@ export async function approveDeviceWrappedDek(input: {
   deviceId: string;
   requestId: string;
   wrappedKeyPackage: WrappedDekPackage;
-  expiresAt: string;
 }): Promise<void> {
   const now = new Date().toISOString();
   const container = getPlannerContainer();
@@ -312,7 +311,7 @@ export async function approveDeviceWrappedDek(input: {
     deviceId: input.deviceId,
     requestId: input.requestId,
     wrappedKeyPackage: input.wrappedKeyPackage,
-    expiresAt: input.expiresAt,
+    expiresAt: device.requestExpiresAt,
     createdAt: now,
     consumedAt: null,
   };

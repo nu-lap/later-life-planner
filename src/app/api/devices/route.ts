@@ -5,7 +5,7 @@ import {
   listDeviceRegistrations,
   upsertDeviceRegistration,
 } from '@/lib/cosmos';
-import { isValidBase64 } from '@/lib/crypto';
+import { isExpectedBase64ByteLength, isValidBase64 } from '@/lib/crypto';
 import { rateLimit } from '@/lib/rateLimit';
 
 const DeviceIdSchema = z.string().min(8).max(128);
@@ -18,6 +18,15 @@ const PostPayloadSchema = z.object({
   label: z.string().min(1).max(64).optional(),
 }).superRefine((value, ctx) => {
   if (!isValidBase64(value.publicKey)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['publicKey'],
+      message: 'Invalid publicKey payload.',
+    });
+    return;
+  }
+
+  if (!isExpectedBase64ByteLength(value.publicKey, 32)) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       path: ['publicKey'],

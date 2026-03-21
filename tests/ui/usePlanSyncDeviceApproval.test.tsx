@@ -120,6 +120,9 @@ describe('usePlanSync device approval', () => {
   test('closes approval prompt after wrapped DEK is fetched and remote plan decrypts', async () => {
     mockUseAuth.mockReturnValue({ isLoaded: true, userId: 'user_123' });
 
+    const nowMs = 1_700_000_000_000;
+    vi.spyOn(Date, 'now').mockReturnValue(nowMs);
+
     const devicePublicKeyB64 = 'AAAA';
     const devicePrivateKeyB64 = 'AAAA';
     await idbSet('llp.deviceKeypair.user_123', { publicKeyB64: devicePublicKeyB64, privateKeyB64: devicePrivateKeyB64 });
@@ -128,7 +131,7 @@ describe('usePlanSync device approval', () => {
     const plan = extractPersistedPlannerState(createDefaultState(STATE_PENSION.DEFAULT_AGE));
     mockDecryptedPlan = plan;
 
-    const expiresAt = new Date(Date.now() + 10 * 60_000).toISOString();
+    const expiresAt = new Date(nowMs + 10 * 60_000).toISOString();
     const aadBytes = plannerDekWrapAad({
       userId: 'user_123',
       deviceId: 'device-abc',

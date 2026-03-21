@@ -34,7 +34,6 @@ export async function approveDevice(input: {
   deviceId: string;
   requestId: string;
   wrappedKeyPackage: WrappedDekPackage;
-  expiresAt: string;
 }): Promise<void> {
   const response = await fetch(`/api/devices/${encodeURIComponent(input.deviceId)}/approve`, {
     method: 'POST',
@@ -42,7 +41,6 @@ export async function approveDevice(input: {
     body: JSON.stringify({
       requestId: input.requestId,
       wrappedKeyPackage: input.wrappedKeyPackage,
-      expiresAt: input.expiresAt,
     }),
   });
 
@@ -63,4 +61,3 @@ export async function fetchWrappedDek(input: {
   const body = await response.json() as { wrappedKeyPackage: WrappedDekPackage };
   return body.wrappedKeyPackage;
 }
-

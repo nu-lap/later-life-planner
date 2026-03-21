@@ -36,7 +36,6 @@ const WrappedDekPackageSchema = z.object({
 const PostPayloadSchema = z.object({
   requestId: z.string().min(8).max(128),
   wrappedKeyPackage: WrappedDekPackageSchema,
-  expiresAt: z.string().min(10).max(64),
 });
 
 function jsonError(message: string, status: number) {
@@ -80,15 +79,11 @@ export async function POST(
       return jsonError('Invalid request payload.', 400);
     }
 
-    const expiresAt = new Date(parsed.data.expiresAt);
-    if (Number.isNaN(expiresAt.getTime())) return jsonError('Invalid request payload.', 400);
-
     await approveDeviceWrappedDek({
       userId,
       deviceId,
       requestId: parsed.data.requestId,
       wrappedKeyPackage: parsed.data.wrappedKeyPackage as WrappedDekPackage,
-      expiresAt: expiresAt.toISOString(),
     });
 
     return new Response(null, { status: 204 });

@@ -282,7 +282,6 @@ export function usePlanSync(): UsePlanSyncResult {
       deviceId: target.deviceId,
       requestId: target.requestId,
       wrappedKeyPackage,
-      expiresAt: target.requestExpiresAt,
     });
 
     await refreshDevices();
@@ -410,11 +409,30 @@ export function usePlanSync(): UsePlanSyncResult {
 
               try {
                 const pkg = await fetchWrappedDek({ deviceId, requestId: approval.requestId });
+                if (pkg.v !== 1) {
+                  throw new Error('Unsupported wrapped key package version.');
+                }
+                if (pkg.deviceId !== deviceId || pkg.requestId !== approval.requestId) {
+                  throw new Error('Wrapped key package context mismatch.');
+                }
+
+                const expectedAadBytes = plannerDekWrapAad({
+                  userId,
+                  deviceId,
+                  requestId: approval.requestId,
+                  schemaVersion: PLANNER_SCHEMA_VERSION,
+                  expiresAt: approval.expiresAt,
+                });
+                const expectedAadB64 = bytesToBase64(expectedAadBytes);
+                if (pkg.aad !== expectedAadB64) {
+                  throw new Error('Wrapped key package AAD mismatch.');
+                }
+
                 const openedDekB64 = await unwrapDekToBase64({
                   recipientPrivateKeyB64: deviceKeyPair.privateKeyB64,
                   encB64: pkg.enc,
                   ciphertextB64: pkg.ciphertext,
-                  aad: base64ToBytes(pkg.aad),
+                  aad: expectedAadBytes,
                 });
 
                 await setUserDekB64(userId, openedDekB64);
