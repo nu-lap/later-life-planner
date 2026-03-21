@@ -27,9 +27,45 @@ async function withStore<T>(
     const tx = db.transaction(STORE_NAME, mode);
     const store = tx.objectStore(STORE_NAME);
     const request = fn(store);
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error ?? new Error('IndexedDB request failed.'));
-    tx.onabort = () => reject(tx.error ?? new Error('IndexedDB transaction aborted.'));
+
+    let hasResult = false;
+    let result: T;
+    let settled = false;
+
+    const safeReject = (error: unknown) => {
+      if (settled) return;
+      settled = true;
+      try {
+        db.close();
+      } catch {
+        // ignore
+      }
+      reject(error);
+    };
+
+    request.onsuccess = () => {
+      hasResult = true;
+      result = request.result;
+    };
+    request.onerror = () => safeReject(request.error ?? new Error('IndexedDB request failed.'));
+
+    tx.oncomplete = () => {
+      if (settled) return;
+      settled = true;
+      try {
+        db.close();
+      } catch {
+        // ignore
+      }
+      if (!hasResult) {
+        reject(new Error('IndexedDB transaction completed without a result.'));
+        return;
+      }
+      resolve(result);
+    };
+
+    tx.onerror = () => safeReject(tx.error ?? new Error('IndexedDB transaction failed.'));
+    tx.onabort = () => safeReject(tx.error ?? new Error('IndexedDB transaction aborted.'));
   });
 }
 
@@ -48,4 +84,3 @@ export async function idbDel(key: string): Promise<void> {
   if (typeof indexedDB === 'undefined') return;
   await withStore('readwrite', (store) => store.delete(key));
 }
-
