@@ -26,7 +26,7 @@ This plan does not cover:
 - encrypted blob storage format
 - Cosmos DB data model
 - browser crypto implementation
-- Key Vault integration
+- device key sharing / key-management implementation
 
 Those belong to `docs/storage-plan.md` and `docs/security-decisions.md`.
 
@@ -145,10 +145,11 @@ Rationale:
 When an authenticated user opens the planner:
 
 1. Show a loading shell
-2. Fetch the encrypted saved plan
-3. Decrypt in the browser
-4. Hydrate the planner state
-5. Render the planner
+2. If the device is not yet authorized, show a device approval prompt and block decryption until approval completes
+3. Fetch the encrypted saved plan
+4. Decrypt in the browser
+5. Hydrate the planner state
+6. Render the planner
 
 If no saved plan exists:
 

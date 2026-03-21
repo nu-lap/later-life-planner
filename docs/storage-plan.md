@@ -43,7 +43,7 @@ Architecture:
 Ship one storage mode first:
 
 - encrypted blob persistence with Cosmos DB
-- wrapped-key model for key management
+- device-to-device DEK sharing using per-device wrapping (HPKE)
 
 Defer passphrase-based stronger E2EE to a later version.
 
@@ -78,8 +78,6 @@ Create the persisted planner document only on:
   "id": "user_xxx",
   "schemaVersion": 1,
   "revision": 7,
-  "keyVersion": 1,
-  "wrappedKey": "base64...",
   "iv": "base64...",
   "ciphertext": "base64...",
   "createdAt": "2026-03-13T11:00:00Z",
@@ -92,8 +90,6 @@ Create the persisted planner document only on:
 - `id`: Clerk user id
 - `schemaVersion`: planner data schema version
 - `revision`: optimistic concurrency counter
-- `keyVersion`: wrapped-key version for rotation
-- `wrappedKey`: wrapped data key or key reference metadata
 - `iv`: AES-GCM IV for the encrypted payload
 - `ciphertext`: encrypted planner payload
 - `createdAt`: document creation timestamp
@@ -178,14 +174,15 @@ Recommended:
 
 ### Version 1
 
-Use a wrapped-key model:
+Use per-device DEK wrapping and explicit device approval:
 
-1. Browser generates a random data key
-2. Server uses Azure Key Vault to wrap it
-3. Wrapped key is stored with the encrypted document
-4. On later sessions, the wrapped key is recovered and unwrapped via the authorized path
+1. Browser generates a per-user DEK and uses it to encrypt planner state (AES-GCM).
+2. Each device has its own keypair.
+3. To authorize a device, an already-authorized device wraps the DEK to the new device using HPKE (RFC 9180).
+4. The server stores only the wrapped DEK package as ciphertext; it does not need a wrap/unwrap oracle.
+5. On later sessions, an authorized device recovers the DEK by unwrapping its device-specific package locally.
 
-This is the pragmatic v1 model.
+See `docs/device-to-device.md` for the full flow, wrapped package format, and API requirements.
 
 ### Deferred Version 2
 
@@ -381,8 +378,7 @@ Current provisioned backup policy:
 - local redundancy
 
 This means point-in-time restore is not currently available. If PITR is required for production, switch to continuous 7-day and update the runbooks.
-- Azure Key Vault soft delete and purge protection for the application key vault
-- Azure activity logs and diagnostics for restore actions and key operations
+- Azure activity logs and diagnostics for restore actions and persistence operations
 
 Later phases can additionally use:
 
@@ -399,7 +395,7 @@ Initial ownership model:
 
 - operators: Azure AD group `nxlap-data-ops` (initial members: engineering lead + one designated backup operator)
 - approvals: any restore or deletion workflow requires explicit human approval, not just automated jobs
-- access control: use Azure RBAC roles scoped to the specific Cosmos account and Key Vault, preferably with time-bounded access
+- access control: use Azure RBAC roles scoped to the specific Cosmos account, preferably with time-bounded access
 
 This prevents accidental restores into production and creates a clear accountability trail.
 
@@ -417,7 +413,7 @@ They need documented runbooks, narrow permissions, and auditable approvals.
 | --- | --- | --- | --- |
 | Accidental overwrite or corruption of planner data | Cosmos DB periodic backup restore | Restore the latest periodic backup (RPO up to 4 hours) into a recovery account, then manually extract the user's encrypted document only after approval | Switch to continuous 7-day for PITR and add a scripted extraction workflow |
 | Accidental deletion of a database or container | Cosmos DB periodic backup restore | Restore from periodic backup into a recovery account and manually copy the needed data | Switch to continuous backup to unlock same-account restore and add alerting/restore drills |
-| Accidental deletion of wrap/unwrap key material | Key Vault soft delete and purge protection | Enable both at vault creation and recover deleted key versions instead of recreating keys | Add a formal key-rotation and rewrap runbook |
+| Accidental deletion of device records or wrapped DEK packages | Cosmos DB backup restore | Restore the relevant device and wrapped-DEK package documents from backup, or re-run device approval from an existing authorized device | Add device revocation UI and a scripted DEK rotation workflow |
 | User-requested deletion | Live Cosmos document deletion plus backup expiry | Delete the active document promptly and let backup copies age out within the configured retention window | Add a deletion ledger, self-serve delete UI, and automated purge safeguards |
 | Inactive-user purge | Cosmos TTL or scheduled purge worker | Defer from the initial release | Add warning notices, a retention policy, and TTL-driven cleanup if justified |
 
@@ -569,9 +565,8 @@ Export should be produced in the browser from decrypted canonical planner data w
 
 ### Phase 1.5: Azure persistence infrastructure
 
-- create Cosmos DB and Key Vault resources
+- create Cosmos DB resources
 - choose the Cosmos continuous backup tier
-- enable Key Vault purge protection
 - document who is allowed to run restore and delete operations
 
 ### Phase 2: encrypted persistence MVP
