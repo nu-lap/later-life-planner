@@ -9,8 +9,6 @@ import {
   bytesToBase64,
   decryptPlannerState,
   encryptPlannerState,
-  exportDataEncryptionKeyToBase64,
-  generateDataEncryptionKey,
   importDataEncryptionKeyFromBase64,
   PLANNER_SCHEMA_VERSION,
 } from '@/lib/crypto';
@@ -182,8 +180,11 @@ export function usePlanSync(): UsePlanSyncResult {
       try {
         let dekB64 = await getUserDekB64(userId);
         if (!dekB64) {
-          const created = await generateDataEncryptionKey();
-          dekB64 = await exportDataEncryptionKeyToBase64(created);
+          if (!globalThis.crypto?.getRandomValues) {
+            throw new Error('Web Crypto API is unavailable in this runtime.');
+          }
+          const created = globalThis.crypto.getRandomValues(new Uint8Array(32));
+          dekB64 = bytesToBase64(created);
           await setUserDekB64(userId, dekB64);
         }
 
