@@ -316,9 +316,15 @@ export async function approveDeviceWrappedDek(input: {
     consumedAt: null,
   };
 
-  await container.items.create(wrappedDoc, {
-    accessCondition: { type: 'IfNoneMatch', condition: '*' },
-  });
+  try {
+    await container.items.create(wrappedDoc, {
+      accessCondition: { type: 'IfNoneMatch', condition: '*' },
+    });
+  } catch (error) {
+    // Approval is safe to retry. If the wrapped package already exists, treat it as success.
+    if (isStatusCode(error, 409) || isStatusCode(error, 412)) return;
+    throw error;
+  }
 }
 
 async function readExistingWrappedDekDocument(
