@@ -16,6 +16,7 @@ import {
 import {
   LEGACY_PLANNER_STORAGE_KEY,
   getSyncMigrationDecisionStorageKey,
+  getSyncKeyStorageKey,
 } from '@/lib/browserStorageKeys';
 import {
   approveDevice,
@@ -368,7 +369,21 @@ export function usePlanSync(): UsePlanSyncResult {
         setRevision(remotePlan.revision);
         setLastSavedAt(remotePlan.updatedAt);
 
-        const dekB64 = await getUserDekB64(userId);
+        let dekB64 = await getUserDekB64(userId);
+        if (!dekB64) {
+          const legacyDek = localStorage.getItem(getSyncKeyStorageKey(userId));
+          if (legacyDek) {
+            try {
+              // Validate the legacy key material before promoting it into IndexedDB.
+              await importDataEncryptionKeyFromBase64(legacyDek);
+              await setUserDekB64(userId, legacyDek);
+              localStorage.removeItem(getSyncKeyStorageKey(userId));
+              dekB64 = legacyDek;
+            } catch {
+              // If it's malformed, treat it as missing and fall back to approval flow.
+            }
+          }
+        }
         if (!dekB64) {
           const deviceId = await getOrCreateDeviceId(userId);
           const deviceKeyPair = await getOrCreateDeviceKeyPair(userId);
