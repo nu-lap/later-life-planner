@@ -10,6 +10,7 @@ import { isExpectedBase64ByteLength, isValidBase64 } from '@/lib/crypto';
 import { rateLimit } from '@/lib/rateLimit';
 
 const DeviceIdSchema = z.string().min(8).max(128);
+const DEVICE_APPROVAL_TTL_MS = 10 * 60 * 1000;
 
 const PostPayloadSchema = z.object({
   deviceId: DeviceIdSchema,
@@ -76,10 +77,8 @@ export async function POST(request: Request) {
       return jsonError('Invalid request payload.', 400);
     }
 
-    const expiresAt = new Date(parsed.data.requestExpiresAt);
-    if (Number.isNaN(expiresAt.getTime())) {
-      return jsonError('Invalid request payload.', 400);
-    }
+    const now = Date.now();
+    const expiresAt = new Date(now + DEVICE_APPROVAL_TTL_MS);
 
     const created = await upsertDeviceRegistration({
       userId,

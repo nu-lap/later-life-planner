@@ -19,7 +19,12 @@ export async function registerDevice(input: {
   requestId: string;
   requestExpiresAt: string;
   label?: string;
-}): Promise<void> {
+}): Promise<{
+  deviceId: string;
+  status: string;
+  requestId: string | null;
+  requestExpiresAt: string | null;
+}> {
   const response = await fetch('/api/devices', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -28,6 +33,13 @@ export async function registerDevice(input: {
   if (!response.ok) {
     throw new Error(`Device registration failed (${response.status}).`);
   }
+  const body = await response.json() as {
+    deviceId: string;
+    status: string;
+    requestId: string | null;
+    requestExpiresAt: string | null;
+  };
+  return body;
 }
 
 export async function approveDevice(input: {

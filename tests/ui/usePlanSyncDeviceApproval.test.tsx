@@ -90,7 +90,13 @@ describe('usePlanSync device approval', () => {
       }
 
       if (url.endsWith('/api/devices') && init?.method === 'POST') {
-        return new Response('{}', { status: 200 });
+        const parsed = init.body ? JSON.parse(init.body.toString()) as { deviceId: string; requestId: string; requestExpiresAt: string } : null;
+        return new Response(JSON.stringify({
+          deviceId: parsed?.deviceId ?? 'device-abc',
+          status: 'pending',
+          requestId: parsed?.requestId ?? 'req-uuid',
+          requestExpiresAt: parsed?.requestExpiresAt ?? new Date().toISOString(),
+        }), { status: 200 });
       }
 
       if (url.endsWith('/api/devices') && (!init?.method || init.method === 'GET')) {
@@ -160,7 +166,13 @@ describe('usePlanSync device approval', () => {
       }
 
       if (url.endsWith('/api/devices') && init?.method === 'POST') {
-        return new Response('{}', { status: 200 });
+        const parsed = init.body ? JSON.parse(init.body.toString()) as { deviceId: string; requestId: string; requestExpiresAt: string } : null;
+        return new Response(JSON.stringify({
+          deviceId: parsed?.deviceId ?? 'device-abc',
+          status: 'pending',
+          requestId: parsed?.requestId ?? 'req-uuid',
+          requestExpiresAt: parsed?.requestExpiresAt ?? new Date().toISOString(),
+        }), { status: 200 });
       }
 
       if (url.endsWith('/api/devices') && (!init?.method || init.method === 'GET')) {

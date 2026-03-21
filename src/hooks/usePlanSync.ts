@@ -437,22 +437,23 @@ export function usePlanSync(): UsePlanSyncResult {
           const deviceId = await getOrCreateDeviceId(userId);
           const deviceKeyPair = await getOrCreateDeviceKeyPair(userId);
           const approval = createApprovalRequest(DEVICE_APPROVAL_TTL_MS);
+          const registration = await registerDevice({
+            deviceId,
+            publicKey: deviceKeyPair.publicKeyB64,
+            requestId: approval.requestId,
+            requestExpiresAt: approval.expiresAt,
+          });
+
+          const requestExpiresAt = registration.requestExpiresAt ?? approval.expiresAt;
 
           const fingerprint = await publicKeyFingerprintB64(deviceKeyPair.publicKeyB64);
           setDeviceApprovalPrompt({
             isOpen: true,
             deviceId,
             requestId: approval.requestId,
-            expiresAt: approval.expiresAt,
+            expiresAt: requestExpiresAt,
             publicKeyFingerprint: fingerprint,
             error: null,
-          });
-
-          await registerDevice({
-            deviceId,
-            publicKey: deviceKeyPair.publicKeyB64,
-            requestId: approval.requestId,
-            requestExpiresAt: approval.expiresAt,
           });
 
           if (deviceApprovalIntervalRef.current !== null) {
@@ -462,7 +463,7 @@ export function usePlanSync(): UsePlanSyncResult {
           deviceApprovalIntervalRef.current = window.setInterval(() => {
             void (async () => {
               if (!userId) return;
-              if (Date.now() > new Date(approval.expiresAt).getTime()) {
+              if (Date.now() > new Date(requestExpiresAt).getTime()) {
                 if (deviceApprovalIntervalRef.current !== null) {
                   window.clearInterval(deviceApprovalIntervalRef.current);
                   deviceApprovalIntervalRef.current = null;
@@ -487,7 +488,7 @@ export function usePlanSync(): UsePlanSyncResult {
                   deviceId,
                   requestId: approval.requestId,
                   schemaVersion: PLANNER_SCHEMA_VERSION,
-                  expiresAt: approval.expiresAt,
+                  expiresAt: requestExpiresAt,
                 });
                 const expectedAadB64 = bytesToBase64(expectedAadBytes);
                 if (pkg.aad !== expectedAadB64) {
