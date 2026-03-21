@@ -142,7 +142,6 @@ describe('usePlanSync device approval', () => {
 
     const sealed = { encB64: 'AAAA', ciphertextB64: dekB64 };
 
-    let wrappedServed = false;
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = typeof input === 'string'
         ? input
@@ -169,8 +168,9 @@ describe('usePlanSync device approval', () => {
       }
 
       if (url.includes('/api/devices/') && url.includes('/wrapped-dek')) {
-        if (wrappedServed) return new Response('Not found.', { status: 404 });
-        wrappedServed = true;
+        if (init?.method === 'POST') {
+          return new Response(null, { status: 204 });
+        }
         return new Response(JSON.stringify({
           wrappedKeyPackage: {
             v: 1,

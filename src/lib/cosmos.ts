@@ -345,7 +345,7 @@ async function readExistingWrappedDekDocument(
   }
 }
 
-export async function consumeApprovedWrappedDek(input: {
+export async function fetchApprovedWrappedDek(input: {
   userId: string;
   deviceId: string;
   requestId: string;
@@ -357,6 +357,21 @@ export async function consumeApprovedWrappedDek(input: {
   if (doc.consumedAt) return null;
   if (new Date(doc.expiresAt).getTime() < Date.now()) return null;
 
+  return doc.wrappedKeyPackage;
+}
+
+export async function consumeApprovedWrappedDek(input: {
+  userId: string;
+  deviceId: string;
+  requestId: string;
+}): Promise<boolean> {
+  const existing = await readExistingWrappedDekDocument(input.userId, input.deviceId, input.requestId);
+  if (!existing) return false;
+
+  const doc = existing.document;
+  if (new Date(doc.expiresAt).getTime() < Date.now()) return false;
+  if (doc.consumedAt) return true;
+
   const container = getPlannerContainer();
   const now = new Date().toISOString();
 
@@ -367,7 +382,7 @@ export async function consumeApprovedWrappedDek(input: {
     );
   } catch (error) {
     // If another request consumed the package first, treat it as unavailable.
-    if (isStatusCode(error, 409) || isStatusCode(error, 412)) return null;
+    if (isStatusCode(error, 409) || isStatusCode(error, 412)) return true;
     throw error;
   }
 
@@ -391,7 +406,7 @@ export async function consumeApprovedWrappedDek(input: {
     }
   }
 
-  return doc.wrappedKeyPackage;
+  return true;
 }
 
 export async function savePlannerPersistenceDocument(

@@ -20,6 +20,7 @@ import {
   approveDevice,
   fetchDevices,
   fetchWrappedDek,
+  consumeWrappedDek,
   registerDevice,
 } from '@/lib/deviceApi';
 import {
@@ -480,6 +481,7 @@ export function usePlanSync(): UsePlanSyncResult {
                 });
 
                 await setUserDekB64(userId, openedDekB64);
+                await consumeWrappedDek({ deviceId, requestId: approval.requestId });
                 setDeviceApprovalPrompt((current) => (
                   current.isOpen ? { ...current, isOpen: false, error: null } : current
                 ));

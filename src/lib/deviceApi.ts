@@ -61,3 +61,17 @@ export async function fetchWrappedDek(input: {
   const body = await response.json() as { wrappedKeyPackage: WrappedDekPackage };
   return body.wrappedKeyPackage;
 }
+
+export async function consumeWrappedDek(input: {
+  deviceId: string;
+  requestId: string;
+}): Promise<void> {
+  const response = await fetch(`/api/devices/${encodeURIComponent(input.deviceId)}/wrapped-dek`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ requestId: input.requestId }),
+  });
+
+  if (response.status === 204 || response.status === 404) return;
+  throw new Error(`Wrapped key consume failed (${response.status}).`);
+}
