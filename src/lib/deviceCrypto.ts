@@ -21,6 +21,10 @@ export interface DeviceApprovalRequest {
   expiresAt: string;
 }
 
+function normalizeHpkeBytes(value: Uint8Array | ArrayBuffer): Uint8Array {
+  return value instanceof ArrayBuffer ? new Uint8Array(value) : value;
+}
+
 export function hpkeSuite() {
   return new CipherSuite({
     kem: new DhkemX25519HkdfSha256(),
@@ -45,8 +49,8 @@ export async function getOrCreateDeviceKeyPair(userId: string): Promise<HpkeDevi
 
   const suite = hpkeSuite();
   const kp = await suite.kem.generateKeyPair();
-  const priv = bytesToBase64(await suite.kem.serializePrivateKey(kp.privateKey));
-  const pub = bytesToBase64(await suite.kem.serializePublicKey(kp.publicKey));
+  const priv = bytesToBase64(new Uint8Array(await suite.kem.serializePrivateKey(kp.privateKey)));
+  const pub = bytesToBase64(new Uint8Array(await suite.kem.serializePublicKey(kp.publicKey)));
   const created: HpkeDeviceKeyPair = { privateKeyB64: priv, publicKeyB64: pub };
   await idbSet(key, created);
   return created;
@@ -94,23 +98,20 @@ export function plannerDekWrapAad(input: {
   return new TextEncoder().encode(payload);
 }
 
-function base64ToArrayBuffer(value: string): ArrayBuffer {
-  const bytes = base64ToBytes(value);
-  return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
-}
-
 export async function hpkeSealForRecipient(input: {
   recipientPublicKeyB64: string;
   plaintext: Uint8Array;
   aad?: Uint8Array;
 }): Promise<{ encB64: string; ciphertextB64: string }> {
   const suite = hpkeSuite();
-  const recipientPublicKey = await suite.kem.deserializePublicKey(base64ToArrayBuffer(input.recipientPublicKeyB64));
+  const recipientPublicKey = await suite.kem.deserializePublicKey(
+    Uint8Array.from(base64ToBytes(input.recipientPublicKeyB64)),
+  );
   const sender = await suite.createSenderContext({ recipientPublicKey });
   const ciphertext = await sender.seal(input.plaintext, input.aad);
   return {
-    encB64: bytesToBase64(sender.enc),
-    ciphertextB64: bytesToBase64(ciphertext),
+    encB64: bytesToBase64(normalizeHpkeBytes(sender.enc)),
+    ciphertextB64: bytesToBase64(normalizeHpkeBytes(ciphertext)),
   };
 }
 
@@ -121,12 +122,15 @@ export async function hpkeOpenAsRecipient(input: {
   aad?: Uint8Array;
 }): Promise<Uint8Array> {
   const suite = hpkeSuite();
-  const recipientKey = await suite.kem.deserializePrivateKey(base64ToArrayBuffer(input.recipientPrivateKeyB64));
+  const recipientKey = await suite.kem.deserializePrivateKey(
+    Uint8Array.from(base64ToBytes(input.recipientPrivateKeyB64)),
+  );
   const recipient = await suite.createRecipientContext({
     recipientKey,
-    enc: base64ToArrayBuffer(input.encB64),
+    enc: Uint8Array.from(base64ToBytes(input.encB64)),
   });
-  return recipient.open(base64ToBytes(input.ciphertextB64), input.aad);
+  const opened = await recipient.open(base64ToBytes(input.ciphertextB64), input.aad);
+  return normalizeHpkeBytes(opened);
 }
 
 export async function unwrapDekToBase64(input: {

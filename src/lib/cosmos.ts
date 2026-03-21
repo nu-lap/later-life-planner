@@ -270,7 +270,6 @@ export async function listDeviceRegistrations(userId: string): Promise<DeviceReg
           { name: '@userId', value: userId },
         ],
       },
-      { enableCrossPartitionQuery: true },
     )
     .fetchAll();
 

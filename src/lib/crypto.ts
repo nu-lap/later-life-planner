@@ -75,10 +75,10 @@ function getWebCrypto(): Crypto {
   return globalThis.crypto;
 }
 
-function encodeAadBytes(aad?: AdditionalAuthenticatedData): Uint8Array | undefined {
+function encodeAadBytes(aad?: AdditionalAuthenticatedData): Uint8Array<ArrayBuffer> | undefined {
   if (!aad) return undefined;
   const stablePairs = Object.entries(aad).sort(([left], [right]) => left.localeCompare(right));
-  return new TextEncoder().encode(JSON.stringify(stablePairs));
+  return Uint8Array.from(new TextEncoder().encode(JSON.stringify(stablePairs)));
 }
 
 export function bytesToBase64(bytes: Uint8Array): string {
@@ -131,9 +131,10 @@ export async function exportDataEncryptionKeyToBase64(key: CryptoKey): Promise<s
 
 export async function importDataEncryptionKeyFromBase64(rawKeyBase64: string): Promise<CryptoKey> {
   const rawKeyBytes = base64ToBytes(rawKeyBase64);
+  const rawKeyBuffer: ArrayBuffer = Uint8Array.from(rawKeyBytes).buffer;
   return getSubtleCrypto().importKey(
     'raw',
-    rawKeyBytes,
+    rawKeyBuffer,
     { name: 'AES-GCM', length: DATA_ENCRYPTION_KEY_LENGTH_BITS },
     false,
     ['encrypt', 'decrypt'],
@@ -145,8 +146,8 @@ export async function encryptPlannerPayload(
   key: CryptoKey,
   aad?: AdditionalAuthenticatedData,
 ): Promise<CipherPayload> {
-  const ivBytes = getWebCrypto().getRandomValues(new Uint8Array(AES_GCM_IV_BYTE_LENGTH));
-  const plaintextBytes = new TextEncoder().encode(plaintext);
+  const ivBytes = Uint8Array.from(getWebCrypto().getRandomValues(new Uint8Array(AES_GCM_IV_BYTE_LENGTH)));
+  const plaintextBytes = Uint8Array.from(new TextEncoder().encode(plaintext));
   const additionalData = encodeAadBytes(aad);
 
   const encrypted = await getSubtleCrypto().encrypt(
@@ -171,8 +172,8 @@ export async function decryptPlannerPayload(
   key: CryptoKey,
   aad?: AdditionalAuthenticatedData,
 ): Promise<string> {
-  const iv = base64ToBytes(payload.iv);
-  const ciphertext = base64ToBytes(payload.ciphertext);
+  const iv = Uint8Array.from(base64ToBytes(payload.iv));
+  const ciphertext = Uint8Array.from(base64ToBytes(payload.ciphertext));
   const additionalData = encodeAadBytes(aad);
 
   const decrypted = await getSubtleCrypto().decrypt(

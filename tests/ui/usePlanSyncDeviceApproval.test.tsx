@@ -7,20 +7,29 @@ import { extractPersistedPlannerState } from '@/lib/persistedPlan';
 import { STATE_PENSION } from '@/config/financialConstants';
 import {
   bytesToBase64,
-  encryptPlannerState,
-  exportDataEncryptionKeyToBase64,
-  generateDataEncryptionKey,
-  importDataEncryptionKeyFromBase64,
   PLANNER_SCHEMA_VERSION,
 } from '@/lib/crypto';
 import { plannerDekWrapAad } from '@/lib/deviceCrypto';
 import { idbSet } from '@/lib/indexedDbKv';
 
 const mockUseAuth = vi.fn();
+let mockDecryptedPlan: unknown = null;
 
 vi.mock('@clerk/nextjs', () => ({
   useAuth: () => mockUseAuth(),
 }));
+
+vi.mock('@/lib/crypto', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/crypto')>();
+  return {
+    ...actual,
+    importDataEncryptionKeyFromBase64: async () => ({} as CryptoKey),
+    decryptPlannerState: async () => {
+      if (!mockDecryptedPlan) throw new Error('Missing mocked decrypted plan.');
+      return mockDecryptedPlan;
+    },
+  };
+});
 
 vi.mock('@/lib/deviceCrypto', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/deviceCrypto')>();
@@ -115,12 +124,9 @@ describe('usePlanSync device approval', () => {
     const devicePrivateKeyB64 = 'AAAA';
     await idbSet('llp.deviceKeypair.user_123', { publicKeyB64: devicePublicKeyB64, privateKeyB64: devicePrivateKeyB64 });
 
-    const dekKey = await generateDataEncryptionKey();
-    const dekB64 = await exportDataEncryptionKeyToBase64(dekKey);
-    const dekCryptoKey = await importDataEncryptionKeyFromBase64(dekB64);
-
+    const dekB64 = bytesToBase64(new Uint8Array(32).fill(7));
     const plan = extractPersistedPlannerState(createDefaultState(STATE_PENSION.DEFAULT_AGE));
-    const encrypted = await encryptPlannerState(plan, dekCryptoKey, plannerAad('user_123'));
+    mockDecryptedPlan = plan;
 
     const expiresAt = new Date(Date.now() + 10 * 60_000).toISOString();
     const aadBytes = plannerDekWrapAad({
@@ -145,8 +151,8 @@ describe('usePlanSync device approval', () => {
         return new Response(JSON.stringify({
           schemaVersion: PLANNER_SCHEMA_VERSION,
           revision: 1,
-          iv: encrypted.iv,
-          ciphertext: encrypted.ciphertext,
+          iv: 'AAAAAAAAAAAAAAAAAAAAAA==',
+          ciphertext: 'AAAAAAAA',
           updatedAt: new Date().toISOString(),
         }), { status: 200 });
       }
