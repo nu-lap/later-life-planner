@@ -1,14 +1,18 @@
 'use client';
 
 import type { PlannerSaveStatus } from '@/models/types';
+import type { DeviceRegistrationDocument } from '@/lib/cosmos';
 
 interface Props {
   saveStatus: PlannerSaveStatus;
   lastSavedAt: string | null;
   revision: number | null;
   syncError: string | null;
+  devices: DeviceRegistrationDocument[];
   onReloadRemote: () => void | Promise<void>;
   onExportPlan: () => void;
+  onRefreshDevices: () => void | Promise<void>;
+  onApproveDevice: (deviceId: string) => void | Promise<void>;
 }
 
 function formatTimestamp(value: string | null): string {
@@ -23,9 +27,19 @@ export default function AccountDataPanel({
   lastSavedAt,
   revision,
   syncError,
+  devices,
   onReloadRemote,
   onExportPlan,
+  onRefreshDevices,
+  onApproveDevice,
 }: Props) {
+  const pendingDevices = devices.filter((device) => (
+    device.status === 'pending' &&
+    typeof device.requestId === 'string' &&
+    typeof device.requestExpiresAt === 'string' &&
+    new Date(device.requestExpiresAt).getTime() > Date.now()
+  ));
+
   return (
     <section className="game-card no-print">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -67,6 +81,48 @@ export default function AccountDataPanel({
           {syncError}
         </p>
       )}
+
+      <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-4">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-sm font-bold text-slate-800">Device approvals</p>
+            <p className="mt-1 text-xs text-slate-500">
+              New devices must be explicitly approved before they can decrypt your saved plan.
+            </p>
+          </div>
+          <button onClick={onRefreshDevices} className="btn-secondary py-2.5 text-sm">
+            Refresh devices
+          </button>
+        </div>
+
+        {pendingDevices.length === 0 ? (
+          <p className="mt-3 text-sm text-slate-600">No pending device approvals.</p>
+        ) : (
+          <div className="mt-3 grid gap-2">
+            {pendingDevices.map((device) => (
+              <div
+                key={device.deviceId}
+                className="flex flex-col gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-3 sm:flex-row sm:items-center sm:justify-between"
+              >
+                <div>
+                  <p className="text-sm font-bold text-slate-800">
+                    {device.label ?? 'New device'}
+                  </p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Device ID: <span className="font-mono">{device.deviceId}</span>
+                  </p>
+                </div>
+                <button
+                  onClick={() => onApproveDevice(device.deviceId)}
+                  className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-bold text-emerald-700 hover:bg-emerald-100"
+                >
+                  Approve
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
       <div className="mt-4 rounded-2xl border border-amber-100 bg-amber-50 p-3">
         <p className="text-sm font-bold text-amber-800">Deletion path decision</p>

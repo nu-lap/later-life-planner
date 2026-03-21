@@ -4,6 +4,8 @@ import { useAuth } from '@clerk/nextjs';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { STATE_PENSION } from '@/config/financialConstants';
 import {
+  base64ToBytes,
+  bytesToBase64,
   decryptPlannerState,
   encryptPlannerState,
   exportDataEncryptionKeyToBase64,
@@ -13,9 +15,24 @@ import {
 } from '@/lib/crypto';
 import {
   LEGACY_PLANNER_STORAGE_KEY,
-  getSyncKeyStorageKey,
   getSyncMigrationDecisionStorageKey,
 } from '@/lib/browserStorageKeys';
+import {
+  approveDevice,
+  fetchDevices,
+  fetchWrappedDek,
+  registerDevice,
+} from '@/lib/deviceApi';
+import {
+  createApprovalRequest,
+  getOrCreateDeviceId,
+  getOrCreateDeviceKeyPair,
+  getUserDekB64,
+  hpkeSealForRecipient,
+  plannerDekWrapAad,
+  setUserDekB64,
+  unwrapDekToBase64,
+} from '@/lib/deviceCrypto';
 import {
   extractPersistedPlannerState,
   hydratePlannerState,
@@ -24,8 +41,11 @@ import {
 import { createDefaultState } from '@/lib/mockData';
 import type { PersistedPlannerState, PlannerSaveStatus, PlannerState } from '@/models/types';
 import { usePlannerStore } from '@/store/plannerStore';
+import type { DeviceRegistrationDocument, WrappedDekPackage } from '@/lib/cosmos';
 
 const SAVE_DEBOUNCE_MS = 900;
+const DEVICE_APPROVAL_TTL_MS = 10 * 60 * 1000;
+const DEVICE_APPROVAL_POLL_MS = 3000;
 
 type MigrationDecision = 'imported' | 'start-fresh' | 'keep-remote';
 
@@ -42,6 +62,14 @@ interface MigrationPromptState {
   hasRemotePlan: boolean;
 }
 
+interface DeviceApprovalPromptState {
+  isOpen: boolean;
+  deviceId: string;
+  requestId: string;
+  expiresAt: string;
+  error: string | null;
+}
+
 interface UsePlanSyncResult {
   isSyncReady: boolean;
   saveStatus: PlannerSaveStatus;
@@ -49,6 +77,11 @@ interface UsePlanSyncResult {
   lastSavedAt: string | null;
   revision: number | null;
   migrationPrompt: MigrationPromptState;
+  deviceApprovalPrompt: DeviceApprovalPromptState;
+  devices: DeviceRegistrationDocument[];
+  refreshDevices: () => Promise<void>;
+  approvePendingDevice: (deviceId: string) => Promise<void>;
+  closeDeviceApprovalPrompt: () => void;
   reloadRemotePlan: () => Promise<void>;
   importLegacyPlan: () => Promise<void>;
   startFreshPlan: () => void;
@@ -89,22 +122,6 @@ function clearLegacyLocalPlannerCache(): void {
   localStorage.removeItem(LEGACY_PLANNER_STORAGE_KEY);
 }
 
-async function getExistingUserKey(userId: string): Promise<CryptoKey | null> {
-  const storedRawKey = localStorage.getItem(getSyncKeyStorageKey(userId));
-  if (!storedRawKey) return null;
-  return importDataEncryptionKeyFromBase64(storedRawKey);
-}
-
-async function getOrCreateUserKey(userId: string): Promise<CryptoKey> {
-  const existing = await getExistingUserKey(userId);
-  if (existing) return existing;
-
-  const created = await generateDataEncryptionKey();
-  const rawKey = await exportDataEncryptionKeyToBase64(created);
-  localStorage.setItem(getSyncKeyStorageKey(userId), rawKey);
-  return created;
-}
-
 export function usePlanSync(): UsePlanSyncResult {
   const { isLoaded, userId } = useAuth();
   const hydrateCanonicalPlan = usePlannerStore((state) => state.hydrateCanonicalPlan);
@@ -125,6 +142,14 @@ export function usePlanSync(): UsePlanSyncResult {
     isOpen: false,
     hasRemotePlan: false,
   });
+  const [deviceApprovalPrompt, setDeviceApprovalPrompt] = useState<DeviceApprovalPromptState>({
+    isOpen: false,
+    deviceId: '',
+    requestId: '',
+    expiresAt: '',
+    error: null,
+  });
+  const [devices, setDevices] = useState<DeviceRegistrationDocument[]>([]);
 
   const lastSavedSerializedRef = useRef<string | null>(null);
   const currentRevisionRef = useRef<number | null>(null);
@@ -135,6 +160,7 @@ export function usePlanSync(): UsePlanSyncResult {
   const syncEnabledRef = useRef(false);
   const awaitingMigrationChoiceRef = useRef(false);
   const legacyPlanRef = useRef<PersistedPlannerState | null>(null);
+  const deviceApprovalIntervalRef = useRef<number | null>(null);
 
   const queueSave = useCallback(
     async (plan: PersistedPlannerState, serialized: string): Promise<boolean> => {
@@ -142,7 +168,14 @@ export function usePlanSync(): UsePlanSyncResult {
       if (!syncEnabledRef.current) return false;
 
       try {
-        const key = await getOrCreateUserKey(userId);
+        let dekB64 = await getUserDekB64(userId);
+        if (!dekB64) {
+          const created = await generateDataEncryptionKey();
+          dekB64 = await exportDataEncryptionKeyToBase64(created);
+          await setUserDekB64(userId, dekB64);
+        }
+
+        const key = await importDataEncryptionKeyFromBase64(dekB64);
         const encrypted = await encryptPlannerState(plan, key, plannerAad(userId));
         const payload: Record<string, unknown> = {
           schemaVersion: PLANNER_SCHEMA_VERSION,
@@ -192,6 +225,78 @@ export function usePlanSync(): UsePlanSyncResult {
     },
     [userId],
   );
+
+  const refreshDevices = useCallback(async (): Promise<void> => {
+    if (!userId) {
+      setDevices([]);
+      return;
+    }
+
+    const list = await fetchDevices();
+    setDevices(list);
+  }, [userId]);
+
+  const approvePendingDevice = useCallback(async (deviceId: string): Promise<void> => {
+    if (!userId) return;
+    const dekB64 = await getUserDekB64(userId);
+    if (!dekB64) {
+      throw new Error('This device cannot approve others until it has access to the saved plan.');
+    }
+
+    const target = devices.find((candidate) => candidate.deviceId === deviceId);
+    if (!target || !target.requestId || !target.requestExpiresAt) {
+      throw new Error('Device approval request not found.');
+    }
+
+    const aadBytes = plannerDekWrapAad({
+      userId,
+      deviceId: target.deviceId,
+      requestId: target.requestId,
+      schemaVersion: PLANNER_SCHEMA_VERSION,
+      expiresAt: target.requestExpiresAt,
+    });
+
+    const sealed = await hpkeSealForRecipient({
+      recipientPublicKeyB64: target.publicKey,
+      plaintext: base64ToBytes(dekB64),
+      aad: aadBytes,
+    });
+
+    const now = new Date().toISOString();
+    const wrappedKeyPackage: WrappedDekPackage = {
+      v: 1,
+      suite: {
+        kem: 'DHKEM(X25519,HKDF-SHA256)',
+        kdf: 'HKDF-SHA256',
+        aead: 'AES-256-GCM',
+      },
+      deviceId: target.deviceId,
+      requestId: target.requestId,
+      enc: sealed.encB64,
+      ciphertext: sealed.ciphertextB64,
+      aad: bytesToBase64(aadBytes),
+      createdAt: now,
+    };
+
+    await approveDevice({
+      deviceId: target.deviceId,
+      requestId: target.requestId,
+      wrappedKeyPackage,
+      expiresAt: target.requestExpiresAt,
+    });
+
+    await refreshDevices();
+  }, [devices, refreshDevices, userId]);
+
+  const closeDeviceApprovalPrompt = useCallback((): void => {
+    setDeviceApprovalPrompt((current) => (
+      current.isOpen ? { ...current, isOpen: false } : current
+    ));
+    if (deviceApprovalIntervalRef.current !== null) {
+      window.clearInterval(deviceApprovalIntervalRef.current);
+      deviceApprovalIntervalRef.current = null;
+    }
+  }, []);
 
   const loadRemotePlan = useCallback(
     async (openMigrationPrompt = true): Promise<void> => {
@@ -264,10 +369,84 @@ export function usePlanSync(): UsePlanSyncResult {
         setRevision(remotePlan.revision);
         setLastSavedAt(remotePlan.updatedAt);
 
-        const existingKey = await getExistingUserKey(userId);
-        if (!existingKey) {
-          throw new Error('Cannot decrypt this plan on this device. Sign in on your original device or contact support.');
+        const dekB64 = await getUserDekB64(userId);
+        if (!dekB64) {
+          const deviceId = await getOrCreateDeviceId(userId);
+          const deviceKeyPair = await getOrCreateDeviceKeyPair(userId);
+          const approval = createApprovalRequest(DEVICE_APPROVAL_TTL_MS);
+
+          setDeviceApprovalPrompt({
+            isOpen: true,
+            deviceId,
+            requestId: approval.requestId,
+            expiresAt: approval.expiresAt,
+            error: null,
+          });
+
+          await registerDevice({
+            deviceId,
+            publicKey: deviceKeyPair.publicKeyB64,
+            requestId: approval.requestId,
+            requestExpiresAt: approval.expiresAt,
+          });
+
+          if (deviceApprovalIntervalRef.current !== null) {
+            window.clearInterval(deviceApprovalIntervalRef.current);
+          }
+
+          deviceApprovalIntervalRef.current = window.setInterval(() => {
+            void (async () => {
+              if (!userId) return;
+              if (Date.now() > new Date(approval.expiresAt).getTime()) {
+                if (deviceApprovalIntervalRef.current !== null) {
+                  window.clearInterval(deviceApprovalIntervalRef.current);
+                  deviceApprovalIntervalRef.current = null;
+                }
+                setDeviceApprovalPrompt((current) => (
+                  current.isOpen ? { ...current, error: 'Approval request expired.' } : current
+                ));
+                return;
+              }
+
+              try {
+                const pkg = await fetchWrappedDek({ deviceId, requestId: approval.requestId });
+                const openedDekB64 = await unwrapDekToBase64({
+                  recipientPrivateKeyB64: deviceKeyPair.privateKeyB64,
+                  encB64: pkg.enc,
+                  ciphertextB64: pkg.ciphertext,
+                  aad: base64ToBytes(pkg.aad),
+                });
+
+                await setUserDekB64(userId, openedDekB64);
+                setDeviceApprovalPrompt((current) => (
+                  current.isOpen ? { ...current, isOpen: false, error: null } : current
+                ));
+
+                if (deviceApprovalIntervalRef.current !== null) {
+                  window.clearInterval(deviceApprovalIntervalRef.current);
+                  deviceApprovalIntervalRef.current = null;
+                }
+
+                void loadRemotePlan(false);
+              } catch (error) {
+                const message = safeErrorMessage(error);
+                const lower = message.toLowerCase();
+                if (lower.includes('not found') || message.includes('(404)')) return;
+                setDeviceApprovalPrompt((current) => (
+                  current.isOpen ? { ...current, error: message } : current
+                ));
+              }
+            })();
+          }, DEVICE_APPROVAL_POLL_MS);
+
+          setSaveStatus('error');
+          setSyncError('Device approval required to decrypt the saved plan.');
+          setIsSyncReady(true);
+          syncEnabledRef.current = false;
+          return;
         }
+
+        const existingKey = await importDataEncryptionKeyFromBase64(dekB64);
 
         const decrypted = await decryptPlannerState<PersistedPlannerState>(
           {
@@ -307,6 +486,7 @@ export function usePlanSync(): UsePlanSyncResult {
           isOpen: openMigrationPrompt && needsMigrationChoice,
           hasRemotePlan: true,
         });
+        void refreshDevices();
         syncEnabledRef.current = true;
         setIsSyncReady(true);
       } catch (error) {
@@ -317,7 +497,7 @@ export function usePlanSync(): UsePlanSyncResult {
         syncEnabledRef.current = false;
       }
     },
-    [hydrateCanonicalPlan, userId],
+    [hydrateCanonicalPlan, refreshDevices, userId],
   );
 
   useEffect(() => {
@@ -333,8 +513,20 @@ export function usePlanSync(): UsePlanSyncResult {
       setLastSavedAt(null);
       setRevision(null);
       setMigrationPrompt({ isOpen: false, hasRemotePlan: false });
+      setDeviceApprovalPrompt({
+        isOpen: false,
+        deviceId: '',
+        requestId: '',
+        expiresAt: '',
+        error: null,
+      });
+      setDevices([]);
       syncEnabledRef.current = false;
       awaitingMigrationChoiceRef.current = false;
+      if (deviceApprovalIntervalRef.current !== null) {
+        window.clearInterval(deviceApprovalIntervalRef.current);
+        deviceApprovalIntervalRef.current = null;
+      }
       setIsSyncReady(true);
       return;
     }
@@ -384,6 +576,10 @@ export function usePlanSync(): UsePlanSyncResult {
     if (saveTimeoutRef.current !== null) {
       window.clearTimeout(saveTimeoutRef.current);
       saveTimeoutRef.current = null;
+    }
+    if (deviceApprovalIntervalRef.current !== null) {
+      window.clearInterval(deviceApprovalIntervalRef.current);
+      deviceApprovalIntervalRef.current = null;
     }
   }, []);
 
@@ -453,6 +649,11 @@ export function usePlanSync(): UsePlanSyncResult {
     lastSavedAt,
     revision,
     migrationPrompt,
+    deviceApprovalPrompt,
+    devices,
+    refreshDevices,
+    approvePendingDevice,
+    closeDeviceApprovalPrompt,
     reloadRemotePlan: () => loadRemotePlan(false),
     importLegacyPlan,
     startFreshPlan,

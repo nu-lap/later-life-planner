@@ -39,7 +39,9 @@ function decodeBase64Bytes(value: string): Uint8Array {
   }
 
   if (isNodeBufferAvailable()) {
-    return new Uint8Array(Buffer.from(value, 'base64'));
+    // Return a Node Buffer when available so Node WebCrypto (and libraries built on it)
+    // can reliably accept it across realms (e.g. jsdom test environment).
+    return Buffer.from(value, 'base64');
   }
 
   if (typeof atob !== 'function') {
@@ -73,10 +75,10 @@ function getWebCrypto(): Crypto {
   return globalThis.crypto;
 }
 
-function encodeAadBytes(aad?: AdditionalAuthenticatedData): ArrayBuffer | undefined {
+function encodeAadBytes(aad?: AdditionalAuthenticatedData): Uint8Array | undefined {
   if (!aad) return undefined;
   const stablePairs = Object.entries(aad).sort(([left], [right]) => left.localeCompare(right));
-  return toArrayBuffer(new TextEncoder().encode(JSON.stringify(stablePairs)));
+  return new TextEncoder().encode(JSON.stringify(stablePairs));
 }
 
 export function bytesToBase64(bytes: Uint8Array): string {
@@ -131,7 +133,7 @@ export async function importDataEncryptionKeyFromBase64(rawKeyBase64: string): P
   const rawKeyBytes = base64ToBytes(rawKeyBase64);
   return getSubtleCrypto().importKey(
     'raw',
-    toArrayBuffer(rawKeyBytes),
+    rawKeyBytes,
     { name: 'AES-GCM', length: DATA_ENCRYPTION_KEY_LENGTH_BITS },
     false,
     ['encrypt', 'decrypt'],
@@ -144,14 +146,13 @@ export async function encryptPlannerPayload(
   aad?: AdditionalAuthenticatedData,
 ): Promise<CipherPayload> {
   const ivBytes = getWebCrypto().getRandomValues(new Uint8Array(AES_GCM_IV_BYTE_LENGTH));
-  const iv = toArrayBuffer(ivBytes);
-  const plaintextBytes = toArrayBuffer(new TextEncoder().encode(plaintext));
+  const plaintextBytes = new TextEncoder().encode(plaintext);
   const additionalData = encodeAadBytes(aad);
 
   const encrypted = await getSubtleCrypto().encrypt(
     {
       name: 'AES-GCM',
-      iv,
+      iv: ivBytes,
       additionalData,
       tagLength: 128,
     },
@@ -170,8 +171,8 @@ export async function decryptPlannerPayload(
   key: CryptoKey,
   aad?: AdditionalAuthenticatedData,
 ): Promise<string> {
-  const iv = toArrayBuffer(base64ToBytes(payload.iv));
-  const ciphertext = toArrayBuffer(base64ToBytes(payload.ciphertext));
+  const iv = base64ToBytes(payload.iv);
+  const ciphertext = base64ToBytes(payload.ciphertext);
   const additionalData = encodeAadBytes(aad);
 
   const decrypted = await getSubtleCrypto().decrypt(

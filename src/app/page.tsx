@@ -9,6 +9,7 @@ import StepIndicator from '@/components/StepIndicator';
 import SummaryBar from '@/components/SummaryBar';
 import DisclaimerGate from '@/components/DisclaimerGate';
 import AccountDataPanel from '@/components/AccountDataPanel';
+import DeviceApprovalModal from '@/components/DeviceApprovalModal';
 import MigrationPromptModal from '@/components/MigrationPromptModal';
 import { DISCLAIMER_KEY } from '@/lib/browserStorageKeys';
 import { usePlanSync } from '@/hooks/usePlanSync';
@@ -155,18 +156,31 @@ function AuthenticatedPlannerShell() {
           lastSavedAt={sync.lastSavedAt}
           revision={sync.revision}
           syncError={sync.syncError}
+          devices={sync.devices}
           onReloadRemote={sync.reloadRemotePlan}
           onExportPlan={sync.exportCanonicalPlan}
+          onRefreshDevices={sync.refreshDevices}
+          onApproveDevice={sync.approvePendingDevice}
         />
       )}
       migrationPrompt={(
-        <MigrationPromptModal
-          isOpen={sync.migrationPrompt.isOpen}
-          hasRemotePlan={sync.migrationPrompt.hasRemotePlan}
-          onImportLocal={sync.importLegacyPlan}
-          onStartFresh={sync.startFreshPlan}
-          onKeepRemote={sync.keepRemotePlan}
-        />
+        <>
+          <MigrationPromptModal
+            isOpen={sync.migrationPrompt.isOpen}
+            hasRemotePlan={sync.migrationPrompt.hasRemotePlan}
+            onImportLocal={sync.importLegacyPlan}
+            onStartFresh={sync.startFreshPlan}
+            onKeepRemote={sync.keepRemotePlan}
+          />
+          <DeviceApprovalModal
+            isOpen={sync.deviceApprovalPrompt.isOpen}
+            deviceId={sync.deviceApprovalPrompt.deviceId}
+            requestId={sync.deviceApprovalPrompt.requestId}
+            expiresAt={sync.deviceApprovalPrompt.expiresAt}
+            error={sync.deviceApprovalPrompt.error}
+            onClose={sync.closeDeviceApprovalPrompt}
+          />
+        </>
       )}
     />
   );
