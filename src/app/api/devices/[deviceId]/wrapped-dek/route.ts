@@ -1,9 +1,13 @@
+import { z } from 'zod';
 import { UnauthorizedError, requireUser } from '@/lib/auth/requireUser';
 import {
   PersistenceConfigError,
   consumeApprovedWrappedDek,
 } from '@/lib/cosmos';
 import { rateLimit } from '@/lib/rateLimit';
+
+const DeviceIdSchema = z.string().min(8).max(128);
+const RequestIdSchema = z.string().min(8).max(128);
 
 function jsonError(message: string, status: number) {
   return Response.json({ error: message }, { status });
@@ -32,11 +36,16 @@ export async function GET(
     if (!requestId) {
       return jsonError('Invalid request payload.', 400);
     }
+    const deviceIdParsed = DeviceIdSchema.safeParse(context.params.deviceId);
+    const requestIdParsed = RequestIdSchema.safeParse(requestId);
+    if (!deviceIdParsed.success || !requestIdParsed.success) {
+      return jsonError('Invalid request payload.', 400);
+    }
 
     const wrapped = await consumeApprovedWrappedDek({
       userId,
-      deviceId: context.params.deviceId,
-      requestId,
+      deviceId: deviceIdParsed.data,
+      requestId: requestIdParsed.data,
     });
 
     if (!wrapped) {
