@@ -83,6 +83,13 @@ export class RevisionConflictError extends Error {
   }
 }
 
+export class DeviceRegistrationConflictError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'DeviceRegistrationConflictError';
+  }
+}
+
 let cachedContainer: Container | null = null;
 
 function readRequiredEnv(name: string): string {
@@ -243,12 +250,18 @@ export async function upsertDeviceRegistration(input: {
     return created;
   }
 
+  if (existing.document.status === 'revoked') {
+    throw new DeviceRegistrationConflictError('Device registration is revoked.');
+  }
+  if (existing.document.publicKey !== input.publicKey) {
+    throw new DeviceRegistrationConflictError('DeviceId is already registered with a different public key.');
+  }
+
   const updated: DeviceRegistrationDocument = {
     ...existing.document,
-    publicKey: input.publicKey,
-    status: existing.document.status === 'revoked' ? 'revoked' : 'pending',
-    requestId: input.requestId,
-    requestExpiresAt: input.requestExpiresAt,
+    // Existing device public keys are immutable. Requests can be refreshed for the same key.
+    requestId: existing.document.status === 'pending' ? input.requestId : existing.document.requestId,
+    requestExpiresAt: existing.document.status === 'pending' ? input.requestExpiresAt : existing.document.requestExpiresAt,
     label: input.label ?? existing.document.label,
     lastSeenAt: now,
   };

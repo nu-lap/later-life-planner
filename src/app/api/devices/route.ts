@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { UnauthorizedError, requireUser } from '@/lib/auth/requireUser';
 import {
+  DeviceRegistrationConflictError,
   PersistenceConfigError,
   listDeviceRegistrations,
   upsertDeviceRegistration,
@@ -45,6 +46,9 @@ function responseForKnownError(error: unknown): Response {
   }
   if (error instanceof PersistenceConfigError) {
     return jsonError('Persistence is not configured.', 503);
+  }
+  if (error instanceof DeviceRegistrationConflictError) {
+    return jsonError(error.message, 409);
   }
   return jsonError('Unexpected persistence error.', 500);
 }
