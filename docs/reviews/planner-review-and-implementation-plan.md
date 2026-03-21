@@ -194,7 +194,7 @@ Not implemented:
 - encrypted blob persistence
 - `/api/data` GET and PUT routes
 - Cosmos DB integration
-- key wrapping / Key Vault support
+- device-to-device DEK sharing (HPKE) for cross-device decryption
 - secure user-specific persistence
 - save indicator tied to remote sync
 
@@ -253,7 +253,7 @@ The secure storage design is not yet implemented.
 - authenticated `/api/data` routes
 - Clerk JWT validation on persistence routes
 - ciphertext-only server persistence
-- Key Vault integration for wrapped-key flow
+- device registry + per-device wrapped DEK packages (HPKE device approval flow)
 - recovery-key UX or passphrase upgrade path
 - remote sync conflict handling
 
@@ -415,13 +415,13 @@ Goal: implement the storage design's key handling in a practical sequence.
 
 ### Recommended approach
 
-Implement Option B first:
+Implement device-to-device DEK sharing first:
 
-- generate a random data key in browser
-- wrap via server and Azure Key Vault
-- store wrapped key or equivalent server-managed key metadata
+- generate a random DEK in the browser
+- authorize additional devices by wrapping the DEK per-device using HPKE and storing only the wrapped package server-side
+- avoid a routine server-side unwrap path for user DEKs
 
-Then design Option A as a later enhancement:
+Then design a passphrase-based mode as a later enhancement:
 
 - local passphrase
 - PBKDF2-based browser-derived key

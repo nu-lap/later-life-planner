@@ -7,7 +7,7 @@ This document consolidates the current security analysis for encrypted planner p
 It records:
 
 - the current design and trust boundaries
-- the main risks in the proposed wrapped-key implementation
+- the main risks in the proposed key-sharing implementation
 - what would need to change to materially improve protection against insider access
 
 Read alongside:
@@ -15,22 +15,24 @@ Read alongside:
 - `docs/storage-plan.md`
 - `docs/security-decisions.md`
 - `docs/azure-architecture.md`
+- `docs/device-to-device.md`
 
 ## Executive Summary
 
 The current design is reasonable for protecting planner data from plaintext exposure in Cosmos DB and from basic cross-user access mistakes.
 
-It is not strongly resistant to insider access.
+It is not strongly resistant to deploy-path insider access.
 
-In its current form, the app runtime is expected to participate in Azure Key Vault wrap and unwrap operations. That means anyone who can control the runtime, deployment path, Key Vault permissions, or equivalent privileged Azure access can potentially recover user data.
+In the current v1 direction, the server stores only ciphertext and per-device wrapped DEK packages, and it does not need a routine server-side unwrap path for user DEKs.
+That improves the trust boundary relative to a server-assisted unwrap design.
 
 The current design should therefore be described as:
 
-- browser-side encryption with server-assisted key management
+- browser-side encryption with device-to-device key sharing (explicit approval)
 - protective against database compromise
-- not protective against privileged operator or deployer compromise
+- not protective against a privileged deployer who can ship malicious frontend code
 
-If insider resistance becomes a core requirement, the design needs to move toward user-controlled keys with no ordinary server-side unwrap path.
+If resistance to deploy-path insiders becomes a core requirement, a standard web app is a weak fit. See "Inherent Limits Of A Web App".
 
 ## Current Design Summary
 
@@ -39,15 +41,20 @@ The current persistence plan is:
 - Clerk for authentication
 - Azure Cosmos DB for one encrypted planner document per user
 - browser-side Web Crypto for encryption and decryption
-- Azure Key Vault wrapped-key support for data-key management
-- Azure Container Apps runtime identity for Cosmos DB and Key Vault access
+- device registry and per-device wrapped DEK packages for cross-device decryption
+- Azure Container Apps runtime identity for Cosmos DB access
 
-The current documents describe the server as an authenticated pass-through, but the same design also requires the server or an authorized server-side path to participate in key wrap and unwrap operations.
+The server remains an authenticated persistence surface. It stores:
 
-That creates an important trust boundary:
+- ciphertext planner documents
+- device public keys and device metadata
+- wrapped DEK packages produced by an authorized device
+
+The current trust boundary is therefore:
 
 - Cosmos DB does not hold plaintext planner data
-- the app runtime and key-management path still remain trusted components
+- the server does not need a routine unwrap path for the DEK
+- the frontend deployment path remains a confidentiality boundary (a malicious deploy can still steal plaintext/keys during use)
 
 ## Threat Model Framing
 
@@ -61,44 +68,49 @@ That creates an important trust boundary:
 ### Threats the current design does not fully solve
 
 - privileged insider access through the app runtime
-- privileged insider access through Azure Key Vault permissions
 - malicious or compromised CI/CD deployments
 - browser compromise or XSS on authenticated planner routes
 - metadata leakage through identifiers and timestamps
 
 ## Findings On The Current Design
 
-### 1. The wrapped-key design is not end-to-end encryption
+### 1. The device-approval design is not strongly deploy-insider resistant
 
 Severity: critical
 
-The current plan uses browser-side encryption, but the browser is expected to obtain or recover the data key, and the server-side architecture includes Key Vault wrapping support and an authorized unwrap path.
+The current plan uses browser-side encryption and removes the need for a routine server-side unwrap path, but a privileged deployer can still ship code that steals:
 
-As a result, this is not a design where only the user can decrypt data. It is a design where:
+- plaintext after decryption
+- the unwrapped DEK (or passphrases/recovery secrets if later introduced)
+
+As a result, this is not a design that can credibly claim protection against malicious frontend deployments.
+It is a design where:
 
 - the database stores ciphertext only
-- the application and key-management path still have enough authority to help recover keys
+- ordinary server-side operations do not imply DEK recovery
+- the deployment path remains a confidentiality boundary
 
 This is the most important point to state clearly in the docs. Without that clarity, the design can be misread as stronger than it is.
 
-### 2. The unwrap boundary is underspecified
+### 2. The device-approval boundary must be specified tightly
 
 Severity: high
 
-The design does not yet define:
+The design must define:
 
-- which route or component performs unwrap
-- what authorization checks gate unwrap
-- how unwrap requests are rate-limited
-- what audit trail is kept for wrap and unwrap operations
+- which routes create device registrations and approvals
+- what authorization checks gate approval and wrapped-key retrieval
+- how polling and retries are rate-limited
+- what audit trail is kept for device registration and approval events
 
-Without a tightly specified unwrap path, the system risks becoming a decryption oracle for anyone who can obtain valid app access or influence runtime behavior.
+Without this, the system risks becoming a key-distribution oracle for anyone who can obtain valid app access or influence runtime behavior.
 
-At minimum, any server-assisted unwrap flow would need:
+At minimum, the device approval flow must enforce:
 
 - per-user authorization based only on verified Clerk identity
-- narrow Key Vault permissions
-- strong audit logging of wrap and unwrap events
+- short-lived, single-use approval requests (`requestId` with expiry)
+- device identity binding (`deviceId` + user identity) across all endpoints
+- strong audit logging of device registration and approval events (metadata only)
 - rate limiting and anomaly detection
 
 ### 3. AES-GCM key and nonce handling need tighter rules
@@ -119,7 +131,7 @@ The practical v1 rule should be stricter than the draft currently says:
 - require a fresh random IV for every encryption operation
 - make AAD mandatory, not optional
 - bind at least `userId`, `schemaVersion`, `revision`, and the key identifier
-- prefer a new DEK per save unless there is a strong reason not to
+- define when DEK rotation occurs and how rewrap is performed for active devices
 
 ### 4. Browser compromise remains a dominant confidentiality risk
 
@@ -137,22 +149,18 @@ The current design should therefore assume a strict frontend hardening baseline:
 - minimal third-party JavaScript on authenticated planner routes
 - careful review of analytics and session tooling
 
-### 5. Key rotation and recovery are not fully specified
+### 5. Device revocation, DEK rotation, and recovery are not fully specified
 
 Severity: medium
 
-The stored document currently includes `keyVersion`, but not a complete key identifier strategy.
+The key strategy must explicitly define:
 
-That creates avoidable risk around:
+- how a device is revoked and what "revoked" means in practice
+- how DEK rotation rewraps the new DEK for all active devices
+- what happens if a user has no remaining authorized device
+- how approvals are replay-protected and expired
 
-- rewrapping during key rotation
-- interpreting older ciphertext correctly
-- recovery after accidental key disablement or deletion
-- auditability of which key version protected which document
-
-The persistence metadata should include enough information to identify the exact KEK version used to wrap the DEK, not just a local integer version.
-
-Operationally, Key Vault should use soft delete and purge protection, and the project should define a rewrap runbook before production persistence ships.
+Rotation and revocation are product and ops concerns, not just implementation details. They need a runbook.
 
 ### 6. CI/CD remains inside the trust boundary
 
@@ -188,7 +196,7 @@ This may be acceptable for v1, but it should be documented as a privacy tradeoff
 
 ### Core Principle
 
-If the goal is to protect user data from privileged operators, the normal app backend must not have a routine ability to unwrap user data keys.
+If the goal is to protect user data from privileged operators, the normal app backend must not have a routine ability to recover user DEKs.
 
 That means the strongest practical change is:
 
@@ -201,16 +209,17 @@ That means the strongest practical change is:
 
 The cleanest way to express the tradeoff is to split the product into two explicit modes.
 
-### Option A: Standard Sync
+### Option A: Device-Approved Sync (HPKE)
 
-This is the current wrapped-key model.
+This is the current v1 direction.
 
 Properties:
 
 - easiest multi-device UX
-- easiest recovery story
+- explicit device approval required for new devices
 - protects against database plaintext exposure
-- does not protect against privileged runtime, Key Vault, or deploy access
+- does not protect against privileged deploy access
+- reduces reliance on a server-side unwrap path for DEKs
 
 ### Option B: Private Vault
 
@@ -265,9 +274,9 @@ So insider-resistant design still needs operational controls:
 
 - migrate GitHub Actions Azure auth from long-lived secrets to OIDC federation
 - require approval and just-in-time elevation for privileged Azure roles
-- separate deployment authority from Key Vault and data-plane authority
+- separate deployment authority from data-plane authority
 - use environment-scoped deployment protections
-- alert on unusual production deployments, Key Vault access, and Cosmos DB access patterns
+- alert on unusual production deployments and Cosmos DB access patterns
 
 ### 4. Consider confidential-compute-assisted recovery only if recovery is mandatory
 
@@ -307,14 +316,14 @@ If the requirement is to protect against deploy insiders as well, the strongest 
 
 If the project wants the fastest safe v1:
 
-- keep the current wrapped-key design
-- document it honestly as database-protective, not insider-resistant
-- tighten unwrap, AAD, rotation, audit, logging, and CI/CD controls
+- keep the current device-approval design
+- document it honestly as database-protective and server-unwrap-minimizing, not deploy-insider resistant
+- tighten device approval, AAD, rotation, audit, logging, and CI/CD controls
 
 If insider resistance is a real product requirement:
 
 - make user-controlled key mode the primary design
-- remove ordinary server-side unwrap
+- avoid any ordinary server-side DEK recovery path
 - accept the recovery and support tradeoffs explicitly
 - treat deployment security as part of the confidentiality model
 
@@ -322,11 +331,12 @@ If insider resistance is a real product requirement:
 
 The existing design docs should be updated to state explicitly:
 
-- v1 is not end-to-end encryption
-- the server and deployment path remain trusted in the wrapped-key model
+- v1 is not deploy-insider resistant end-to-end encryption
+- the deployment path remains a confidentiality boundary
+- the server does not require a routine unwrap path for user DEKs in the device-approval model
 - AAD is mandatory
-- DEK lifecycle and KEK identification rules are part of the design, not implementation detail
-- insider-resistant mode requires user-controlled keys and no ordinary server-side unwrap path
+- DEK lifecycle and device-approval rules are part of the design, not implementation detail
+- insider-resistant mode requires user-controlled keys and no ordinary server-side recovery path
 
 ## References
 
@@ -339,13 +349,9 @@ The existing design docs should be updated to state explicitly:
 ### External references
 
 - GitHub Actions OIDC for Azure: https://docs.github.com/en/actions/how-tos/secure-your-work/security-harden-deployments/oidc-in-azure
-- Azure Managed HSM security guidance: https://learn.microsoft.com/en-us/azure/key-vault/managed-hsm/secure-managed-hsm
 - Azure Secure Key Release and attestation: https://learn.microsoft.com/en-us/azure/confidential-computing/concept-skr-attestation
-- Azure Key Vault recovery, soft delete, and purge protection: https://learn.microsoft.com/en-us/azure/key-vault/general/key-vault-recovery
 - Azure RBAC security roles: https://learn.microsoft.com/en-us/azure/role-based-access-control/built-in-roles/security
 - Microsoft Entra Privileged Identity Management deployment planning: https://learn.microsoft.com/en-us/entra/id-governance/privileged-identity-management/pim-deployment-plan
 - Azure Container Apps security overview: https://learn.microsoft.com/en-us/azure/container-apps/security
-- Azure Key Vault key operations: https://learn.microsoft.com/en-us/azure/key-vault/keys/about-keys-details
-- Azure Key Vault key security guidance: https://learn.microsoft.com/en-us/azure/key-vault/keys/secure-keys
 - OWASP Cross Site Scripting Prevention Cheat Sheet: https://cheatsheetseries.owasp.org/cheatsheets/Cross_Site_Scripting_Prevention_Cheat_Sheet.html
 - NIST note on GCM and GMAC revision work: https://csrc.nist.gov/News/2024/nist-to-revise-sp-80038d-gcm-and-gmac-modes

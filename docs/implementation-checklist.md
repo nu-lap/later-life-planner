@@ -16,8 +16,9 @@ Priority order:
 3. Phase 1.5: Azure persistence infrastructure
 4. Phase 2: encrypted persistence backbone
 5. Phase 3: sync and migration UX
-6. Phase 4: hardening, tests, and operational readiness
-7. Phase 5: tests and docs
+6. Phase 3.5: device-to-device DEK sharing (HPKE)
+7. Phase 4: hardening, tests, and operational readiness
+8. Phase 5: tests and docs
 
 ## Phase 0: Product and Consistency Cleanup
 
@@ -53,7 +54,7 @@ Priority order:
   Current: periodic backup, 4h interval, 8h retention, local redundancy.
 - [x] Create database `later-life-planner`.
 - [x] Create container `user-plans` with partition key `/id`.
-- [x] Create an application Key Vault for wrapped-key support.
+- [x] Create an application Key Vault reserved for optional future envelope-key support.
 - [x] Enable Key Vault soft delete and purge protection.
 - [x] Decide and provision runtime Azure auth for app data access.
   Recommended: Azure Container Apps managed identity with data-plane access to Cosmos DB and Key Vault.
@@ -101,6 +102,43 @@ Priority order:
 - [x] Add self-serve delete UI only when the support and recovery path is ready.
   Current implementation: gated off and intentionally not exposed.
 
+## Phase 3.5: Device-to-Device DEK Sharing (HPKE)
+
+Goal: enable cross-device decryption without storing the per-user DEK as a browser-local-only string.
+
+Design guide: `docs/device-to-device.md`.
+
+High-level outcome:
+
+- the remote plan remains encrypted with a per-user DEK
+- each device has its own keypair
+- the DEK is wrapped per-device using HPKE and stored server-side as ciphertext
+- a newly signed-in device becomes usable only after an explicit approval on an existing device
+
+Implementation tasks:
+
+- [ ] Decide and document the HPKE suite for v1 (RFC 9180), including AAD binding fields.
+- [ ] Define the Cosmos data model for:
+- [ ] registered devices (public keys + status)
+- [ ] per-device wrapped DEK packages
+- [ ] Add protected API routes for device registration and approval:
+- [ ] `POST /api/devices` (register new device + public key)
+- [ ] `GET /api/devices` (list devices and pending approvals)
+- [ ] `POST /api/devices/:deviceId/approve` (store wrapped DEK package)
+- [ ] `GET /api/devices/:deviceId/wrapped-dek` (retrieve wrapped DEK package)
+- [ ] Add rate limiting rules for the device-approval API surface (polling, approvals, and retries).
+- [ ] Add a client-side device key store (private key + cached DEK) using IndexedDB.
+- [ ] Add a "device approval required" UX:
+- [ ] show QR/short code with `deviceId` + `requestId` + expiry
+- [ ] show pending-device list and approve action on an already-authorized device
+- [ ] On successful approval, unwrap DEK, decrypt remote plan, and continue normal sync.
+- [ ] Add audit-friendly server logs for device registration and approvals (metadata only; never plaintext planner data or keys).
+- [ ] Add tests that lock the state machine:
+- [ ] new device cannot decrypt until approved
+- [ ] approval is single-use and expires
+- [ ] wrong user cannot approve or fetch wrapped keys
+- [ ] revoke/rotate behavior is well-defined
+
 ## Phase 4: Security and Reliability
 
 - [ ] Add optimistic concurrency handling using `revision`.
@@ -108,7 +146,7 @@ Priority order:
 - [ ] Add secure handling for malformed ciphertext and corrupt payloads.
 - [ ] Ensure sign-out clears decrypted planner state from memory.
 - [ ] Ensure planner plaintext never reaches logs.
-- [ ] Define key-wrapping integration path with Azure Key Vault.
+- [ ] Define device revocation and DEK rotation rules and write a runbook for recovery scenarios.
 - [ ] Write and test point-in-time restore runbooks for planner data.
 - [ ] Write and test user-deletion runbooks, including backup-expiry handling.
 - [ ] Ensure erased user data is not reintroduced after restore operations.
@@ -136,9 +174,7 @@ Priority order:
 
 Recommended next implementation slice:
 
-1. Create Cosmos DB and application Key Vault resources.
-2. Choose the Cosmos backup tier and enable Key Vault soft delete and purge protection.
-3. Decide the runtime auth path from Azure Container Apps to Cosmos DB and Key Vault.
-4. Wire resource identifiers and access settings into the deployed app environment.
-5. Smoke-test connectivity from the running app environment.
-6. Start `src/lib/crypto.ts`, `src/lib/cosmos.ts`, and the protected persistence routes.
+1. Implement device registration and per-device wrapped DEK storage (Phase 3.5).
+2. Add the device approval UX flow (QR/short code + approve from existing device).
+3. Migrate sync encryption away from browser-local-only DEK storage.
+4. Add tests for the device approval state machine and rate limiting.

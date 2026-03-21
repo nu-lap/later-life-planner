@@ -28,7 +28,7 @@ This document covers:
 - current and planned Azure resources
 - build-time versus runtime configuration boundaries
 - CI/CD identities and secrets
-- the target persistence path for Cosmos DB and Key Vault
+- the target persistence path for Cosmos DB and optional Key Vault usage
 
 This document does not define:
 
@@ -52,9 +52,9 @@ Target persistence extension:
 
 - keep the existing ACR -> ACA delivery path
 - add Azure Cosmos DB for encrypted planner documents
-- add Azure Key Vault for wrapped-key support
 - use browser-side encryption so the server persists ciphertext only
-- use ACA runtime identity for Azure data-plane access where possible
+- add a device registry and per-device wrapped DEK package storage to enable cross-device decryption
+- use ACA runtime identity for Cosmos DB data-plane access
 
 ## Current Azure Estate
 
@@ -69,7 +69,7 @@ Target persistence extension:
 | Planner persistence account | Azure Cosmos DB | `cosmos-llp-uks` | Stores encrypted planner documents (managed in `infra/main.bicep`) |
 | Planner database | Cosmos DB SQL database | `later-life-planner` | Logical database for planner storage (managed in `infra/main.bicep`) |
 | Planner container | Cosmos DB SQL container | `user-plans` | Partition key `/id` (managed in `infra/main.bicep`) |
-| Application key vault | Azure Key Vault | `kv-llp-app` | Wrap/unwrap support for data keys (managed in `infra/main.bicep`) |
+| Application key vault | Azure Key Vault | `kv-llp-app` | Reserved for optional future envelope-key support (managed in `infra/main.bicep`) |
 
 ### Operational Azure dependencies already in use
 
@@ -78,7 +78,7 @@ Target persistence extension:
 | Codex auth vault | Azure Key Vault | `AZURE_KEYVAULT_NAME` GitHub secret | Stores `codex-auth-json` for Codex workflows |
 | Codex workflow identity | Azure service principal | `AZURE_CREDENTIALS_CODEX_KV` | Grants Key Vault access to Codex workflows |
 
-The Codex automation vault is an operations concern. It should remain separate from the application Key Vault used for planner encryption support.
+The Codex automation vault is an operations concern. It should remain separate from the application Key Vault reserved for optional future envelope-key support.
 
 ## Target Azure Additions For Persistence
 
@@ -90,8 +90,8 @@ They are now represented in IaC and should be treated as deployment-managed reso
 | Planner persistence account | Azure Cosmos DB | IaC managed | Stores encrypted planner documents |
 | Logical database | Cosmos DB database | `later-life-planner` | Defined in `docs/storage-plan.md` |
 | Logical container | Cosmos DB container | `user-plans` | Partition key `/id`, one doc per Clerk user |
-| Application key vault | Azure Key Vault | IaC managed | Wraps and unwraps per-user data keys |
-| Runtime app identity | Managed identity | IaC managed | ACA system-assigned identity for Cosmos DB and Key Vault |
+| Device registry container(s) | Cosmos DB container(s) | IaC managed | Stores device public keys and per-device wrapped DEK packages |
+| Runtime app identity | Managed identity | IaC managed | ACA system-assigned identity for Cosmos DB |
 
 ## Recommended Resource Layout
 
@@ -110,7 +110,7 @@ Recommended default for v1:
 - separate logical services
 - separate Key Vaults for:
   - operations automation secrets
-  - application wrapped-key support
+  - optional future envelope-key support
 
 Current decision:
 
@@ -123,8 +123,8 @@ Phase 1.5 IaC backfill is complete in `infra/main.bicep`:
 - Cosmos DB account `cosmos-llp-uks`
 - SQL database `later-life-planner`
 - SQL container `user-plans` with partition key `/id`
-- Key Vault `kv-llp-app` with RBAC, soft delete, and purge protection
-- ACA system-assigned identity role wiring for Cosmos DB + Key Vault
+- Key Vault `kv-llp-app` with RBAC, soft delete, and purge protection (reserved for optional future envelope-key work)
+- ACA system-assigned identity role wiring for Cosmos DB + Key Vault (Key Vault currently used for operations and reserved optional use)
 
 ## Deployment Wiring Status
 
@@ -134,7 +134,7 @@ The workflow also includes a post-deploy `persistence-smoke-test` job that valid
 
 - persistence env vars are present on ACA
 - ACA managed identity has Cosmos DB data contributor role assignment
-- ACA managed identity has Key Vault Crypto User role assignment
+- ACA managed identity has Key Vault Crypto User role assignment (reserved optional use)
 
 ## High-Level Architecture
 
@@ -144,8 +144,8 @@ Browser
   -> Azure Container Apps / Next.js
        -> verify Clerk auth
        -> Cosmos DB (ciphertext document read/write)
-       -> Azure Key Vault (wrap/unwrap data key)
-  <- browser decrypts and hydrates planner state
+       -> Cosmos DB (device registry + wrapped DEK packages)
+  <- browser unwraps DEK and decrypts plan
 
 GitHub Actions CI/CD
   -> azure/login with OIDC (`AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`)
@@ -178,15 +178,14 @@ For the persistence phases, the app runtime will:
 
 1. verify Clerk auth
 2. resolve the user identity from Clerk only
-3. read or write ciphertext documents in Cosmos DB
-4. use Key Vault for wrapped-key operations
-5. avoid logging or persisting planner plaintext on the server
+3. read or write ciphertext documents in Cosmos DB (plans + device metadata)
+4. avoid logging or persisting planner plaintext on the server
 
 ### Browser responsibility
 
 The browser remains responsible for:
 
-- generating or recovering the data key
+- generating or recovering the data key via device approval
 - encrypting planner state before upload
 - decrypting planner state after download
 
@@ -198,7 +197,7 @@ The server remains responsible for:
 - authorization by verified user identity
 - ciphertext payload validation
 - Cosmos DB persistence
-- Key Vault wrapping support
+- device registry and wrapped-key package persistence
 
 ## Identity And Access Model
 
@@ -237,7 +236,7 @@ Recommended target:
 Use that runtime identity for:
 
 - Cosmos DB data-plane access
-- Azure Key Vault wrap and unwrap operations
+- optional Key Vault operations if envelope-key recovery is introduced later
 
 Preferred rule:
 
@@ -372,9 +371,9 @@ If a temporary fallback is needed:
 2. Create the Cosmos DB account.
 3. Create database `later-life-planner`.
 4. Create container `user-plans` with partition key `/id`.
-5. Create the application Key Vault for wrapped-key operations.
+5. Create the application Key Vault reserved for optional future envelope-key operations.
 6. Enable ACA managed identity.
-7. Grant ACA identity access to Cosmos DB and Key Vault.
+7. Grant ACA identity access to Cosmos DB (and Key Vault only if optional envelope-key work is enabled).
 8. Add required resource identifiers to ACA configuration and GitHub configuration where needed.
 9. Smoke-test access from the running app environment.
 10. Start the persistence code in `src/lib/crypto.ts`, `src/lib/cosmos.ts`, and the protected data routes.
@@ -382,9 +381,9 @@ If a temporary fallback is needed:
 ## Security Boundaries
 
 - Browser holds plaintext planner data and performs encryption and decryption.
-- Server handles auth, validation, storage, and wrapped-key operations.
+- Server handles auth, validation, and ciphertext persistence.
 - Cosmos DB stores encrypted planner documents only.
-- Key Vault manages wrapping keys, not planner plaintext.
+- If envelope-key recovery is introduced later, Key Vault manages wrapping keys, not planner plaintext.
 - Deploy credentials and Codex automation credentials remain separate.
 - `master` merges are blocked unless the required CI check passes.
 
@@ -401,5 +400,5 @@ If a temporary fallback is needed:
 Recommended next hardening after the persistence foundation lands:
 
 - move the main deploy workflow from `AZURE_CREDENTIALS` to GitHub OIDC federation
-- keep the ACA runtime on managed identity for Cosmos DB and Key Vault
+- keep the ACA runtime on managed identity for Cosmos DB (and Key Vault only if needed)
 - document final live resource names and RBAC assignments once provisioned

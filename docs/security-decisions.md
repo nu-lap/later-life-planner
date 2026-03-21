@@ -47,7 +47,7 @@ Reason:
 
 ### 4. Version 1 key strategy
 
-Use wrapped-key storage, not passphrase-derived keys.
+Use per-device keypairs with device-to-device DEK wrapping (HPKE), not passphrase-derived keys.
 
 Reason:
 
@@ -108,7 +108,6 @@ Version 1 is primarily designed to reduce:
 
 Version 1 does not fully eliminate:
 
-- all server-side trust concerns around wrapped-key flows
 - browser compromise/XSS risk
 - local-device compromise
 
@@ -153,7 +152,7 @@ Primary target architecture:
 - Next.js app
 - Clerk auth
 - Cosmos DB storage
-- Azure Key Vault for wrapped-key support
+- device-to-device key sharing for cross-device decryption (HPKE)
 
 If hosted outside Azure, document the replacement secret and key access pattern explicitly before implementation.
 
@@ -188,7 +187,7 @@ If stronger privacy becomes a product priority later:
 
 1. add optional user-defined encryption passphrase
 2. derive browser-held key from passphrase
-3. keep wrapped-key mode as convenience fallback
+3. consider an optional server-assisted recovery mode (for example, envelope key wrapping using Azure Key Vault) with explicit trust-boundary language
 4. document stronger-recovery tradeoffs explicitly
 
 ## Final v1 Position
