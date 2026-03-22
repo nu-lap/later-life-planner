@@ -59,21 +59,21 @@ export default function Header({
     setPending(null);
   }
 
-  return (
-    <>
-      <header className="bg-white/80 backdrop-blur-sm border-b border-orange-100/60 no-print sticky top-0 z-20">
-        <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-full bg-gradient-hero shadow-inner-soft flex items-center justify-center">
-              <Image src="/images/victorylap_icon.svg" alt="LifePlan icon" width={40} height={40} className="rounded-[14px]" />
-            </div>
-            <div>
-              <h1 className="text-lg font-black text-slate-900 leading-tight tracking-tight">LifePlan</h1>
-              <p className="text-xs text-slate-400 leading-tight hidden sm:block">Design the life you want</p>
-            </div>
-          </div>
+	  return (
+	    <>
+	      <header className="bg-white/80 backdrop-blur-sm border-b border-orange-100/60 no-print sticky top-0 z-20">
+	        <div className="max-w-5xl mx-auto px-4 py-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+	          <div className="flex items-center gap-3 min-w-0">
+	            <div className="w-11 h-11 rounded-full bg-gradient-hero shadow-inner-soft flex items-center justify-center">
+	              <Image src="/images/victorylap_icon.svg" alt="LifePlan icon" width={40} height={40} className="rounded-[14px]" />
+	            </div>
+	            <div className="min-w-0">
+	              <h1 className="text-lg font-black text-slate-900 leading-tight tracking-tight">LifePlan</h1>
+	              <p className="text-xs text-slate-400 leading-tight hidden sm:block">Design the life you want</p>
+	            </div>
+	          </div>
 
-	          <div className="flex items-center gap-2">
+	          <div className="flex items-center gap-2 self-end sm:self-auto">
 	            <div
 	              className={`rounded-full px-2 py-1 text-[11px] font-semibold sm:px-3 sm:text-xs ${SAVE_STATUS_STYLES[saveStatus]}`}
 	              aria-label={`Save status: ${SAVE_STATUS_LABELS[saveStatus]}`}
