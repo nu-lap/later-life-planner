@@ -171,6 +171,7 @@ export function usePlanSync(): UsePlanSyncResult {
   const saveTimeoutRef = useRef<number | null>(null);
   const loadSequenceRef = useRef(0);
   const syncEnabledRef = useRef(false);
+  const blockedByConflictRef = useRef(false);
   const awaitingMigrationChoiceRef = useRef(false);
   const legacyPlanRef = useRef<PersistedPlannerState | null>(null);
   const deviceApprovalIntervalRef = useRef<number | null>(null);
@@ -235,7 +236,12 @@ export function usePlanSync(): UsePlanSyncResult {
             : currentRevisionRef.current;
           setRevision(currentRevisionRef.current);
           setSaveStatus('conflict');
-          setSyncError('This plan was updated elsewhere. Reload the remote version to continue.');
+          blockedByConflictRef.current = true;
+          syncEnabledRef.current = false;
+          const remoteRevision = typeof currentRevisionRef.current === 'number'
+            ? ` Remote revision is ${currentRevisionRef.current}.`
+            : '';
+          setSyncError(`This plan was updated elsewhere.${remoteRevision} Reload the remote version to continue.`);
           return false;
         }
 
@@ -251,6 +257,8 @@ export function usePlanSync(): UsePlanSyncResult {
         setLastSavedAt(saved.updatedAt);
         setSaveStatus('saved');
         setSyncError(null);
+        blockedByConflictRef.current = false;
+        syncEnabledRef.current = true;
         return true;
       } catch (error) {
         setSaveStatus('error');
@@ -392,6 +400,7 @@ export function usePlanSync(): UsePlanSyncResult {
       setSyncError(null);
       setIsSyncReady(false);
       syncEnabledRef.current = false;
+      blockedByConflictRef.current = false;
       awaitingMigrationChoiceRef.current = false;
 
       const fallbackState = createDefaultState(STATE_PENSION.DEFAULT_AGE);
@@ -590,6 +599,7 @@ export function usePlanSync(): UsePlanSyncResult {
         });
         void refreshDevices();
         syncEnabledRef.current = true;
+        blockedByConflictRef.current = false;
         setIsSyncReady(true);
       } catch (error) {
         if (loadSequenceRef.current !== sequenceId) return;
@@ -597,6 +607,7 @@ export function usePlanSync(): UsePlanSyncResult {
         setSyncError(safeErrorMessage(error));
         setIsSyncReady(true);
         syncEnabledRef.current = false;
+        blockedByConflictRef.current = false;
       }
     },
     [ensureKeyStorageAvailable, hydrateCanonicalPlan, refreshDevices, userId],
@@ -625,6 +636,7 @@ export function usePlanSync(): UsePlanSyncResult {
       });
       setDevices([]);
       syncEnabledRef.current = false;
+      blockedByConflictRef.current = false;
       awaitingMigrationChoiceRef.current = false;
       if (deviceApprovalIntervalRef.current !== null) {
         window.clearInterval(deviceApprovalIntervalRef.current);
@@ -640,6 +652,7 @@ export function usePlanSync(): UsePlanSyncResult {
   useEffect(() => {
     if (!isLoaded || !userId || !isSyncReady) return;
     if (!syncEnabledRef.current) return;
+    if (blockedByConflictRef.current) return;
     if (awaitingMigrationChoiceRef.current) return;
 
     if (skipNextSaveRef.current) {
