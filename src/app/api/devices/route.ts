@@ -30,6 +30,8 @@ const PostPayloadSchema = z.object({
   }
 
   if (!isExpectedBase64ByteLength(value.publicKey, 65)) {
+    // P-256 public keys are registered as an uncompressed point (SEC1):
+    // 0x04 || X(32) || Y(32) = 65 bytes.
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       path: ['publicKey'],
