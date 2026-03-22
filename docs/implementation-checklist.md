@@ -173,7 +173,7 @@ Implementation tasks:
 
 ## Phase 4: Security and Reliability
 
-- [ ] Add optimistic concurrency handling using `revision`.
+- [x] Add optimistic concurrency handling using `revision`.
 - [ ] Add route rate limiting for protected data routes.
 - [ ] Add secure handling for malformed ciphertext and corrupt payloads.
 - [ ] Ensure sign-out clears decrypted planner state from memory.
