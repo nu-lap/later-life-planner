@@ -501,7 +501,7 @@ export function usePlanSync(): UsePlanSyncResult {
                 }
 
                 const openedDekB64 = await unwrapDekToBase64({
-                  recipientPrivateKeyB64: deviceKeyPair.privateKeyB64,
+                  recipientPrivateKey: deviceKeyPair.privateKey,
                   encB64: pkg.enc,
                   ciphertextB64: pkg.ciphertext,
                   aad: expectedAadBytes,
