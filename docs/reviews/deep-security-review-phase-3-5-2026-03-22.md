@@ -306,32 +306,43 @@ The V2 format is a meaningful security improvement. The private key is now a non
 
 ### Testing Gaps
 
-The test suite is unchanged since the prior review: 2 HPKE round-trip unit tests, 3 UI state-machine tests. The V2 CryptoKey interface means the unit tests no longer exercise `recipientPrivateKeyB64` (they now use `kp.privateKey` directly), which is correct. But the adversarial test gaps remain entirely unaddressed.
+The test suite previously had minimal coverage (2 HPKE round-trip unit tests, 3 UI state-machine tests). This review now tracks test coverage explicitly by mapping each suggested test to an existing test case by name.
 
-**Highest-priority missing tests:**
+**Highest-priority tests (mapped to implemented cases):**
 
-| Missing test | Why it matters |
+| Suggested test | Test case name |
 |---|---|
-| `hpkeOpenAsRecipient` with wrong recipient private key | Verifies non-recipient cannot decrypt. Fundamental for any key-exchange primitive. |
-| `hpkeSealForRecipient` + `hpkeOpenAsRecipient` with tampered ciphertext | Verifies AEAD authentication rejects tampering. |
-| Full DEK round-trip: seal with real approver keypair, open with recipient keypair, compare bytes | End-to-end protocol correctness with real P-256 key material. |
-| `plannerDekWrapAad` output stability | Same inputs must always produce the same bytes (JSON serialization order). |
-| `approvePendingDevice` with fingerprint mismatch | Verifies fingerprint check is enforced. |
-| `approvePendingDevice` with expired `expiresAt` in code | Verifies client-side expiry check. |
-| `approvePendingDevice` with `target.requestId !== code.requestId` | Verifies requestId binding. |
-| `approvePendingDevice` fresh-fetch behaviour: stale local state, real server state, code matches server | Validates R8 fix actually re-fetches. |
-| Recipient: `pkg.deviceId !== deviceId` — context mismatch rejection | Verifies polling interval rejects cross-device packages. |
-| Recipient: `pkg.aad !== expectedAadB64` — AAD mismatch rejection | Verifies AAD validation fires before decryption attempt. |
-| Two concurrent approval calls for same pending device | Verifies idempotent-create: first writer's package survives, second returns cleanly. |
-| Wrapped DEK fetch after `consumedAt` is set | Verifies `fetchApprovedWrappedDek` returns null post-consume. |
-| Consume after already consumed | Verifies idempotent consume. |
-| `upsertDeviceRegistration` concurrent first-creation | Verifies no 500 on race. |
-| V2 keypair read-after-write roundtrip (store then retrieve from IDB) | Verifies CryptoKey survives IndexedDB structured clone. |
+| `hpkeOpenAsRecipient` with wrong recipient private key | `tests/unit/deviceCrypto.test.ts` → `deviceCrypto HPKE` → `fails to open with the wrong recipient private key` |
+| `hpkeSealForRecipient` + `hpkeOpenAsRecipient` with tampered ciphertext | `tests/unit/deviceCrypto.test.ts` → `deviceCrypto HPKE` → `rejects tampered ciphertext` |
+| Full DEK round-trip (32-byte payload) | `tests/unit/deviceCrypto.test.ts` → `deviceCrypto HPKE` → `round-trips a 32-byte DEK payload` |
+| `plannerDekWrapAad` output stability | `tests/unit/deviceCrypto.test.ts` → `deviceCrypto HPKE` → `plannerDekWrapAad is stable for the same inputs` |
+| `approvePendingDevice` with fingerprint mismatch | `tests/ui/usePlanSyncApprovePendingDeviceValidation.test.tsx` → `rejects when public key fingerprint does not match` |
+| `approvePendingDevice` with expired request | `tests/ui/usePlanSyncApprovePendingDeviceValidation.test.tsx` → `rejects when approval request is expired` |
+| `approvePendingDevice` with `target.requestId !== code.requestId` | `tests/ui/usePlanSyncApprovePendingDeviceValidation.test.tsx` → `rejects when requestId does not match pending device request` |
+| `approvePendingDevice` fresh-fetch behaviour (R8) | `tests/ui/usePlanSyncApprovePendingDevice.test.tsx` → `re-fetches devices directory before approving` |
+| Wrapped DEK fetch uses auth userId (no client userId trust) | `tests/unit/deviceWrappedDekRoute.test.ts` → `GET returns wrapped key package without consuming it` |
+| Approve route uses auth userId (no client userId trust) | `tests/unit/deviceApproveRoute.test.ts` → `passes userId from auth context to persistence layer` |
+| Wrapped DEK consume is explicit (consume-after-confirm) | `tests/unit/deviceWrappedDekRoute.test.ts` → `POST consumes after client confirms decrypt/persist` |
+| Wrapped DEK polling validates bounded IDs | `tests/unit/deviceWrappedDekRoute.test.ts` → `GET rejects unbounded/invalid ids` |
+| Device registration enforces server TTL | `tests/unit/devicesRoute.test.ts` → `POST enforces server TTL regardless of requestExpiresAt input` |
+| Device registration enforces P-256 public key size | `tests/unit/devicesRoute.test.ts` → `POST rejects invalid public key length` |
 
 **Missing: revoked and degraded flows**
 - Approval attempt when approver is `status === 'revoked'`.
 - Fetch / consume for a revoked device.
 - `getUserDekB64` when stored version `v` ≠ 1.
+
+**Still missing (no tests yet):**
+
+| Suggested test | Status |
+|---|---|
+| Recipient: `pkg.deviceId !== deviceId` context mismatch rejection | Not implemented as a deterministic unit test; currently exercised only indirectly via UI polling logic. |
+| Recipient: `pkg.aad !== expectedAadB64` AAD mismatch rejection | Not implemented as a deterministic unit test; currently exercised only indirectly via UI polling logic. |
+| Two concurrent approvals for same pending device | Not implemented; requires an integration-style test harness for Cosmos concurrency behavior. |
+| Wrapped DEK fetch after `consumedAt` is set (server-side) | Not implemented; requires persistence-layer tests against Cosmos emulator or a mocked container with ETag semantics. |
+| Consume after already consumed (server-side) | Not implemented; requires persistence-layer tests against Cosmos emulator or a mocked container with ETag semantics. |
+| `upsertDeviceRegistration` concurrent first-creation (server-side) | Not implemented; requires persistence-layer tests against Cosmos emulator or a mocked container with ETag semantics. |
+| V2 keypair read-after-write roundtrip via real IndexedDB structured clone | Not implemented; would require a browser-run test (Playwright) to validate CryptoKey persistence semantics end-to-end. |
 
 ---
 
