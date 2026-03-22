@@ -150,26 +150,26 @@ Goal: keep the “new device” modal, but move the approving-device controls ou
 
 Implementation tasks:
 
-- [ ] Remove device approvals and sync controls from the main planner page UI.
+- [x] Remove device approvals and sync controls from the main planner page UI.
   Current: `AccountDataPanel` is rendered in `src/app/page.tsx` on the planner shell.
 - [ ] Add a dedicated authenticated account area:
-  - [ ] `GET /account` (sync status, export, reload remote)
-  - [ ] `GET /account/devices` (device list + pending approvals + approval flow)
+  - [x] `GET /account` (sync status, export, reload remote)
+  - [x] `GET /account/devices` (device list + pending approvals + approval flow)
 - [ ] Add a header entry point that does not interrupt the planning journey:
-  - [ ] “Account” link/button next to the user button
-  - [ ] pending approvals badge (count) that links to `/account/devices`
+  - [x] “Account” link/button next to the user button
+  - [x] pending approvals badge (count) that links to `/account/devices`
 - [ ] Make the new-device modal approval UX link-first:
-  - [ ] show QR code for an approval link using a URL fragment (client-side only)
-  - [ ] add “Copy approval link” button
-  - [ ] keep “Copy approval code” as a fallback (advanced)
+  - [x] show QR code for an approval link using a URL fragment (client-side only)
+  - [x] add “Copy approval link” button
+  - [x] keep “Copy approval code” as a fallback (advanced)
 - [ ] Make the approving-device UX understandable:
-  - [ ] approve screen supports opening an approval link (auto-prefill) and pasting code as fallback
-  - [ ] pending device list uses friendly labels and expiry countdown; hide raw ids behind a “details” toggle
+  - [x] approve screen supports opening an approval link (auto-prefill) and pasting code as fallback
+  - [x] pending device list uses friendly labels and expiry countdown; hide raw ids behind a “details” toggle
 - [ ] Update tests to cover the new UX:
-  - [ ] header badge/link presence and navigation
-  - [ ] approval link parsing and prefill
-  - [ ] fallback paste still works
-  - [ ] regression tests for the approval state machine remain passing
+  - [x] header badge/link presence and navigation
+  - [x] approval link parsing and prefill
+  - [x] fallback paste still works
+  - [x] regression tests for the approval state machine remain passing
 
 ## Phase 4: Security and Reliability
 
