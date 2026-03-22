@@ -229,21 +229,18 @@ export function usePlanSync(): UsePlanSyncResult {
           body: JSON.stringify(payload),
         });
 
-        if (response.status === 409) {
-          const conflictBody = await response.json().catch(() => null) as { currentRevision?: number } | null;
-          currentRevisionRef.current = typeof conflictBody?.currentRevision === 'number'
-            ? conflictBody.currentRevision
-            : currentRevisionRef.current;
-          setRevision(currentRevisionRef.current);
-          setSaveStatus('conflict');
-          blockedByConflictRef.current = true;
-          syncEnabledRef.current = false;
-          const remoteRevision = typeof currentRevisionRef.current === 'number'
-            ? ` Remote revision is ${currentRevisionRef.current}.`
-            : '';
-          setSyncError(`This plan was updated elsewhere.${remoteRevision} Reload the remote version to continue.`);
-          return false;
-        }
+	        if (response.status === 409) {
+	          const conflictBody = await response.json().catch(() => null) as { currentRevision?: number } | null;
+	          currentRevisionRef.current = typeof conflictBody?.currentRevision === 'number'
+	            ? conflictBody.currentRevision
+	            : currentRevisionRef.current;
+	          setRevision(currentRevisionRef.current);
+	          setSaveStatus('conflict');
+	          blockedByConflictRef.current = true;
+	          syncEnabledRef.current = false;
+	          setSyncError('Reload the remote version to continue.');
+	          return false;
+	        }
 
         if (!response.ok) {
           throw new Error(`Save request failed (${response.status}).`);
