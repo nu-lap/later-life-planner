@@ -135,12 +135,12 @@ Implementation tasks:
 - [x] show a copy/paste approval code with `{ deviceId, requestId, expiresAt, publicKeyFingerprint }` (JSON)
 - [x] show pending-device list and an approve action on an already-authorized device (paste code + approve)
 - [x] On successful approval, unwrap DEK, decrypt remote plan, and continue normal sync.
-- [ ] Add audit-friendly server logs for device registration and approvals (metadata only; never plaintext planner data or keys).
-- [ ] Add tests that lock the state machine:
+- [x] Add audit-friendly server logs for device registration and approvals (metadata only; never plaintext planner data or keys).
+- [x] Add tests that lock the state machine:
 - [x] new device cannot decrypt until approved
 - [x] approval is single-use and expires
-- [ ] wrong user cannot approve or fetch wrapped keys
-- [ ] revoke/rotate behavior is well-defined
+- [x] wrong user cannot approve or fetch wrapped keys
+- [x] revoke/rotate behavior is well-defined
 
 ### Phase 3.5 UX Extension: Usable Key Exchange
 

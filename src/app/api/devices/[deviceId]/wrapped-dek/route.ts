@@ -6,6 +6,7 @@ import {
   consumeApprovedWrappedDek,
 } from '@/lib/cosmos';
 import { rateLimit } from '@/lib/rateLimit';
+import { auditLog } from '@/lib/auditLog';
 
 const DeviceIdSchema = z.string().min(8).max(128);
 const RequestIdSchema = z.string().min(8).max(128);
@@ -87,6 +88,12 @@ export async function POST(
     if (!consumed) {
       return new Response('Not found.', { status: 404 });
     }
+
+    auditLog('device.consumedWrappedDek', {
+      userId,
+      deviceId: deviceIdParsed.data,
+      requestId: parsed.data.requestId,
+    });
 
     return new Response(null, { status: 204 });
   } catch (error) {

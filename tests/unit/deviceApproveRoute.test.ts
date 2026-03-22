@@ -139,4 +139,43 @@ describe('/api/devices/:deviceId/approve route', () => {
       wrappedKeyPackage: payload.wrappedKeyPackage,
     });
   });
+
+  test('returns 404 when device approval is attempted by a different user', async () => {
+    requireUserMock.mockResolvedValue({ userId: 'user_wrong' });
+    approveDeviceWrappedDekMock.mockImplementation(async (input) => {
+      if (input.userId !== 'user_owner') {
+        throw new Error('Device registration not found.');
+      }
+    });
+
+    const payload = {
+      requestId: 'req-uuid-1234',
+      wrappedKeyPackage: {
+        v: 1,
+        suite: { kem: 'DHKEM(P-256,HKDF-SHA256)', kdf: 'HKDF-SHA256', aead: 'AES-256-GCM' },
+        deviceId: 'device-1',
+        requestId: 'req-uuid-1234',
+        enc: base64OfSize(32),
+        ciphertext: base64OfSize(64),
+        aad: base64OfSize(32),
+        createdAt: new Date().toISOString(),
+      },
+    };
+
+    const response = await POST(
+      new Request('http://localhost/api/devices/device-1/approve', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      }),
+      { params: { deviceId: 'device-1' } },
+    );
+
+    expect(response.status).toBe(404);
+    expect(approveDeviceWrappedDekMock).toHaveBeenCalledWith({
+      userId: 'user_wrong',
+      deviceId: 'device-1',
+      requestId: 'req-uuid-1234',
+      wrappedKeyPackage: payload.wrappedKeyPackage,
+    });
+  });
 });

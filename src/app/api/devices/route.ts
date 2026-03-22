@@ -8,6 +8,7 @@ import {
 } from '@/lib/cosmos';
 import { isExpectedBase64ByteLength, isValidBase64 } from '@/lib/crypto';
 import { rateLimit } from '@/lib/rateLimit';
+import { auditLog, sha256Base64FingerprintFromBase64Payload } from '@/lib/auditLog';
 
 const DeviceIdSchema = z.string().min(8).max(128);
 const DEVICE_APPROVAL_TTL_MS = 10 * 60 * 1000;
@@ -29,6 +30,8 @@ const PostPayloadSchema = z.object({
   }
 
   if (!isExpectedBase64ByteLength(value.publicKey, 65)) {
+    // P-256 public keys are registered as an uncompressed point (SEC1):
+    // 0x04 || X(32) || Y(32) = 65 bytes.
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       path: ['publicKey'],
@@ -87,6 +90,16 @@ export async function POST(request: Request) {
       requestId: parsed.data.requestId,
       requestExpiresAt: expiresAt.toISOString(),
       label: parsed.data.label,
+    });
+
+    auditLog('device.registered', {
+      userId,
+      deviceId: created.deviceId,
+      status: created.status,
+      requestId: created.requestId,
+      requestExpiresAt: created.requestExpiresAt,
+      label: parsed.data.label ?? null,
+      publicKeyFingerprint: sha256Base64FingerprintFromBase64Payload(parsed.data.publicKey),
     });
 
     return Response.json({

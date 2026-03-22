@@ -131,6 +131,36 @@ describe('/api/devices/:deviceId/wrapped-dek route', () => {
     });
   });
 
+  test('GET returns 404 when wrapped package exists for a different user', async () => {
+    const pkg = {
+      v: 1,
+      suite: { kem: 'DHKEM(P-256,HKDF-SHA256)', kdf: 'HKDF-SHA256', aead: 'AES-256-GCM' },
+      deviceId: 'device-1',
+      requestId: 'req-uuid-1234',
+      enc: Buffer.alloc(32, 1).toString('base64'),
+      ciphertext: Buffer.alloc(64, 2).toString('base64'),
+      aad: Buffer.alloc(32, 3).toString('base64'),
+      createdAt: new Date().toISOString(),
+    };
+
+    requireUserMock.mockResolvedValue({ userId: 'user_wrong' });
+    fetchApprovedWrappedDekMock.mockImplementation(async (input) => (
+      input.userId === 'user_owner' ? pkg : null
+    ));
+
+    const response = await GET(
+      new Request('http://localhost/api/devices/device-1/wrapped-dek?requestId=req-uuid-1234'),
+      { params: { deviceId: 'device-1' } },
+    );
+
+    expect(response.status).toBe(404);
+    expect(fetchApprovedWrappedDekMock).toHaveBeenCalledWith({
+      userId: 'user_wrong',
+      deviceId: 'device-1',
+      requestId: 'req-uuid-1234',
+    });
+  });
+
   test('POST consumes after client confirms decrypt/persist', async () => {
     requireUserMock.mockResolvedValue({ userId: 'user_123' });
     consumeApprovedWrappedDekMock.mockResolvedValue(true);
@@ -146,6 +176,28 @@ describe('/api/devices/:deviceId/wrapped-dek route', () => {
     expect(response.status).toBe(204);
     expect(consumeApprovedWrappedDekMock).toHaveBeenCalledWith({
       userId: 'user_123',
+      deviceId: 'device-1',
+      requestId: 'req-uuid-1234',
+    });
+  });
+
+  test('POST returns 404 when consume is attempted by a different user', async () => {
+    requireUserMock.mockResolvedValue({ userId: 'user_wrong' });
+    consumeApprovedWrappedDekMock.mockImplementation(async (input) => (
+      input.userId === 'user_owner'
+    ));
+
+    const response = await POST(
+      new Request('http://localhost/api/devices/device-1/wrapped-dek', {
+        method: 'POST',
+        body: JSON.stringify({ requestId: 'req-uuid-1234' }),
+      }),
+      { params: { deviceId: 'device-1' } },
+    );
+
+    expect(response.status).toBe(404);
+    expect(consumeApprovedWrappedDekMock).toHaveBeenCalledWith({
+      userId: 'user_wrong',
       deviceId: 'device-1',
       requestId: 'req-uuid-1234',
     });

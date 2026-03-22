@@ -102,6 +102,12 @@ async function decryptSecretForUser(userId: string, wrapped: EncryptedSecretV1):
 }
 
 export function hpkeSuite() {
+  // Why P-256 (not X25519):
+  // In practice, X25519-backed HPKE key import/interop is not consistently supported via Web Crypto
+  // across browsers. We observed Chrome failing approvals with:
+  // "Failed to execute 'importKey' on 'SubtleCrypto': Algorithm: Unrecognized name".
+  // Using the P-256 KEM keeps key material WebCrypto-native (CryptoKey) and avoids cross-browser
+  // runtime failures during device approval.
   return new CipherSuite({
     kem: new DhkemP256HkdfSha256(),
     kdf: new HkdfSha256(),
