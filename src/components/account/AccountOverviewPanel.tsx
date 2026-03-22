@@ -32,7 +32,7 @@ export default function AccountOverviewPanel({
   return (
     <section className="game-card">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
+        <div className="min-w-0">
           <p className="text-xs font-bold uppercase tracking-[0.2em] text-orange-500">Account</p>
           <h2 className="mt-2 text-2xl font-black text-slate-900">Saved plan</h2>
           <p className="mt-1 text-sm text-slate-500">
@@ -40,11 +40,11 @@ export default function AccountOverviewPanel({
           </p>
         </div>
 
-        <div className="flex gap-2">
-          <button onClick={onExportPlan} className="btn-secondary py-2.5 text-sm">
+        <div className="flex gap-2 flex-shrink-0">
+          <button onClick={onExportPlan} className="btn-secondary py-2.5 text-sm whitespace-nowrap">
             Export JSON
           </button>
-          <button onClick={onReloadRemote} className="btn-secondary py-2.5 text-sm">
+          <button onClick={onReloadRemote} className="btn-secondary py-2.5 text-sm whitespace-nowrap">
             Reload remote
           </button>
         </div>
@@ -73,13 +73,13 @@ export default function AccountOverviewPanel({
 
       <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-4">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <div>
+          <div className="min-w-0">
             <p className="text-sm font-bold text-slate-800">Devices</p>
             <p className="mt-1 text-xs text-slate-500">
               New devices must be explicitly approved before they can decrypt your saved plan.
             </p>
           </div>
-          <Link href="/account/devices" className="btn-secondary py-2.5 text-sm">
+          <Link href="/account/devices" className="btn-secondary py-2.5 text-sm whitespace-nowrap flex-shrink-0">
             Manage devices
             {pendingApprovals > 0 ? (
               <span className="ml-2 inline-flex min-w-[1.5rem] items-center justify-center rounded-full bg-rose-100 px-2 py-0.5 text-[11px] font-black text-rose-700">
@@ -92,4 +92,3 @@ export default function AccountOverviewPanel({
     </section>
   );
 }
-

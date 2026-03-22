@@ -49,18 +49,18 @@ export default function DeviceApprovalsPanel({
   return (
     <section className="game-card">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div>
+        <div className="min-w-0">
           <p className="text-xs font-bold uppercase tracking-[0.2em] text-orange-500">Devices</p>
           <h2 className="mt-2 text-2xl font-black text-slate-900">Approve a device</h2>
           <p className="mt-1 text-sm text-slate-500">
             Open the approval link from your new device, or paste the approval link/code here as a fallback.
           </p>
         </div>
-        <div className="flex gap-2">
-          <Link href="/account" className="btn-secondary py-2.5 text-sm">
+        <div className="flex gap-2 flex-shrink-0">
+          <Link href="/account" className="btn-secondary py-2.5 text-sm whitespace-nowrap">
             Back to account
           </Link>
-          <button onClick={onRefreshDevices} className="btn-secondary py-2.5 text-sm">
+          <button onClick={onRefreshDevices} className="btn-secondary py-2.5 text-sm whitespace-nowrap">
             Refresh devices
           </button>
         </div>
