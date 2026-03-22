@@ -117,25 +117,28 @@ High-level outcome:
 
 Implementation tasks:
 
-- [ ] Decide and document the HPKE suite for v1 (RFC 9180), including AAD binding fields.
-- [ ] Define the Cosmos data model for:
-- [ ] registered devices (public keys + status)
-- [ ] per-device wrapped DEK packages
-- [ ] Add protected API routes for device registration and approval:
-- [ ] `POST /api/devices` (register new device + public key)
-- [ ] `GET /api/devices` (list devices and pending approvals)
-- [ ] `POST /api/devices/:deviceId/approve` (store wrapped DEK package)
-- [ ] `GET /api/devices/:deviceId/wrapped-dek` (retrieve wrapped DEK package)
-- [ ] Add rate limiting rules for the device-approval API surface (polling, approvals, and retries).
-- [ ] Add a client-side device key store (private key + cached DEK) using IndexedDB.
-- [ ] Add a "device approval required" UX:
-- [ ] show QR/short code with `deviceId` + `requestId` + expiry
-- [ ] show pending-device list and approve action on an already-authorized device
-- [ ] On successful approval, unwrap DEK, decrypt remote plan, and continue normal sync.
+- [x] Decide and document the HPKE suite for v1 (RFC 9180), including AAD binding fields.
+  Current: `DHKEM(P-256,HKDF-SHA256)` / `HKDF-SHA256` / `AES-256-GCM`, with AAD binding `{ scope, userId, deviceId, requestId, schemaVersion, expiresAt }`.
+- [x] Define the Cosmos data model for:
+- [x] registered devices (public keys + status)
+- [x] per-device wrapped DEK packages
+- [x] Add protected API routes for device registration and approval:
+- [x] `POST /api/devices` (register new device + public key)
+- [x] `GET /api/devices` (list devices and pending approvals)
+- [x] `POST /api/devices/:deviceId/approve` (store wrapped DEK package)
+- [x] `GET /api/devices/:deviceId/wrapped-dek` (retrieve wrapped DEK package)
+- [x] `POST /api/devices/:deviceId/wrapped-dek` (consume wrapped DEK after the recipient confirms decrypt + persistence)
+- [x] Add rate limiting rules for the device-approval API surface (polling, approvals, retries, and consume).
+- [x] Add a client-side device key store (private key + cached DEK) using IndexedDB.
+  Current: device HPKE private key is stored as a non-extractable `CryptoKey` in IndexedDB; DEK is stored encrypted at rest in IndexedDB; when IndexedDB is blocked/unavailable, sync fails fast into local-only mode.
+- [x] Add a "device approval required" UX:
+- [x] show a copy/paste approval code with `{ deviceId, requestId, expiresAt, publicKeyFingerprint }` (JSON)
+- [x] show pending-device list and an approve action on an already-authorized device (paste code + approve)
+- [x] On successful approval, unwrap DEK, decrypt remote plan, and continue normal sync.
 - [ ] Add audit-friendly server logs for device registration and approvals (metadata only; never plaintext planner data or keys).
 - [ ] Add tests that lock the state machine:
-- [ ] new device cannot decrypt until approved
-- [ ] approval is single-use and expires
+- [x] new device cannot decrypt until approved
+- [x] approval is single-use and expires
 - [ ] wrong user cannot approve or fetch wrapped keys
 - [ ] revoke/rotate behavior is well-defined
 
