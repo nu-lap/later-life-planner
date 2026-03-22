@@ -19,7 +19,7 @@ The following issues from the prior review have been resolved:
 | L3 (Plaintext private key in closure memory) | Resolved by V2: the private key is a `CryptoKey` handle, never a base64 string in application memory. |
 | L4 (Legacy upgrade returns plaintext private key) | Resolved by V2: legacy V1 and pre-V1 formats fall through to fresh keypair generation; no migration path emits plaintext bytes. |
 
-The following issues from the prior review remain open and are carried forward below: H1, H2, M1, M2, M3, M4. M5 is updated with P-256-specific byte lengths. L1 and L2 are carried forward unchanged.
+The following issues from the prior review remain open and are carried forward below: H2, M1, M2, M4. M5 is updated with P-256-specific byte lengths. L1 and L2 are carried forward unchanged. (H1 is now fixed in commit `9dd3d9e`; M3 is now fixed in commit `cb1d15e`.)
 
 ---
 
@@ -60,7 +60,7 @@ None. Previous critical issues (R3-P0 key substitution, R2-P1 AAD trust) remain 
 
 #### H1 — Compromised device can install arbitrary DEK for any pending device
 
-**Severity:** High — **unchanged from 2026-03-21**
+**Severity:** High — **resolved**
 **Where:** `src/lib/cosmos.ts` (`approveDeviceWrappedDek`), `src/app/api/devices/[deviceId]/approve/route.ts`
 **Why it is a problem:**
 `approveDeviceWrappedDek` creates the wrapped DEK with `IfNoneMatch: *` and treats a 409/412 conflict as silent success. Any authenticated Clerk session for userId X can POST to `/api/devices/:deviceId/approve` with a `wrappedKeyPackage` of their choice — the first writer wins. A compromised device can:
@@ -73,8 +73,8 @@ The stale-directory fix (R8) does not affect this. The re-fetch happens on the a
 
 **Exploit scenario:** Unchanged from prior review. An attacker with a valid Clerk session for the victim userId races the approval write.
 
-**Remediation:**
-Add an `approverDeviceId` field to the POST `/api/devices/:deviceId/approve` body. On the server, look up that device, verify `status === 'active'` and `userId` matches, and reject if not. This closes the race: a pending or revoked device cannot win an approval write, and an active device has already received the real DEK.
+**Status:**
+Fixed in commit `9dd3d9e`: `POST /api/devices/:deviceId/approve` now requires `approverDeviceId`, and the server verifies the approver device registration exists and is `status === 'active'` before accepting the wrapped DEK package.
 
 **Type:** Design flaw + implementation flaw
 
@@ -128,13 +128,13 @@ Add `planId: 'default'` or equivalent now. Costs nothing, eliminates the cross-p
 
 #### M3 — Concurrent first-time device registration produces unhandled 500
 
-**Severity:** Medium — **unchanged from 2026-03-21**
+**Severity:** Medium — **resolved**
 **Where:** `src/lib/cosmos.ts` (`upsertDeviceRegistration`, line ~247)
 **Why it is a problem:**
 `container.items.create(created, { accessCondition: { type: 'IfNoneMatch', condition: '*' } })` has no try/catch. On a concurrent first-registration race (double-submit, back/reload), the second request receives a Cosmos 409/412 that propagates as an unhandled error through `responseForKnownError` (which only catches `DeviceRegistrationConflictError`) and returns a 500.
 
-**Remediation:**
-Wrap the `create` call in a try/catch for 409/412. On conflict, re-read the document; if the existing public key matches the input, return the existing document. If it doesn't, throw `DeviceRegistrationConflictError`.
+**Status:**
+Fixed in `fix(cosmos): handle concurrent device registration create` (commit `cb1d15e`): `upsertDeviceRegistration` now catches 409/412 on first-create, re-reads, and returns the existing document (or surfaces a stable conflict error).
 
 **Type:** Implementation flaw
 
@@ -337,7 +337,7 @@ The test suite previously had minimal coverage (2 HPKE round-trip unit tests, 3 
 | Suggested test | Status |
 |---|---|
 | Recipient: `pkg.deviceId !== deviceId` context mismatch rejection | Not implemented as a deterministic unit test; currently exercised only indirectly via UI polling logic. |
-| Recipient: `pkg.aad !== expectedAadB64` AAD mismatch rejection | Not implemented as a deterministic unit test; currently exercised only indirectly via UI polling logic. |
+| Recipient: `pkg.aad !== expectedAadB64` AAD mismatch rejection | Implemented as a deterministic UI test in `tests/ui/usePlanSyncDeviceApproval.test.tsx` (commit `fe2e643`). |
 | Two concurrent approvals for same pending device | Not implemented; requires an integration-style test harness for Cosmos concurrency behavior. |
 | Wrapped DEK fetch after `consumedAt` is set (server-side) | Not implemented; requires persistence-layer tests against Cosmos emulator or a mocked container with ETag semantics. |
 | Consume after already consumed (server-side) | Not implemented; requires persistence-layer tests against Cosmos emulator or a mocked container with ETag semantics. |
@@ -348,13 +348,16 @@ The test suite previously had minimal coverage (2 HPKE round-trip unit tests, 3 
 
 ### Suggested Fixes in Priority Order
 
-1. **[H1] Require the approver to be an active device.** Add `approverDeviceId` to the approval request body. Server looks up that device, verifies `status === 'active'` and same `userId`, rejects otherwise. This closes the compromised-device DEK-substitution race. This is the most important fix before launch.
+1. **[H1] Require the approver to be an active device.** Implemented in commit `9dd3d9e`.
 
-2. **[M3] Handle Cosmos 409/412 on first-create in `upsertDeviceRegistration`.** Wrap `container.items.create` in try/catch; re-read and return or throw `DeviceRegistrationConflictError` on conflict.
+2. **[M3] Handle Cosmos 409/412 on first-create in `upsertDeviceRegistration`.** Implemented in commit `cb1d15e`.
 
 3. **[M5] Enforce exact byte-length on `enc` (65 bytes) and minimum on `ciphertext` (≥ 48 bytes)** in `WrappedDekPackageSchema` using `isExpectedBase64ByteLength`.
 
-4. **[Testing] Add the highest-value adversarial tests listed above.** Prioritize: wrong-recipient decryption, tampered ciphertext, fingerprint mismatch, AAD mismatch, approval race.
+4. **[Testing] Add the highest-value adversarial tests listed above.** Partially implemented:
+   - wrong-recipient decryption, tampered ciphertext, and HPKE AAD mismatch are covered in `tests/unit/deviceCrypto.test.ts`
+   - fingerprint mismatch in the approver flow is covered in `tests/ui/usePlanSyncApprovePendingDeviceValidation.test.tsx`
+   - recipient polling AAD mismatch rejection is covered in `tests/ui/usePlanSyncDeviceApproval.test.tsx` (commit `fe2e643`)
 
 5. **[M1] Add algorithm identifiers to `plannerDekWrapAad`.** Include `kem`, `kdf`, `aead` in the AAD. Validate `pkg.suite` at the recipient before decryption.
 
@@ -375,10 +378,8 @@ The test suite previously had minimal coverage (2 HPKE round-trip unit tests, 3 
 The cryptographic fundamentals are sound. HPKE base mode with P-256, AES-256-GCM, HKDF-SHA256 is a well-specified combination. The V2 non-extractable `CryptoKey` private key storage is a genuine improvement. AAD recomputation at the recipient, fingerprint-based key pinning, server-enforced TTL, device key immutability, and consume-after-confirm remain correctly implemented.
 
 Approval is conditional on addressing before production launch:
-1. **H1** — require the approver to be a verified active device.
-2. **M3** — handle concurrent first-creation in `upsertDeviceRegistration`.
-3. **Testing** — add at minimum: wrong-recipient decryption, tampered ciphertext, fingerprint mismatch, AAD mismatch rejection.
+1. **Testing** — add at minimum: wrong-recipient decryption, tampered ciphertext, fingerprint mismatch, AAD mismatch rejection. (Now covered by the tests listed above.)
 
-M1, M2, M5, L1–L6 are recommended for the next sprint but do not block launch once H1, M3, and the minimum test additions are in place.
+M1, M2, M5, L1–L6 are recommended for the next sprint but do not block launch once the minimum test additions are in place.
 
 The absence of device key rotation, recovery flows, blob re-encryption, and sender authentication (H2) are accepted v1 limitations and should be tracked as explicit future work items in the backlog.

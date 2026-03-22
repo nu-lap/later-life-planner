@@ -25,6 +25,8 @@ vi.mock('@/lib/deviceCrypto', async (importOriginal) => {
     ...actual,
     getUserDekB64: async () => bytesToBase64(new Uint8Array(32).fill(7)),
     setUserDekB64: async () => {},
+    getOrCreateDeviceId: async () => 'device-approver',
+    getOrCreateDeviceKeyPair: async () => ({ privateKey: {} as CryptoKey, publicKeyB64: 'pub' }),
     publicKeyFingerprintB64: async () => 'AAAAAAAAAAAAAAAAAAAAAA==',
     hpkeSealForRecipient: async () => ({ encB64: 'enc', ciphertextB64: 'ciphertext' }),
   };
@@ -78,6 +80,10 @@ describe('usePlanSync approvePendingDevice', () => {
 
       if (url.endsWith('/api/devices') && (!init?.method || init.method === 'GET')) {
         return new Response(JSON.stringify({ devices: [device] }), { status: 200 });
+      }
+
+      if (url.endsWith('/api/devices/activate') && init?.method === 'POST') {
+        return new Response(JSON.stringify({ deviceId: 'device-approver', status: 'active' }), { status: 200 });
       }
 
       if (url.includes('/api/devices/') && url.includes('/approve') && init?.method === 'POST') {

@@ -244,10 +244,21 @@ export async function upsertDeviceRegistration(input: {
       lastSeenAt: now,
     };
 
-    await container.items.create(created, {
-      accessCondition: { type: 'IfNoneMatch', condition: '*' },
-    });
-    return created;
+    try {
+      await container.items.create(created, {
+        accessCondition: { type: 'IfNoneMatch', condition: '*' },
+      });
+      return created;
+    } catch (error) {
+      // If another request created the same device record concurrently, surface a stable conflict
+      // response rather than leaking an unhandled 500 from the persistence layer.
+      if (isStatusCode(error, 409) || isStatusCode(error, 412)) {
+        const reread = await readExistingDeviceDocument(input.userId, input.deviceId);
+        if (reread) return reread.document;
+        throw new DeviceRegistrationConflictError('Device registration already exists.');
+      }
+      throw error;
+    }
   }
 
   if (existing.document.status === 'revoked') {
@@ -287,6 +298,91 @@ export async function listDeviceRegistrations(userId: string): Promise<DeviceReg
     .fetchAll();
 
   return resources ?? [];
+}
+
+export async function getDeviceRegistration(
+  userId: string,
+  deviceId: string,
+): Promise<DeviceRegistrationDocument | null> {
+  const existing = await readExistingDeviceDocument(userId, deviceId);
+  return existing?.document ?? null;
+}
+
+export async function activateInitialDeviceRegistration(input: {
+  userId: string;
+  deviceId: string;
+  publicKey: string;
+  label?: string;
+}): Promise<DeviceRegistrationDocument> {
+  const now = new Date().toISOString();
+  const container = getPlannerContainer();
+
+  const devices = await listDeviceRegistrations(input.userId);
+  const existingSummary = devices.find((candidate) => candidate.deviceId === input.deviceId) ?? null;
+  const hasActiveDevice = devices.some((candidate) => candidate.status === 'active');
+
+  if (hasActiveDevice && !existingSummary) {
+    throw new DeviceRegistrationConflictError('An active device already exists for this account.');
+  }
+
+  if (existingSummary) {
+    const existing = await readExistingDeviceDocument(input.userId, input.deviceId);
+    if (!existing) {
+      throw new DeviceRegistrationConflictError('Device registration not found.');
+    }
+
+    if (existing.document.status === 'revoked') {
+      throw new DeviceRegistrationConflictError('Device registration is revoked.');
+    }
+    if (existing.document.publicKey !== input.publicKey) {
+      throw new DeviceRegistrationConflictError('DeviceId is already registered with a different public key.');
+    }
+    if (existing.document.status !== 'active') {
+      throw new DeviceRegistrationConflictError('Device is not active.');
+    }
+
+    const id = buildDeviceDocumentId(input.userId, input.deviceId);
+    const updated: DeviceRegistrationDocument = {
+      ...existing.document,
+      lastSeenAt: now,
+      label: input.label ?? existing.document.label,
+    };
+
+    await container.item(id, id).replace(updated, {
+      accessCondition: { type: 'IfMatch', condition: existing.etag },
+    });
+    return updated;
+  }
+
+  const id = buildDeviceDocumentId(input.userId, input.deviceId);
+  const created: DeviceRegistrationDocument = {
+    id,
+    type: 'device',
+    userId: input.userId,
+    deviceId: input.deviceId,
+    publicKey: input.publicKey,
+    status: 'active',
+    requestId: null,
+    requestExpiresAt: null,
+    label: input.label,
+    createdAt: now,
+    lastSeenAt: now,
+  };
+
+  try {
+    await container.items.create(created, {
+      accessCondition: { type: 'IfNoneMatch', condition: '*' },
+    });
+  } catch (error) {
+    if (isStatusCode(error, 409) || isStatusCode(error, 412)) {
+      const reread = await readExistingDeviceDocument(input.userId, input.deviceId);
+      if (reread) return reread.document;
+      throw new DeviceRegistrationConflictError('Device registration already exists.');
+    }
+    throw error;
+  }
+
+  return created;
 }
 
 export async function approveDeviceWrappedDek(input: {

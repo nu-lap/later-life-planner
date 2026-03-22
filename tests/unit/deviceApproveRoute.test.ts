@@ -3,10 +3,12 @@ import { beforeEach, describe, expect, test, vi } from 'vitest';
 const {
   requireUserMock,
   approveDeviceWrappedDekMock,
+  getDeviceRegistrationMock,
   rateLimitMock,
 } = vi.hoisted(() => ({
   requireUserMock: vi.fn(),
   approveDeviceWrappedDekMock: vi.fn(),
+  getDeviceRegistrationMock: vi.fn(),
   rateLimitMock: vi.fn(() => ({ ok: true, remaining: 1, resetInMs: 0 })),
 }));
 
@@ -39,6 +41,7 @@ vi.mock('@/lib/cosmos', () => {
   return {
     PersistenceConfigError,
     approveDeviceWrappedDek: approveDeviceWrappedDekMock,
+    getDeviceRegistration: getDeviceRegistrationMock,
   };
 });
 
@@ -53,6 +56,7 @@ describe('/api/devices/:deviceId/approve route', () => {
   beforeEach(() => {
     requireUserMock.mockReset();
     approveDeviceWrappedDekMock.mockReset();
+    getDeviceRegistrationMock.mockReset();
     rateLimitMock.mockClear();
   });
 
@@ -79,13 +83,44 @@ describe('/api/devices/:deviceId/approve route', () => {
     expect(approveDeviceWrappedDekMock).not.toHaveBeenCalled();
   });
 
-  test('rejects when path deviceId does not match wrapped package deviceId', async () => {
+  test('rejects when approver device is not active', async () => {
     requireUserMock.mockResolvedValue({ userId: 'user_123' });
+    getDeviceRegistrationMock.mockResolvedValue(null);
 
     const response = await POST(
       new Request('http://localhost/api/devices/device-1/approve', {
         method: 'POST',
         body: JSON.stringify({
+          approverDeviceId: 'device-approver',
+          requestId: 'req-uuid-1234',
+          wrappedKeyPackage: {
+            v: 1,
+            suite: { kem: 'DHKEM(P-256,HKDF-SHA256)', kdf: 'HKDF-SHA256', aead: 'AES-256-GCM' },
+            deviceId: 'device-1',
+            requestId: 'req-uuid-1234',
+            enc: base64OfSize(32),
+            ciphertext: base64OfSize(64),
+            aad: base64OfSize(32),
+            createdAt: new Date().toISOString(),
+          },
+        }),
+      }),
+      { params: { deviceId: 'device-1' } },
+    );
+
+    expect(response.status).toBe(403);
+    expect(approveDeviceWrappedDekMock).not.toHaveBeenCalled();
+  });
+
+  test('rejects when path deviceId does not match wrapped package deviceId', async () => {
+    requireUserMock.mockResolvedValue({ userId: 'user_123' });
+    getDeviceRegistrationMock.mockResolvedValue({ status: 'active' });
+
+    const response = await POST(
+      new Request('http://localhost/api/devices/device-1/approve', {
+        method: 'POST',
+        body: JSON.stringify({
+          approverDeviceId: 'device-approver',
           requestId: 'req-uuid-1234',
           wrappedKeyPackage: {
             v: 1,
@@ -108,8 +143,10 @@ describe('/api/devices/:deviceId/approve route', () => {
 
   test('passes userId from auth context to persistence layer', async () => {
     requireUserMock.mockResolvedValue({ userId: 'user_123' });
+    getDeviceRegistrationMock.mockResolvedValue({ status: 'active' });
 
     const payload = {
+      approverDeviceId: 'device-approver',
       requestId: 'req-uuid-1234',
       wrappedKeyPackage: {
         v: 1,
@@ -142,6 +179,7 @@ describe('/api/devices/:deviceId/approve route', () => {
 
   test('returns 404 when device approval is attempted by a different user', async () => {
     requireUserMock.mockResolvedValue({ userId: 'user_wrong' });
+    getDeviceRegistrationMock.mockResolvedValue({ status: 'active' });
     approveDeviceWrappedDekMock.mockImplementation(async (input) => {
       if (input.userId !== 'user_owner') {
         throw new Error('Device registration not found.');
@@ -149,6 +187,7 @@ describe('/api/devices/:deviceId/approve route', () => {
     });
 
     const payload = {
+      approverDeviceId: 'device-approver',
       requestId: 'req-uuid-1234',
       wrappedKeyPackage: {
         v: 1,
