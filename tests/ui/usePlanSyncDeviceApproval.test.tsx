@@ -10,7 +10,7 @@ import {
   PLANNER_SCHEMA_VERSION,
 } from '@/lib/crypto';
 import { plannerDekWrapAad } from '@/lib/deviceCrypto';
-import { idbSet } from '@/lib/indexedDbKv';
+import { idbDel, idbSet } from '@/lib/indexedDbKv';
 
 const mockUseAuth = vi.fn();
 let mockDecryptedPlan: unknown = null;
@@ -50,6 +50,7 @@ function Harness() {
   return (
     <div>
       <div data-testid="approval-open">{sync.deviceApprovalPrompt.isOpen ? 'yes' : 'no'}</div>
+      <div data-testid="approval-error">{sync.deviceApprovalPrompt.error ?? ''}</div>
       <div data-testid="status">{sync.saveStatus}</div>
       <div data-testid="error">{sync.syncError ?? ''}</div>
     </div>
@@ -62,6 +63,8 @@ describe('usePlanSync device approval', () => {
     vi.restoreAllMocks();
     // Ensure deterministic IDs in tests.
     vi.spyOn(globalThis.crypto, 'randomUUID').mockReturnValue('req-uuid');
+    await idbDel('llp.userDek.user_123');
+    await idbDel('llp.deviceKeypair.p256.user_123');
     await idbSet('llp.deviceId.p256.user_123', 'device-abc');
   });
 
@@ -237,5 +240,90 @@ describe('usePlanSync device approval', () => {
     } finally {
       Object.defineProperty(globalThis, 'indexedDB', { value: originalIndexedDb, configurable: true });
     }
+  });
+
+  test('surfaces an error when the wrapped key package AAD is mismatched', async () => {
+    mockUseAuth.mockReturnValue({ isLoaded: true, userId: 'user_123' });
+
+    const nowMs = 1_700_000_000_000;
+    vi.spyOn(Date, 'now').mockReturnValue(nowMs);
+
+    const devicePublicKeyB64 = 'AAAA';
+    const devicePrivateKeyB64 = 'AAAA';
+    await idbSet('llp.deviceKeypair.p256.user_123', { publicKeyB64: devicePublicKeyB64, privateKeyB64: devicePrivateKeyB64 });
+
+    const expiresAt = new Date(nowMs + 10 * 60_000).toISOString();
+    const expectedAad = plannerDekWrapAad({
+      userId: 'user_123',
+      deviceId: 'device-abc',
+      requestId: 'req-uuid',
+      schemaVersion: PLANNER_SCHEMA_VERSION,
+      expiresAt,
+    });
+
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === 'string'
+        ? input
+        : input instanceof URL
+          ? input.toString()
+          : input.url;
+
+      if (url.endsWith('/api/data')) {
+        return new Response(JSON.stringify({
+          schemaVersion: PLANNER_SCHEMA_VERSION,
+          revision: 1,
+          iv: 'AAAAAAAAAAAAAAAAAAAAAA==',
+          ciphertext: 'AAAAAAAA',
+          updatedAt: new Date().toISOString(),
+        }), { status: 200 });
+      }
+
+      if (url.endsWith('/api/devices') && init?.method === 'POST') {
+        const parsed = init.body ? JSON.parse(init.body.toString()) as { deviceId: string; requestId: string; requestExpiresAt: string } : null;
+        return new Response(JSON.stringify({
+          deviceId: parsed?.deviceId ?? 'device-abc',
+          status: 'pending',
+          requestId: parsed?.requestId ?? 'req-uuid',
+          requestExpiresAt: parsed?.requestExpiresAt ?? new Date().toISOString(),
+        }), { status: 200 });
+      }
+
+      if (url.endsWith('/api/devices') && (!init?.method || init.method === 'GET')) {
+        return new Response(JSON.stringify({ devices: [] }), { status: 200 });
+      }
+
+      if (url.includes('/api/devices/') && url.includes('/wrapped-dek')) {
+        return new Response(JSON.stringify({
+          wrappedKeyPackage: {
+            v: 1,
+            suite: { kem: 'DHKEM(P-256,HKDF-SHA256)', kdf: 'HKDF-SHA256', aead: 'AES-256-GCM' },
+            deviceId: 'device-abc',
+            requestId: 'req-uuid',
+            enc: 'AAAA',
+            ciphertext: 'AAAA',
+            // Force mismatch: flip 1 byte by replacing expected AAD with a different base64.
+            aad: bytesToBase64(new Uint8Array(expectedAad.length).fill(1)),
+            createdAt: new Date().toISOString(),
+          },
+        }), { status: 200 });
+      }
+
+      return new Response('Unexpected', { status: 500 });
+    });
+
+    // @ts-expect-error test override
+    globalThis.fetch = fetchMock;
+
+    const view = render(<Harness />);
+
+    await waitFor(() => {
+      expect(view.getByTestId('approval-open').textContent).toBe('yes');
+    });
+
+    await waitFor(() => {
+      expect(view.getByTestId('approval-error').textContent).toContain('AAD mismatch');
+    }, { timeout: 8000 });
+
+    view.unmount();
   });
 });
