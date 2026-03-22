@@ -135,12 +135,12 @@ Implementation tasks:
 - [x] show a copy/paste approval code with `{ deviceId, requestId, expiresAt, publicKeyFingerprint }` (JSON)
 - [x] show pending-device list and an approve action on an already-authorized device (paste code + approve)
 - [x] On successful approval, unwrap DEK, decrypt remote plan, and continue normal sync.
-- [ ] Add audit-friendly server logs for device registration and approvals (metadata only; never plaintext planner data or keys).
-- [ ] Add tests that lock the state machine:
+- [x] Add audit-friendly server logs for device registration and approvals (metadata only; never plaintext planner data or keys).
+- [x] Add tests that lock the state machine:
 - [x] new device cannot decrypt until approved
 - [x] approval is single-use and expires
-- [ ] wrong user cannot approve or fetch wrapped keys
-- [ ] revoke/rotate behavior is well-defined
+- [x] wrong user cannot approve or fetch wrapped keys
+- [x] revoke/rotate behavior is well-defined
 
 ### Phase 3.5 UX Extension: Usable Key Exchange
 
@@ -152,20 +152,20 @@ Implementation tasks:
 
 - [x] Remove device approvals and sync controls from the main planner page UI.
   Current: `AccountDataPanel` is rendered in `src/app/page.tsx` on the planner shell.
-- [ ] Add a dedicated authenticated account area:
+- [x] Add a dedicated authenticated account area:
   - [x] `GET /account` (sync status, export, reload remote)
   - [x] `GET /account/devices` (device list + pending approvals + approval flow)
-- [ ] Add a header entry point that does not interrupt the planning journey:
+- [x] Add a header entry point that does not interrupt the planning journey:
   - [x] “Account” link/button next to the user button
   - [x] pending approvals badge (count) that links to `/account/devices`
-- [ ] Make the new-device modal approval UX link-first:
+- [x] Make the new-device modal approval UX link-first:
   - [x] show QR code for an approval link using a URL fragment (client-side only)
   - [x] add “Copy approval link” button
   - [x] keep “Copy approval code” as a fallback (advanced)
-- [ ] Make the approving-device UX understandable:
+- [x] Make the approving-device UX understandable:
   - [x] approve screen supports opening an approval link (auto-prefill) and pasting code as fallback
   - [x] pending device list uses friendly labels and expiry countdown; hide raw ids behind a “details” toggle
-- [ ] Update tests to cover the new UX:
+- [x] Update tests to cover the new UX:
   - [x] header badge/link presence and navigation
   - [x] approval link parsing and prefill
   - [x] fallback paste still works

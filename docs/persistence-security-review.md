@@ -162,6 +162,8 @@ The key strategy must explicitly define:
 
 Rotation and revocation are product and ops concerns, not just implementation details. They need a runbook.
 
+Status update: v1 revocation and rotation semantics are documented in `docs/device-to-device.md` under "Revocation and Rotation".
+
 ### 6. CI/CD remains inside the trust boundary
 
 Severity: medium

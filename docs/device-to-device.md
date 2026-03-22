@@ -22,7 +22,7 @@ The core primitive is **per-device DEK wrapping using HPKE (RFC 9180)**. The ser
 
 Use a standard HPKE suite:
 
-- `KEM`: `DHKEM(X25519, HKDF-SHA256)`
+- `KEM`: `DHKEM(P-256, HKDF-SHA256)`
 - `KDF`: `HKDF-SHA256`
 - `AEAD`: `AES-256-GCM`
 
@@ -50,10 +50,12 @@ Recommended AAD fields:
 
 ### Key formats and storage
 
-HPKE with X25519 is not consistently exposed as a first-class primitive via Web Crypto in all browsers. Plan to use a vetted HPKE implementation (JS/WASM) and store:
+HPKE with X25519 is not consistently exposed as a first-class primitive via Web Crypto in all browsers. For v1, use P-256 in HPKE so the implementation can use WebCrypto-native key material.
 
-- Device private key material: in `IndexedDB` (preferably non-exportable via library support; if not possible, store as encrypted bytes and rely on device security posture)
-- Device public key: safe to store server-side
+Store:
+
+- Device private key material: in `IndexedDB` as a non-extractable `CryptoKey` where possible
+- Device public key: safe to store server-side (P-256 uncompressed public key bytes, 65 bytes, base64)
 
 If you later add WebAuthn/passkeys, use them to protect the device private key (or to encrypt the DEK locally), but HPKE wrapping still works as the transfer mechanism.
 
@@ -65,7 +67,7 @@ Store one wrapped DEK per device per user:
 {
   "v": 1,
   "suite": {
-    "kem": "DHKEM(X25519,HKDF-SHA256)",
+    "kem": "DHKEM(P-256,HKDF-SHA256)",
     "kdf": "HKDF-SHA256",
     "aead": "AES-256-GCM"
   },
@@ -89,7 +91,7 @@ Notes:
 Minimum viable split:
 
 - `user_devices` (partition key: `/userId`)
-  - `userId`, `deviceId`, `publicKey` (X25519 public key bytes, base64)
+  - `userId`, `deviceId`, `publicKey` (P-256 uncompressed public key bytes, base64)
   - `status`: `pending` | `active` | `revoked`
   - `createdAt`, `lastSeenAt`, `label` (optional)
 - `user_device_wrapped_dek` (partition key: `/userId`)
@@ -163,7 +165,7 @@ The client should be able to reconstruct its decrypt capability after refresh fr
 ### Bootstrap (first device)
 
 1. On the first successful remote save/migration, generate the per-user DEK (32 bytes).
-2. Generate a device X25519 keypair; store the private key locally; register the public key.
+2. Generate a device P-256 HPKE keypair; store the private key locally; register the public key.
 3. Create a wrapped-key package for this same device as a convenience (optional), so a cleared browser can recover without another device approval.
 
 ### Add new device (device-to-device approval)
@@ -171,7 +173,7 @@ The client should be able to reconstruct its decrypt capability after refresh fr
 On new device (Device B):
 
 1. User signs in.
-2. Generate device X25519 keypair; store private key locally.
+2. Generate device P-256 HPKE keypair; store private key locally.
 3. `POST /api/devices` to register Device B as `pending`.
 4. Display an approval request (QR code or short code) containing `{ deviceId, requestId, expiresAt }`.
 
@@ -195,8 +197,42 @@ Back on Device B:
 
 ## Revocation and Rotation
 
-- Revoking a device server-side prevents issuing new wrapped keys to that device. It cannot remove a DEK already cached on that device.
-- If you need true revocation, rotate the per-user DEK, re-encrypt the plan, and re-wrap the new DEK to the remaining active devices.
+### Definitions
+
+- **Device revocation** means: the server will not accept new approvals to that `deviceId` (no new wrapped DEK packages should be created for it), and clients should treat the server directory as authoritative for whether a device should be considered trusted going forward.
+- **DEK rotation** means: generating a new per-user DEK, re-encrypting the planner blob under that DEK, and re-wrapping the new DEK to the set of remaining trusted devices.
+
+### Important limitation (v1)
+
+Revoking a device cannot remove a DEK that is already cached on that device. If a device was compromised after it obtained the DEK, it can continue decrypting any planner ciphertext that is still encrypted under that same DEK.
+
+So, server-side revocation is primarily:
+
+- a prevention control against issuing new wrapped keys to a device that should no longer be trusted
+- a UI/ops control to record that a device should be treated as compromised
+
+### When to rotate the DEK
+
+Rotate when you need to reduce future exposure after suspected device compromise, for example:
+
+- a user reports a lost/stolen device that previously decrypted the plan
+- suspicious approvals were performed
+
+Do not rotate for routine operations (migration, minor schema changes) because it forces re-authorization work.
+
+### Rotation procedure (runbook-level)
+
+1. Mark the compromised device(s) as `revoked` in the device directory.
+2. Generate a new DEK in the browser (or in a support-led recovery flow).
+3. Re-encrypt the canonical planner state with the new DEK and write it as the latest persisted ciphertext.
+4. For each remaining trusted device:
+   - create a new wrapped-DEK package bound to that device’s current public key and the new key version
+   - store it server-side
+5. On the next sync on each device:
+   - fetch and unwrap the latest wrapped-DEK package
+   - stop using any older cached DEK
+
+If a user has no remaining trusted device, the plan is unrecoverable by design and should be treated as a support-led recovery problem (for example: export from the last authorized device if it still exists, or accept loss).
 
 ## Implementation Notes
 
