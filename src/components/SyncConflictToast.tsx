@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from 'react';
 
 interface Props {
   isOpen: boolean;
-  message: string;
   onReloadRemote: () => void | Promise<void>;
 }
 
@@ -19,7 +18,7 @@ function computeKeyboardInsetPx(): number {
   return Number.isFinite(inset) ? inset : 0;
 }
 
-export default function SyncConflictToast({ isOpen, message, onReloadRemote }: Props) {
+export default function SyncConflictToast({ isOpen, onReloadRemote }: Props) {
   const [keyboardInsetPx, setKeyboardInsetPx] = useState(0);
 
   useEffect(() => {
@@ -63,7 +62,7 @@ export default function SyncConflictToast({ isOpen, message, onReloadRemote }: P
                 This plan was updated elsewhere.
               </p>
               <p className="mt-1 text-sm text-slate-600 break-words">
-                {message}
+                Reload the remote version to continue.
               </p>
             </div>
             <button
@@ -80,4 +79,3 @@ export default function SyncConflictToast({ isOpen, message, onReloadRemote }: P
     </div>
   );
 }
-

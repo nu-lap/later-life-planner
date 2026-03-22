@@ -141,7 +141,6 @@ function PlannerShell({
         <SyncConflictToast
           isOpen
           onReloadRemote={onReloadRemote}
-          message={syncError ?? 'Reload the remote version to continue.'}
         />
       ) : null}
     </div>
