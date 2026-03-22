@@ -50,4 +50,5 @@ This document collates all issues raised by automated/code review feedback durin
 
 ## Deep Security Review
 
-See [`deep-security-review-phase-3-5-2026-03-21.md`](./deep-security-review-phase-3-5-2026-03-21.md) for the full review of branch `feat/phase-3-5-device-approval-hpke` conducted per `docs/prompts/deep-security-code-review.md`.
+- [`deep-security-review-phase-3-5-2026-03-21.md`](./deep-security-review-phase-3-5-2026-03-21.md) — initial review (X25519 KEM)
+- [`deep-security-review-phase-3-5-2026-03-22.md`](./deep-security-review-phase-3-5-2026-03-22.md) — updated review after R7/R8/R9 fixes (P-256 KEM, non-extractable CryptoKey, stale-directory fix)
