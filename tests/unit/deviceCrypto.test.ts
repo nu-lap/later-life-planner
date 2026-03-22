@@ -7,14 +7,13 @@ describe('deviceCrypto HPKE', () => {
     const suite = hpkeSuite();
     const kp = await suite.kem.generateKeyPair();
     const recipientPublicKeyB64 = bytesToBase64(await suite.kem.serializePublicKey(kp.publicKey));
-    const recipientPrivateKeyB64 = bytesToBase64(await suite.kem.serializePrivateKey(kp.privateKey));
 
     const plaintext = new TextEncoder().encode('secret');
     const aad = new TextEncoder().encode('aad');
 
     const sealed = await hpkeSealForRecipient({ recipientPublicKeyB64, plaintext, aad });
     const opened = await hpkeOpenAsRecipient({
-      recipientPrivateKeyB64,
+      recipientPrivateKey: kp.privateKey,
       encB64: sealed.encB64,
       ciphertextB64: sealed.ciphertextB64,
       aad,
@@ -27,7 +26,6 @@ describe('deviceCrypto HPKE', () => {
     const suite = hpkeSuite();
     const kp = await suite.kem.generateKeyPair();
     const recipientPublicKeyB64 = bytesToBase64(await suite.kem.serializePublicKey(kp.publicKey));
-    const recipientPrivateKeyB64 = bytesToBase64(await suite.kem.serializePrivateKey(kp.privateKey));
 
     const plaintext = base64ToBytes(bytesToBase64(new TextEncoder().encode('secret')));
     const sealed = await hpkeSealForRecipient({
@@ -37,11 +35,10 @@ describe('deviceCrypto HPKE', () => {
     });
 
     await expect(hpkeOpenAsRecipient({
-      recipientPrivateKeyB64,
+      recipientPrivateKey: kp.privateKey,
       encB64: sealed.encB64,
       ciphertextB64: sealed.ciphertextB64,
       aad: new TextEncoder().encode('aad-2'),
     })).rejects.toBeInstanceOf(Error);
   });
 });
-

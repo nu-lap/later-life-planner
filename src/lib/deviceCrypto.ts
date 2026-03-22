@@ -11,7 +11,7 @@ const DEVICE_KEYPAIR_KEY_PREFIX = 'llp.deviceKeypair.p256.';
 const USER_DEK_KEY_PREFIX = 'llp.userDek.';
 
 export interface HpkeDeviceKeyPair {
-  privateKeyB64: string;
+  privateKey: CryptoKey;
   publicKeyB64: string;
 }
 
@@ -30,6 +30,12 @@ interface StoredHpkeDeviceKeyPairV1 {
   v: 1;
   publicKeyB64: string;
   privateKey: EncryptedSecretV1;
+}
+
+interface StoredHpkeDeviceKeyPairV2 {
+  v: 2;
+  publicKeyB64: string;
+  privateKey: CryptoKey;
 }
 
 function normalizeHpkeBytes(value: Uint8Array | ArrayBuffer): Uint8Array {
@@ -114,39 +120,36 @@ export async function getOrCreateDeviceId(userId: string): Promise<string> {
 
 export async function getOrCreateDeviceKeyPair(userId: string): Promise<HpkeDeviceKeyPair> {
   const key = `${DEVICE_KEYPAIR_KEY_PREFIX}${userId}`;
-  const existing = await idbGet<StoredHpkeDeviceKeyPairV1 | HpkeDeviceKeyPair>(key);
+  const existing = await idbGet<StoredHpkeDeviceKeyPairV2 | StoredHpkeDeviceKeyPairV1 | HpkeDeviceKeyPair>(key);
   if (existing) {
+    if (
+      typeof (existing as StoredHpkeDeviceKeyPairV2).v === 'number' &&
+      (existing as StoredHpkeDeviceKeyPairV2).v === 2
+    ) {
+      const stored = existing as StoredHpkeDeviceKeyPairV2;
+      if (stored.privateKey && stored.publicKeyB64) {
+        return { privateKey: stored.privateKey, publicKeyB64: stored.publicKeyB64 };
+      }
+    }
+
     if (
       typeof (existing as StoredHpkeDeviceKeyPairV1).v === 'number' &&
       (existing as StoredHpkeDeviceKeyPairV1).v === 1
     ) {
-      const stored = existing as StoredHpkeDeviceKeyPairV1;
-      const privateKeyRaw = await decryptSecretForUser(userId, stored.privateKey);
-      return { privateKeyB64: bytesToBase64(privateKeyRaw), publicKeyB64: stored.publicKeyB64 };
+      // Older storage format used serialized private key bytes. Since there are no existing users,
+      // regenerate a fresh keypair in the WebCrypto-native format.
     }
 
     const legacy = existing as HpkeDeviceKeyPair;
-    if (legacy.privateKeyB64 && legacy.publicKeyB64) {
-      const wrapped = await encryptSecretForUser(userId, base64ToBytes(legacy.privateKeyB64));
-      const upgraded: StoredHpkeDeviceKeyPairV1 = {
-        v: 1,
-        publicKeyB64: legacy.publicKeyB64,
-        privateKey: wrapped,
-      };
-      await idbSet(key, upgraded);
-      return legacy;
-    }
+    // Legacy format no longer supported; regenerate.
   }
 
   const suite = hpkeSuite();
   const kp = await suite.kem.generateKeyPair();
-  const privRaw = new Uint8Array(await suite.kem.serializePrivateKey(kp.privateKey));
   const pubB64 = bytesToBase64(new Uint8Array(await suite.kem.serializePublicKey(kp.publicKey)));
-  const wrapped = await encryptSecretForUser(userId, privRaw);
-
-  const stored: StoredHpkeDeviceKeyPairV1 = { v: 1, publicKeyB64: pubB64, privateKey: wrapped };
+  const stored: StoredHpkeDeviceKeyPairV2 = { v: 2, publicKeyB64: pubB64, privateKey: kp.privateKey };
   await idbSet(key, stored);
-  return { privateKeyB64: bytesToBase64(privRaw), publicKeyB64: pubB64 };
+  return { privateKey: kp.privateKey, publicKeyB64: pubB64 };
 }
 
 export function createApprovalRequest(ttlMs: number): DeviceApprovalRequest {
@@ -216,17 +219,14 @@ export async function hpkeSealForRecipient(input: {
 }
 
 export async function hpkeOpenAsRecipient(input: {
-  recipientPrivateKeyB64: string;
+  recipientPrivateKey: CryptoKey;
   encB64: string;
   ciphertextB64: string;
   aad?: Uint8Array;
 }): Promise<Uint8Array> {
   const suite = hpkeSuite();
-  const recipientKey = await suite.kem.deserializePrivateKey(
-    Uint8Array.from(base64ToBytes(input.recipientPrivateKeyB64)),
-  );
   const recipient = await suite.createRecipientContext({
-    recipientKey,
+    recipientKey: input.recipientPrivateKey,
     enc: Uint8Array.from(base64ToBytes(input.encB64)),
   });
   const opened = await recipient.open(base64ToBytes(input.ciphertextB64), input.aad);
@@ -234,7 +234,7 @@ export async function hpkeOpenAsRecipient(input: {
 }
 
 export async function unwrapDekToBase64(input: {
-  recipientPrivateKeyB64: string;
+  recipientPrivateKey: CryptoKey;
   encB64: string;
   ciphertextB64: string;
   aad?: Uint8Array;
