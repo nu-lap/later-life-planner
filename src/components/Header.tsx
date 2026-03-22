@@ -30,9 +30,15 @@ interface Props {
   onReset: () => void;
   saveStatus?: PlannerSaveStatus;
   authControls?: React.ReactNode;
+  showPlannerActions?: boolean;
 }
 
-export default function Header({ onReset, saveStatus = 'local', authControls }: Props) {
+export default function Header({
+  onReset,
+  saveStatus = 'local',
+  authControls,
+  showPlannerActions = true,
+}: Props) {
   const { loadDemo } = usePlannerStore();
   const [pending, setPending] = useState<PendingAction>(null);
 
@@ -61,19 +67,23 @@ export default function Header({ onReset, saveStatus = 'local', authControls }: 
               {SAVE_STATUS_LABELS[saveStatus]}
             </div>
             {authControls}
-            <button
-              onClick={() => setPending('demo')}
-              className="btn-ghost text-orange-600 hover:text-orange-700 hover:bg-orange-50"
-              title="Load a sample scenario to explore"
-            >
-              ✨ Demo
-            </button>
-            <button
-              onClick={() => setPending('reset')}
-              className="btn-ghost text-slate-400 hover:text-rose-500"
-            >
-              Reset
-            </button>
+            {showPlannerActions ? (
+              <>
+                <button
+                  onClick={() => setPending('demo')}
+                  className="btn-ghost text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+                  title="Load a sample scenario to explore"
+                >
+                  ✨ Demo
+                </button>
+                <button
+                  onClick={() => setPending('reset')}
+                  className="btn-ghost text-slate-400 hover:text-rose-500"
+                >
+                  Reset
+                </button>
+              </>
+            ) : null}
           </div>
         </div>
       </header>
