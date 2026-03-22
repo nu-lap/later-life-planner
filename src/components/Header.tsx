@@ -26,9 +26,19 @@ const SAVE_STATUS_LABELS: Record<PlannerSaveStatus, string> = {
   conflict: 'Conflict',
 };
 
+const SAVE_STATUS_LABELS_COMPACT: Record<PlannerSaveStatus, string> = {
+  local: 'Local',
+  loading: 'Loading',
+  saving: 'Saving',
+  saved: 'Saved',
+  error: 'Error',
+  conflict: 'Conflict',
+};
+
 interface Props {
   onReset: () => void;
   saveStatus?: PlannerSaveStatus;
+  onReloadRemote?: () => void | Promise<void>;
   authControls?: React.ReactNode;
   showPlannerActions?: boolean;
 }
@@ -36,6 +46,7 @@ interface Props {
 export default function Header({
   onReset,
   saveStatus = 'local',
+  onReloadRemote,
   authControls,
   showPlannerActions = true,
 }: Props) {
@@ -62,13 +73,29 @@ export default function Header({
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            <div className={`hidden rounded-full px-3 py-1 text-xs font-semibold sm:block ${SAVE_STATUS_STYLES[saveStatus]}`}>
-              {SAVE_STATUS_LABELS[saveStatus]}
-            </div>
-            {authControls}
-            {showPlannerActions ? (
-              <>
+	          <div className="flex items-center gap-2">
+	            <div
+	              className={`rounded-full px-2 py-1 text-[11px] font-semibold sm:px-3 sm:text-xs ${SAVE_STATUS_STYLES[saveStatus]}`}
+	              aria-label={`Save status: ${SAVE_STATUS_LABELS[saveStatus]}`}
+	              title={SAVE_STATUS_LABELS[saveStatus]}
+	            >
+	              <span className="sm:hidden">{SAVE_STATUS_LABELS_COMPACT[saveStatus]}</span>
+	              <span className="hidden sm:inline">{SAVE_STATUS_LABELS[saveStatus]}</span>
+	            </div>
+	            {saveStatus === 'conflict' && onReloadRemote ? (
+	              <button
+	                type="button"
+	                onClick={() => void onReloadRemote()}
+	                className="btn-ghost text-rose-700 hover:text-rose-800 hover:bg-rose-50"
+	                title="Reload the remote version to resolve the conflict"
+	              >
+	                <span className="sm:hidden">Reload</span>
+	                <span className="hidden sm:inline">Reload remote</span>
+	              </button>
+	            ) : null}
+	            {authControls}
+	            {showPlannerActions ? (
+	              <>
                 <button
                   onClick={() => setPending('demo')}
                   className="btn-ghost text-orange-600 hover:text-orange-700 hover:bg-orange-50"
