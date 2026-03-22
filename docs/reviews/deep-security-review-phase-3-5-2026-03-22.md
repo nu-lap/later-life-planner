@@ -337,7 +337,7 @@ The test suite previously had minimal coverage (2 HPKE round-trip unit tests, 3 
 | Suggested test | Status |
 |---|---|
 | Recipient: `pkg.deviceId !== deviceId` context mismatch rejection | Not implemented as a deterministic unit test; currently exercised only indirectly via UI polling logic. |
-| Recipient: `pkg.aad !== expectedAadB64` AAD mismatch rejection | Not implemented as a deterministic unit test; currently exercised only indirectly via UI polling logic. |
+| Recipient: `pkg.aad !== expectedAadB64` AAD mismatch rejection | Implemented as a deterministic UI test in `tests/ui/usePlanSyncDeviceApproval.test.tsx` (commit `fe2e643`). |
 | Two concurrent approvals for same pending device | Not implemented; requires an integration-style test harness for Cosmos concurrency behavior. |
 | Wrapped DEK fetch after `consumedAt` is set (server-side) | Not implemented; requires persistence-layer tests against Cosmos emulator or a mocked container with ETag semantics. |
 | Consume after already consumed (server-side) | Not implemented; requires persistence-layer tests against Cosmos emulator or a mocked container with ETag semantics. |
@@ -354,7 +354,10 @@ The test suite previously had minimal coverage (2 HPKE round-trip unit tests, 3 
 
 3. **[M5] Enforce exact byte-length on `enc` (65 bytes) and minimum on `ciphertext` (≥ 48 bytes)** in `WrappedDekPackageSchema` using `isExpectedBase64ByteLength`.
 
-4. **[Testing] Add the highest-value adversarial tests listed above.** Prioritize: wrong-recipient decryption, tampered ciphertext, fingerprint mismatch, AAD mismatch, approval race.
+4. **[Testing] Add the highest-value adversarial tests listed above.** Partially implemented:
+   - wrong-recipient decryption, tampered ciphertext, and HPKE AAD mismatch are covered in `tests/unit/deviceCrypto.test.ts`
+   - fingerprint mismatch in the approver flow is covered in `tests/ui/usePlanSyncApprovePendingDeviceValidation.test.tsx`
+   - recipient polling AAD mismatch rejection is covered in `tests/ui/usePlanSyncDeviceApproval.test.tsx` (commit `fe2e643`)
 
 5. **[M1] Add algorithm identifiers to `plannerDekWrapAad`.** Include `kem`, `kdf`, `aead` in the AAD. Validate `pkg.suite` at the recipient before decryption.
 
@@ -375,7 +378,7 @@ The test suite previously had minimal coverage (2 HPKE round-trip unit tests, 3 
 The cryptographic fundamentals are sound. HPKE base mode with P-256, AES-256-GCM, HKDF-SHA256 is a well-specified combination. The V2 non-extractable `CryptoKey` private key storage is a genuine improvement. AAD recomputation at the recipient, fingerprint-based key pinning, server-enforced TTL, device key immutability, and consume-after-confirm remain correctly implemented.
 
 Approval is conditional on addressing before production launch:
-1. **Testing** — add at minimum: wrong-recipient decryption, tampered ciphertext, fingerprint mismatch, AAD mismatch rejection.
+1. **Testing** — add at minimum: wrong-recipient decryption, tampered ciphertext, fingerprint mismatch, AAD mismatch rejection. (Now covered by the tests listed above.)
 
 M1, M2, M5, L1–L6 are recommended for the next sprint but do not block launch once the minimum test additions are in place.
 
