@@ -11,6 +11,7 @@ import SummaryBar from '@/components/SummaryBar';
 import DisclaimerGate from '@/components/DisclaimerGate';
 import DeviceApprovalModal from '@/components/DeviceApprovalModal';
 import MigrationPromptModal from '@/components/MigrationPromptModal';
+import SyncConflictToast from '@/components/SyncConflictToast';
 import { DISCLAIMER_KEY } from '@/lib/browserStorageKeys';
 import { usePlanSync } from '@/hooks/usePlanSync';
 import type { PlannerSaveStatus } from '@/models/types';
@@ -34,6 +35,7 @@ interface PlannerShellProps {
   authControls?: React.ReactNode;
   isSyncReady?: boolean;
   onReloadRemote?: () => Promise<void>;
+  syncError?: string | null;
   migrationPrompt?: React.ReactNode;
 }
 
@@ -42,6 +44,7 @@ function PlannerShell({
   authControls,
   isSyncReady = true,
   onReloadRemote,
+  syncError,
   migrationPrompt,
 }: PlannerShellProps) {
   const { currentStep, maxVisitedStep, setCurrentStep, resetPlan } = usePlannerStore();
@@ -134,6 +137,13 @@ function PlannerShell({
       )}
 
       {migrationPrompt}
+      {saveStatus === 'conflict' && typeof onReloadRemote === 'function' ? (
+        <SyncConflictToast
+          isOpen
+          onReloadRemote={onReloadRemote}
+          message={syncError ?? 'Reload the remote version to continue.'}
+        />
+      ) : null}
     </div>
   );
 }
@@ -150,6 +160,7 @@ function AuthenticatedPlannerShell() {
     <PlannerShell
       saveStatus={sync.saveStatus}
       onReloadRemote={sync.reloadRemotePlan}
+      syncError={sync.syncError}
       authControls={(
         <div className="flex items-center gap-2">
           <Link
