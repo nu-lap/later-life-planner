@@ -52,3 +52,4 @@ This document collates all issues raised by automated/code review feedback durin
 
 - [`deep-security-review-phase-3-5-2026-03-21.md`](./deep-security-review-phase-3-5-2026-03-21.md) — initial review (X25519 KEM)
 - [`deep-security-review-phase-3-5-2026-03-22.md`](./deep-security-review-phase-3-5-2026-03-22.md) — updated review after R7/R8/R9 fixes (P-256 KEM, non-extractable CryptoKey, stale-directory fix)
+- [`deep-security-review-phase-3-5-ux-extension-2026-03-22.md`](./deep-security-review-phase-3-5-ux-extension-2026-03-22.md) — review of Phase 3.5 UX Extension (fragment-based approval link, account pages, QR flow)
