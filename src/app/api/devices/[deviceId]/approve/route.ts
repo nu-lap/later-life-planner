@@ -7,6 +7,7 @@ import {
 } from '@/lib/cosmos';
 import { isValidBase64 } from '@/lib/crypto';
 import { rateLimit } from '@/lib/rateLimit';
+import { auditLog } from '@/lib/auditLog';
 
 const WrappedDekPackageSchema = z.object({
   v: z.literal(1),
@@ -84,6 +85,15 @@ export async function POST(
       deviceId,
       requestId: parsed.data.requestId,
       wrappedKeyPackage: parsed.data.wrappedKeyPackage as WrappedDekPackage,
+    });
+
+    auditLog('device.approvedWrappedDek', {
+      userId,
+      deviceId,
+      requestId: parsed.data.requestId,
+      kem: parsed.data.wrappedKeyPackage.suite.kem,
+      kdf: parsed.data.wrappedKeyPackage.suite.kdf,
+      aead: parsed.data.wrappedKeyPackage.suite.aead,
     });
 
     return new Response(null, { status: 204 });
