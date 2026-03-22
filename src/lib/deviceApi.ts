@@ -42,8 +42,25 @@ export async function registerDevice(input: {
   return body;
 }
 
+export async function activateDevice(input: {
+  deviceId: string;
+  publicKey: string;
+  label?: string;
+}): Promise<{ deviceId: string; status: string }> {
+  const response = await fetch('/api/devices/activate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  if (!response.ok) {
+    throw new Error(`Device activation failed (${response.status}).`);
+  }
+  return await response.json() as { deviceId: string; status: string };
+}
+
 export async function approveDevice(input: {
   deviceId: string;
+  approverDeviceId: string;
   requestId: string;
   wrappedKeyPackage: WrappedDekPackage;
 }): Promise<void> {
@@ -52,6 +69,7 @@ export async function approveDevice(input: {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       requestId: input.requestId,
+      approverDeviceId: input.approverDeviceId,
       wrappedKeyPackage: input.wrappedKeyPackage,
     }),
   });

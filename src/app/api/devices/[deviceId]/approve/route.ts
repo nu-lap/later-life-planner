@@ -3,6 +3,7 @@ import { UnauthorizedError, requireUser } from '@/lib/auth/requireUser';
 import {
   PersistenceConfigError,
   approveDeviceWrappedDek,
+  getDeviceRegistration,
   type WrappedDekPackage,
 } from '@/lib/cosmos';
 import { isValidBase64 } from '@/lib/crypto';
@@ -36,6 +37,7 @@ const WrappedDekPackageSchema = z.object({
 
 const PostPayloadSchema = z.object({
   requestId: z.string().min(8).max(128),
+  approverDeviceId: z.string().min(8).max(128),
   wrappedKeyPackage: WrappedDekPackageSchema,
 });
 
@@ -80,6 +82,11 @@ export async function POST(
       return jsonError('Invalid request payload.', 400);
     }
 
+    const approver = await getDeviceRegistration(userId, parsed.data.approverDeviceId);
+    if (!approver || approver.status !== 'active') {
+      return jsonError('Approver device is not active.', 403);
+    }
+
     await approveDeviceWrappedDek({
       userId,
       deviceId,
@@ -90,6 +97,7 @@ export async function POST(
     auditLog('device.approvedWrappedDek', {
       userId,
       deviceId,
+      approverDeviceId: parsed.data.approverDeviceId,
       requestId: parsed.data.requestId,
       kem: parsed.data.wrappedKeyPackage.suite.kem,
       kdf: parsed.data.wrappedKeyPackage.suite.kdf,

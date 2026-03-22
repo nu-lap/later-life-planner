@@ -24,6 +24,8 @@ vi.mock('@/lib/deviceCrypto', async (importOriginal) => {
   return {
     ...actual,
     getUserDekB64: async () => bytesToBase64(new Uint8Array(32).fill(7)),
+    getOrCreateDeviceId: async () => 'device-approver',
+    getOrCreateDeviceKeyPair: async () => ({ privateKey: {} as CryptoKey, publicKeyB64: bytesToBase64(new Uint8Array(65).fill(2)) }),
     publicKeyFingerprintB64: async () => 'AAAAAAAAAAAAAAAAAAAAAA==',
     hpkeSealForRecipient: async () => ({ encB64: 'enc', ciphertextB64: 'ciphertext' }),
   };
@@ -80,6 +82,9 @@ describe('usePlanSync approvePendingDevice validation', () => {
       if (url.endsWith('/api/devices') && (!init?.method || init.method === 'GET')) {
         return new Response(JSON.stringify({ devices: [device] }), { status: 200 });
       }
+      if (url.endsWith('/api/devices/activate') && init?.method === 'POST') {
+        return new Response(JSON.stringify({ deviceId: 'device-approver', status: 'active' }), { status: 200 });
+      }
       return new Response('Unexpected', { status: 500 });
     });
     // @ts-expect-error test override
@@ -115,6 +120,9 @@ describe('usePlanSync approvePendingDevice validation', () => {
       if (url.endsWith('/api/data')) return new Response('Not found.', { status: 404 });
       if (url.endsWith('/api/devices') && (!init?.method || init.method === 'GET')) {
         return new Response(JSON.stringify({ devices: [device] }), { status: 200 });
+      }
+      if (url.endsWith('/api/devices/activate') && init?.method === 'POST') {
+        return new Response(JSON.stringify({ deviceId: 'device-approver', status: 'active' }), { status: 200 });
       }
       return new Response('Unexpected', { status: 500 });
     });
@@ -152,6 +160,9 @@ describe('usePlanSync approvePendingDevice validation', () => {
       if (url.endsWith('/api/devices') && (!init?.method || init.method === 'GET')) {
         return new Response(JSON.stringify({ devices: [device] }), { status: 200 });
       }
+      if (url.endsWith('/api/devices/activate') && init?.method === 'POST') {
+        return new Response(JSON.stringify({ deviceId: 'device-approver', status: 'active' }), { status: 200 });
+      }
       return new Response('Unexpected', { status: 500 });
     });
     // @ts-expect-error test override
@@ -173,4 +184,3 @@ describe('usePlanSync approvePendingDevice validation', () => {
     })).rejects.toThrow('Approval code does not match the device key fingerprint.');
   });
 });
-

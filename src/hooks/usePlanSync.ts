@@ -18,6 +18,7 @@ import {
 } from '@/lib/browserStorageKeys';
 import {
   approveDevice,
+  activateDevice,
   fetchDevices,
   fetchWrappedDek,
   consumeWrappedDek,
@@ -277,6 +278,15 @@ export function usePlanSync(): UsePlanSyncResult {
       throw new Error('This device cannot approve others until it has access to the saved plan.');
     }
 
+    // Require a server-side notion of an "active approver" to reduce the approval race surface.
+    // This is a best-effort bootstrap: it establishes the first active device record for a user.
+    const approverDeviceId = await getOrCreateDeviceId(userId);
+    const approverKeyPair = await getOrCreateDeviceKeyPair(userId);
+    await activateDevice({
+      deviceId: approverDeviceId,
+      publicKey: approverKeyPair.publicKeyB64,
+    });
+
     const trimmed = approvalCode.trim();
     if (!trimmed) {
       throw new Error('Approval code is required.');
@@ -348,6 +358,7 @@ export function usePlanSync(): UsePlanSyncResult {
 
     await approveDevice({
       deviceId: target.deviceId,
+      approverDeviceId,
       requestId: target.requestId,
       wrappedKeyPackage,
     });
