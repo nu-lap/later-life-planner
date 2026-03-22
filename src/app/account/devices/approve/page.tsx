@@ -16,6 +16,11 @@ function AccountDevicesApprovePageWithClerk() {
   }, []);
 
   const sync = usePlanSync();
+  const { refreshDevices } = sync;
+
+  useEffect(() => {
+    void refreshDevices();
+  }, [refreshDevices]);
 
   if (!sync.isSyncReady) {
     return (
