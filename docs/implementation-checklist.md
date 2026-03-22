@@ -152,20 +152,20 @@ Implementation tasks:
 
 - [x] Remove device approvals and sync controls from the main planner page UI.
   Current: `AccountDataPanel` is rendered in `src/app/page.tsx` on the planner shell.
-- [ ] Add a dedicated authenticated account area:
+- [x] Add a dedicated authenticated account area:
   - [x] `GET /account` (sync status, export, reload remote)
   - [x] `GET /account/devices` (device list + pending approvals + approval flow)
-- [ ] Add a header entry point that does not interrupt the planning journey:
+- [x] Add a header entry point that does not interrupt the planning journey:
   - [x] “Account” link/button next to the user button
   - [x] pending approvals badge (count) that links to `/account/devices`
-- [ ] Make the new-device modal approval UX link-first:
+- [x] Make the new-device modal approval UX link-first:
   - [x] show QR code for an approval link using a URL fragment (client-side only)
   - [x] add “Copy approval link” button
   - [x] keep “Copy approval code” as a fallback (advanced)
-- [ ] Make the approving-device UX understandable:
+- [x] Make the approving-device UX understandable:
   - [x] approve screen supports opening an approval link (auto-prefill) and pasting code as fallback
   - [x] pending device list uses friendly labels and expiry countdown; hide raw ids behind a “details” toggle
-- [ ] Update tests to cover the new UX:
+- [x] Update tests to cover the new UX:
   - [x] header badge/link presence and navigation
   - [x] approval link parsing and prefill
   - [x] fallback paste still works
