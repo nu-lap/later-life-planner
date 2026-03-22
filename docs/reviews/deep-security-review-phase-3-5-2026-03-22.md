@@ -19,7 +19,7 @@ The following issues from the prior review have been resolved:
 | L3 (Plaintext private key in closure memory) | Resolved by V2: the private key is a `CryptoKey` handle, never a base64 string in application memory. |
 | L4 (Legacy upgrade returns plaintext private key) | Resolved by V2: legacy V1 and pre-V1 formats fall through to fresh keypair generation; no migration path emits plaintext bytes. |
 
-The following issues from the prior review remain open and are carried forward below: H1, H2, M1, M2, M3, M4. M5 is updated with P-256-specific byte lengths. L1 and L2 are carried forward unchanged.
+The following issues from the prior review remain open and are carried forward below: H1, H2, M1, M2, M4. M5 is updated with P-256-specific byte lengths. L1 and L2 are carried forward unchanged. (M3 is now fixed in commit `cb1d15e`.)
 
 ---
 
@@ -128,13 +128,13 @@ Add `planId: 'default'` or equivalent now. Costs nothing, eliminates the cross-p
 
 #### M3 — Concurrent first-time device registration produces unhandled 500
 
-**Severity:** Medium — **unchanged from 2026-03-21**
+**Severity:** Medium — **resolved**
 **Where:** `src/lib/cosmos.ts` (`upsertDeviceRegistration`, line ~247)
 **Why it is a problem:**
 `container.items.create(created, { accessCondition: { type: 'IfNoneMatch', condition: '*' } })` has no try/catch. On a concurrent first-registration race (double-submit, back/reload), the second request receives a Cosmos 409/412 that propagates as an unhandled error through `responseForKnownError` (which only catches `DeviceRegistrationConflictError`) and returns a 500.
 
-**Remediation:**
-Wrap the `create` call in a try/catch for 409/412. On conflict, re-read the document; if the existing public key matches the input, return the existing document. If it doesn't, throw `DeviceRegistrationConflictError`.
+**Status:**
+Fixed in `fix(cosmos): handle concurrent device registration create` (commit `cb1d15e`): `upsertDeviceRegistration` now catches 409/412 on first-create, re-reads, and returns the existing document (or surfaces a stable conflict error).
 
 **Type:** Implementation flaw
 
@@ -350,7 +350,7 @@ The test suite previously had minimal coverage (2 HPKE round-trip unit tests, 3 
 
 1. **[H1] Require the approver to be an active device.** Add `approverDeviceId` to the approval request body. Server looks up that device, verifies `status === 'active'` and same `userId`, rejects otherwise. This closes the compromised-device DEK-substitution race. This is the most important fix before launch.
 
-2. **[M3] Handle Cosmos 409/412 on first-create in `upsertDeviceRegistration`.** Wrap `container.items.create` in try/catch; re-read and return or throw `DeviceRegistrationConflictError` on conflict.
+2. **[M3] Handle Cosmos 409/412 on first-create in `upsertDeviceRegistration`.** Implemented in commit `cb1d15e`.
 
 3. **[M5] Enforce exact byte-length on `enc` (65 bytes) and minimum on `ciphertext` (≥ 48 bytes)** in `WrappedDekPackageSchema` using `isExpectedBase64ByteLength`.
 
@@ -376,9 +376,8 @@ The cryptographic fundamentals are sound. HPKE base mode with P-256, AES-256-GCM
 
 Approval is conditional on addressing before production launch:
 1. **H1** — require the approver to be a verified active device.
-2. **M3** — handle concurrent first-creation in `upsertDeviceRegistration`.
-3. **Testing** — add at minimum: wrong-recipient decryption, tampered ciphertext, fingerprint mismatch, AAD mismatch rejection.
+2. **Testing** — add at minimum: wrong-recipient decryption, tampered ciphertext, fingerprint mismatch, AAD mismatch rejection.
 
-M1, M2, M5, L1–L6 are recommended for the next sprint but do not block launch once H1, M3, and the minimum test additions are in place.
+M1, M2, M5, L1–L6 are recommended for the next sprint but do not block launch once H1 and the minimum test additions are in place.
 
 The absence of device key rotation, recovery flows, blob re-encryption, and sender authentication (H2) are accepted v1 limitations and should be tracked as explicit future work items in the backlog.

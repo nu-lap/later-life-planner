@@ -12,19 +12,19 @@ This review covers the UX Extension layer added on top of the previously reviewe
 
 The UX Extension moves device approval controls out of the main planner shell into a dedicated `/account/devices` area, replaces copy/paste-JSON approval with a QR/link-first flow, and adds an account overview page. The changes are well-structured and the key design decision — putting the approval code in a URL fragment rather than the path or query string — is correct and eliminates a class of server-side leakage risks.
 
-The prior security review issued two pre-launch blockers (H1 and M3) that are **not addressed in this branch**. H1 (compromised approver device can substitute DEK) remains the most important outstanding issue.
+The prior security review issued two pre-launch blockers (H1 and M3). This UX Extension review originally noted they were not addressed in the UX branch alone; both should be closed before production. (M3 is now fixed in commit `cb1d15e`.)
 
 No new critical or high findings are introduced by the UX extension itself. Two medium-severity UX/security gaps are introduced.
 
 **Would you approve this design for production handling sensitive encrypted user data?**
 
-Not yet. The same pre-launch blockers from the base review (H1 and M3) must be closed first. The UX layer is otherwise close to production-ready.
+Not yet. The same pre-launch blockers from the base review (H1 and M3) must be closed first. The UX layer is otherwise close to production-ready. (M3 is now fixed in commit `cb1d15e`.)
 
 **Top three concerns:**
 
 1. **H1 (inherited, unresolved)** — The approve endpoint never verifies that the approving device is `status === 'active'`. A compromised or revoked device can still wrap the DEK.
 2. **UX-M1** — The `/account/devices/approve` page prefills from `window.location.href` but does not call `refreshDevices()` on mount. The pending device list renders empty while the approval textarea is already filled, leaving the user with no visible device to relate the approval to. (Fixed in commit `36e5e24`.)
-3. **M3 (inherited, unresolved)** — `upsertDeviceRegistration` has no try/catch around `container.items.create`; a concurrent first-registration race yields an unhandled 500.
+3. **M3 (inherited, unresolved)** — `upsertDeviceRegistration` has no try/catch around `container.items.create`; a concurrent first-registration race yields an unhandled 500. (Fixed in commit `cb1d15e`.)
 
 ---
 
@@ -185,8 +185,8 @@ Approval is now initiated via QR code or link. The cryptographic checks (`approv
 ### Active device list
 There is no UI to view or revoke active devices. The `/account/devices` page shows only `status === 'pending'` devices. This is a known gap (Phase 4 item in the checklist). It means users cannot audit which devices hold a wrapped DEK copy or revoke access from a compromised device through the UI. This is acceptable pre-launch if the phase 4 hardening work is tracked, but the absence of any revocation path is a meaningful security gap for a system that wraps the DEK per device.
 
-### Concurrent first-registration (M3, unresolved)
-`upsertDeviceRegistration` still lacks try/catch on `container.items.create`. Two simultaneous registrations for a new `deviceId` can produce an unhandled 500 in the first-registration path. The `.replace()` path is already protected by ETag/IfMatch. The fix is a try/catch treating 409/412 as `DeviceRegistrationConflictError`.
+### Concurrent first-registration (M3)
+`upsertDeviceRegistration` now wraps `container.items.create` in a try/catch and handles 409/412 conflicts by re-reading and returning the existing device document. (Fixed in commit `cb1d15e`.)
 
 ### Re-sharing, rotation, recovery
 Unchanged from base review. No runbook yet.
@@ -257,6 +257,6 @@ However:
 
 - **H1 (pre-launch blocker)** must be resolved before this goes to production. The approve flow has a polished new UX, which will make it more accessible to users — but the underlying server endpoint still allows a compromised device to wrap the DEK. The improved UX makes this more urgently visible.
 - **UX-M1** is resolved: the approve-link landing page now calls `refreshDevices()` on mount so pending device context is visible (commit `36e5e24`).
-- **M3** should be fixed before general availability; concurrent registration at the same device ID can produce unhandled 500s.
+- **M3** is resolved: concurrent registration create conflicts are handled and no longer bubble as unhandled 500s (commit `cb1d15e`).
 
 All other open items are pre-launch desirable or Phase 4 hardening work, not blockers.
