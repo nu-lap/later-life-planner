@@ -142,6 +142,35 @@ Implementation tasks:
 - [ ] wrong user cannot approve or fetch wrapped keys
 - [ ] revoke/rotate behavior is well-defined
 
+### Phase 3.5 UX Extension: Usable Key Exchange
+
+Current status: the underlying security model is in place, but the UX for approving devices is too confusing (copy/paste JSON on the approving device, and device controls embedded in the main planner page).
+
+Goal: keep the “new device” modal, but move the approving-device controls out of the planner flow and make approval link-first (QR + link), with paste-only as a fallback.
+
+Implementation tasks:
+
+- [x] Remove device approvals and sync controls from the main planner page UI.
+  Current: `AccountDataPanel` is rendered in `src/app/page.tsx` on the planner shell.
+- [ ] Add a dedicated authenticated account area:
+  - [x] `GET /account` (sync status, export, reload remote)
+  - [x] `GET /account/devices` (device list + pending approvals + approval flow)
+- [ ] Add a header entry point that does not interrupt the planning journey:
+  - [x] “Account” link/button next to the user button
+  - [x] pending approvals badge (count) that links to `/account/devices`
+- [ ] Make the new-device modal approval UX link-first:
+  - [x] show QR code for an approval link using a URL fragment (client-side only)
+  - [x] add “Copy approval link” button
+  - [x] keep “Copy approval code” as a fallback (advanced)
+- [ ] Make the approving-device UX understandable:
+  - [x] approve screen supports opening an approval link (auto-prefill) and pasting code as fallback
+  - [x] pending device list uses friendly labels and expiry countdown; hide raw ids behind a “details” toggle
+- [ ] Update tests to cover the new UX:
+  - [x] header badge/link presence and navigation
+  - [x] approval link parsing and prefill
+  - [x] fallback paste still works
+  - [x] regression tests for the approval state machine remain passing
+
 ## Phase 4: Security and Reliability
 
 - [ ] Add optimistic concurrency handling using `revision`.

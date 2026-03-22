@@ -3,12 +3,12 @@
 import { UserButton } from '@clerk/nextjs';
 import { useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
+import Link from 'next/link';
 import { usePlannerStore } from '@/store/plannerStore';
 import Header from '@/components/Header';
 import StepIndicator from '@/components/StepIndicator';
 import SummaryBar from '@/components/SummaryBar';
 import DisclaimerGate from '@/components/DisclaimerGate';
-import AccountDataPanel from '@/components/AccountDataPanel';
 import DeviceApprovalModal from '@/components/DeviceApprovalModal';
 import MigrationPromptModal from '@/components/MigrationPromptModal';
 import { DISCLAIMER_KEY } from '@/lib/browserStorageKeys';
@@ -33,7 +33,6 @@ interface PlannerShellProps {
   saveStatus: PlannerSaveStatus;
   authControls?: React.ReactNode;
   isSyncReady?: boolean;
-  accountPanel?: React.ReactNode;
   migrationPrompt?: React.ReactNode;
 }
 
@@ -41,7 +40,6 @@ function PlannerShell({
   saveStatus,
   authControls,
   isSyncReady = true,
-  accountPanel,
   migrationPrompt,
 }: PlannerShellProps) {
   const { currentStep, maxVisitedStep, setCurrentStep, resetPlan } = usePlannerStore();
@@ -124,12 +122,6 @@ function PlannerShell({
         </div>
       </main>
 
-      {accountPanel ? (
-        <div className="max-w-5xl mx-auto w-full px-4 pb-6">
-          {accountPanel}
-        </div>
-      ) : null}
-
       {/* Live summary bar */}
       {currentStep < 4 && (
         <div className="sticky bottom-0 bg-white/90 backdrop-blur-sm border-t border-orange-100/60 shadow-game no-print">
@@ -144,25 +136,37 @@ function PlannerShell({
 
 function AuthenticatedPlannerShell() {
   const sync = usePlanSync();
+  const pendingApprovals = sync.devices.filter((device) => (
+    device.status === 'pending' &&
+    typeof device.requestExpiresAt === 'string' &&
+    new Date(device.requestExpiresAt).getTime() > Date.now()
+  )).length;
 
   return (
     <PlannerShell
       saveStatus={sync.saveStatus}
-      authControls={<UserButton />}
-      isSyncReady={sync.isSyncReady}
-      accountPanel={(
-        <AccountDataPanel
-          saveStatus={sync.saveStatus}
-          lastSavedAt={sync.lastSavedAt}
-          revision={sync.revision}
-          syncError={sync.syncError}
-          devices={sync.devices}
-          onReloadRemote={sync.reloadRemotePlan}
-          onExportPlan={sync.exportCanonicalPlan}
-          onRefreshDevices={sync.refreshDevices}
-          onApproveDevice={sync.approvePendingDevice}
-        />
+      authControls={(
+        <div className="flex items-center gap-2">
+          <Link
+            href="/account"
+            className="btn-ghost text-slate-500 hover:text-slate-800 hover:bg-slate-100"
+          >
+            Account
+          </Link>
+          {pendingApprovals > 0 ? (
+            <Link
+              href="/account/devices"
+              className="inline-flex min-w-[1.75rem] items-center justify-center rounded-full bg-rose-100 px-2 py-1 text-[11px] font-black text-rose-700 hover:bg-rose-200"
+              aria-label={`${pendingApprovals} pending device approvals`}
+              title="Pending device approvals"
+            >
+              {pendingApprovals}
+            </Link>
+          ) : null}
+          <UserButton />
+        </div>
       )}
+      isSyncReady={sync.isSyncReady}
       migrationPrompt={(
         <>
           <MigrationPromptModal
