@@ -244,10 +244,21 @@ export async function upsertDeviceRegistration(input: {
       lastSeenAt: now,
     };
 
-    await container.items.create(created, {
-      accessCondition: { type: 'IfNoneMatch', condition: '*' },
-    });
-    return created;
+    try {
+      await container.items.create(created, {
+        accessCondition: { type: 'IfNoneMatch', condition: '*' },
+      });
+      return created;
+    } catch (error) {
+      // If another request created the same device record concurrently, surface a stable conflict
+      // response rather than leaking an unhandled 500 from the persistence layer.
+      if (isStatusCode(error, 409) || isStatusCode(error, 412)) {
+        const reread = await readExistingDeviceDocument(input.userId, input.deviceId);
+        if (reread) return reread.document;
+        throw new DeviceRegistrationConflictError('Device registration already exists.');
+      }
+      throw error;
+    }
   }
 
   if (existing.document.status === 'revoked') {
