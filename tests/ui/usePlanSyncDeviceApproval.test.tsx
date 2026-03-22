@@ -62,7 +62,7 @@ describe('usePlanSync device approval', () => {
     vi.restoreAllMocks();
     // Ensure deterministic IDs in tests.
     vi.spyOn(globalThis.crypto, 'randomUUID').mockReturnValue('req-uuid');
-    await idbSet('llp.deviceId.user_123', 'device-abc');
+    await idbSet('llp.deviceId.p256.user_123', 'device-abc');
   });
 
   afterEach(() => {
@@ -131,7 +131,7 @@ describe('usePlanSync device approval', () => {
 
     const devicePublicKeyB64 = 'AAAA';
     const devicePrivateKeyB64 = 'AAAA';
-    await idbSet('llp.deviceKeypair.user_123', { publicKeyB64: devicePublicKeyB64, privateKeyB64: devicePrivateKeyB64 });
+    await idbSet('llp.deviceKeypair.p256.user_123', { publicKeyB64: devicePublicKeyB64, privateKeyB64: devicePrivateKeyB64 });
 
     const dekB64 = bytesToBase64(new Uint8Array(32).fill(7));
     const plan = extractPersistedPlannerState(createDefaultState(STATE_PENSION.DEFAULT_AGE));
@@ -186,7 +186,7 @@ describe('usePlanSync device approval', () => {
         return new Response(JSON.stringify({
           wrappedKeyPackage: {
             v: 1,
-            suite: { kem: 'DHKEM(X25519,HKDF-SHA256)', kdf: 'HKDF-SHA256', aead: 'AES-256-GCM' },
+            suite: { kem: 'DHKEM(P-256,HKDF-SHA256)', kdf: 'HKDF-SHA256', aead: 'AES-256-GCM' },
             deviceId: 'device-abc',
             requestId: 'req-uuid',
             enc: sealed.encB64,

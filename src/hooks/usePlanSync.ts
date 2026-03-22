@@ -329,7 +329,7 @@ export function usePlanSync(): UsePlanSyncResult {
     const wrappedKeyPackage: WrappedDekPackage = {
       v: 1,
       suite: {
-        kem: 'DHKEM(X25519,HKDF-SHA256)',
+        kem: 'DHKEM(P-256,HKDF-SHA256)',
         kdf: 'HKDF-SHA256',
         aead: 'AES-256-GCM',
       },
