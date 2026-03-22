@@ -295,7 +295,12 @@ export function usePlanSync(): UsePlanSyncResult {
     }
 
     const code = parsed.data;
-    const target = devices.find((candidate) => candidate.deviceId === code.deviceId);
+
+    // Do not rely on potentially-stale local state. Always re-fetch the directory before approving.
+    const directory = await fetchDevices();
+    setDevices(directory);
+
+    const target = directory.find((candidate) => candidate.deviceId === code.deviceId);
     if (!target || !target.requestId || !target.requestExpiresAt) {
       throw new Error('Device approval request not found.');
     }
@@ -348,7 +353,7 @@ export function usePlanSync(): UsePlanSyncResult {
     });
 
     await refreshDevices();
-  }, [devices, refreshDevices, userId]);
+  }, [refreshDevices, userId]);
 
   const closeDeviceApprovalPrompt = useCallback((): void => {
     setDeviceApprovalPrompt((current) => (
