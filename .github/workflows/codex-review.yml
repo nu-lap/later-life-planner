@@ -549,6 +549,7 @@ jobs:
           - Treat obviously unsafe patterns (eval on user input, shell=True, pickle.loads of untrusted data, hardcoded secrets such as keys starting with \"sk_\") as material issues even if they appear in fixtures or test files.
 
           Review rules:
+          - NOTE The application is not live and is being activley developmeneted. Any legacy data migration issues can be flagged in a review but MUST not block/fail a review.
           - Prioritise bugs, behavioural regressions, security issues, deployment or workflow breakage, and missing tests.
           - Ignore style-only suggestions and avoid praise.
           - Findings must be ordered by severity.
