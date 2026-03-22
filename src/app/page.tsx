@@ -33,6 +33,7 @@ interface PlannerShellProps {
   saveStatus: PlannerSaveStatus;
   authControls?: React.ReactNode;
   isSyncReady?: boolean;
+  onReloadRemote?: () => Promise<void>;
   migrationPrompt?: React.ReactNode;
 }
 
@@ -40,6 +41,7 @@ function PlannerShell({
   saveStatus,
   authControls,
   isSyncReady = true,
+  onReloadRemote,
   migrationPrompt,
 }: PlannerShellProps) {
   const { currentStep, maxVisitedStep, setCurrentStep, resetPlan } = usePlannerStore();
@@ -82,6 +84,7 @@ function PlannerShell({
         <Header
           onReset={handleReset}
           saveStatus={saveStatus}
+          onReloadRemote={onReloadRemote}
           authControls={authControls}
         />
         <main className="flex-1 max-w-5xl mx-auto w-full px-4 py-12">
@@ -102,6 +105,7 @@ function PlannerShell({
       <Header
         onReset={handleReset}
         saveStatus={saveStatus}
+        onReloadRemote={onReloadRemote}
         authControls={authControls}
       />
 
@@ -145,6 +149,7 @@ function AuthenticatedPlannerShell() {
   return (
     <PlannerShell
       saveStatus={sync.saveStatus}
+      onReloadRemote={sync.reloadRemotePlan}
       authControls={(
         <div className="flex items-center gap-2">
           <Link
