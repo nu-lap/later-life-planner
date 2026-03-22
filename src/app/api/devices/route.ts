@@ -28,7 +28,7 @@ const PostPayloadSchema = z.object({
     return;
   }
 
-  if (!isExpectedBase64ByteLength(value.publicKey, 32)) {
+  if (!isExpectedBase64ByteLength(value.publicKey, 65)) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       path: ['publicKey'],

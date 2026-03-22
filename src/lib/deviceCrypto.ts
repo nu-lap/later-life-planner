@@ -1,13 +1,13 @@
-import { CipherSuite, DhkemX25519HkdfSha256, HkdfSha256, Aes256Gcm } from '@hpke/core';
+import { CipherSuite, DhkemP256HkdfSha256, HkdfSha256, Aes256Gcm } from '@hpke/core';
 import {
   base64ToBytes,
   bytesToBase64,
 } from '@/lib/crypto';
 import { idbGet, idbSet } from '@/lib/indexedDbKv';
 
-const DEVICE_ID_KEY_PREFIX = 'llp.deviceId.';
+const DEVICE_ID_KEY_PREFIX = 'llp.deviceId.p256.';
 const USER_KEK_KEY_PREFIX = 'llp.userKek.';
-const DEVICE_KEYPAIR_KEY_PREFIX = 'llp.deviceKeypair.';
+const DEVICE_KEYPAIR_KEY_PREFIX = 'llp.deviceKeypair.p256.';
 const USER_DEK_KEY_PREFIX = 'llp.userDek.';
 
 export interface HpkeDeviceKeyPair {
@@ -97,7 +97,7 @@ async function decryptSecretForUser(userId: string, wrapped: EncryptedSecretV1):
 
 export function hpkeSuite() {
   return new CipherSuite({
-    kem: new DhkemX25519HkdfSha256(),
+    kem: new DhkemP256HkdfSha256(),
     kdf: new HkdfSha256(),
     aead: new Aes256Gcm(),
   });
