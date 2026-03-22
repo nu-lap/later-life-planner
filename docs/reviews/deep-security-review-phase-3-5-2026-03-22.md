@@ -19,7 +19,7 @@ The following issues from the prior review have been resolved:
 | L3 (Plaintext private key in closure memory) | Resolved by V2: the private key is a `CryptoKey` handle, never a base64 string in application memory. |
 | L4 (Legacy upgrade returns plaintext private key) | Resolved by V2: legacy V1 and pre-V1 formats fall through to fresh keypair generation; no migration path emits plaintext bytes. |
 
-The following issues from the prior review remain open and are carried forward below: H1, H2, M1, M2, M4. M5 is updated with P-256-specific byte lengths. L1 and L2 are carried forward unchanged. (M3 is now fixed in commit `cb1d15e`.)
+The following issues from the prior review remain open and are carried forward below: H2, M1, M2, M4. M5 is updated with P-256-specific byte lengths. L1 and L2 are carried forward unchanged. (H1 is now fixed in commit `9dd3d9e`; M3 is now fixed in commit `cb1d15e`.)
 
 ---
 
@@ -60,7 +60,7 @@ None. Previous critical issues (R3-P0 key substitution, R2-P1 AAD trust) remain 
 
 #### H1 — Compromised device can install arbitrary DEK for any pending device
 
-**Severity:** High — **unchanged from 2026-03-21**
+**Severity:** High — **resolved**
 **Where:** `src/lib/cosmos.ts` (`approveDeviceWrappedDek`), `src/app/api/devices/[deviceId]/approve/route.ts`
 **Why it is a problem:**
 `approveDeviceWrappedDek` creates the wrapped DEK with `IfNoneMatch: *` and treats a 409/412 conflict as silent success. Any authenticated Clerk session for userId X can POST to `/api/devices/:deviceId/approve` with a `wrappedKeyPackage` of their choice — the first writer wins. A compromised device can:
@@ -73,8 +73,8 @@ The stale-directory fix (R8) does not affect this. The re-fetch happens on the a
 
 **Exploit scenario:** Unchanged from prior review. An attacker with a valid Clerk session for the victim userId races the approval write.
 
-**Remediation:**
-Add an `approverDeviceId` field to the POST `/api/devices/:deviceId/approve` body. On the server, look up that device, verify `status === 'active'` and `userId` matches, and reject if not. This closes the race: a pending or revoked device cannot win an approval write, and an active device has already received the real DEK.
+**Status:**
+Fixed in commit `9dd3d9e`: `POST /api/devices/:deviceId/approve` now requires `approverDeviceId`, and the server verifies the approver device registration exists and is `status === 'active'` before accepting the wrapped DEK package.
 
 **Type:** Design flaw + implementation flaw
 
@@ -348,7 +348,7 @@ The test suite previously had minimal coverage (2 HPKE round-trip unit tests, 3 
 
 ### Suggested Fixes in Priority Order
 
-1. **[H1] Require the approver to be an active device.** Add `approverDeviceId` to the approval request body. Server looks up that device, verifies `status === 'active'` and same `userId`, rejects otherwise. This closes the compromised-device DEK-substitution race. This is the most important fix before launch.
+1. **[H1] Require the approver to be an active device.** Implemented in commit `9dd3d9e`.
 
 2. **[M3] Handle Cosmos 409/412 on first-create in `upsertDeviceRegistration`.** Implemented in commit `cb1d15e`.
 
@@ -375,9 +375,8 @@ The test suite previously had minimal coverage (2 HPKE round-trip unit tests, 3 
 The cryptographic fundamentals are sound. HPKE base mode with P-256, AES-256-GCM, HKDF-SHA256 is a well-specified combination. The V2 non-extractable `CryptoKey` private key storage is a genuine improvement. AAD recomputation at the recipient, fingerprint-based key pinning, server-enforced TTL, device key immutability, and consume-after-confirm remain correctly implemented.
 
 Approval is conditional on addressing before production launch:
-1. **H1** — require the approver to be a verified active device.
-2. **Testing** — add at minimum: wrong-recipient decryption, tampered ciphertext, fingerprint mismatch, AAD mismatch rejection.
+1. **Testing** — add at minimum: wrong-recipient decryption, tampered ciphertext, fingerprint mismatch, AAD mismatch rejection.
 
-M1, M2, M5, L1–L6 are recommended for the next sprint but do not block launch once H1 and the minimum test additions are in place.
+M1, M2, M5, L1–L6 are recommended for the next sprint but do not block launch once the minimum test additions are in place.
 
 The absence of device key rotation, recovery flows, blob re-encryption, and sender authentication (H2) are accepted v1 limitations and should be tracked as explicit future work items in the backlog.
