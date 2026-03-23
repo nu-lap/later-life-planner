@@ -6,6 +6,7 @@ import {
   getPlannerPersistenceDocument,
   savePlannerPersistenceDocument,
 } from '@/lib/cosmos';
+import { rateLimit } from '@/lib/rateLimit';
 import {
   AES_GCM_IV_BYTE_LENGTH,
   MAX_CIPHERTEXT_BYTES,
@@ -19,6 +20,9 @@ import {
 
 const MAX_CIPHERTEXT_BASE64_LENGTH = Math.ceil((MAX_CIPHERTEXT_BYTES * 4) / 3) + 8;
 const MAX_WRAPPED_KEY_BASE64_LENGTH = Math.ceil((MAX_WRAPPED_KEY_BYTES * 4) / 3) + 8;
+
+const DATA_GET_RATE_LIMIT = { windowMs: 60_000, max: 120 };
+const DATA_PUT_RATE_LIMIT = { windowMs: 60_000, max: 80 };
 
 const PutPayloadSchema = z.object({
   schemaVersion: z.literal(PLANNER_SCHEMA_VERSION),
@@ -73,6 +77,16 @@ function jsonError(message: string, status: number, extras?: Record<string, numb
   );
 }
 
+function rateLimitExceeded(resetInMs: number): Response {
+  return Response.json(
+    { error: 'Rate limit exceeded.' },
+    {
+      status: 429,
+      headers: { 'Retry-After': Math.ceil(resetInMs / 1000).toString() },
+    },
+  );
+}
+
 function responseForKnownError(error: unknown): Response {
   if (error instanceof UnauthorizedError) {
     return jsonError('Authentication required.', 401);
@@ -92,6 +106,8 @@ function responseForKnownError(error: unknown): Response {
 export async function GET() {
   try {
     const { userId } = await requireUser();
+    const limit = rateLimit(`data:get:${userId}`, DATA_GET_RATE_LIMIT);
+    if (!limit.ok) return rateLimitExceeded(limit.resetInMs);
     const persisted = await getPlannerPersistenceDocument(userId);
 
     if (!persisted) {
@@ -116,6 +132,8 @@ export async function GET() {
 export async function PUT(request: Request) {
   try {
     const { userId } = await requireUser();
+    const limit = rateLimit(`data:put:${userId}`, DATA_PUT_RATE_LIMIT);
+    if (!limit.ok) return rateLimitExceeded(limit.resetInMs);
     const body = await request.json().catch(() => null);
     const parsed = PutPayloadSchema.safeParse(body);
 
