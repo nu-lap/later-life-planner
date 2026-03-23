@@ -4,10 +4,12 @@ const {
   requireUserMock,
   getPlannerPersistenceDocumentMock,
   savePlannerPersistenceDocumentMock,
+  rateLimitMock,
 } = vi.hoisted(() => ({
   requireUserMock: vi.fn(),
   getPlannerPersistenceDocumentMock: vi.fn(),
   savePlannerPersistenceDocumentMock: vi.fn(),
+  rateLimitMock: vi.fn(),
 }));
 
 vi.mock('@/lib/auth/requireUser', () => {
@@ -50,6 +52,10 @@ vi.mock('@/lib/cosmos', () => {
   };
 });
 
+vi.mock('@/lib/rateLimit', () => ({
+  rateLimit: rateLimitMock,
+}));
+
 import { GET, PUT } from '@/app/api/data/route';
 import { UnauthorizedError } from '@/lib/auth/requireUser';
 import { PersistenceConfigError, RevisionConflictError } from '@/lib/cosmos';
@@ -69,6 +75,8 @@ describe('/api/data route', () => {
     requireUserMock.mockReset();
     getPlannerPersistenceDocumentMock.mockReset();
     savePlannerPersistenceDocumentMock.mockReset();
+    rateLimitMock.mockReset();
+    rateLimitMock.mockReturnValue({ ok: true, remaining: 1, resetInMs: 60_000 });
   });
 
   test('GET returns 401 for unauthenticated requests', async () => {
@@ -116,6 +124,17 @@ describe('/api/data route', () => {
     });
   });
 
+  test('GET returns 429 when rate limited', async () => {
+    requireUserMock.mockResolvedValue({ userId: 'user_123' });
+    rateLimitMock.mockReturnValue({ ok: false, remaining: 0, resetInMs: 12_000 });
+
+    const response = await GET();
+
+    expect(response.status).toBe(429);
+    expect(response.headers.get('Retry-After')).toBe('12');
+    await expect(response.json()).resolves.toEqual({ error: 'Rate limit exceeded.' });
+  });
+
   test('PUT rejects malformed payloads', async () => {
     requireUserMock.mockResolvedValue({ userId: 'user_123' });
 
@@ -131,6 +150,23 @@ describe('/api/data route', () => {
     );
 
     expect(response.status).toBe(400);
+    expect(savePlannerPersistenceDocumentMock).not.toHaveBeenCalled();
+  });
+
+  test('PUT returns 429 when rate limited', async () => {
+    requireUserMock.mockResolvedValue({ userId: 'user_123' });
+    rateLimitMock.mockReturnValue({ ok: false, remaining: 0, resetInMs: 2000 });
+
+    const response = await PUT(
+      new Request('http://localhost/api/data', {
+        method: 'PUT',
+        body: JSON.stringify(createPayload()),
+      }),
+    );
+
+    expect(response.status).toBe(429);
+    expect(response.headers.get('Retry-After')).toBe('2');
+    await expect(response.json()).resolves.toEqual({ error: 'Rate limit exceeded.' });
     expect(savePlannerPersistenceDocumentMock).not.toHaveBeenCalled();
   });
 
