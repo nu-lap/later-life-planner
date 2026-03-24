@@ -453,6 +453,13 @@ export function usePlanSync(): UsePlanSyncResult {
         }
 
         if (!response.ok) {
+          if (response.status === 500) {
+            const errorPayload = await response.json().catch(() => null) as { error?: string } | null;
+            if (errorPayload?.error === 'Corrupt planner payload.') {
+              handleCorruptRemotePayload();
+              return;
+            }
+          }
           throw new Error(`Load request failed (${response.status}).`);
         }
 
