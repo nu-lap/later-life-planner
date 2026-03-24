@@ -92,4 +92,33 @@ describe('usePlanSync corrupted payload handling', () => {
       'Saved plan data is corrupted or unreadable. Your plan has not been changed. Contact support for recovery.',
     );
   });
+
+  test('treats server 500 corrupt payload response as a recoverable error', async () => {
+    mockUseAuth.mockReturnValue({ isLoaded: true, userId: 'user_123' });
+
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === 'string'
+        ? input
+        : input instanceof URL
+          ? input.toString()
+          : input.url;
+
+      if (url.endsWith('/api/data') && (!init?.method || init.method === 'GET')) {
+        return new Response(JSON.stringify({ error: 'Corrupt planner payload.' }), { status: 500 });
+      }
+
+      return new Response('Unexpected', { status: 500 });
+    });
+
+    // @ts-expect-error test override
+    globalThis.fetch = fetchMock;
+
+    render(<Harness />);
+
+    await waitFor(() => expect(latestSync?.isSyncReady).toBe(true));
+    expect(latestSync?.saveStatus).toBe('error');
+    expect(latestSync?.syncError).toBe(
+      'Saved plan data is corrupted or unreadable. Your plan has not been changed. Contact support for recovery.',
+    );
+  });
 });
