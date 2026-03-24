@@ -178,6 +178,18 @@ export function usePlanSync(): UsePlanSyncResult {
   const legacyPlanRef = useRef<PersistedPlannerState | null>(null);
   const deviceApprovalIntervalRef = useRef<number | null>(null);
   const indexedDbAvailableRef = useRef<boolean | null>(null);
+  const hasSeenSignedInRef = useRef(false);
+
+  const clearSensitiveStateOnSignOut = useCallback(() => {
+    lastSavedSerializedRef.current = null;
+    currentRevisionRef.current = null;
+    hasRemotePlanRef.current = false;
+    skipNextSaveRef.current = false;
+    legacyPlanRef.current = null;
+    loadSequenceRef.current += 1;
+    resetPlan();
+    usePlannerStore.persist.clearStorage();
+  }, [resetPlan]);
 
   const ensureKeyStorageAvailable = useCallback(async (): Promise<boolean> => {
     if (indexedDbAvailableRef.current === true) return true;
@@ -669,6 +681,10 @@ export function usePlanSync(): UsePlanSyncResult {
       syncEnabledRef.current = false;
       blockedByConflictRef.current = false;
       awaitingMigrationChoiceRef.current = false;
+      if (hasSeenSignedInRef.current) {
+        clearSensitiveStateOnSignOut();
+        hasSeenSignedInRef.current = false;
+      }
       if (deviceApprovalIntervalRef.current !== null) {
         window.clearInterval(deviceApprovalIntervalRef.current);
         deviceApprovalIntervalRef.current = null;
@@ -677,8 +693,9 @@ export function usePlanSync(): UsePlanSyncResult {
       return;
     }
 
+    hasSeenSignedInRef.current = true;
     void loadRemotePlan(true);
-  }, [isLoaded, userId, loadRemotePlan]);
+  }, [clearSensitiveStateOnSignOut, isLoaded, loadRemotePlan, userId]);
 
   useEffect(() => {
     if (!isLoaded || !userId || !isSyncReady) return;

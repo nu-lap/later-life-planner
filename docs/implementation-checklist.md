@@ -176,7 +176,7 @@ Implementation tasks:
 - [x] Add optimistic concurrency handling using `revision`.
 - [x] Add route rate limiting for protected data routes.
 - [x] Add secure handling for malformed ciphertext and corrupt payloads.
-- [ ] Ensure sign-out clears decrypted planner state from memory.
+- [x] Ensure sign-out clears decrypted planner state from memory.
 - [ ] Ensure planner plaintext never reaches logs.
 - [ ] Define device revocation and DEK rotation rules and write a runbook for recovery scenarios.
 - [ ] Write and test point-in-time restore runbooks for planner data.
