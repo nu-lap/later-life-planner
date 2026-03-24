@@ -29,7 +29,8 @@ export default function AccountOverviewPanel({
   onReloadRemote,
   onExportPlan,
 }: Props) {
-  const isReloadBlocked = Boolean(syncError);
+  const isCorruptPayload = Boolean(syncError?.includes('corrupted or unreadable'));
+  const isReloadBlocked = isCorruptPayload;
 
   return (
     <section className="game-card">
