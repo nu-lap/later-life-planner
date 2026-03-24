@@ -12,6 +12,9 @@ export interface CipherPayload {
 }
 
 export type AdditionalAuthenticatedData = Record<string, string | number>;
+export type CipherPayloadValidationResult =
+  | { ok: true }
+  | { ok: false; reason: 'invalid_iv' | 'invalid_iv_length' | 'invalid_ciphertext' | 'ciphertext_size' };
 
 function isNodeBufferAvailable(): boolean {
   return typeof Buffer !== 'undefined';
@@ -114,6 +117,25 @@ export function getBase64ByteLength(value: string): number | null {
 export function isCiphertextWithinSizeLimit(value: string, maxBytes = MAX_CIPHERTEXT_BYTES): boolean {
   const size = getBase64ByteLength(value);
   return size !== null && size > 0 && size <= maxBytes;
+}
+
+export function validateCipherPayload(
+  payload: CipherPayload,
+  maxCiphertextBytes = MAX_CIPHERTEXT_BYTES,
+): CipherPayloadValidationResult {
+  if (!isValidBase64(payload.iv)) {
+    return { ok: false, reason: 'invalid_iv' };
+  }
+  if (!isExpectedBase64ByteLength(payload.iv, AES_GCM_IV_BYTE_LENGTH)) {
+    return { ok: false, reason: 'invalid_iv_length' };
+  }
+  if (!isValidBase64(payload.ciphertext)) {
+    return { ok: false, reason: 'invalid_ciphertext' };
+  }
+  if (!isCiphertextWithinSizeLimit(payload.ciphertext, maxCiphertextBytes)) {
+    return { ok: false, reason: 'ciphertext_size' };
+  }
+  return { ok: true };
 }
 
 export async function generateDataEncryptionKey(): Promise<CryptoKey> {

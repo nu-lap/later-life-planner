@@ -45,6 +45,9 @@ function plannerAad(userId: string): Record<string, string | number> {
   return { scope: 'planner', schemaVersion: PLANNER_SCHEMA_VERSION, userId };
 }
 
+const VALID_IV = bytesToBase64(new Uint8Array(12).fill(1));
+const VALID_CIPHERTEXT = bytesToBase64(new Uint8Array(32).fill(2));
+
 function Harness() {
   const sync = usePlanSync();
   return (
@@ -86,8 +89,8 @@ describe('usePlanSync device approval', () => {
         return new Response(JSON.stringify({
           schemaVersion: PLANNER_SCHEMA_VERSION,
           revision: 1,
-          iv: 'AAAAAAAAAAAAAAAAAAAAAA==',
-          ciphertext: 'AAAAAAAA',
+          iv: VALID_IV,
+          ciphertext: VALID_CIPHERTEXT,
           updatedAt: new Date().toISOString(),
         }), { status: 200 });
       }
@@ -162,8 +165,8 @@ describe('usePlanSync device approval', () => {
         return new Response(JSON.stringify({
           schemaVersion: PLANNER_SCHEMA_VERSION,
           revision: 1,
-          iv: 'AAAAAAAAAAAAAAAAAAAAAA==',
-          ciphertext: 'AAAAAAAA',
+          iv: VALID_IV,
+          ciphertext: VALID_CIPHERTEXT,
           updatedAt: new Date().toISOString(),
         }), { status: 200 });
       }
@@ -272,8 +275,8 @@ describe('usePlanSync device approval', () => {
         return new Response(JSON.stringify({
           schemaVersion: PLANNER_SCHEMA_VERSION,
           revision: 1,
-          iv: 'AAAAAAAAAAAAAAAAAAAAAA==',
-          ciphertext: 'AAAAAAAA',
+          iv: VALID_IV,
+          ciphertext: VALID_CIPHERTEXT,
           updatedAt: new Date().toISOString(),
         }), { status: 200 });
       }
