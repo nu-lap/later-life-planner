@@ -29,6 +29,8 @@ export default function AccountOverviewPanel({
   onReloadRemote,
   onExportPlan,
 }: Props) {
+  const isReloadBlocked = Boolean(syncError);
+
   return (
     <section className="game-card">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -44,7 +46,12 @@ export default function AccountOverviewPanel({
           <button onClick={onExportPlan} className="btn-secondary py-2.5 text-sm whitespace-nowrap">
             Export JSON
           </button>
-          <button onClick={onReloadRemote} className="btn-secondary py-2.5 text-sm whitespace-nowrap">
+          <button
+            onClick={isReloadBlocked ? undefined : onReloadRemote}
+            disabled={isReloadBlocked}
+            aria-disabled={isReloadBlocked}
+            className="btn-secondary py-2.5 text-sm whitespace-nowrap disabled:cursor-not-allowed disabled:opacity-50"
+          >
             Reload remote
           </button>
         </div>
