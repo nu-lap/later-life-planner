@@ -5,11 +5,15 @@ const {
   getPlannerPersistenceDocumentMock,
   savePlannerPersistenceDocumentMock,
   rateLimitMock,
+  auditLogMock,
+  fingerprintMock,
 } = vi.hoisted(() => ({
   requireUserMock: vi.fn(),
   getPlannerPersistenceDocumentMock: vi.fn(),
   savePlannerPersistenceDocumentMock: vi.fn(),
   rateLimitMock: vi.fn(),
+  auditLogMock: vi.fn(),
+  fingerprintMock: vi.fn(),
 }));
 
 vi.mock('@/lib/auth/requireUser', () => {
@@ -56,6 +60,11 @@ vi.mock('@/lib/rateLimit', () => ({
   rateLimit: rateLimitMock,
 }));
 
+vi.mock('@/lib/auditLog', () => ({
+  auditLog: auditLogMock,
+  sha256Base64FingerprintFromBase64Payload: fingerprintMock,
+}));
+
 import { GET, PUT } from '@/app/api/data/route';
 import { UnauthorizedError } from '@/lib/auth/requireUser';
 import { PersistenceConfigError, RevisionConflictError } from '@/lib/cosmos';
@@ -77,6 +86,9 @@ describe('/api/data route', () => {
     savePlannerPersistenceDocumentMock.mockReset();
     rateLimitMock.mockReset();
     rateLimitMock.mockReturnValue({ ok: true, remaining: 1, resetInMs: 60_000 });
+    auditLogMock.mockReset();
+    fingerprintMock.mockReset();
+    fingerprintMock.mockReturnValue('fingerprint');
   });
 
   test('GET returns 401 for unauthenticated requests', async () => {
@@ -122,6 +134,29 @@ describe('/api/data route', () => {
       createdAt: '2026-03-20T10:00:00.000Z',
       updatedAt: '2026-03-20T11:00:00.000Z',
     });
+  });
+
+  test('GET returns 500 when persisted payload is malformed', async () => {
+    requireUserMock.mockResolvedValue({ userId: 'user_123' });
+    getPlannerPersistenceDocumentMock.mockResolvedValue({
+      id: 'user_123',
+      schemaVersion: 1,
+      revision: 2,
+      iv: 'bad',
+      ciphertext: 'bad',
+      createdAt: '2026-03-20T10:00:00.000Z',
+      updatedAt: '2026-03-20T10:00:00.000Z',
+    });
+
+    const response = await GET();
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({ error: 'Corrupt planner payload.' });
+    expect(auditLogMock).toHaveBeenCalledWith('planner.payloadCorrupt', expect.objectContaining({
+      userId: 'user_123',
+      reason: expect.any(String),
+      ciphertextFingerprint: 'fingerprint',
+    }));
   });
 
   test('GET returns 429 when rate limited', async () => {

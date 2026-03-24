@@ -11,6 +11,7 @@ import {
   encryptPlannerState,
   importDataEncryptionKeyFromBase64,
   PLANNER_SCHEMA_VERSION,
+  validateCipherPayload,
 } from '@/lib/crypto';
 import {
   LEGACY_PLANNER_STORAGE_KEY,
@@ -49,6 +50,7 @@ import { probeIndexedDb } from '@/lib/indexedDbKv';
 const SAVE_DEBOUNCE_MS = 900;
 const DEVICE_APPROVAL_TTL_MS = 10 * 60 * 1000;
 const DEVICE_APPROVAL_POLL_MS = 3000;
+const CORRUPT_PAYLOAD_MESSAGE = 'Saved plan data is corrupted or unreadable. Your plan has not been changed. Contact support for recovery.';
 
 type MigrationDecision = 'imported' | 'start-fresh' | 'keep-remote';
 
@@ -406,6 +408,16 @@ export function usePlanSync(): UsePlanSyncResult {
         fallbackState,
       );
 
+      const handleCorruptRemotePayload = () => {
+        setSaveStatus('error');
+        setSyncError(CORRUPT_PAYLOAD_MESSAGE);
+        setMigrationPrompt({ isOpen: false, hasRemotePlan: true });
+        awaitingMigrationChoiceRef.current = false;
+        setIsSyncReady(true);
+        syncEnabledRef.current = false;
+        blockedByConflictRef.current = false;
+      };
+
       try {
         const response = await fetch('/api/data', {
           method: 'GET',
@@ -453,6 +465,15 @@ export function usePlanSync(): UsePlanSyncResult {
         currentRevisionRef.current = remotePlan.revision;
         setRevision(remotePlan.revision);
         setLastSavedAt(remotePlan.updatedAt);
+
+        const payloadValidation = validateCipherPayload({
+          iv: remotePlan.iv,
+          ciphertext: remotePlan.ciphertext,
+        });
+        if (!payloadValidation.ok) {
+          handleCorruptRemotePayload();
+          return;
+        }
 
         const dekB64 = await getUserDekB64(userId);
         if (!dekB64) {
@@ -556,14 +577,20 @@ export function usePlanSync(): UsePlanSyncResult {
 
         const existingKey = await importDataEncryptionKeyFromBase64(dekB64);
 
-        const decrypted = await decryptPlannerState<PersistedPlannerState>(
-          {
-            iv: remotePlan.iv,
-            ciphertext: remotePlan.ciphertext,
-          },
-          existingKey,
-          plannerAad(userId),
-        );
+        let decrypted: PersistedPlannerState;
+        try {
+          decrypted = await decryptPlannerState<PersistedPlannerState>(
+            {
+              iv: remotePlan.iv,
+              ciphertext: remotePlan.ciphertext,
+            },
+            existingKey,
+            plannerAad(userId),
+          );
+        } catch {
+          handleCorruptRemotePayload();
+          return;
+        }
 
         const normalizedRemotePlan = extractPersistedPlannerState(
           hydratePlannerState(

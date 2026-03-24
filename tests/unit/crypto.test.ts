@@ -9,6 +9,8 @@ import {
   isCiphertextWithinSizeLimit,
   isExpectedBase64ByteLength,
   isValidBase64,
+  validateCipherPayload,
+  MAX_CIPHERTEXT_BYTES,
 } from '@/lib/crypto';
 
 describe('crypto helpers', () => {
@@ -48,5 +50,29 @@ describe('crypto helpers', () => {
     const decrypted = await decryptPlannerState<typeof input>(encrypted, key, aad);
 
     expect(decrypted).toEqual(input);
+  });
+
+  test('validates cipher payloads before decrypt', () => {
+    const validIv = Buffer.alloc(AES_GCM_IV_BYTE_LENGTH, 1).toString('base64');
+    const validCiphertext = Buffer.alloc(32, 2).toString('base64');
+    const oversizedCiphertext = Buffer.alloc(MAX_CIPHERTEXT_BYTES + 1, 3).toString('base64');
+
+    expect(validateCipherPayload({ iv: validIv, ciphertext: validCiphertext }).ok).toBe(true);
+    expect(validateCipherPayload({ iv: 'bad', ciphertext: validCiphertext })).toEqual({
+      ok: false,
+      reason: 'invalid_iv',
+    });
+    expect(validateCipherPayload({ iv: Buffer.alloc(8, 1).toString('base64'), ciphertext: validCiphertext })).toEqual({
+      ok: false,
+      reason: 'invalid_iv_length',
+    });
+    expect(validateCipherPayload({ iv: validIv, ciphertext: 'bad' })).toEqual({
+      ok: false,
+      reason: 'invalid_ciphertext',
+    });
+    expect(validateCipherPayload({ iv: validIv, ciphertext: oversizedCiphertext })).toEqual({
+      ok: false,
+      reason: 'ciphertext_size',
+    });
   });
 });

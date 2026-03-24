@@ -7,6 +7,7 @@ import {
   savePlannerPersistenceDocument,
 } from '@/lib/cosmos';
 import { rateLimit } from '@/lib/rateLimit';
+import { auditLog, sha256Base64FingerprintFromBase64Payload } from '@/lib/auditLog';
 import {
   AES_GCM_IV_BYTE_LENGTH,
   MAX_CIPHERTEXT_BYTES,
@@ -16,6 +17,7 @@ import {
   isCiphertextWithinSizeLimit,
   isExpectedBase64ByteLength,
   isValidBase64,
+  validateCipherPayload,
 } from '@/lib/crypto';
 
 const MAX_CIPHERTEXT_BASE64_LENGTH = Math.ceil((MAX_CIPHERTEXT_BYTES * 4) / 3) + 8;
@@ -112,6 +114,22 @@ export async function GET() {
 
     if (!persisted) {
       return new Response('Not found.', { status: 404 });
+    }
+
+    const validation = validateCipherPayload({
+      iv: persisted.iv,
+      ciphertext: persisted.ciphertext,
+    });
+
+    if (!validation.ok) {
+      auditLog('planner.payloadCorrupt', {
+        userId,
+        reason: validation.reason,
+        ivBytes: getBase64ByteLength(persisted.iv),
+        ciphertextBytes: getBase64ByteLength(persisted.ciphertext),
+        ciphertextFingerprint: sha256Base64FingerprintFromBase64Payload(persisted.ciphertext),
+      });
+      return jsonError('Corrupt planner payload.', 500);
     }
 
     return Response.json({
