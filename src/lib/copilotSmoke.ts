@@ -2,3 +2,4 @@
 export const COPILOT_SMOKE_TEST = true;
 
 export const COPILOT_SMOKE_TEST_ROUND_2 = true;
+export const COPILOT_SMOKE_TEST_ROUND_3 = true;
