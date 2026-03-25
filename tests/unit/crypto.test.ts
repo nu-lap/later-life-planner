@@ -5,7 +5,9 @@ import {
   bytesToBase64,
   decryptPlannerState,
   encryptPlannerState,
+  exportDataEncryptionKeyToBase64,
   generateDataEncryptionKey,
+  importDataEncryptionKeyFromBase64,
   isCiphertextWithinSizeLimit,
   isExpectedBase64ByteLength,
   isValidBase64,
@@ -50,6 +52,41 @@ describe('crypto helpers', () => {
     const decrypted = await decryptPlannerState<typeof input>(encrypted, key, aad);
 
     expect(decrypted).toEqual(input);
+  });
+
+  test('round-trips key export/import and decrypts with imported key', async () => {
+    const sourceKey = await generateDataEncryptionKey();
+    const serializedKey = await exportDataEncryptionKeyToBase64(sourceKey);
+    const importedKey = await importDataEncryptionKeyFromBase64(serializedKey);
+
+    const input = {
+      mode: 'single',
+      lifeVision: 'Read and volunteer weekly.',
+      fiAge: 63,
+    };
+    const aad = {
+      userId: 'user_123',
+      schemaVersion: 1,
+      revision: 8,
+    };
+
+    const encrypted = await encryptPlannerState(input, sourceKey, aad);
+    const decrypted = await decryptPlannerState<typeof input>(encrypted, importedKey, aad);
+
+    expect(decrypted).toEqual(input);
+  });
+
+  test('rejects decrypt when aad does not match', async () => {
+    const key = await generateDataEncryptionKey();
+    const input = { mode: 'single', lifeVision: 'Mismatched aad test.' };
+    const aad = { userId: 'user_123', schemaVersion: 1, revision: 3 };
+    const wrongAad = { userId: 'user_123', schemaVersion: 1, revision: 4 };
+
+    const encrypted = await encryptPlannerState(input, key, aad);
+
+    await expect(
+      decryptPlannerState<typeof input>(encrypted, key, wrongAad),
+    ).rejects.toBeInstanceOf(Error);
   });
 
   test('validates cipher payloads before decrypt', () => {

@@ -188,19 +188,19 @@ Implementation tasks:
 
 ## Phase 5: Tests and Docs
 
-- [ ] Add auth route tests.
-- [ ] Add protected API auth tests.
-- [ ] Add crypto round-trip tests.
-- [ ] Add sync-state and conflict tests.
-- [ ] Add migration-flow tests.
-- [ ] Update `README.md` to reflect authenticated encrypted persistence.
-- [ ] Update `.env.example` with Clerk, Cosmos, and Key Vault placeholders.
-- [ ] Document deployment assumptions for the chosen hosting environment.
-- [ ] Document retention, deletion, export, and backup-recovery policy for user data.
-- [ ] Publish a privacy notice before production persistence launches.
-- [ ] Decide the initial cookie posture and keep it essential-only unless a consent mechanism is ready.
-- [ ] Confirm controller-processor contracts or equivalent terms for NxLap Ltd with Clerk, Azure, and other relevant vendors.
-- [ ] Confirm the ICO data protection fee position for NxLap Ltd before launch.
+- [x] Add auth route tests.
+- [x] Add protected API auth tests.
+- [x] Add crypto round-trip tests.
+- [x] Add sync-state and conflict tests.
+- [x] Add migration-flow tests.
+- [x] Update `README.md` to reflect authenticated encrypted persistence.
+- [x] Update `.env.example` with Clerk, Cosmos, and Key Vault placeholders.
+- [x] Document deployment assumptions for the chosen hosting environment.
+- [x] Document retention, deletion, export, and backup-recovery policy for user data.
+- [x] Publish a privacy notice before production persistence launches.
+- [x] Decide the initial cookie posture and keep it essential-only unless a consent mechanism is ready.
+- [x] Confirm controller-processor contracts or equivalent terms for NxLap Ltd with Clerk, Azure, and other relevant vendors.
+- [x] Confirm the ICO data protection fee position for NxLap Ltd before launch.
 
 ## Immediate Next Slice
 
