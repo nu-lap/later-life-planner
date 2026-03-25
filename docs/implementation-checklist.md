@@ -177,14 +177,14 @@ Implementation tasks:
 - [x] Add route rate limiting for protected data routes.
 - [x] Add secure handling for malformed ciphertext and corrupt payloads.
 - [x] Ensure sign-out clears decrypted planner state from memory.
-- [ ] Ensure planner plaintext never reaches logs.
-- [ ] Define device revocation and DEK rotation rules and write a runbook for recovery scenarios.
-- [ ] Write and test point-in-time restore runbooks for planner data.
-- [ ] Write and test user-deletion runbooks, including backup-expiry handling.
-- [ ] Ensure erased user data is not reintroduced after restore operations.
-- [ ] Decide whether an inactive-account review or purge policy is required.
-- [ ] Complete a DPIA or documented DPIA screening decision before production persistence launch.
-- [ ] Document whether a DPO is required and record the reasoning.
+- [x] Ensure planner plaintext never reaches logs.
+- [x] Define device revocation and DEK rotation rules and write a runbook for recovery scenarios.
+- [x] Write and test point-in-time restore runbooks for planner data.
+- [x] Write and test user-deletion runbooks, including backup-expiry handling.
+- [x] Ensure erased user data is not reintroduced after restore operations.
+- [x] Decide whether an inactive-account review or purge policy is required.
+- [x] Complete a DPIA or documented DPIA screening decision before production persistence launch.
+- [x] Document whether a DPO is required and record the reasoning.
 
 ## Phase 5: Tests and Docs
 
