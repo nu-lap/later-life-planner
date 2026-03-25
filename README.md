@@ -1,12 +1,14 @@
-# Later Life Planner
+# Later Life Planner (LifePlan)
 
-A UK later-life financial planning tool for people aged 50–75. Aspiration-first: define the life you want, then see how your income and assets can fund it.
+A UK later-life planning tool for people aged 50–75. Aspiration-first: define the life you want, then see how your income and assets can fund it.
 
-Built with Next.js 14, TypeScript, TailwindCSS, and Recharts. The app now includes a Clerk auth foundation while planner data remains local-first until encrypted persistence lands. The canonical auth and storage plan lives in `docs/`.
+Built with Next.js 14, TypeScript, TailwindCSS, and Recharts.
 
-Test change to exercise the Codex review gate.
-Second pass to validate Codex review trigger.
-Third pass to validate Codex review trigger.
+This repo includes authenticated, encrypted plan persistence:
+
+- Clerk sign-in/sign-up for authenticated sessions.
+- Encrypted plan storage in Azure Cosmos DB (server stores ciphertext only).
+- Browser-side encryption/decryption and device-to-device key approval when signing in on a new device.
 
 ---
 
@@ -54,7 +56,7 @@ A full projection from FI age to life expectancy showing:
 
 ## Tax modelling
 
-All tax is modelled per person. UK 2024/25 rates throughout.
+All tax is modelled per person. UK-specific figures live in `src/config/financialConstants.ts`.
 
 ### Income Tax
 
@@ -118,12 +120,17 @@ Per UK government policy, State Pension is not taxed when it is the person's onl
 | Language    | TypeScript                          |
 | Styling     | TailwindCSS                         |
 | Charts      | Recharts                            |
-| State       | Zustand with localStorage persistence |
-| Deployment  | Vercel                              |
+| State       | Zustand                             |
+| Auth        | Clerk                               |
+| Storage     | Azure Cosmos DB                     |
+| Crypto      | Web Crypto (browser-side)           |
+| Deployment  | Azure Container Apps                |
 
 ---
 
 ## Getting started
+
+Create a local env file based on `.env.example` (Clerk and Azure persistence are optional for local-only work).
 
 ```bash
 npm install
@@ -135,6 +142,25 @@ Open [http://localhost:3000](http://localhost:3000).
 ```bash
 npm run build   # production build
 ```
+
+---
+
+## Encrypted sync and conflicts
+
+- The app saves an encrypted planner blob for each user (ciphertext + metadata). The server never decrypts planner content.
+- Saves use a `revision` for optimistic concurrency. If the server returns a revision conflict (HTTP 409), sync pauses and the UI prompts you to **Reload remote**.
+
+---
+
+## Device-to-device key approval (new device sign-in)
+
+If you sign in on a new browser/device that does not have the local encryption key, the app will prompt for an approval from an already-authorized device.
+
+High level:
+
+- The new device registers a per-device public key with the server and shows an approval link/code.
+- An authorized device approves by wrapping the user DEK to the new device (HPKE), then stores the wrapped package for pickup.
+- The new device unwraps the DEK locally and can decrypt the remote plan.
 
 ---
 
@@ -158,6 +184,12 @@ src/
   financialEngine/
     projectionEngine.ts       # Core year-by-year projection loop and drawdown waterfall
     taxCalculations.ts        # Income tax, CGT, UFPLS helpers
+  hooks/
+    usePlanSync.ts            # Authenticated load/decrypt/hydrate + debounced encrypt/save
+  lib/
+    cosmos.ts                 # Cosmos DB persistence layer (ciphertext only)
+    crypto.ts                 # Planner blob encryption helpers (browser-side)
+    rateLimit.ts              # In-memory rate limiting (server runtime)
   models/
     types.ts                  # All TypeScript interfaces (PlannerState, YearlyProjection, …)
   store/
@@ -174,23 +206,11 @@ All UK-specific values (tax rates, allowances, pension rules, RLSS standards) ar
 
 ## Deployment
 
-Deploy to Vercel in one step:
+This app is designed to run on Azure Container Apps with managed identity access to Cosmos DB (and a reserved Key Vault for future envelope-key integration).
 
-```bash
-npx vercel
-```
-
-No database setup is required yet. Clerk auth can be enabled with the environment variables in `.env.example`, and investment return, inflation, and life expectancy defaults can be overridden via environment variables:
-
-```
-NEXT_PUBLIC_INVESTMENT_RETURN=4
-NEXT_PUBLIC_DEFAULT_INFLATION=2.5
-NEXT_PUBLIC_DEFAULT_LIFE_EXPECTANCY=95
-```
-
-Planned account-based auth and encrypted sync are documented in:
+See the current reference architecture and operational notes in:
 
 - `docs/auth-plan.md`
 - `docs/storage-plan.md`
 - `docs/security-decisions.md`
-
+- `docs/azure-architecture.md`
