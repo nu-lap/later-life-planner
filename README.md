@@ -1,6 +1,6 @@
 # Later Life Planner (LifePlan)
 
-A UK later-life planning tool for people aged 50–75. Aspiration-first: define the life you want, then see how your income and assets can fund it.
+A UK later-life planning tool for people aged 50–75. Aspiration-first: define the life you want, then see how your income and assets can fund it..
 
 Built with Next.js 14, TypeScript, TailwindCSS, and Recharts.
 
