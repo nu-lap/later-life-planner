@@ -9,6 +9,7 @@ This repo includes authenticated, encrypted plan persistence:
 - Clerk sign-in/sign-up for authenticated sessions.
 - Encrypted plan storage in Azure Cosmos DB (server stores ciphertext only).
 - Browser-side encryption/decryption and device-to-device key approval when signing in on a new device.
+- Protected API routes with per-user rate limiting and optimistic concurrency (`revision`).
 
 ---
 
@@ -143,6 +144,11 @@ Open [http://localhost:3000](http://localhost:3000).
 npm run build   # production build
 ```
 
+```bash
+npm test        # run test suite
+npm run lint    # lint checks
+```
+
 ---
 
 ## Encrypted sync and conflicts
@@ -214,3 +220,7 @@ See the current reference architecture and operational notes in:
 - `docs/storage-plan.md`
 - `docs/security-decisions.md`
 - `docs/azure-architecture.md`
+- `docs/operations/planner-point-in-time-restore-runbook.md`
+- `docs/operations/user-deletion-runbook.md`
+- `docs/operations/device-revocation-dek-rotation-runbook.md`
+- `docs/operations/restore-exclusion-control.md`
