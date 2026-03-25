@@ -45,7 +45,13 @@ Operational notes, CI/CD validation writeups, and workflow-specific guidance liv
 - `operations/ci-cd-review.md`
 - `operations/ci-cd-claude-test-instructions.md`
 - `operations/codex-auto-fix-issues.md`
-- `operations/codex-parallel-local.md`
+- `operations/device-revocation-dek-rotation-runbook.md`
+- `operations/planner-point-in-time-restore-runbook.md`
+- `operations/user-deletion-runbook.md`
+- `operations/restore-exclusion-control.md`
+- `operations/inactive-account-policy-decision.md`
+- `operations/dpia-screening-decision.md`
+- `operations/dpo-decision-record.md`
 
 ## Reviews
 
