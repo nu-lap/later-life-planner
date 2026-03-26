@@ -31,6 +31,7 @@ jobs:
     if: ${{ github.event.pull_request.base.ref == 'master' }}
     runs-on: ubuntu-latest
     outputs:
+      head_sha: ${{ steps.wait.outputs.head_sha }}
       copilot_activity_count: ${{ steps.wait.outputs.copilot_activity_count }}
       blocker_count: ${{ steps.scan.outputs.blocker_count }}
 
@@ -54,7 +55,11 @@ jobs:
               "copilot-pull-request-reviewer[bot]"
             ]);
 
-            const countCopilotActivity = async () => {
+            const pr = await github.rest.pulls.get({ owner, repo, pull_number });
+            const headSha = pr.data.head.sha;
+            core.setOutput("head_sha", headSha);
+
+            const inspectCopilotActivityForHead = async () => {
               const reviews = await github.paginate(
                 github.rest.pulls.listReviews,
                 { owner, repo, pull_number, per_page: 100 }
@@ -64,28 +69,52 @@ jobs:
                 { owner, repo, pull_number, per_page: 100 }
               );
 
-              const reviewCount = reviews.filter((review) =>
-                copilotUsers.has((review.user?.login || "").toLowerCase())
-              ).length;
-              const commentCount = reviewComments.filter((comment) =>
-                copilotUsers.has((comment.user?.login || "").toLowerCase())
+              const copilotReviewsForHead = reviews.filter((review) => {
+                const author = (review.user?.login || "").toLowerCase();
+                return copilotUsers.has(author) && review.commit_id === headSha;
+              });
+              const copilotCommentsForHead = reviewComments.filter((comment) => {
+                const author = (comment.user?.login || "").toLowerCase();
+                return (
+                  copilotUsers.has(author) &&
+                  (comment.commit_id === headSha || comment.original_commit_id === headSha)
+                );
+              });
+
+              const pendingCount = copilotReviewsForHead.filter(
+                (review) => (review.state || "").toUpperCase() === "PENDING"
               ).length;
 
-              return reviewCount + commentCount;
+              return {
+                pendingCount,
+                reviewCount: copilotReviewsForHead.length,
+                commentCount: copilotCommentsForHead.length,
+                totalCount: copilotReviewsForHead.length + copilotCommentsForHead.length
+              };
             };
 
             let activityCount = 0;
+            let pendingCount = 0;
             while (Date.now() < deadline) {
-              activityCount = await countCopilotActivity();
-              if (activityCount > 0) {
+              const result = await inspectCopilotActivityForHead();
+              activityCount = result.totalCount;
+              pendingCount = result.pendingCount;
+
+              if (activityCount > 0 && pendingCount === 0) {
                 break;
               }
-              core.info("No Copilot review activity yet; waiting for next poll.");
+              core.info(
+                `Waiting for Copilot review completion on head ${headSha}. ` +
+                `activity=${activityCount}, pending=${pendingCount}`
+              );
               await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
             }
 
-            if (activityCount === 0) {
-              core.setFailed("Timed out waiting for Copilot review activity.");
+            if (activityCount === 0 || pendingCount > 0) {
+              core.setFailed(
+                `Timed out waiting for completed Copilot review on head ${headSha}. ` +
+                `activity=${activityCount}, pending=${pendingCount}`
+              );
               return;
             }
 
@@ -97,11 +126,14 @@ jobs:
       - name: Scan Copilot review comments
         id: scan
         uses: actions/github-script@v7
+        env:
+          HEAD_SHA: ${{ steps.wait.outputs.head_sha }}
         with:
           script: |
             const owner = context.repo.owner;
             const repo = context.repo.repo;
             const pull_number = context.issue.number;
+            const headSha = process.env.HEAD_SHA;
             const copilotUsers = new Set([
               "github-copilot",
               "copilot",
@@ -133,9 +165,13 @@ jobs:
               { owner, repo, pull_number, per_page: 100 }
             );
 
-            const copilotComments = reviewComments.filter(
-              (comment) => copilotUsers.has((comment.user?.login || "").toLowerCase())
-            );
+            const copilotComments = reviewComments.filter((comment) => {
+              const author = (comment.user?.login || "").toLowerCase();
+              return (
+                copilotUsers.has(author) &&
+                (comment.commit_id === headSha || comment.original_commit_id === headSha)
+              );
+            });
 
             const blockingComments = copilotComments.filter((comment) => {
               const body = comment.body || "";
@@ -147,7 +183,7 @@ jobs:
 
             core.setOutput("blocker_count", String(blockingComments.length));
             core.info(`Review comments scanned: ${reviewComments.length}`);
-            core.info(`Copilot comments found: ${copilotComments.length}`);
+            core.info(`Copilot comments found on head ${headSha}: ${copilotComments.length}`);
             core.info(`Blocking Copilot comments: ${blockingComments.length}`);
 
             for (const comment of blockingComments) {
