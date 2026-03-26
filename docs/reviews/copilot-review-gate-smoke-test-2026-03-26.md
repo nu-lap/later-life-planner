@@ -1,6 +1,6 @@
 # Copilot Review Gate Smoke Test (2026-03-26)
 
-Temporary PR-only test artifact used to trigger and verify the Copilot Review Gate workflow.
+Intentional smoke-test record used to trigger and verify the Copilot Review Gate workflow; this file may be removed once this workflow is no longer needed or is validated by other tests.
 
 Validation note: synchronize-event smoke run executed.
 
