@@ -2,10 +2,27 @@ name: Copilot Review Gate
 
 on:
   pull_request:
+    branches: [master]
     types:
       - opened
       - synchronize
       - reopened
+  pull_request_review:
+    branches: [master]
+    types:
+      - submitted
+      - edited
+      - dismissed
+  pull_request_review_comment:
+    branches: [master]
+    types:
+      - created
+      - edited
+      - deleted
+
+concurrency:
+  group: copilot-review-gate-${{ github.event.pull_request.number || github.event.issue.number || github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -15,9 +32,67 @@ jobs:
   copilot-gate:
     runs-on: ubuntu-latest
     outputs:
+      copilot_activity_count: ${{ steps.wait.outputs.copilot_activity_count }}
       blocker_count: ${{ steps.scan.outputs.blocker_count }}
 
     steps:
+      # Wait for Copilot-authored review activity before evaluating blockers.
+      # This prevents an early pass before Copilot has had a chance to review.
+      - name: Wait for Copilot review activity
+        id: wait
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const pull_number = context.issue.number;
+            const pollIntervalMs = 15 * 1000;
+            const timeoutMs = 5 * 60 * 1000;
+            const deadline = Date.now() + timeoutMs;
+            const copilotUsers = new Set([
+              "github-copilot",
+              "copilot",
+              "copilot-pull-request-reviewer[bot]"
+            ]);
+
+            const countCopilotActivity = async () => {
+              const reviews = await github.paginate(
+                github.rest.pulls.listReviews,
+                { owner, repo, pull_number, per_page: 100 }
+              );
+              const reviewComments = await github.paginate(
+                github.rest.pulls.listReviewComments,
+                { owner, repo, pull_number, per_page: 100 }
+              );
+
+              const reviewCount = reviews.filter((review) =>
+                copilotUsers.has((review.user?.login || "").toLowerCase())
+              ).length;
+              const commentCount = reviewComments.filter((comment) =>
+                copilotUsers.has((comment.user?.login || "").toLowerCase())
+              ).length;
+
+              return reviewCount + commentCount;
+            };
+
+            let activityCount = 0;
+            while (Date.now() < deadline) {
+              activityCount = await countCopilotActivity();
+              if (activityCount > 0) {
+                break;
+              }
+              core.info("No Copilot review activity yet; waiting for next poll.");
+              await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
+            }
+
+            if (activityCount === 0) {
+              core.setFailed("Timed out waiting for Copilot review activity.");
+              return;
+            }
+
+            core.setOutput("copilot_activity_count", String(activityCount));
+            core.info(`Copilot activity count: ${activityCount}`);
+
       # Read review comments from the pull request and count blocking findings
       # authored by the github-copilot account.
       - name: Scan Copilot review comments
@@ -27,15 +102,31 @@ jobs:
           script: |
             const owner = context.repo.owner;
             const repo = context.repo.repo;
-            const pull_number = context.payload.pull_request.number;
+            const pull_number = context.issue.number;
+            const copilotUsers = new Set([
+              "github-copilot",
+              "copilot",
+              "copilot-pull-request-reviewer[bot]"
+            ]);
 
-            const blockingTerms = [
-              "security",
-              "unsafe",
-              "injection",
-              "race",
-              "critical",
-              "undefined behavior"
+            const blockingPatterns = [
+              { term: "security", regex: /\bsecurity\b/i },
+              { term: "unsafe", regex: /\bunsafe\b/i },
+              { term: "injection", regex: /\binjection\b/i },
+              { term: "race", regex: /\brace\b/i },
+              { term: "critical", regex: /\bcritical\b/i },
+              { term: "undefined behavior", regex: /\bundefined behavior\b/i }
+            ];
+
+            const nonBlockingPatterns = [
+              /\bno security issues?\b/i,
+              /\bno known security\b/i,
+              /\bnot unsafe\b/i,
+              /\bno injection\b/i,
+              /\bno race(?: conditions?)?\b/i,
+              /\bnot critical\b/i,
+              /\bnon[-\s]?critical\b/i,
+              /\bno undefined behavior\b/i
             ];
 
             const reviewComments = await github.paginate(
@@ -44,12 +135,15 @@ jobs:
             );
 
             const copilotComments = reviewComments.filter(
-              (comment) => (comment.user?.login || "").toLowerCase() === "github-copilot"
+              (comment) => copilotUsers.has((comment.user?.login || "").toLowerCase())
             );
 
             const blockingComments = copilotComments.filter((comment) => {
-              const body = (comment.body || "").toLowerCase();
-              return blockingTerms.some((term) => body.includes(term));
+              const body = comment.body || "";
+              if (nonBlockingPatterns.some((pattern) => pattern.test(body))) {
+                return false;
+              }
+              return blockingPatterns.some((pattern) => pattern.regex.test(body));
             });
 
             core.setOutput("blocker_count", String(blockingComments.length));
