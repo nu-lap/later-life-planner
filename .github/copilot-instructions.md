@@ -1,7 +1,7 @@
 # Repository-wide Copilot Instructions
 
 This file provides **durable, repo-wide guidance** for GitHub Copilot suggestions.
-It is not a one-off prompt for generating a specific file.
+It is not a one-off prompt for generating a specific file
 
 ## General Expectations
 
