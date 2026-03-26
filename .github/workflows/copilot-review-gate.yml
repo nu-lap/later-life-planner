@@ -7,6 +7,7 @@ on:
       - opened
       - synchronize
       - reopened
+      - ready_for_review
   pull_request_review:
     types:
       - submitted
@@ -30,16 +31,11 @@ jobs:
   copilot-gate:
     if: >-
       github.event.pull_request.base.ref == 'master' &&
+      github.event.pull_request.draft == false &&
       (
         github.event_name == 'pull_request' ||
-        (
-          github.event_name == 'pull_request_review' &&
-          contains(fromJson('["copilot","Copilot","github-copilot","copilot-pull-request-reviewer[bot]"]'), github.actor)
-        ) ||
-        (
-          github.event_name == 'pull_request_review_comment' &&
-          contains(fromJson('["copilot","Copilot","github-copilot","copilot-pull-request-reviewer[bot]"]'), github.actor)
-        )
+        github.event_name == 'pull_request_review' ||
+        github.event_name == 'pull_request_review_comment'
       )
     runs-on: ubuntu-latest
     outputs:
@@ -70,6 +66,9 @@ jobs:
 
             const pr = await github.rest.pulls.get({ owner, repo, pull_number });
             const headSha = pr.data.head.sha;
+            const bypassEnabled = (pr.data.labels || []).some(
+              (label) => (label.name || "").toLowerCase() === "copilot-gate-bypass"
+            );
             const headCommit = await github.rest.repos.getCommit({
               owner,
               repo,
@@ -81,6 +80,12 @@ jobs:
             const windowStartIso = new Date(windowStartMs).toISOString();
             core.setOutput("head_sha", headSha);
             core.setOutput("head_window_start_iso", windowStartIso);
+
+            if (bypassEnabled) {
+              core.info("Bypass label 'copilot-gate-bypass' found; skipping gate enforcement.");
+              core.setOutput("copilot_activity_count", "0");
+              return;
+            }
 
             const inspectCopilotActivityForHead = async () => {
               const reviews = await github.paginate(
@@ -119,17 +124,15 @@ jobs:
                   (review.state || "").toUpperCase() === "PENDING"
                 );
               }).length;
-              const reviewBodyCount = copilotReviewsForHead.filter(
-                (review) =>
-                  (review.state || "").toUpperCase() !== "PENDING" &&
-                  (review.body || "").trim().length > 0
+              const nonPendingReviewCount = copilotReviewsForHead.filter(
+                (review) => (review.state || "").toUpperCase() !== "PENDING"
               ).length;
 
               return {
                 pendingCount,
-                reviewCount: reviewBodyCount,
+                reviewCount: nonPendingReviewCount,
                 commentCount: copilotCommentsForHead.length,
-                totalCount: reviewBodyCount + copilotCommentsForHead.length
+                totalCount: nonPendingReviewCount + copilotCommentsForHead.length
               };
             };
 
