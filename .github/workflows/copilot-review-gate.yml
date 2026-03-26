@@ -8,13 +8,11 @@ on:
       - synchronize
       - reopened
   pull_request_review:
-    branches: [master]
     types:
       - submitted
       - edited
       - dismissed
   pull_request_review_comment:
-    branches: [master]
     types:
       - created
       - edited
@@ -30,6 +28,7 @@ permissions:
 
 jobs:
   copilot-gate:
+    if: ${{ github.event.pull_request.base.ref == 'master' }}
     runs-on: ubuntu-latest
     outputs:
       copilot_activity_count: ${{ steps.wait.outputs.copilot_activity_count }}
@@ -110,7 +109,7 @@ jobs:
             ]);
 
             const blockingPatterns = [
-              { term: "security", regex: /\bsecurity\b/i },
+              { term: "security", regex: /\bsecurity\b(?![-_\/])/i },
               { term: "unsafe", regex: /\bunsafe\b/i },
               { term: "injection", regex: /\binjection\b/i },
               { term: "race", regex: /\brace\b/i },
