@@ -49,7 +49,7 @@ jobs:
       # the current commit window consistently across all event types.
       - name: Load PR head context
         id: context
-        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         with:
           script: |
             const owner = context.repo.owner;
@@ -84,7 +84,7 @@ jobs:
       - name: Wait for Copilot review activity
         if: ${{ github.event_name == 'pull_request' && steps.context.outputs.bypass_enabled != 'true' }}
         id: wait
-        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         env:
           HEAD_SHA: ${{ steps.context.outputs.head_sha }}
           HEAD_WINDOW_START_ISO: ${{ steps.context.outputs.head_window_start_iso }}
@@ -193,7 +193,7 @@ jobs:
       - name: Scan Copilot review comments
         if: ${{ steps.context.outputs.bypass_enabled != 'true' }}
         id: scan
-        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         env:
           HEAD_SHA: ${{ steps.context.outputs.head_sha }}
           HEAD_WINDOW_START_ISO: ${{ steps.context.outputs.head_window_start_iso }}
@@ -310,7 +310,7 @@ jobs:
       # Fail the job when any blocking Copilot comment exists.
       - name: Enforce Copilot review gate
         if: ${{ steps.context.outputs.bypass_enabled != 'true' }}
-        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         env:
           BLOCKER_COUNT: ${{ steps.scan.outputs.blocker_count }}
         with:
