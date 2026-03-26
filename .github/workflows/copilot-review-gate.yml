@@ -39,30 +39,22 @@ jobs:
       )
     runs-on: ubuntu-latest
     outputs:
-      head_sha: ${{ steps.wait.outputs.head_sha }}
-      head_window_start_iso: ${{ steps.wait.outputs.head_window_start_iso }}
+      head_sha: ${{ steps.context.outputs.head_sha }}
+      head_window_start_iso: ${{ steps.context.outputs.head_window_start_iso }}
       copilot_activity_count: ${{ steps.wait.outputs.copilot_activity_count }}
       blocker_count: ${{ steps.scan.outputs.blocker_count }}
 
     steps:
-      # Wait for Copilot-authored review activity before evaluating blockers.
-      # This prevents an early pass before Copilot has had a chance to review.
-      - name: Wait for Copilot review activity
-        id: wait
-        uses: actions/github-script@v7
+      # Load PR head metadata once so wait/scan logic always evaluates
+      # the current commit window consistently across all event types.
+      - name: Load PR head context
+        id: context
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
         with:
           script: |
             const owner = context.repo.owner;
             const repo = context.repo.repo;
             const pull_number = context.issue.number;
-            const pollIntervalMs = 15 * 1000;
-            const timeoutMs = 10 * 60 * 1000;
-            const deadline = Date.now() + timeoutMs;
-            const copilotUsers = new Set([
-              "github-copilot",
-              "copilot",
-              "copilot-pull-request-reviewer[bot]"
-            ]);
 
             const pr = await github.rest.pulls.get({ owner, repo, pull_number });
             const headSha = pr.data.head.sha;
@@ -78,12 +70,43 @@ jobs:
             // Allow slight clock skew between review event timestamps and commit timestamp.
             const windowStartMs = headCommitTimeMs - 60 * 1000;
             const windowStartIso = new Date(windowStartMs).toISOString();
+
             core.setOutput("head_sha", headSha);
             core.setOutput("head_window_start_iso", windowStartIso);
+            core.setOutput("bypass_enabled", String(bypassEnabled));
 
             if (bypassEnabled) {
               core.info("Bypass label 'copilot-gate-bypass' found; skipping gate enforcement.");
-              core.setOutput("copilot_activity_count", "0");
+            }
+
+      # Wait for Copilot-authored review activity before evaluating blockers.
+      # This prevents an early pass before Copilot has had a chance to review.
+      - name: Wait for Copilot review activity
+        if: ${{ github.event_name == 'pull_request' && steps.context.outputs.bypass_enabled != 'true' }}
+        id: wait
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        env:
+          HEAD_SHA: ${{ steps.context.outputs.head_sha }}
+          HEAD_WINDOW_START_ISO: ${{ steps.context.outputs.head_window_start_iso }}
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const pull_number = context.issue.number;
+            const headSha = process.env.HEAD_SHA;
+            const windowStartMs = Date.parse(process.env.HEAD_WINDOW_START_ISO || "");
+            const windowStartIso = process.env.HEAD_WINDOW_START_ISO || "";
+            const pollIntervalMs = 15 * 1000;
+            const timeoutMs = 10 * 60 * 1000;
+            const deadline = Date.now() + timeoutMs;
+            const copilotUsers = new Set([
+              "github-copilot",
+              "copilot",
+              "copilot-pull-request-reviewer[bot]"
+            ]);
+
+            if (!headSha || Number.isNaN(windowStartMs)) {
+              core.setFailed("Missing head context for Copilot wait step.");
               return;
             }
 
@@ -167,11 +190,12 @@ jobs:
       # Read review comments from the pull request and count blocking findings
       # authored by the github-copilot account.
       - name: Scan Copilot review comments
+        if: ${{ steps.context.outputs.bypass_enabled != 'true' }}
         id: scan
-        uses: actions/github-script@v7
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
         env:
-          HEAD_SHA: ${{ steps.wait.outputs.head_sha }}
-          HEAD_WINDOW_START_ISO: ${{ steps.wait.outputs.head_window_start_iso }}
+          HEAD_SHA: ${{ steps.context.outputs.head_sha }}
+          HEAD_WINDOW_START_ISO: ${{ steps.context.outputs.head_window_start_iso }}
         with:
           script: |
             const owner = context.repo.owner;
@@ -284,7 +308,8 @@ jobs:
 
       # Fail the job when any blocking Copilot comment exists.
       - name: Enforce Copilot review gate
-        uses: actions/github-script@v7
+        if: ${{ steps.context.outputs.bypass_enabled != 'true' }}
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
         env:
           BLOCKER_COUNT: ${{ steps.scan.outputs.blocker_count }}
         with:
