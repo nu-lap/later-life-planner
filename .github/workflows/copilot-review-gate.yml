@@ -187,8 +187,9 @@ jobs:
             core.setOutput("copilot_activity_count", String(activityCount));
             core.info(`Copilot activity count: ${activityCount}`);
 
-      # Read review comments from the pull request and count blocking findings
-      # authored by the github-copilot account.
+      # Scan both review bodies and inline review comments from the pull request
+      # and count blocking findings authored by any known Copilot account
+      # (github-copilot, copilot, copilot-pull-request-reviewer[bot]).
       - name: Scan Copilot review comments
         if: ${{ steps.context.outputs.bypass_enabled != 'true' }}
         id: scan
