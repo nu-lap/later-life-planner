@@ -186,7 +186,8 @@ jobs:
                 break;
               }
               core.info(
-                `Waiting for Copilot review completion on target SHA ${targetSha}. ` +
+                `Waiting for Copilot activity (reviews/comments) on target SHA ${targetSha} ` +
+                `with no pending Copilot reviews. ` +
                 `activity=${activityCount}, pending=${pendingCount}`
               );
               await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
@@ -194,7 +195,8 @@ jobs:
 
             if (activityCount === 0 || pendingCount > 0) {
               core.setFailed(
-                `Timed out waiting for completed Copilot review on target SHA ${targetSha}. ` +
+                `Timed out waiting for Copilot activity on target SHA ${targetSha} ` +
+                `with no pending Copilot reviews. ` +
                 `activity=${activityCount}, pending=${pendingCount}`
               );
               return;
