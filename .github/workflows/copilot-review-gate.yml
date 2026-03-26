@@ -28,7 +28,19 @@ permissions:
 
 jobs:
   copilot-gate:
-    if: ${{ github.event.pull_request.base.ref == 'master' }}
+    if: >-
+      github.event.pull_request.base.ref == 'master' &&
+      (
+        github.event_name == 'pull_request' ||
+        (
+          github.event_name == 'pull_request_review' &&
+          contains(fromJson('["copilot","Copilot","github-copilot","copilot-pull-request-reviewer[bot]"]'), github.actor)
+        ) ||
+        (
+          github.event_name == 'pull_request_review_comment' &&
+          contains(fromJson('["copilot","Copilot","github-copilot","copilot-pull-request-reviewer[bot]"]'), github.actor)
+        )
+      )
     runs-on: ubuntu-latest
     outputs:
       head_sha: ${{ steps.wait.outputs.head_sha }}
@@ -47,7 +59,7 @@ jobs:
             const repo = context.repo.repo;
             const pull_number = context.issue.number;
             const pollIntervalMs = 15 * 1000;
-            const timeoutMs = 5 * 60 * 1000;
+            const timeoutMs = 10 * 60 * 1000;
             const deadline = Date.now() + timeoutMs;
             const copilotUsers = new Set([
               "github-copilot",
@@ -84,12 +96,17 @@ jobs:
               const pendingCount = copilotReviewsForHead.filter(
                 (review) => (review.state || "").toUpperCase() === "PENDING"
               ).length;
+              const reviewBodyCount = copilotReviewsForHead.filter(
+                (review) =>
+                  (review.state || "").toUpperCase() !== "PENDING" &&
+                  (review.body || "").trim().length > 0
+              ).length;
 
               return {
                 pendingCount,
-                reviewCount: copilotReviewsForHead.length,
+                reviewCount: reviewBodyCount,
                 commentCount: copilotCommentsForHead.length,
-                totalCount: copilotReviewsForHead.length + copilotCommentsForHead.length
+                totalCount: reviewBodyCount + copilotCommentsForHead.length
               };
             };
 
@@ -140,31 +157,45 @@ jobs:
               "copilot-pull-request-reviewer[bot]"
             ]);
 
-            const blockingPatterns = [
-              { term: "security", regex: /\bsecurity\b(?![-_\/])/i },
-              { term: "unsafe", regex: /\bunsafe\b/i },
-              { term: "injection", regex: /\binjection\b/i },
-              { term: "race", regex: /\brace\b/i },
-              { term: "critical", regex: /\bcritical\b/i },
-              { term: "undefined behavior", regex: /\bundefined behavior\b/i }
+            const termRules = [
+              {
+                term: "security",
+                match: /\bsecurity\b/i,
+                negations: [/\bno security issues?\b/i, /\bno known security\b/i]
+              },
+              { term: "unsafe", match: /\bunsafe\b/i, negations: [/\bnot unsafe\b/i] },
+              { term: "injection", match: /\binjection\b/i, negations: [/\bno injection\b/i] },
+              { term: "race", match: /\brace\b/i, negations: [/\bno race(?: conditions?)?\b/i] },
+              {
+                term: "critical",
+                match: /\bcritical\b/i,
+                negations: [/\bnot critical\b/i, /\bnon[-\s]?critical\b/i]
+              },
+              {
+                term: "undefined behavior",
+                match: /\bundefined behavior\b/i,
+                negations: [/\bno undefined behavior\b/i]
+              }
             ];
 
-            const nonBlockingPatterns = [
-              /\bno security issues?\b/i,
-              /\bno known security\b/i,
-              /\bnot unsafe\b/i,
-              /\bno injection\b/i,
-              /\bno race(?: conditions?)?\b/i,
-              /\bnot critical\b/i,
-              /\bnon[-\s]?critical\b/i,
-              /\bno undefined behavior\b/i
-            ];
+            const reviews = await github.paginate(
+              github.rest.pulls.listReviews,
+              { owner, repo, pull_number, per_page: 100 }
+            );
 
             const reviewComments = await github.paginate(
               github.rest.pulls.listReviewComments,
               { owner, repo, pull_number, per_page: 100 }
             );
 
+            const copilotReviews = reviews.filter((review) => {
+              const author = (review.user?.login || "").toLowerCase();
+              return (
+                copilotUsers.has(author) &&
+                review.commit_id === headSha &&
+                (review.state || "").toUpperCase() !== "PENDING"
+              );
+            });
             const copilotComments = reviewComments.filter((comment) => {
               const author = (comment.user?.login || "").toLowerCase();
               return (
@@ -173,22 +204,50 @@ jobs:
               );
             });
 
-            const blockingComments = copilotComments.filter((comment) => {
-              const body = comment.body || "";
-              if (nonBlockingPatterns.some((pattern) => pattern.test(body))) {
-                return false;
+            const analyzableItems = [
+              ...copilotReviews
+                .filter((review) => (review.body || "").trim().length > 0)
+                .map((review) => ({ kind: "review", body: review.body || "", url: review.html_url })),
+              ...copilotComments.map((comment) => ({
+                kind: "comment",
+                body: comment.body || "",
+                url: comment.html_url
+              }))
+            ];
+
+            const findBlockingTerms = (text) => {
+              const blockers = [];
+              for (const rule of termRules) {
+                if (!rule.match.test(text)) {
+                  continue;
+                }
+                const negated = rule.negations.some((pattern) => pattern.test(text));
+                if (!negated) {
+                  blockers.push(rule.term);
+                }
               }
-              return blockingPatterns.some((pattern) => pattern.regex.test(body));
-            });
+              return blockers;
+            };
 
-            core.setOutput("blocker_count", String(blockingComments.length));
+            const blockingItems = analyzableItems
+              .map((item) => ({ ...item, blockingTerms: findBlockingTerms(item.body) }))
+              .filter((item) => item.blockingTerms.length > 0);
+
+            const reviewCount = copilotReviews.length;
+            const commentCount = copilotComments.length;
+
+            core.setOutput("blocker_count", String(blockingItems.length));
             core.info(`Review comments scanned: ${reviewComments.length}`);
-            core.info(`Copilot comments found on head ${headSha}: ${copilotComments.length}`);
-            core.info(`Blocking Copilot comments: ${blockingComments.length}`);
+            core.info(`Reviews scanned: ${reviews.length}`);
+            core.info(`Copilot reviews found on head ${headSha}: ${reviewCount}`);
+            core.info(`Copilot comments found on head ${headSha}: ${commentCount}`);
+            core.info(`Blocking Copilot items: ${blockingItems.length}`);
 
-            for (const comment of blockingComments) {
-              core.info(`Blocking comment URL: ${comment.html_url}`);
-            }
+            for (const item of blockingItems) {
+              core.info(
+                `Blocking ${item.kind} URL: ${item.url} terms=${item.blockingTerms.join(",")}`
+              );
+            });
 
       # Fail the job when any blocking Copilot comment exists.
       - name: Enforce Copilot review gate
