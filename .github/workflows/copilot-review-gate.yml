@@ -247,7 +247,7 @@ jobs:
               core.info(
                 `Blocking ${item.kind} URL: ${item.url} terms=${item.blockingTerms.join(",")}`
               );
-            });
+            }
 
       # Fail the job when any blocking Copilot comment exists.
       - name: Enforce Copilot review gate
