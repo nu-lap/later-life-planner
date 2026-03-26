@@ -44,6 +44,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       head_sha: ${{ steps.wait.outputs.head_sha }}
+      head_window_start_iso: ${{ steps.wait.outputs.head_window_start_iso }}
       copilot_activity_count: ${{ steps.wait.outputs.copilot_activity_count }}
       blocker_count: ${{ steps.scan.outputs.blocker_count }}
 
@@ -69,7 +70,17 @@ jobs:
 
             const pr = await github.rest.pulls.get({ owner, repo, pull_number });
             const headSha = pr.data.head.sha;
+            const headCommit = await github.rest.repos.getCommit({
+              owner,
+              repo,
+              ref: headSha
+            });
+            const headCommitTimeMs = Date.parse(headCommit.data.commit.committer.date);
+            // Allow slight clock skew between review event timestamps and commit timestamp.
+            const windowStartMs = headCommitTimeMs - 60 * 1000;
+            const windowStartIso = new Date(windowStartMs).toISOString();
             core.setOutput("head_sha", headSha);
+            core.setOutput("head_window_start_iso", windowStartIso);
 
             const inspectCopilotActivityForHead = async () => {
               const reviews = await github.paginate(
@@ -83,19 +94,31 @@ jobs:
 
               const copilotReviewsForHead = reviews.filter((review) => {
                 const author = (review.user?.login || "").toLowerCase();
-                return copilotUsers.has(author) && review.commit_id === headSha;
+                const submittedAtMs = Date.parse(review.submitted_at || "");
+                return (
+                  copilotUsers.has(author) &&
+                  review.commit_id === headSha &&
+                  (!Number.isNaN(submittedAtMs) && submittedAtMs >= windowStartMs)
+                );
               });
               const copilotCommentsForHead = reviewComments.filter((comment) => {
                 const author = (comment.user?.login || "").toLowerCase();
+                const createdAtMs = Date.parse(comment.created_at || "");
                 return (
                   copilotUsers.has(author) &&
+                  (!Number.isNaN(createdAtMs) && createdAtMs >= windowStartMs) &&
                   (comment.commit_id === headSha || comment.original_commit_id === headSha)
                 );
               });
 
-              const pendingCount = copilotReviewsForHead.filter(
-                (review) => (review.state || "").toUpperCase() === "PENDING"
-              ).length;
+              const pendingCount = reviews.filter((review) => {
+                const author = (review.user?.login || "").toLowerCase();
+                return (
+                  copilotUsers.has(author) &&
+                  review.commit_id === headSha &&
+                  (review.state || "").toUpperCase() === "PENDING"
+                );
+              }).length;
               const reviewBodyCount = copilotReviewsForHead.filter(
                 (review) =>
                   (review.state || "").toUpperCase() !== "PENDING" &&
@@ -121,7 +144,7 @@ jobs:
                 break;
               }
               core.info(
-                `Waiting for Copilot review completion on head ${headSha}. ` +
+                `Waiting for Copilot review completion on head ${headSha} since ${windowStartIso}. ` +
                 `activity=${activityCount}, pending=${pendingCount}`
               );
               await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
@@ -145,12 +168,14 @@ jobs:
         uses: actions/github-script@v7
         env:
           HEAD_SHA: ${{ steps.wait.outputs.head_sha }}
+          HEAD_WINDOW_START_ISO: ${{ steps.wait.outputs.head_window_start_iso }}
         with:
           script: |
             const owner = context.repo.owner;
             const repo = context.repo.repo;
             const pull_number = context.issue.number;
             const headSha = process.env.HEAD_SHA;
+            const windowStartMs = Date.parse(process.env.HEAD_WINDOW_START_ISO || "");
             const copilotUsers = new Set([
               "github-copilot",
               "copilot",
@@ -190,16 +215,20 @@ jobs:
 
             const copilotReviews = reviews.filter((review) => {
               const author = (review.user?.login || "").toLowerCase();
+              const submittedAtMs = Date.parse(review.submitted_at || "");
               return (
                 copilotUsers.has(author) &&
                 review.commit_id === headSha &&
+                (!Number.isNaN(submittedAtMs) && submittedAtMs >= windowStartMs) &&
                 (review.state || "").toUpperCase() !== "PENDING"
               );
             });
             const copilotComments = reviewComments.filter((comment) => {
               const author = (comment.user?.login || "").toLowerCase();
+              const createdAtMs = Date.parse(comment.created_at || "");
               return (
                 copilotUsers.has(author) &&
+                (!Number.isNaN(createdAtMs) && createdAtMs >= windowStartMs) &&
                 (comment.commit_id === headSha || comment.original_commit_id === headSha)
               );
             });
@@ -239,6 +268,7 @@ jobs:
             core.setOutput("blocker_count", String(blockingItems.length));
             core.info(`Review comments scanned: ${reviewComments.length}`);
             core.info(`Reviews scanned: ${reviews.length}`);
+            core.info(`Head review window starts: ${process.env.HEAD_WINDOW_START_ISO}`);
             core.info(`Copilot reviews found on head ${headSha}: ${reviewCount}`);
             core.info(`Copilot comments found on head ${headSha}: ${commentCount}`);
             core.info(`Blocking Copilot items: ${blockingItems.length}`);
