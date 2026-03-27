@@ -232,7 +232,5 @@ Implementation tasks:
 
 ## Recommended Next Implementation Slice (Current)
 
-Recommended next implementation slice:
-
 - Complete the "Outstanding Documentation Work" backlog items listed above.
 - After that docs backlog is complete, define and add the next product/engineering delivery phase to this checklist.
