@@ -29,6 +29,25 @@ It is not a one-off prompt for generating a specific file.
 - Validate and sanitize external inputs before use.
 - Handle errors explicitly and avoid silently swallowing exceptions.
 
+## Pull Request Review Format
+
+- When writing PR review feedback, use this exact structure for each actionable
+  finding:
+  - `Severity: P1` or `Severity: P2` or `Severity: P3` or `Severity: Nit`
+  - `Impact: <one sentence explaining risk or regression>`
+  - `Required action: <one concrete fix instruction>`
+- Keep severity labels consistent:
+  - `P1`: high-risk defect, security issue, data loss, or major correctness
+    regression.
+  - `P2`: important correctness, reliability, or maintainability issue that
+    should be fixed before merge.
+  - `P3`: minor issue or improvement.
+  - `Nit`: style/documentation/readability suggestion.
+- Only create inline review comments for `P1` and `P2` findings.
+- Put `P3` and `Nit` feedback in the top-level review summary instead of inline
+  comments.
+- If no blocking issues are found, explicitly state that in the review summary.
+
 ## GitHub Actions and CI/CD Conventions
 
 - Use clear, descriptive names for workflows and jobs.
