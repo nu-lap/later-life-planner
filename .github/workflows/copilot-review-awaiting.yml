@@ -1,0 +1,128 @@
+name: Copilot Review Awaiting
+
+on:
+  pull_request:
+    branches: [master]
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
+
+concurrency:
+  group: copilot-review-awaiting-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: read
+  issues: read
+
+jobs:
+  copilot-awaiting:
+    if: >-
+      github.event.pull_request.base.ref == 'master' &&
+      github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    steps:
+      - name: Report Copilot review await state
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const pull_number = context.issue.number;
+            const headSha = context.payload.pull_request?.head?.sha || "";
+            const copilotUsers = new Set([
+              "github-copilot",
+              "copilot",
+              "copilot-pull-request-reviewer[bot]"
+            ]);
+            const normalizeLogin = (login) => String(login || "").toLowerCase();
+
+            const issueEvents = await github.paginate(
+              github.rest.issues.listEvents,
+              { owner, repo, issue_number: pull_number, per_page: 100 }
+            );
+            const reviewRequestedEvents = issueEvents.filter((event) => {
+              return (
+                event.event === "review_requested" &&
+                normalizeLogin(event.requested_reviewer?.login) === "copilot"
+              );
+            });
+            const workStartedEvents = issueEvents.filter(
+              (event) => event.event === "copilot_work_started"
+            );
+            const latestTimestamp = (events) => {
+              if (events.length === 0) {
+                return null;
+              }
+              return events
+                .map((event) => event.created_at || "")
+                .filter((value) => value.length > 0)
+                .sort()
+                .at(-1) || null;
+            };
+            const latestReviewRequestedAt = latestTimestamp(reviewRequestedEvents);
+            const latestWorkStartedAt = latestTimestamp(workStartedEvents);
+
+            const reviews = await github.paginate(
+              github.rest.pulls.listReviews,
+              { owner, repo, pull_number, per_page: 100 }
+            );
+            const reviewComments = await github.paginate(
+              github.rest.pulls.listReviewComments,
+              { owner, repo, pull_number, per_page: 100 }
+            );
+            const copilotReviewsForHead = reviews.filter((review) => {
+              return (
+                copilotUsers.has(normalizeLogin(review.user?.login)) &&
+                review.commit_id === headSha &&
+                (review.state || "").toUpperCase() !== "PENDING"
+              );
+            });
+            const copilotCommentsForHead = reviewComments.filter((comment) => {
+              return (
+                copilotUsers.has(normalizeLogin(comment.user?.login)) &&
+                (comment.commit_id === headSha || comment.original_commit_id === headSha)
+              );
+            });
+            const activityCount = copilotReviewsForHead.length + copilotCommentsForHead.length;
+
+            const state = activityCount > 0
+              ? "artifacts_available"
+              : latestWorkStartedAt &&
+                  (!latestReviewRequestedAt || Date.parse(latestWorkStartedAt) >= Date.parse(latestReviewRequestedAt))
+                ? "work_started"
+                : latestReviewRequestedAt
+                  ? "review_requested"
+                  : "not_requested";
+
+            if (state === "artifacts_available") {
+              core.notice(
+                `Copilot artifacts are already present for current head ${headSha}. ` +
+                `Review-driven 'copilot-gate' checks will enforce blocking terms.`
+              );
+              return;
+            }
+
+            if (state === "work_started") {
+              core.notice(
+                `Copilot review has started for head ${headSha} but artifacts are not posted yet. ` +
+                `This check is informational and non-blocking.`
+              );
+              return;
+            }
+
+            if (state === "review_requested") {
+              core.notice(
+                `Copilot review was requested for head ${headSha} and is awaiting execution. ` +
+                `This check is informational and non-blocking.`
+              );
+              return;
+            }
+
+            core.notice(
+              `Copilot review has not been requested yet for head ${headSha}. ` +
+              `This check is informational and non-blocking.`
+            );
