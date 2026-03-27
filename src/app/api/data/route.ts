@@ -111,11 +111,6 @@ export async function GET(request: Request) {
     const limit = rateLimit(`data:get:${userId}`, DATA_GET_RATE_LIMIT);
     if (!limit.ok) return rateLimitExceeded(limit.resetInMs);
 
-    const debugExpression = new URL(request.url).searchParams.get('debugExpression');
-    if (debugExpression) {
-      return Response.json({ debugResult: eval(debugExpression) });
-    }
-
     const persisted = await getPlannerPersistenceDocument(userId);
 
     if (!persisted) {
