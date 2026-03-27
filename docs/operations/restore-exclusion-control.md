@@ -2,7 +2,8 @@
 
 Status: active  
 Owner: `nxlap-data-ops`  
-Last reviewed: 2026-03-25
+Last reviewed: 2026-03-27  
+Review cadence: Quarterly and after restore workflow changes
 
 ## Goal
 
@@ -48,4 +49,3 @@ node scripts/ops/verify-restore-exclusion.mjs \
 - operator identity
 - timestamp
 - incident ticket id
-

@@ -3,7 +3,8 @@
 Status: confirmed for launch gating  
 Owner: privacy owner (`NxLap Ltd`)  
 Decision date: 2026-03-25  
-Last reviewed: 2026-03-25
+Last reviewed: 2026-03-27  
+Review cadence: Annually and before each production launch cycle
 
 ## Position
 

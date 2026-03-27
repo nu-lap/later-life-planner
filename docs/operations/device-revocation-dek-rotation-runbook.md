@@ -2,7 +2,8 @@
 
 Status: active  
 Owner: `nxlap-data-ops`  
-Last reviewed: 2026-03-25
+Last reviewed: 2026-03-27  
+Review cadence: Quarterly and after security incidents
 
 ## Purpose
 
@@ -98,4 +99,3 @@ Use exported canonical planner JSON from step B2 only if rotation fails mid-proc
 - save as the next revision
 
 Do not restore encrypted payloads from compromised devices.
-

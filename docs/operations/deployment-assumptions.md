@@ -1,7 +1,9 @@
 # Deployment Assumptions (v1)
 
 Status: active  
-Last reviewed: 2026-03-25
+Owner: platform + engineering (`NxLap Ltd`)  
+Last reviewed: 2026-03-27  
+Review cadence: Quarterly and on infrastructure/deployment changes
 
 ## Hosting Baseline
 
@@ -42,4 +44,3 @@ The expected production baseline is:
 - multi-region active/active failover
 - blue/green orchestration at app layer
 - automatic inactive-account purge
-

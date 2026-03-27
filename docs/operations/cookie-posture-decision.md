@@ -3,7 +3,8 @@
 Status: approved  
 Owner: product + privacy owner (`NxLap Ltd`)  
 Decision date: 2026-03-25  
-Last reviewed: 2026-03-25
+Last reviewed: 2026-03-27  
+Review cadence: Quarterly and on cookie/analytics scope changes
 
 ## Decision
 

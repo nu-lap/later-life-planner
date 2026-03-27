@@ -1,6 +1,11 @@
 # Azure Architecture
 
-Status: draft
+## Document Control
+
+- Status: Active
+- Owner: Later-Life Planner Engineering + Platform (`NxLap Ltd`)
+- Last reviewed: 2026-03-27
+- Review cadence: Quarterly and on infrastructure/workflow changes
 
 This document defines the Azure-side architecture for Later-Life Planner.
 
@@ -17,7 +22,7 @@ It should be read alongside:
 - `docs/storage-plan.md`
 - `docs/security-decisions.md`
 - `.github/workflows/ci-cd.yml`
-- `.github/workflows/codex-auto-fix.yml`
+- `.github/workflows/copilot-review-gate.yml`
 
 ## Scope
 

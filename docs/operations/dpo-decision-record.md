@@ -3,6 +3,7 @@
 Status: completed  
 Decision date: 2026-03-25  
 Owner: privacy owner (`NxLap Ltd`)
+Review cadence: Reassess annually or on material processing-scale changes
 
 ## Decision
 
@@ -39,4 +40,3 @@ Review this decision every 6 months, and immediately if any of these occur:
 - introduction of high-volume behavioral monitoring
 - expansion into higher-risk data processing features
 - regulator or legal guidance change affecting DPO thresholds
-

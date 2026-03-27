@@ -2,7 +2,8 @@
 
 Status: active  
 Owner: privacy owner + operations owner (`NxLap Ltd`)  
-Last reviewed: 2026-03-25
+Last reviewed: 2026-03-27  
+Review cadence: Quarterly and on vendor/processor changes
 
 ## Purpose
 

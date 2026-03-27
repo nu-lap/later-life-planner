@@ -1,6 +1,11 @@
 # Persistence Security Review
 
-Status: draft
+## Document Control
+
+- Status: Active
+- Owner: Later-Life Planner Engineering + Security (`NxLap Ltd`)
+- Last reviewed: 2026-03-27
+- Review cadence: Quarterly and on key-management or trust-boundary changes
 
 This document consolidates the current security analysis for encrypted planner persistence.
 

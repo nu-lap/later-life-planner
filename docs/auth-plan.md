@@ -1,6 +1,11 @@
 # Auth Plan
 
-Status: draft
+## Document Control
+
+- Status: Active
+- Owner: Later-Life Planner Engineering (`NxLap Ltd`)
+- Last reviewed: 2026-03-27
+- Review cadence: Quarterly and on auth/session flow changes
 
 This document defines the authentication and signed-in planner experience for Later-Life Planner.
 

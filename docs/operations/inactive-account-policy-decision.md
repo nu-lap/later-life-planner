@@ -3,6 +3,7 @@
 Status: approved for v1  
 Decision date: 2026-03-25  
 Owner: product + privacy owner (`NxLap Ltd`)
+Review cadence: Semi-annual and on lifecycle-policy changes
 
 ## Decision
 
@@ -45,4 +46,3 @@ Re-open this decision when any of the following occurs:
 - clear product requirement for automatic purge appears
 - persistent storage cost/risk profile materially changes
 - self-serve deletion and warning-notice UX are fully implemented
-
