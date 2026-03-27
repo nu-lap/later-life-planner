@@ -1,13 +1,6 @@
 name: Copilot Review Gate
 
 on:
-  pull_request:
-    branches: [master]
-    types:
-      - opened
-      - synchronize
-      - reopened
-      - ready_for_review
   pull_request_review:
     types:
       - submitted
@@ -31,12 +24,7 @@ jobs:
   copilot-gate:
     if: >-
       github.event.pull_request.base.ref == 'master' &&
-      github.event.pull_request.draft == false &&
-      (
-        github.event_name == 'pull_request' ||
-        github.event_name == 'pull_request_review' ||
-        github.event_name == 'pull_request_review_comment'
-      )
+      github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     outputs:
       head_sha: ${{ steps.context.outputs.head_sha }}
@@ -60,52 +48,16 @@ jobs:
             const owner = context.repo.owner;
             const repo = context.repo.repo;
             const pull_number = context.issue.number;
-            const eventName = context.eventName;
-            const action = context.payload.action || "";
-            const beforeShaRaw = context.payload.before || "";
-            const beforeSha = String(beforeShaRaw).trim();
 
             const pr = await github.rest.pulls.get({ owner, repo, pull_number });
             const headSha = pr.data.head.sha;
-            let targetSha = headSha;
-            let requiresFreshReview = eventName === "pull_request";
+            const targetSha = headSha;
             const bypassEnabled = (pr.data.labels || []).some(
               (label) => (label.name || "").toLowerCase() === "copilot-gate-bypass"
             );
 
-            if (
-              eventName === "pull_request" &&
-              action === "synchronize" &&
-              /^[0-9a-f]{40}$/i.test(beforeSha)
-            ) {
-              try {
-                const comparison = await github.rest.repos.compareCommitsWithBasehead({
-                  owner,
-                  repo,
-                  basehead: `${beforeSha}...${headSha}`
-                });
-                const changedFiles = Array.isArray(comparison.data.files)
-                  ? comparison.data.files.length
-                  : 0;
-                if (changedFiles === 0) {
-                  targetSha = beforeSha;
-                  requiresFreshReview = false;
-                  core.info(
-                    `No file changes detected for synchronize event (${beforeSha}...${headSha}). ` +
-                    `Reusing previous reviewed SHA ${targetSha}.`
-                  );
-                }
-              } catch (error) {
-                core.warning(
-                  `Unable to compare ${beforeSha}...${headSha}; requiring fresh Copilot review. ` +
-                  `Error: ${error.message || String(error)}`
-                );
-              }
-            }
-
             core.setOutput("head_sha", headSha);
             core.setOutput("target_sha", targetSha);
-            core.setOutput("requires_fresh_review", String(requiresFreshReview));
             core.setOutput("bypass_enabled", String(bypassEnabled));
 
             if (bypassEnabled) {
@@ -121,7 +73,6 @@ jobs:
         env:
           TARGET_SHA: ${{ steps.context.outputs.target_sha }}
           HEAD_SHA: ${{ steps.context.outputs.head_sha }}
-          REQUIRES_FRESH_REVIEW: ${{ steps.context.outputs.requires_fresh_review }}
         with:
           script: |
             const owner = context.repo.owner;
@@ -129,7 +80,6 @@ jobs:
             const pull_number = context.issue.number;
             const targetSha = process.env.TARGET_SHA;
             const headSha = process.env.HEAD_SHA;
-            const requiresFreshReview = process.env.REQUIRES_FRESH_REVIEW === "true";
             const copilotUsers = new Set([
               "github-copilot",
               "copilot",
@@ -235,7 +185,7 @@ jobs:
             const latestWorkStartedAt = latestTimestamp(workStartedEvents);
             const freshnessBaselineCandidates = [
               latestReviewRequestedAt || null,
-              requiresFreshReview ? (latestHeadUpdateAt || null) : null
+              latestHeadUpdateAt || null
             ].filter((value) => Boolean(value));
             const freshnessBaselineAt = freshnessBaselineCandidates
               .map((value) => ({ raw: value, ts: Date.parse(value) }))
@@ -352,7 +302,6 @@ jobs:
             core.info(`Copilot fresh comments on target SHA ${targetSha}: ${commentCount}`);
             core.info(`Copilot pending reviews on target SHA ${targetSha}: ${pendingCount}`);
             core.info(`Copilot lifecycle state: ${lifecycleState}`);
-            core.info(`Requires fresh review: ${requiresFreshReview}`);
             core.info(`Blocking Copilot items: ${blockingItems.length}`);
 
             for (const item of blockingItems) {
@@ -366,7 +315,7 @@ jobs:
       # 2) target SHA has fresh Copilot review artifacts
       # 3) no blocking Copilot findings
       - name: Enforce Copilot review gate
-        if: ${{ steps.context.outputs.bypass_enabled != 'true' && github.event_name != 'pull_request' }}
+        if: ${{ steps.context.outputs.bypass_enabled != 'true' }}
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         env:
           BLOCKER_COUNT: ${{ steps.scan.outputs.blocker_count }}
@@ -378,7 +327,6 @@ jobs:
           FRESHNESS_BASELINE_AT: ${{ steps.scan.outputs.freshness_baseline_at }}
           TARGET_SHA: ${{ steps.context.outputs.target_sha }}
           HEAD_SHA: ${{ steps.context.outputs.head_sha }}
-          REQUIRES_FRESH_REVIEW: ${{ steps.context.outputs.requires_fresh_review }}
         with:
           script: |
             const blockers = Number(process.env.BLOCKER_COUNT || "0");
@@ -390,7 +338,6 @@ jobs:
             const freshnessBaselineAt = process.env.FRESHNESS_BASELINE_AT || "";
             const targetSha = process.env.TARGET_SHA || "<missing>";
             const headSha = process.env.HEAD_SHA || "<missing>";
-            const requiresFreshReview = process.env.REQUIRES_FRESH_REVIEW === "true";
 
             if (pending > 0) {
               core.setFailed(
@@ -408,9 +355,7 @@ jobs:
               };
               const stateMessage = awaitingMessageByState[lifecycle] ||
                 "Copilot review artifacts are not yet available.";
-              const freshnessMessage = requiresFreshReview
-                ? "A fresh Copilot review is required for this PR head."
-                : "This run reuses a previous target SHA (no file changes detected), but no matching Copilot artifacts were found.";
+              const freshnessMessage = "No fresh Copilot artifacts were found for the current target SHA.";
               const staleMessage = staleActivity > 0
                 ? `Ignored ${staleActivity} stale Copilot artifact(s) older than freshness baseline ${freshnessBaselineAt || latestReviewRequestedAt || "<unknown>"}.`
                 : "No fresh Copilot artifacts were available yet.";
@@ -429,38 +374,5 @@ jobs:
               core.info(
                 `Copilot Review Gate passed: lifecycle=${lifecycle}, target=${targetSha}, ` +
                 `activity=${activity}, blockers=${blockers}.`
-              );
-            }
-
-      # Pull request events can arrive before Copilot publishes review artifacts.
-      # Keep these runs non-failing and allow review-driven events to enforce.
-      - name: Report Copilot gate await state on pull_request
-        if: ${{ steps.context.outputs.bypass_enabled != 'true' && github.event_name == 'pull_request' }}
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
-        env:
-          TARGET_PENDING_COUNT: ${{ steps.scan.outputs.target_pending_count }}
-          TARGET_ACTIVITY_COUNT: ${{ steps.scan.outputs.target_activity_count }}
-          LIFECYCLE_STATE: ${{ steps.scan.outputs.lifecycle_state }}
-          TARGET_SHA: ${{ steps.context.outputs.target_sha }}
-          HEAD_SHA: ${{ steps.context.outputs.head_sha }}
-        with:
-          script: |
-            const pending = Number(process.env.TARGET_PENDING_COUNT || "0");
-            const activity = Number(process.env.TARGET_ACTIVITY_COUNT || "0");
-            const lifecycle = process.env.LIFECYCLE_STATE || "unknown";
-            const targetSha = process.env.TARGET_SHA || "<missing>";
-            const headSha = process.env.HEAD_SHA || "<missing>";
-
-            if (pending > 0 || activity === 0) {
-              core.notice(
-                `Awaiting Copilot review artifacts on pull_request event ` +
-                `(lifecycle=${lifecycle}, pending=${pending}, activity=${activity}, ` +
-                `target=${targetSha}, head=${headSha}). ` +
-                `Enforcement runs on review-driven events.`
-              );
-            } else {
-              core.info(
-                `Copilot artifacts already available on pull_request event ` +
-                `(lifecycle=${lifecycle}, activity=${activity}, target=${targetSha}).`
               );
             }
