@@ -228,13 +228,11 @@ Implementation tasks:
 - [ ] Archive or mark superseded docs that no longer represent the active architecture/flow.
 - [ ] Refresh historical operational docs under `docs/operations/` that still reference removed Codex workflows (`codex-auto-fix`, legacy review paths) or move them to `docs/superseded/`.
 - [ ] Refresh the testing and operations docs to include current PR-gate/Copilot workflow troubleshooting guidance and expected run states.
-- [ ] Replace the legacy "Immediate Next Slice" recommendations below with the next delivery backlog once the next active implementation phase is approved.
 
-## Immediate Next Slice (Historical / Superseded)
+### Completed Documentation Meta-Tasks
+- [x] Replace the legacy "Immediate Next Slice" recommendations below with the next delivery backlog once the next active implementation phase is approved.
 
-Recommended next implementation slice:
+## Recommended Next Implementation Slice (Current)
 
-1. Implement device registration and per-device wrapped DEK storage (Phase 3.5).
-2. Add the device approval UX flow (QR/short code + approve from existing device).
-3. Migrate sync encryption away from browser-local-only DEK storage.
-4. Add tests for the device approval state machine and rate limiting.
+- Complete the "Outstanding Documentation Work" backlog items listed above.
+- After that docs backlog is complete, define and add the next product/engineering delivery phase to this checklist.
