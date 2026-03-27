@@ -15,7 +15,6 @@ on:
       - dismissed
   pull_request_review_comment:
     types:
-      - created
       - edited
       - deleted
 
@@ -26,6 +25,7 @@ concurrency:
 permissions:
   contents: read
   pull-requests: read
+  issues: read
 
 jobs:
   copilot-gate:
@@ -41,11 +41,13 @@ jobs:
     outputs:
       head_sha: ${{ steps.context.outputs.head_sha }}
       target_sha: ${{ steps.context.outputs.target_sha }}
-      copilot_activity_count: ${{ steps.wait.outputs.copilot_activity_count }}
+      copilot_activity_count: ${{ steps.scan.outputs.target_activity_count }}
+      copilot_pending_count: ${{ steps.scan.outputs.target_pending_count }}
+      lifecycle_state: ${{ steps.scan.outputs.lifecycle_state }}
       blocker_count: ${{ steps.scan.outputs.blocker_count }}
 
     steps:
-      # Load PR head metadata once so wait/scan logic always evaluates
+      # Load PR head metadata once so lifecycle/scan logic always evaluates
       # the current commit window consistently across all event types.
       - name: Load PR head context
         id: context
@@ -107,119 +109,24 @@ jobs:
               core.info("Bypass label 'copilot-gate-bypass' found; skipping gate enforcement.");
             }
 
-      # Wait for Copilot-authored review activity before evaluating blockers.
-      # This prevents an early pass before Copilot has had a chance to review.
-      - name: Wait for Copilot review activity
-        if: ${{ github.event_name == 'pull_request' && steps.context.outputs.bypass_enabled != 'true' && steps.context.outputs.requires_fresh_review == 'true' }}
-        id: wait
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
-        env:
-          TARGET_SHA: ${{ steps.context.outputs.target_sha }}
-        with:
-          script: |
-            const owner = context.repo.owner;
-            const repo = context.repo.repo;
-            const pull_number = context.issue.number;
-            const targetSha = process.env.TARGET_SHA;
-            const pollIntervalMs = 15 * 1000;
-            const timeoutMs = 10 * 60 * 1000;
-            const deadline = Date.now() + timeoutMs;
-            const copilotUsers = new Set([
-              "github-copilot",
-              "copilot",
-              "copilot-pull-request-reviewer[bot]"
-            ]);
-
-            if (!targetSha) {
-              core.setFailed("Missing target SHA for Copilot wait step.");
-              return;
-            }
-
-            const inspectCopilotActivityForTarget = async () => {
-              const reviews = await github.paginate(
-                github.rest.pulls.listReviews,
-                { owner, repo, pull_number, per_page: 100 }
-              );
-              const reviewComments = await github.paginate(
-                github.rest.pulls.listReviewComments,
-                { owner, repo, pull_number, per_page: 100 }
-              );
-
-              const copilotReviewsForTarget = reviews.filter((review) => {
-                const author = (review.user?.login || "").toLowerCase();
-                return (
-                  copilotUsers.has(author) &&
-                  review.commit_id === targetSha
-                );
-              });
-              const copilotCommentsForTarget = reviewComments.filter((comment) => {
-                const author = (comment.user?.login || "").toLowerCase();
-                return (
-                  copilotUsers.has(author) &&
-                  (comment.commit_id === targetSha || comment.original_commit_id === targetSha)
-                );
-              });
-
-              const pendingCount = copilotReviewsForTarget.filter(
-                (review) => (review.state || "").toUpperCase() === "PENDING"
-              ).length;
-              const nonPendingReviewCount = copilotReviewsForTarget.filter(
-                (review) => (review.state || "").toUpperCase() !== "PENDING"
-              ).length;
-
-              return {
-                pendingCount,
-                reviewCount: nonPendingReviewCount,
-                commentCount: copilotCommentsForTarget.length,
-                totalCount: nonPendingReviewCount + copilotCommentsForTarget.length
-              };
-            };
-
-            let activityCount = 0;
-            let pendingCount = 0;
-            while (Date.now() < deadline) {
-              const result = await inspectCopilotActivityForTarget();
-              activityCount = result.totalCount;
-              pendingCount = result.pendingCount;
-
-              if (activityCount > 0 && pendingCount === 0) {
-                break;
-              }
-              core.info(
-                `Waiting for Copilot activity (reviews/comments) on target SHA ${targetSha} ` +
-                `with no pending Copilot reviews. ` +
-                `activity=${activityCount}, pending=${pendingCount}`
-              );
-              await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
-            }
-
-            if (activityCount === 0 || pendingCount > 0) {
-              core.setFailed(
-                `Timed out waiting for Copilot activity on target SHA ${targetSha} ` +
-                `with no pending Copilot reviews. ` +
-                `activity=${activityCount}, pending=${pendingCount}`
-              );
-              return;
-            }
-
-            core.setOutput("copilot_activity_count", String(activityCount));
-            core.info(`Copilot activity count: ${activityCount}`);
-
-      # Scan both review bodies and inline review comments from the pull request
-      # and count blocking findings authored by any known Copilot account
-      # (github-copilot, copilot, copilot-pull-request-reviewer[bot]).
+      # Inspect Copilot lifecycle and findings for the resolved target SHA.
+      # This is event-driven and deterministic (no polling loops).
       - name: Scan Copilot review comments
         if: ${{ steps.context.outputs.bypass_enabled != 'true' }}
         id: scan
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         env:
           TARGET_SHA: ${{ steps.context.outputs.target_sha }}
+          HEAD_SHA: ${{ steps.context.outputs.head_sha }}
+          REQUIRES_FRESH_REVIEW: ${{ steps.context.outputs.requires_fresh_review }}
         with:
           script: |
             const owner = context.repo.owner;
             const repo = context.repo.repo;
             const pull_number = context.issue.number;
             const targetSha = process.env.TARGET_SHA;
+            const headSha = process.env.HEAD_SHA;
+            const requiresFreshReview = process.env.REQUIRES_FRESH_REVIEW === "true";
             const copilotUsers = new Set([
               "github-copilot",
               "copilot",
@@ -247,6 +154,14 @@ jobs:
               }
             ];
 
+            if (!targetSha) {
+              core.setFailed("Missing target SHA for Copilot scan.");
+              return;
+            }
+
+            const normalizeLogin = (login) => String(login || "").toLowerCase();
+            const isCopilotUser = (login) => copilotUsers.has(normalizeLogin(login));
+
             const reviews = await github.paginate(
               github.rest.pulls.listReviews,
               { owner, repo, pull_number, per_page: 100 }
@@ -258,17 +173,25 @@ jobs:
             );
 
             const copilotReviews = reviews.filter((review) => {
-              const author = (review.user?.login || "").toLowerCase();
+              const author = normalizeLogin(review.user?.login);
               return (
-                copilotUsers.has(author) &&
+                isCopilotUser(author) &&
                 review.commit_id === targetSha &&
                 (review.state || "").toUpperCase() !== "PENDING"
               );
             });
-            const copilotComments = reviewComments.filter((comment) => {
-              const author = (comment.user?.login || "").toLowerCase();
+            const pendingCopilotReviews = reviews.filter((review) => {
+              const author = normalizeLogin(review.user?.login);
               return (
-                copilotUsers.has(author) &&
+                isCopilotUser(author) &&
+                review.commit_id === targetSha &&
+                (review.state || "").toUpperCase() === "PENDING"
+              );
+            });
+            const copilotComments = reviewComments.filter((comment) => {
+              const author = normalizeLogin(comment.user?.login);
+              return (
+                isCopilotUser(author) &&
                 (comment.commit_id === targetSha || comment.original_commit_id === targetSha)
               );
             });
@@ -304,12 +227,64 @@ jobs:
 
             const reviewCount = copilotReviews.length;
             const commentCount = copilotComments.length;
+            const pendingCount = pendingCopilotReviews.length;
+            const activityCount = reviewCount + commentCount;
+
+            const issueEvents = await github.paginate(
+              github.rest.issues.listEvents,
+              { owner, repo, issue_number: pull_number, per_page: 100 }
+            );
+            const reviewRequestedEvents = issueEvents.filter((event) => {
+              return (
+                event.event === "review_requested" &&
+                normalizeLogin(event.requested_reviewer?.login) === "copilot"
+              );
+            });
+            const workStartedEvents = issueEvents.filter(
+              (event) => event.event === "copilot_work_started"
+            );
+            const latestTimestamp = (events) => {
+              if (events.length === 0) {
+                return null;
+              }
+              return events
+                .map((event) => event.created_at || "")
+                .filter((value) => value.length > 0)
+                .sort()
+                .at(-1) || null;
+            };
+            const latestReviewRequestedAt = latestTimestamp(reviewRequestedEvents);
+            const latestWorkStartedAt = latestTimestamp(workStartedEvents);
+
+            let lifecycleState = "not_requested";
+            if (latestReviewRequestedAt) {
+              lifecycleState = "review_requested";
+            }
+            if (
+              latestWorkStartedAt &&
+              (!latestReviewRequestedAt || Date.parse(latestWorkStartedAt) >= Date.parse(latestReviewRequestedAt))
+            ) {
+              lifecycleState = "copilot_work_started";
+            }
+            if (pendingCount > 0) {
+              lifecycleState = "copilot_review_pending";
+            }
+            if (activityCount > 0 && pendingCount === 0) {
+              lifecycleState = "copilot_review_completed";
+            }
 
             core.setOutput("blocker_count", String(blockingItems.length));
+            core.setOutput("target_pending_count", String(pendingCount));
+            core.setOutput("target_activity_count", String(activityCount));
+            core.setOutput("lifecycle_state", lifecycleState);
             core.info(`Review comments scanned: ${reviewComments.length}`);
             core.info(`Reviews scanned: ${reviews.length}`);
+            core.info(`Head SHA: ${headSha}`);
             core.info(`Copilot reviews found on target SHA ${targetSha}: ${reviewCount}`);
             core.info(`Copilot comments found on target SHA ${targetSha}: ${commentCount}`);
+            core.info(`Copilot pending reviews on target SHA ${targetSha}: ${pendingCount}`);
+            core.info(`Copilot lifecycle state: ${lifecycleState}`);
+            core.info(`Requires fresh review: ${requiresFreshReview}`);
             core.info(`Blocking Copilot items: ${blockingItems.length}`);
 
             for (const item of blockingItems) {
@@ -318,19 +293,97 @@ jobs:
               );
             }
 
-      # Fail the job when any blocking Copilot comment exists.
+      # Enforce deterministic lifecycle:
+      # 1) no pending Copilot review for target SHA
+      # 2) target SHA has Copilot review artifacts
+      # 3) no blocking Copilot findings
       - name: Enforce Copilot review gate
-        if: ${{ steps.context.outputs.bypass_enabled != 'true' }}
+        if: ${{ steps.context.outputs.bypass_enabled != 'true' && github.event_name != 'pull_request' }}
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         env:
           BLOCKER_COUNT: ${{ steps.scan.outputs.blocker_count }}
+          TARGET_PENDING_COUNT: ${{ steps.scan.outputs.target_pending_count }}
+          TARGET_ACTIVITY_COUNT: ${{ steps.scan.outputs.target_activity_count }}
+          LIFECYCLE_STATE: ${{ steps.scan.outputs.lifecycle_state }}
+          TARGET_SHA: ${{ steps.context.outputs.target_sha }}
+          HEAD_SHA: ${{ steps.context.outputs.head_sha }}
+          REQUIRES_FRESH_REVIEW: ${{ steps.context.outputs.requires_fresh_review }}
         with:
           script: |
             const blockers = Number(process.env.BLOCKER_COUNT || "0");
+            const pending = Number(process.env.TARGET_PENDING_COUNT || "0");
+            const activity = Number(process.env.TARGET_ACTIVITY_COUNT || "0");
+            const lifecycle = process.env.LIFECYCLE_STATE || "unknown";
+            const targetSha = process.env.TARGET_SHA || "<missing>";
+            const headSha = process.env.HEAD_SHA || "<missing>";
+            const requiresFreshReview = process.env.REQUIRES_FRESH_REVIEW === "true";
+
+            if (pending > 0) {
+              core.setFailed(
+                `Copilot Review Gate pending: Copilot review is still in progress ` +
+                `for target SHA ${targetSha} (head ${headSha}).`
+              );
+              return;
+            }
+
+            if (activity === 0) {
+              const awaitingMessageByState = {
+                not_requested: "Copilot review has not been requested yet.",
+                review_requested: "Copilot review was requested but has not started.",
+                copilot_work_started: "Copilot review has started but has not published artifacts yet."
+              };
+              const stateMessage = awaitingMessageByState[lifecycle] ||
+                "Copilot review artifacts are not yet available.";
+              const freshnessMessage = requiresFreshReview
+                ? "A fresh Copilot review is required for this PR head."
+                : "This run reuses a previous target SHA (no file changes detected), but no matching Copilot artifacts were found.";
+              core.setFailed(
+                `Copilot Review Gate awaiting review: ${stateMessage} ${freshnessMessage} ` +
+                `target=${targetSha} head=${headSha}`
+              );
+              return;
+            }
+
             if (blockers > 0) {
               core.setFailed(
                 `Copilot Review Gate failed: ${blockers} blocking Copilot review comment(s) found.`
               );
             } else {
-              core.info("Copilot Review Gate passed: no blocking Copilot review comments found.");
+              core.info(
+                `Copilot Review Gate passed: lifecycle=${lifecycle}, target=${targetSha}, ` +
+                `activity=${activity}, blockers=${blockers}.`
+              );
+            }
+
+      # Pull request events can arrive before Copilot publishes review artifacts.
+      # Keep these runs non-failing and allow review-driven events to enforce.
+      - name: Report Copilot gate await state on pull_request
+        if: ${{ steps.context.outputs.bypass_enabled != 'true' && github.event_name == 'pull_request' }}
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        env:
+          TARGET_PENDING_COUNT: ${{ steps.scan.outputs.target_pending_count }}
+          TARGET_ACTIVITY_COUNT: ${{ steps.scan.outputs.target_activity_count }}
+          LIFECYCLE_STATE: ${{ steps.scan.outputs.lifecycle_state }}
+          TARGET_SHA: ${{ steps.context.outputs.target_sha }}
+          HEAD_SHA: ${{ steps.context.outputs.head_sha }}
+        with:
+          script: |
+            const pending = Number(process.env.TARGET_PENDING_COUNT || "0");
+            const activity = Number(process.env.TARGET_ACTIVITY_COUNT || "0");
+            const lifecycle = process.env.LIFECYCLE_STATE || "unknown";
+            const targetSha = process.env.TARGET_SHA || "<missing>";
+            const headSha = process.env.HEAD_SHA || "<missing>";
+
+            if (pending > 0 || activity === 0) {
+              core.notice(
+                `Awaiting Copilot review artifacts on pull_request event ` +
+                `(lifecycle=${lifecycle}, pending=${pending}, activity=${activity}, ` +
+                `target=${targetSha}, head=${headSha}). ` +
+                `Enforcement runs on review-driven events.`
+              );
+            } else {
+              core.info(
+                `Copilot artifacts already available on pull_request event ` +
+                `(lifecycle=${lifecycle}, activity=${activity}, target=${targetSha}).`
+              );
             }
