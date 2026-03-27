@@ -46,6 +46,7 @@ jobs:
       stale_activity_count: ${{ steps.scan.outputs.stale_activity_count }}
       lifecycle_state: ${{ steps.scan.outputs.lifecycle_state }}
       latest_review_requested_at: ${{ steps.scan.outputs.latest_review_requested_at }}
+      freshness_baseline_at: ${{ steps.scan.outputs.freshness_baseline_at }}
       blocker_count: ${{ steps.scan.outputs.blocker_count }}
 
     steps:
@@ -245,7 +246,7 @@ jobs:
             const freshnessBaselineAtMs = freshnessBaselineAt
               ? Date.parse(freshnessBaselineAt)
               : NaN;
-            const isFreshSinceLatestRequest = (timestamp) => {
+            const isFreshSinceBaseline = (timestamp) => {
               if (!freshnessGuardActive) {
                 return true;
               }
@@ -260,17 +261,17 @@ jobs:
             };
 
             const freshCopilotReviews = copilotReviews.filter((review) => {
-              return isFreshSinceLatestRequest(
+              return isFreshSinceBaseline(
                 review.submitted_at || review.submittedAt || review.created_at || review.createdAt
               );
             });
             const freshPendingCopilotReviews = pendingCopilotReviews.filter((review) => {
-              return isFreshSinceLatestRequest(
+              return isFreshSinceBaseline(
                 review.submitted_at || review.submittedAt || review.created_at || review.createdAt
               );
             });
             const freshCopilotComments = copilotComments.filter((comment) => {
-              return isFreshSinceLatestRequest(comment.created_at || comment.createdAt);
+              return isFreshSinceBaseline(comment.created_at || comment.createdAt);
             });
             const staleActivityCount =
               (copilotReviews.length - freshCopilotReviews.length) +
