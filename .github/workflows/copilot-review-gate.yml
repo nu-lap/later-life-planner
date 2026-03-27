@@ -43,7 +43,9 @@ jobs:
       target_sha: ${{ steps.context.outputs.target_sha }}
       copilot_activity_count: ${{ steps.scan.outputs.target_activity_count }}
       copilot_pending_count: ${{ steps.scan.outputs.target_pending_count }}
+      stale_activity_count: ${{ steps.scan.outputs.stale_activity_count }}
       lifecycle_state: ${{ steps.scan.outputs.lifecycle_state }}
+      latest_review_requested_at: ${{ steps.scan.outputs.latest_review_requested_at }}
       blocker_count: ${{ steps.scan.outputs.blocker_count }}
 
     steps:
@@ -196,40 +198,6 @@ jobs:
               );
             });
 
-            const analyzableItems = [
-              ...copilotReviews
-                .filter((review) => (review.body || "").trim().length > 0)
-                .map((review) => ({ kind: "review", body: review.body || "", url: review.html_url })),
-              ...copilotComments.map((comment) => ({
-                kind: "comment",
-                body: comment.body || "",
-                url: comment.html_url
-              }))
-            ];
-
-            const findBlockingTerms = (text) => {
-              const blockers = [];
-              for (const rule of termRules) {
-                if (!rule.match.test(text)) {
-                  continue;
-                }
-                const negated = rule.negations.some((pattern) => pattern.test(text));
-                if (!negated) {
-                  blockers.push(rule.term);
-                }
-              }
-              return blockers;
-            };
-
-            const blockingItems = analyzableItems
-              .map((item) => ({ ...item, blockingTerms: findBlockingTerms(item.body) }))
-              .filter((item) => item.blockingTerms.length > 0);
-
-            const reviewCount = copilotReviews.length;
-            const commentCount = copilotComments.length;
-            const pendingCount = pendingCopilotReviews.length;
-            const activityCount = reviewCount + commentCount;
-
             const issueEvents = await github.paginate(
               github.rest.issues.listEvents,
               { owner, repo, issue_number: pull_number, per_page: 100 }
@@ -255,6 +223,40 @@ jobs:
             };
             const latestReviewRequestedAt = latestTimestamp(reviewRequestedEvents);
             const latestWorkStartedAt = latestTimestamp(workStartedEvents);
+            const freshnessGuardActive = Boolean(latestReviewRequestedAt);
+            const latestReviewRequestedAtMs = latestReviewRequestedAt
+              ? Date.parse(latestReviewRequestedAt)
+              : NaN;
+            const isFreshSinceLatestRequest = (timestamp) => {
+              if (!freshnessGuardActive) {
+                return true;
+              }
+              if (!timestamp) {
+                return false;
+              }
+              const parsed = Date.parse(timestamp);
+              if (Number.isNaN(parsed) || Number.isNaN(latestReviewRequestedAtMs)) {
+                return false;
+              }
+              return parsed >= latestReviewRequestedAtMs;
+            };
+
+            const freshCopilotReviews = copilotReviews.filter((review) => {
+              return isFreshSinceLatestRequest(
+                review.submitted_at || review.submittedAt || review.created_at || review.createdAt
+              );
+            });
+            const freshPendingCopilotReviews = pendingCopilotReviews.filter((review) => {
+              return isFreshSinceLatestRequest(
+                review.submitted_at || review.submittedAt || review.created_at || review.createdAt
+              );
+            });
+            const freshCopilotComments = copilotComments.filter((comment) => {
+              return isFreshSinceLatestRequest(comment.created_at || comment.createdAt);
+            });
+            const staleActivityCount =
+              (copilotReviews.length - freshCopilotReviews.length) +
+              (copilotComments.length - freshCopilotComments.length);
 
             let lifecycleState = "not_requested";
             if (latestReviewRequestedAt) {
@@ -266,22 +268,66 @@ jobs:
             ) {
               lifecycleState = "copilot_work_started";
             }
-            if (pendingCount > 0) {
+            if (freshPendingCopilotReviews.length > 0) {
               lifecycleState = "copilot_review_pending";
             }
-            if (activityCount > 0 && pendingCount === 0) {
+            if (
+              (freshCopilotReviews.length + freshCopilotComments.length) > 0 &&
+              freshPendingCopilotReviews.length === 0
+            ) {
               lifecycleState = "copilot_review_completed";
             }
+
+            const reviewCount = freshCopilotReviews.length;
+            const commentCount = freshCopilotComments.length;
+            const pendingCount = freshPendingCopilotReviews.length;
+            const activityCount = reviewCount + commentCount;
+
+            const analyzableItems = [
+              ...freshCopilotReviews
+                .filter((review) => (review.body || "").trim().length > 0)
+                .map((review) => ({ kind: "review", body: review.body || "", url: review.html_url })),
+              ...freshCopilotComments.map((comment) => ({
+                kind: "comment",
+                body: comment.body || "",
+                url: comment.html_url
+              }))
+            ];
+
+            const findBlockingTerms = (text) => {
+              const blockers = [];
+              for (const rule of termRules) {
+                if (!rule.match.test(text)) {
+                  continue;
+                }
+                const negated = rule.negations.some((pattern) => pattern.test(text));
+                if (!negated) {
+                  blockers.push(rule.term);
+                }
+              }
+              return blockers;
+            };
+
+            const blockingItems = analyzableItems
+              .map((item) => ({ ...item, blockingTerms: findBlockingTerms(item.body) }))
+              .filter((item) => item.blockingTerms.length > 0);
 
             core.setOutput("blocker_count", String(blockingItems.length));
             core.setOutput("target_pending_count", String(pendingCount));
             core.setOutput("target_activity_count", String(activityCount));
+            core.setOutput("stale_activity_count", String(staleActivityCount));
             core.setOutput("lifecycle_state", lifecycleState);
+            core.setOutput("latest_review_requested_at", latestReviewRequestedAt ?? "");
             core.info(`Review comments scanned: ${reviewComments.length}`);
             core.info(`Reviews scanned: ${reviews.length}`);
             core.info(`Head SHA: ${headSha}`);
-            core.info(`Copilot reviews found on target SHA ${targetSha}: ${reviewCount}`);
-            core.info(`Copilot comments found on target SHA ${targetSha}: ${commentCount}`);
+            core.info(`Latest Copilot review request at: ${latestReviewRequestedAt ?? "none"}`);
+            core.info(`Freshness guard active: ${freshnessGuardActive}`);
+            core.info(`Copilot reviews found on target SHA ${targetSha}: ${copilotReviews.length}`);
+            core.info(`Copilot comments found on target SHA ${targetSha}: ${copilotComments.length}`);
+            core.info(`Copilot stale activity ignored by freshness guard: ${staleActivityCount}`);
+            core.info(`Copilot fresh reviews on target SHA ${targetSha}: ${reviewCount}`);
+            core.info(`Copilot fresh comments on target SHA ${targetSha}: ${commentCount}`);
             core.info(`Copilot pending reviews on target SHA ${targetSha}: ${pendingCount}`);
             core.info(`Copilot lifecycle state: ${lifecycleState}`);
             core.info(`Requires fresh review: ${requiresFreshReview}`);
@@ -293,9 +339,9 @@ jobs:
               );
             }
 
-      # Enforce deterministic lifecycle:
+      # Enforce deterministic lifecycle with freshness:
       # 1) no pending Copilot review for target SHA
-      # 2) target SHA has Copilot review artifacts
+      # 2) target SHA has fresh Copilot review artifacts
       # 3) no blocking Copilot findings
       - name: Enforce Copilot review gate
         if: ${{ steps.context.outputs.bypass_enabled != 'true' && github.event_name != 'pull_request' }}
@@ -304,7 +350,9 @@ jobs:
           BLOCKER_COUNT: ${{ steps.scan.outputs.blocker_count }}
           TARGET_PENDING_COUNT: ${{ steps.scan.outputs.target_pending_count }}
           TARGET_ACTIVITY_COUNT: ${{ steps.scan.outputs.target_activity_count }}
+          STALE_ACTIVITY_COUNT: ${{ steps.scan.outputs.stale_activity_count }}
           LIFECYCLE_STATE: ${{ steps.scan.outputs.lifecycle_state }}
+          LATEST_REVIEW_REQUESTED_AT: ${{ steps.scan.outputs.latest_review_requested_at }}
           TARGET_SHA: ${{ steps.context.outputs.target_sha }}
           HEAD_SHA: ${{ steps.context.outputs.head_sha }}
           REQUIRES_FRESH_REVIEW: ${{ steps.context.outputs.requires_fresh_review }}
@@ -313,7 +361,9 @@ jobs:
             const blockers = Number(process.env.BLOCKER_COUNT || "0");
             const pending = Number(process.env.TARGET_PENDING_COUNT || "0");
             const activity = Number(process.env.TARGET_ACTIVITY_COUNT || "0");
+            const staleActivity = Number(process.env.STALE_ACTIVITY_COUNT || "0");
             const lifecycle = process.env.LIFECYCLE_STATE || "unknown";
+            const latestReviewRequestedAt = process.env.LATEST_REVIEW_REQUESTED_AT || "";
             const targetSha = process.env.TARGET_SHA || "<missing>";
             const headSha = process.env.HEAD_SHA || "<missing>";
             const requiresFreshReview = process.env.REQUIRES_FRESH_REVIEW === "true";
@@ -337,8 +387,11 @@ jobs:
               const freshnessMessage = requiresFreshReview
                 ? "A fresh Copilot review is required for this PR head."
                 : "This run reuses a previous target SHA (no file changes detected), but no matching Copilot artifacts were found.";
+              const staleMessage = staleActivity > 0
+                ? `Ignored ${staleActivity} stale Copilot artifact(s) created before latest review request ${latestReviewRequestedAt || "<unknown>"}.`
+                : "No fresh Copilot artifacts were available yet.";
               core.setFailed(
-                `Copilot Review Gate awaiting review: ${stateMessage} ${freshnessMessage} ` +
+                `Copilot Review Gate awaiting review: ${stateMessage} ${freshnessMessage} ${staleMessage} ` +
                 `target=${targetSha} head=${headSha}`
               );
               return;
