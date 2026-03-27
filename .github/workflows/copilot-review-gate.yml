@@ -129,7 +129,7 @@ jobs:
                 return canonicalSeverity(labeled[1]);
               }
               const bracketed = input.match(
-                /(?:^|\n)\s*\[(p0|p1|p2|p3|nit|high|medium|low)\]\b/i
+                /(?:^|\n)\s*\[(p0|p1|p2|p3|nit|high|medium|low)\](?=\s|$|[:.,;!?])/i
               );
               if (bracketed) {
                 return canonicalSeverity(bracketed[1]);
