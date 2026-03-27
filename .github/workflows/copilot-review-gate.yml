@@ -208,6 +208,14 @@ jobs:
                 normalizeLogin(event.requested_reviewer?.login) === "copilot"
               );
             });
+            const headUpdateEvents = issueEvents.filter((event) => {
+              return (
+                event.event === "opened" ||
+                event.event === "reopened" ||
+                event.event === "synchronize" ||
+                event.event === "ready_for_review"
+              );
+            });
             const workStartedEvents = issueEvents.filter(
               (event) => event.event === "copilot_work_started"
             );
@@ -222,10 +230,20 @@ jobs:
                 .at(-1) || null;
             };
             const latestReviewRequestedAt = latestTimestamp(reviewRequestedEvents);
+            const latestHeadUpdateAt = latestTimestamp(headUpdateEvents);
             const latestWorkStartedAt = latestTimestamp(workStartedEvents);
-            const freshnessGuardActive = Boolean(latestReviewRequestedAt);
-            const latestReviewRequestedAtMs = latestReviewRequestedAt
-              ? Date.parse(latestReviewRequestedAt)
+            const freshnessBaselineCandidates = [
+              latestReviewRequestedAt || null,
+              requiresFreshReview ? (latestHeadUpdateAt || null) : null
+            ].filter((value) => Boolean(value));
+            const freshnessBaselineAt = freshnessBaselineCandidates
+              .map((value) => ({ raw: value, ts: Date.parse(value) }))
+              .filter((value) => !Number.isNaN(value.ts))
+              .sort((a, b) => a.ts - b.ts)
+              .at(-1)?.raw || null;
+            const freshnessGuardActive = Boolean(freshnessBaselineAt);
+            const freshnessBaselineAtMs = freshnessBaselineAt
+              ? Date.parse(freshnessBaselineAt)
               : NaN;
             const isFreshSinceLatestRequest = (timestamp) => {
               if (!freshnessGuardActive) {
@@ -235,10 +253,10 @@ jobs:
                 return false;
               }
               const parsed = Date.parse(timestamp);
-              if (Number.isNaN(parsed) || Number.isNaN(latestReviewRequestedAtMs)) {
+              if (Number.isNaN(parsed) || Number.isNaN(freshnessBaselineAtMs)) {
                 return false;
               }
-              return parsed >= latestReviewRequestedAtMs;
+              return parsed >= freshnessBaselineAtMs;
             };
 
             const freshCopilotReviews = copilotReviews.filter((review) => {
@@ -318,10 +336,13 @@ jobs:
             core.setOutput("stale_activity_count", String(staleActivityCount));
             core.setOutput("lifecycle_state", lifecycleState);
             core.setOutput("latest_review_requested_at", latestReviewRequestedAt ?? "");
+            core.setOutput("freshness_baseline_at", freshnessBaselineAt ?? "");
             core.info(`Review comments scanned: ${reviewComments.length}`);
             core.info(`Reviews scanned: ${reviews.length}`);
             core.info(`Head SHA: ${headSha}`);
             core.info(`Latest Copilot review request at: ${latestReviewRequestedAt ?? "none"}`);
+            core.info(`Latest PR head update at: ${latestHeadUpdateAt ?? "none"}`);
+            core.info(`Freshness baseline at: ${freshnessBaselineAt ?? "none"}`);
             core.info(`Freshness guard active: ${freshnessGuardActive}`);
             core.info(`Copilot reviews found on target SHA ${targetSha}: ${copilotReviews.length}`);
             core.info(`Copilot comments found on target SHA ${targetSha}: ${copilotComments.length}`);
@@ -353,6 +374,7 @@ jobs:
           STALE_ACTIVITY_COUNT: ${{ steps.scan.outputs.stale_activity_count }}
           LIFECYCLE_STATE: ${{ steps.scan.outputs.lifecycle_state }}
           LATEST_REVIEW_REQUESTED_AT: ${{ steps.scan.outputs.latest_review_requested_at }}
+          FRESHNESS_BASELINE_AT: ${{ steps.scan.outputs.freshness_baseline_at }}
           TARGET_SHA: ${{ steps.context.outputs.target_sha }}
           HEAD_SHA: ${{ steps.context.outputs.head_sha }}
           REQUIRES_FRESH_REVIEW: ${{ steps.context.outputs.requires_fresh_review }}
@@ -364,6 +386,7 @@ jobs:
             const staleActivity = Number(process.env.STALE_ACTIVITY_COUNT || "0");
             const lifecycle = process.env.LIFECYCLE_STATE || "unknown";
             const latestReviewRequestedAt = process.env.LATEST_REVIEW_REQUESTED_AT || "";
+            const freshnessBaselineAt = process.env.FRESHNESS_BASELINE_AT || "";
             const targetSha = process.env.TARGET_SHA || "<missing>";
             const headSha = process.env.HEAD_SHA || "<missing>";
             const requiresFreshReview = process.env.REQUIRES_FRESH_REVIEW === "true";
@@ -388,7 +411,7 @@ jobs:
                 ? "A fresh Copilot review is required for this PR head."
                 : "This run reuses a previous target SHA (no file changes detected), but no matching Copilot artifacts were found.";
               const staleMessage = staleActivity > 0
-                ? `Ignored ${staleActivity} stale Copilot artifact(s) created before latest review request ${latestReviewRequestedAt || "<unknown>"}.`
+                ? `Ignored ${staleActivity} stale Copilot artifact(s) older than freshness baseline ${freshnessBaselineAt || latestReviewRequestedAt || "<unknown>"}.`
                 : "No fresh Copilot artifacts were available yet.";
               core.setFailed(
                 `Copilot Review Gate awaiting review: ${stateMessage} ${freshnessMessage} ${staleMessage} ` +
