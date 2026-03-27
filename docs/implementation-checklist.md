@@ -234,7 +234,5 @@ Implementation tasks:
 
 Recommended next implementation slice:
 
-1. Complete a full content-and-links review pass for all active docs under `docs/`, and close or rewrite stale references.
-2. Reclassify outdated architecture and workflow docs as superseded, and move or mark them under `docs/superseded/`.
-3. Update testing and operations docs with the current Copilot review-gate workflow, including failure modes and troubleshooting runbooks.
-4. After docs backlog completion, define and add the next product/engineering delivery phase to this checklist.
+- Complete the "Outstanding Documentation Work" backlog items listed above.
+- After that docs backlog is complete, define and add the next product/engineering delivery phase to this checklist.
