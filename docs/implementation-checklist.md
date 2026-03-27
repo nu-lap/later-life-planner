@@ -228,6 +228,8 @@ Implementation tasks:
 - [ ] Archive or mark superseded docs that no longer represent the active architecture/flow.
 - [ ] Refresh historical operational docs under `docs/operations/` that still reference removed Codex workflows (`codex-auto-fix`, legacy review paths) or move them to `docs/superseded/`.
 - [ ] Refresh the testing and operations docs to include current PR-gate/Copilot workflow troubleshooting guidance and expected run states.
+
+### Completed Documentation Meta-Tasks
 - [x] Replace the legacy "Immediate Next Slice" recommendations below with the next delivery backlog once the next active implementation phase is approved.
 
 ## Recommended Next Implementation Slice (Current)
