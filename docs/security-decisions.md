@@ -1,6 +1,11 @@
 # Security Decisions
 
-Status: draft
+## Document Control
+
+- Status: Active
+- Owner: Later-Life Planner Engineering + Security (`NxLap Ltd`)
+- Last reviewed: 2026-03-27
+- Review cadence: Quarterly and on security-control changes
 
 This document records concrete security decisions for Later-Life Planner implementation.
 

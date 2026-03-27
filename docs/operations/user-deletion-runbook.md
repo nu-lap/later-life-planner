@@ -2,7 +2,8 @@
 
 Status: active  
 Owner: `nxlap-data-ops`  
-Last reviewed: 2026-03-25
+Last reviewed: 2026-03-27  
+Review cadence: Quarterly and after deletion process changes
 
 ## Purpose
 
@@ -92,4 +93,3 @@ Findings:
 - deletion evidence fields were sufficient for audit trail
 - backup-expiry communication template was clear
 - explicit restore-exclusion dependency required for safe recoveries
-

@@ -1,6 +1,11 @@
 # Implementation Checklist
 
-Status: active draft
+## Document Control
+
+- Status: Active
+- Owner: Later-Life Planner Engineering (`NxLap Ltd`)
+- Last reviewed: 2026-03-27
+- Review cadence: Weekly while active implementation phases are open; otherwise monthly
 
 This checklist translates the current canonical planning docs into a practical execution sequence:
 
@@ -19,6 +24,7 @@ Priority order:
 6. Phase 3.5: device-to-device DEK sharing (HPKE)
 7. Phase 4: hardening, tests, and operational readiness
 8. Phase 5: tests and docs
+9. Phase 6: documentation consolidation and refresh
 
 ## Phase 0: Product and Consistency Cleanup
 
@@ -202,7 +208,29 @@ Implementation tasks:
 - [x] Confirm controller-processor contracts or equivalent terms for NxLap Ltd with Clerk, Azure, and other relevant vendors.
 - [x] Confirm the ICO data protection fee position for NxLap Ltd before launch.
 
-## Immediate Next Slice
+## Phase 6: Documentation Consolidation and Refresh
+
+Goal: clean up, align, and re-baseline all docs under `docs/` and the root `README.md` to the current shipped implementation.
+
+Implementation tasks:
+
+- [x] Add a docs ownership and review cadence section (owner + last-reviewed date) to each active docs file.
+- [x] Add a docs index and status map in `docs/README.md` (active, operational, superseded).
+- [x] Normalize cross-links and remove stale references to replaced workflows and old phase plans.
+- [x] Align all operational runbooks under `docs/operations/` with the current device-approval and encrypted-sync implementation.
+- [x] Reconcile product wording and technical terminology across `docs/auth-plan.md`, `docs/storage-plan.md`, `docs/security-decisions.md`, and `docs/azure-architecture.md`.
+- [x] Update the root `README.md` to describe the current implementation state (auth, encrypted sync, account/device approval UX, and conflict handling).
+- [x] Record unresolved or deferred docs updates as explicit backlog items in this checklist.
+
+### Outstanding Documentation Work
+
+- [ ] Full pass review/update of every active file under `docs/` (content + links + terminology consistency).
+- [ ] Archive or mark superseded docs that no longer represent the active architecture/flow.
+- [ ] Refresh historical operational docs under `docs/operations/` that still reference removed Codex workflows (`codex-auto-fix`, legacy review paths) or move them to `docs/superseded/`.
+- [ ] Refresh the testing and operations docs to include current PR-gate/Copilot workflow troubleshooting guidance and expected run states.
+- [ ] Replace the legacy "Immediate Next Slice" recommendations below with the next delivery backlog once the next active implementation phase is approved.
+
+## Immediate Next Slice (Historical / Superseded)
 
 Recommended next implementation slice:
 

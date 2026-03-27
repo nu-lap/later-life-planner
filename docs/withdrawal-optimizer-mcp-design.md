@@ -1,6 +1,11 @@
 # Withdrawal Optimizer and MCP Design
 
-Status: draft
+## Document Control
+
+- Status: Active
+- Owner: Later-Life Planner Engineering (`NxLap Ltd`)
+- Last reviewed: 2026-03-27
+- Review cadence: Quarterly and on optimizer-architecture changes
 
 This document captures the current assessment of the later-life-planner withdrawal engine and the proposed next-step architecture for a tax-aware optimizer exposed through an MCP server.
 

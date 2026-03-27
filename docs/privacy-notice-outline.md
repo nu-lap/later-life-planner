@@ -1,6 +1,11 @@
 # Privacy Notice Outline
 
-Status: draft
+## Document Control
+
+- Status: Active
+- Owner: Privacy Owner (`NxLap Ltd`)
+- Last reviewed: 2026-03-27
+- Review cadence: Quarterly and on legal/policy changes
 
 This outline is a product-specific starting point for the Later-Life Planner privacy notice operated by NxLap Ltd, trading as VictoryLap.
 

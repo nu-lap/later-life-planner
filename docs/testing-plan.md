@@ -1,8 +1,15 @@
 # Testing Plan — Later Life Planner
 
+## Document Control
+
+- Status: Active
+- Owner: Later-Life Planner Engineering (`NxLap Ltd`)
+- Last reviewed: 2026-03-27
+- Review cadence: Quarterly and on test-strategy changes
+
 ## Overview
 
-This document defines the complete testing strategy for the Later Life Planner application. The app is a UK retirement financial planner with a complex calculation engine; correctness of the tax and drawdown logic is critical.
+This document defines the complete testing strategy for the Later Life Planner application. The app is a UK later-life financial planning tool with a complex calculation engine; correctness of the tax and drawdown logic is critical.
 
 **Test framework:** Vitest (already installed)
 **Test runner:** `npm test` (runs all suites)

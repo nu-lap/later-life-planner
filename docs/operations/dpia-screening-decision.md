@@ -3,6 +3,7 @@
 Status: completed  
 Decision date: 2026-03-25  
 Owner: privacy owner (`NxLap Ltd`)
+Review cadence: Reassess before major product-scope changes
 
 ## Scope Screened
 
@@ -43,4 +44,3 @@ A production launch for persistence requires:
 
 - DPIA approved: `NO`
 - Persistence production launch gate: `BLOCKED` until DPIA approval
-

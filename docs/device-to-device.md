@@ -1,5 +1,12 @@
 # Device-to-Device DEK Sharing (HPKE)
 
+## Document Control
+
+- Status: Active
+- Owner: Later-Life Planner Engineering + Security (`NxLap Ltd`)
+- Last reviewed: 2026-03-27
+- Review cadence: Quarterly and on protocol/API changes
+
 This document describes a device-approval flow that keeps planner encryption/decryption in the browser, while enabling the same signed-in user to decrypt their remote plan on multiple devices.
 
 The core primitive is **per-device DEK wrapping using HPKE (RFC 9180)**. The server stores only ciphertext (the plan ciphertext and the wrapped DEK); it never needs to persist plaintext planner data.

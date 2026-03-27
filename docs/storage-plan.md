@@ -1,6 +1,11 @@
 # Storage Plan
 
-Status: draft
+## Document Control
+
+- Status: Active
+- Owner: Later-Life Planner Engineering (`NxLap Ltd`)
+- Last reviewed: 2026-03-27
+- Review cadence: Quarterly and on persistence/security model changes
 
 This document defines persisted storage for Later-Life Planner.
 

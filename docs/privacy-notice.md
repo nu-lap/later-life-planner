@@ -3,7 +3,8 @@
 Status: published for production persistence launch readiness  
 Controller: `NxLap Ltd` (trading as `VictoryLap`)  
 Effective date: 2026-03-25  
-Last reviewed: 2026-03-25
+Last reviewed: 2026-03-27  
+Review cadence: Quarterly and on legal/policy changes
 
 ## 1. Who We Are
 

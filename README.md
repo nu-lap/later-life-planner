@@ -1,6 +1,6 @@
 # Later Life Planner (LifePlan)
 
-A UK later-life planning tool for people aged 50–75. Aspiration-first: define the life you want, then see how your income and assets can fund it..
+A UK later-life planning tool for people aged 50-75. Aspiration-first: define the life you want, then see how your income and assets can fund it.
 
 Built with Next.js 14, TypeScript, TailwindCSS, and Recharts.
 
@@ -10,6 +10,18 @@ This repo includes authenticated, encrypted plan persistence:
 - Encrypted plan storage in Azure Cosmos DB (server stores ciphertext only).
 - Browser-side encryption/decryption and device-to-device key approval when signing in on a new device.
 - Protected API routes with per-user rate limiting and optimistic concurrency (`revision`).
+
+---
+
+## Current implementation status
+
+- Authenticated planner experience with Clerk sign-in/sign-up.
+- Encrypted sync with optimistic concurrency, save-state feedback, and conflict recovery.
+- Dedicated account surfaces:
+  - `/account` for sync status, export, and remote reload actions.
+  - `/account/devices` for device approvals and key-exchange operations.
+- Device-to-device DEK sharing using HPKE with explicit approval on an already-authorized device.
+- Operational hardening complete for current scope (rate limiting, runbooks, deletion/restore controls, and privacy baseline docs).
 
 ---
 
@@ -154,19 +166,19 @@ npm run lint    # lint checks
 ## Encrypted sync and conflicts
 
 - The app saves an encrypted planner blob for each user (ciphertext + metadata). The server never decrypts planner content.
-- Saves use a `revision` for optimistic concurrency. If the server returns a revision conflict (HTTP 409), sync pauses and the UI prompts you to **Reload remote**.
+- Saves use a `revision` for optimistic concurrency. If the server returns a revision conflict (HTTP 409), sync pauses and the UI prompts you to reload the remote plan from the account/sync controls.
 
 ---
 
 ## Device-to-device key approval (new device sign-in)
 
-If you sign in on a new browser/device that does not have the local encryption key, the app will prompt for an approval from an already-authorized device.
+If you sign in on a new browser/device that does not have the local encryption key, the app requires approval from an already-authorized device.
 
 High level:
 
-- The new device registers a per-device public key with the server and shows an approval link/code.
-- An authorized device approves by wrapping the user DEK to the new device (HPKE), then stores the wrapped package for pickup.
-- The new device unwraps the DEK locally and can decrypt the remote plan.
+- The new device registers a per-device public key with the server and shows an approval link (with code fallback).
+- The approving device uses `/account/devices` to open the link or paste the code, then wraps the user DEK to the new device (HPKE).
+- The wrapped DEK package is retrieved by the new device, unwrapped locally, and used to decrypt the remote plan.
 
 ---
 
@@ -174,7 +186,8 @@ High level:
 
 ```
 src/
-  app/                        # Next.js App Router (layout, page, globals.css)
+  app/                        # Next.js App Router (layout, planner shell, account pages)
+    account/                  # Account and device-approval surfaces
   components/
     steps/                    # Step1HouseholdSetup, Step1LifeVision, Step2SpendingGoals,
     │                         #   Step3IncomeSources, Step4Dashboard
