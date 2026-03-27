@@ -72,3 +72,4 @@ Retained for traceability; not active implementation sources.
 - Update this index whenever a doc changes status, ownership, or source-of-truth role.
 - New architecture/policy docs must include a `Document Control` section.
 - When a doc is replaced, mark it as historical or superseded and link to its replacement.
+- Keep PR workflow documentation aligned with the event-driven `copilot-review-gate` workflow behavior.
