@@ -357,7 +357,8 @@ jobs:
             if (missingSeverityCount > 0) {
               core.warning(
                 `${missingSeverityCount} Copilot item(s) did not include a severity label. ` +
-                `Expected format: 'Severity: P1|P2|P3|Nit'.`
+                `Accepted formats include 'Severity: P0|P1|P2|P3|Nit' (preferred), ` +
+                `'Sev: ...', bracketed tags like '[P1]', or 'High|Medium|Low'.`
               );
             }
 
