@@ -36,6 +36,9 @@ jobs:
       latest_review_requested_at: ${{ steps.scan.outputs.latest_review_requested_at }}
       freshness_baseline_at: ${{ steps.scan.outputs.freshness_baseline_at }}
       blocker_count: ${{ steps.scan.outputs.blocker_count }}
+      severity_blocker_count: ${{ steps.scan.outputs.severity_blocker_count }}
+      keyword_blocker_count: ${{ steps.scan.outputs.keyword_blocker_count }}
+      missing_severity_count: ${{ steps.scan.outputs.missing_severity_count }}
 
     steps:
       # Load PR head metadata once so lifecycle/scan logic always evaluates
@@ -106,6 +109,33 @@ jobs:
                 negations: [/\bno undefined behavior\b/i]
               }
             ];
+            const blockingSeverities = new Set(["p0", "p1", "p2"]);
+            const canonicalSeverity = (value) => {
+              const normalized = String(value || "").trim().toLowerCase();
+              if (normalized === "high") return "p1";
+              if (normalized === "medium") return "p2";
+              if (normalized === "low") return "p3";
+              if (["p0", "p1", "p2", "p3", "nit"].includes(normalized)) {
+                return normalized;
+              }
+              return null;
+            };
+            const extractSeverity = (text) => {
+              const input = String(text || "");
+              const labeled = input.match(
+                /(?:^|\n)\s*(?:severity|sev)\s*:\s*(p0|p1|p2|p3|nit|high|medium|low)\b/i
+              );
+              if (labeled) {
+                return canonicalSeverity(labeled[1]);
+              }
+              const bracketed = input.match(
+                /(?:^|\n)\s*\[(p0|p1|p2|p3|nit|high|medium|low)\](?=\s|$|[:.,;!?])/i
+              );
+              if (bracketed) {
+                return canonicalSeverity(bracketed[1]);
+              }
+              return null;
+            };
 
             if (!targetSha) {
               core.setFailed("Missing target SHA for Copilot scan.");
@@ -277,11 +307,28 @@ jobs:
               return blockers;
             };
 
-            const blockingItems = analyzableItems
-              .map((item) => ({ ...item, blockingTerms: findBlockingTerms(item.body) }))
-              .filter((item) => item.blockingTerms.length > 0);
+            const analyzedItems = analyzableItems.map((item) => {
+              const severity = extractSeverity(item.body);
+              const blockingTerms = findBlockingTerms(item.body);
+              return {
+                ...item,
+                severity,
+                blockingTerms,
+                blocksBySeverity: severity ? blockingSeverities.has(severity) : false,
+                blocksByKeyword: blockingTerms.length > 0,
+              };
+            });
+            const blockingItems = analyzedItems.filter(
+              (item) => item.blocksBySeverity || item.blocksByKeyword
+            );
+            const severityBlockerCount = blockingItems.filter((item) => item.blocksBySeverity).length;
+            const keywordBlockerCount = blockingItems.filter((item) => item.blocksByKeyword).length;
+            const missingSeverityCount = analyzedItems.filter((item) => !item.severity).length;
 
             core.setOutput("blocker_count", String(blockingItems.length));
+            core.setOutput("severity_blocker_count", String(severityBlockerCount));
+            core.setOutput("keyword_blocker_count", String(keywordBlockerCount));
+            core.setOutput("missing_severity_count", String(missingSeverityCount));
             core.setOutput("target_pending_count", String(pendingCount));
             core.setOutput("target_activity_count", String(activityCount));
             core.setOutput("stale_activity_count", String(staleActivityCount));
@@ -303,10 +350,28 @@ jobs:
             core.info(`Copilot pending reviews on target SHA ${targetSha}: ${pendingCount}`);
             core.info(`Copilot lifecycle state: ${lifecycleState}`);
             core.info(`Blocking Copilot items: ${blockingItems.length}`);
+            core.info(`Blocking severity findings: ${severityBlockerCount}`);
+            core.info(`Blocking keyword findings: ${keywordBlockerCount}`);
+            core.info(`Copilot items without severity labels: ${missingSeverityCount}`);
+
+            if (missingSeverityCount > 0) {
+              core.warning(
+                `${missingSeverityCount} Copilot item(s) did not include a severity label. ` +
+                `Accepted formats include 'Severity: P0|P1|P2|P3|Nit' (preferred), ` +
+                `'Sev: ...', bracketed tags like '[P1]', or 'High|Medium|Low'.`
+              );
+            }
 
             for (const item of blockingItems) {
+              const reasons = [];
+              if (item.blocksBySeverity) {
+                reasons.push(`severity=${item.severity}`);
+              }
+              if (item.blocksByKeyword) {
+                reasons.push(`terms=${item.blockingTerms.join(",")}`);
+              }
               core.info(
-                `Blocking ${item.kind} URL: ${item.url} terms=${item.blockingTerms.join(",")}`
+                `Blocking ${item.kind} URL: ${item.url} ${reasons.join(" ")}`
               );
             }
 
@@ -322,6 +387,9 @@ jobs:
           TARGET_PENDING_COUNT: ${{ steps.scan.outputs.target_pending_count }}
           TARGET_ACTIVITY_COUNT: ${{ steps.scan.outputs.target_activity_count }}
           STALE_ACTIVITY_COUNT: ${{ steps.scan.outputs.stale_activity_count }}
+          SEVERITY_BLOCKER_COUNT: ${{ steps.scan.outputs.severity_blocker_count }}
+          KEYWORD_BLOCKER_COUNT: ${{ steps.scan.outputs.keyword_blocker_count }}
+          MISSING_SEVERITY_COUNT: ${{ steps.scan.outputs.missing_severity_count }}
           LIFECYCLE_STATE: ${{ steps.scan.outputs.lifecycle_state }}
           LATEST_REVIEW_REQUESTED_AT: ${{ steps.scan.outputs.latest_review_requested_at }}
           FRESHNESS_BASELINE_AT: ${{ steps.scan.outputs.freshness_baseline_at }}
@@ -333,6 +401,9 @@ jobs:
             const pending = Number(process.env.TARGET_PENDING_COUNT || "0");
             const activity = Number(process.env.TARGET_ACTIVITY_COUNT || "0");
             const staleActivity = Number(process.env.STALE_ACTIVITY_COUNT || "0");
+            const severityBlockers = Number(process.env.SEVERITY_BLOCKER_COUNT || "0");
+            const keywordBlockers = Number(process.env.KEYWORD_BLOCKER_COUNT || "0");
+            const missingSeverity = Number(process.env.MISSING_SEVERITY_COUNT || "0");
             const lifecycle = process.env.LIFECYCLE_STATE || "unknown";
             const latestReviewRequestedAt = process.env.LATEST_REVIEW_REQUESTED_AT || "";
             const freshnessBaselineAt = process.env.FRESHNESS_BASELINE_AT || "";
@@ -368,11 +439,12 @@ jobs:
 
             if (blockers > 0) {
               core.setFailed(
-                `Copilot Review Gate failed: ${blockers} blocking Copilot review comment(s) found.`
+                `Copilot Review Gate failed: ${blockers} blocking Copilot item(s) found ` +
+                `(severity=${severityBlockers}, keyword=${keywordBlockers}, missingSeverity=${missingSeverity}).`
               );
             } else {
               core.info(
                 `Copilot Review Gate passed: lifecycle=${lifecycle}, target=${targetSha}, ` +
-                `activity=${activity}, blockers=${blockers}.`
+                `activity=${activity}, blockers=${blockers}, missingSeverity=${missingSeverity}.`
               );
             }
