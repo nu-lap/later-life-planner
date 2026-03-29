@@ -172,27 +172,33 @@ jobs:
           docker buildx inspect --bootstrap
 
       - name: Build and push image
+        env:
+          TAG_RUN_NUMBER: ${{ github.run_number }}
+          TAG_SHA: ${{ github.sha }}
+          BUILD_ARG_TURNSTILE_SITE_KEY: ${{ secrets.NEXT_PUBLIC_TURNSTILE_SITE_KEY }}
+          BUILD_ARG_CLERK_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}
         run: |
-          IMAGE="$ACR_LOGIN_SERVER/later-life-planner"
-          # Only tag :latest on master so branch dispatch runs don't overwrite the shared tag
-          LATEST_TAG=""
-          if [ "$GITHUB_REF" = "refs/heads/master" ]; then
-            LATEST_TAG="--tag $IMAGE:latest"
+          IMAGE="${ACR_LOGIN_SERVER}/later-life-planner"
+          TAG_ARGS=(
+            --tag "${IMAGE}:${TAG_RUN_NUMBER}"
+            --tag "${IMAGE}:${TAG_SHA}"
+          )
+          # Only tag :latest on master so branch dispatch runs don't overwrite the shared tag.
+          if [ "${GITHUB_REF}" = "refs/heads/master" ]; then
+            TAG_ARGS+=(--tag "${IMAGE}:latest")
           fi
           docker buildx build \
             --file Dockerfile \
             --push \
-            --tag "$IMAGE:${{ github.run_number }}" \
-            --tag "$IMAGE:${{ github.sha }}" \
-            ${LATEST_TAG} \
-            --cache-from type=gha \
-            --cache-to type=gha,mode=max \
-            --build-arg NEXT_PUBLIC_TURNSTILE_SITE_KEY="${{ secrets.NEXT_PUBLIC_TURNSTILE_SITE_KEY }}" \
-            --build-arg NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY="${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}" \
-            --build-arg NEXT_PUBLIC_CLERK_SIGN_IN_URL="/sign-in" \
-            --build-arg NEXT_PUBLIC_CLERK_SIGN_UP_URL="/sign-up" \
-            --build-arg NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL="/" \
-            --build-arg NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL="/" \
+            "${TAG_ARGS[@]}" \
+            --cache-from "type=gha" \
+            --cache-to "type=gha,mode=max" \
+            --build-arg "NEXT_PUBLIC_TURNSTILE_SITE_KEY=${BUILD_ARG_TURNSTILE_SITE_KEY}" \
+            --build-arg "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=${BUILD_ARG_CLERK_PUBLISHABLE_KEY}" \
+            --build-arg "NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in" \
+            --build-arg "NEXT_PUBLIC_CLERK_SIGN_UP_URL=/sign-up" \
+            --build-arg "NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL=/" \
+            --build-arg "NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL=/" \
             .
 
   deploy:
