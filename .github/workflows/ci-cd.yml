@@ -295,12 +295,14 @@ jobs:
         run: |
           set -euo pipefail
 
-          RESOURCE_GROUP="${APP_RESOURCE_GROUP}"
+          APP_RG="${APP_RESOURCE_GROUP}"
+          COSMOS_RG="${COSMOS_RESOURCE_GROUP}"
+          KEY_VAULT_RG="${KEY_VAULT_RESOURCE_GROUP}"
           COSMOS_DATA_CONTRIBUTOR_ROLE_ID="00000000-0000-0000-0000-000000000002"
 
           PRINCIPAL_ID=$(az containerapp show \
             --name "$APP_NAME" \
-            --resource-group "$RESOURCE_GROUP" \
+            --resource-group "$APP_RG" \
             --query identity.principalId \
             -o tsv)
           if [ -z "$PRINCIPAL_ID" ]; then
@@ -310,12 +312,12 @@ jobs:
 
           COSMOS_ENV=$(az containerapp show \
             --name "$APP_NAME" \
-            --resource-group "$RESOURCE_GROUP" \
+            --resource-group "$APP_RG" \
             --query "properties.template.containers[0].env[?name=='AZURE_COSMOSDB_ENDPOINT'].value | [0]" \
             -o tsv)
           KV_ENV=$(az containerapp show \
             --name "$APP_NAME" \
-            --resource-group "$RESOURCE_GROUP" \
+            --resource-group "$APP_RG" \
             --query "properties.template.containers[0].env[?name=='AZURE_KEY_VAULT_URL'].value | [0]" \
             -o tsv)
           if [ -z "$COSMOS_ENV" ] || [ -z "$KV_ENV" ]; then
@@ -325,7 +327,7 @@ jobs:
 
           COSMOS_ID=$(az cosmosdb show \
             --name "$COSMOS_ACCOUNT" \
-            --resource-group "$RESOURCE_GROUP" \
+            --resource-group "$COSMOS_RG" \
             --query id \
             -o tsv)
           EXPECTED_COSMOS_ROLE_DEF_ID="${COSMOS_ID}/sqlRoleDefinitions/${COSMOS_DATA_CONTRIBUTOR_ROLE_ID}"
@@ -334,7 +336,7 @@ jobs:
           for _ in 1 2 3 4 5; do
             COSMOS_ROLE_COUNT=$(az cosmosdb sql role assignment list \
               --account-name "$COSMOS_ACCOUNT" \
-              --resource-group "$RESOURCE_GROUP" \
+              --resource-group "$COSMOS_RG" \
               --query "[?principalId=='${PRINCIPAL_ID}' && roleDefinitionId=='${EXPECTED_COSMOS_ROLE_DEF_ID}'] | length(@)" \
               -o tsv)
             if [ "${COSMOS_ROLE_COUNT:-0}" -ge 1 ]; then
@@ -349,7 +351,7 @@ jobs:
 
           KEY_VAULT_ID=$(az keyvault show \
             --name "$KEY_VAULT_NAME" \
-            --resource-group "$RESOURCE_GROUP" \
+            --resource-group "$KEY_VAULT_RG" \
             --query id \
             -o tsv)
           KEY_VAULT_ROLE_COUNT=0
