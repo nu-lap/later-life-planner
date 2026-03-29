@@ -15,6 +15,16 @@ concurrency:
   group: ci-cd-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  APP_RESOURCE_GROUP: rg-later-life-planner
+  APP_NAME: ca-later-life-planner
+  ACR_NAME: acrsharedresourcesuks
+  ACR_LOGIN_SERVER: acrsharedresourcesuks.azurecr.io
+  COSMOS_RESOURCE_GROUP: rg-later-life-planner
+  COSMOS_ACCOUNT: cosmos-llp-uks
+  KEY_VAULT_RESOURCE_GROUP: rg-later-life-planner
+  KEY_VAULT_NAME: kv-llp-app
+
 jobs:
   # Detect whether a change should run CI and whether it should rebuild the container.
   # workflow_dispatch always sets both outputs to true so manual runs execute the full pipeline on master.
@@ -153,7 +163,7 @@ jobs:
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       - name: Login to ACR
-        run: az acr login --name acrblackdog69llp
+        run: az acr login --name "$ACR_NAME"
 
       - name: Set up Docker Buildx
         run: |
@@ -163,7 +173,7 @@ jobs:
 
       - name: Build and push image
         run: |
-          IMAGE="acrblackdog69llp.azurecr.io/later-life-planner"
+          IMAGE="$ACR_LOGIN_SERVER/later-life-planner"
           docker buildx build \
             --file Dockerfile \
             --push \
@@ -201,13 +211,13 @@ jobs:
         id: deploy
         run: |
           COSMOS_ENDPOINT=$(az cosmosdb show \
-            --name cosmos-llp-uks \
-            --resource-group rg-later-life-planner \
+            --name "$COSMOS_ACCOUNT" \
+            --resource-group "$COSMOS_RESOURCE_GROUP" \
             --query documentEndpoint \
             -o tsv)
           KEY_VAULT_URL=$(az keyvault show \
-            --name kv-llp-app \
-            --resource-group rg-later-life-planner \
+            --name "$KEY_VAULT_NAME" \
+            --resource-group "$KEY_VAULT_RESOURCE_GROUP" \
             --query properties.vaultUri \
             -o tsv)
           if [ -z "$COSMOS_ENDPOINT" ] || [ -z "$KEY_VAULT_URL" ]; then
@@ -215,16 +225,17 @@ jobs:
             exit 1
           fi
           az containerapp secret set \
-            --name ca-later-life-planner \
-            --resource-group rg-later-life-planner \
+            --name "$APP_NAME" \
+            --resource-group "$APP_RESOURCE_GROUP" \
             --secrets \
               "anthropic-api-key=${{ secrets.ANTHROPIC_API_KEY }}" \
               "turnstile-secret-key=${{ secrets.TURNSTILE_SECRET_KEY }}" \
               "clerk-secret-key=${{ secrets.CLERK_SECRET_KEY }}"
           REVISION=$(az containerapp update \
-            --name ca-later-life-planner \
-            --resource-group rg-later-life-planner \
-            --image acrblackdog69llp.azurecr.io/later-life-planner:${{ github.sha }} \
+            --name "$APP_NAME" \
+            --resource-group "$APP_RESOURCE_GROUP" \
+            --image "$ACR_LOGIN_SERVER/later-life-planner:${{ github.sha }}" \
+            --target-port 3000 \
             --set-env-vars \
               "ANTHROPIC_API_KEY=secretref:anthropic-api-key" \
               "TURNSTILE_SECRET_KEY=secretref:turnstile-secret-key" \
@@ -250,16 +261,16 @@ jobs:
         run: |
           REVISION="${{ steps.deploy.outputs.revision }}"
           az containerapp revision restart \
-            --name ca-later-life-planner \
-            --resource-group rg-later-life-planner \
+            --name "$APP_NAME" \
+            --resource-group "$APP_RESOURCE_GROUP" \
             --revision "$REVISION"
           echo "Restarted revision: $REVISION"
 
       - name: Show app URL
         run: |
           fqdn=$(az containerapp show \
-            --name ca-later-life-planner \
-            --resource-group rg-later-life-planner \
+            --name "$APP_NAME" \
+            --resource-group "$APP_RESOURCE_GROUP" \
             --query properties.configuration.ingress.fqdn -o tsv)
           echo "Deployed to: https://$fqdn"
 
@@ -284,15 +295,14 @@ jobs:
         run: |
           set -euo pipefail
 
-          RESOURCE_GROUP="rg-later-life-planner"
-          APP_NAME="ca-later-life-planner"
-          COSMOS_ACCOUNT="cosmos-llp-uks"
-          KEY_VAULT_NAME="kv-llp-app"
+          APP_RG="${APP_RESOURCE_GROUP}"
+          COSMOS_RG="${COSMOS_RESOURCE_GROUP}"
+          KEY_VAULT_RG="${KEY_VAULT_RESOURCE_GROUP}"
           COSMOS_DATA_CONTRIBUTOR_ROLE_ID="00000000-0000-0000-0000-000000000002"
 
           PRINCIPAL_ID=$(az containerapp show \
             --name "$APP_NAME" \
-            --resource-group "$RESOURCE_GROUP" \
+            --resource-group "$APP_RG" \
             --query identity.principalId \
             -o tsv)
           if [ -z "$PRINCIPAL_ID" ]; then
@@ -302,12 +312,12 @@ jobs:
 
           COSMOS_ENV=$(az containerapp show \
             --name "$APP_NAME" \
-            --resource-group "$RESOURCE_GROUP" \
+            --resource-group "$APP_RG" \
             --query "properties.template.containers[0].env[?name=='AZURE_COSMOSDB_ENDPOINT'].value | [0]" \
             -o tsv)
           KV_ENV=$(az containerapp show \
             --name "$APP_NAME" \
-            --resource-group "$RESOURCE_GROUP" \
+            --resource-group "$APP_RG" \
             --query "properties.template.containers[0].env[?name=='AZURE_KEY_VAULT_URL'].value | [0]" \
             -o tsv)
           if [ -z "$COSMOS_ENV" ] || [ -z "$KV_ENV" ]; then
@@ -317,7 +327,7 @@ jobs:
 
           COSMOS_ID=$(az cosmosdb show \
             --name "$COSMOS_ACCOUNT" \
-            --resource-group "$RESOURCE_GROUP" \
+            --resource-group "$COSMOS_RG" \
             --query id \
             -o tsv)
           EXPECTED_COSMOS_ROLE_DEF_ID="${COSMOS_ID}/sqlRoleDefinitions/${COSMOS_DATA_CONTRIBUTOR_ROLE_ID}"
@@ -326,7 +336,7 @@ jobs:
           for _ in 1 2 3 4 5; do
             COSMOS_ROLE_COUNT=$(az cosmosdb sql role assignment list \
               --account-name "$COSMOS_ACCOUNT" \
-              --resource-group "$RESOURCE_GROUP" \
+              --resource-group "$COSMOS_RG" \
               --query "[?principalId=='${PRINCIPAL_ID}' && roleDefinitionId=='${EXPECTED_COSMOS_ROLE_DEF_ID}'] | length(@)" \
               -o tsv)
             if [ "${COSMOS_ROLE_COUNT:-0}" -ge 1 ]; then
@@ -341,7 +351,7 @@ jobs:
 
           KEY_VAULT_ID=$(az keyvault show \
             --name "$KEY_VAULT_NAME" \
-            --resource-group "$RESOURCE_GROUP" \
+            --resource-group "$KEY_VAULT_RG" \
             --query id \
             -o tsv)
           KEY_VAULT_ROLE_COUNT=0

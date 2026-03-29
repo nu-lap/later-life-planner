@@ -4,7 +4,7 @@
 
 - Status: Active
 - Owner: Later-Life Planner Engineering + Platform (`NxLap Ltd`)
-- Last reviewed: 2026-03-27
+- Last reviewed: 2026-03-29
 - Review cadence: Quarterly and on infrastructure/workflow changes
 
 This document defines the Azure-side architecture for Later-Life Planner.
@@ -67,9 +67,11 @@ Target persistence extension:
 
 | Component | Service | Current identifier | Purpose |
 | --- | --- | --- | --- |
-| Resource group | Azure Resource Group | `rg-later-life-planner` | Main deployment scope |
-| Container registry | Azure Container Registry | `acrblackdog69llp` | Stores app images |
-| Runtime | Azure Container Apps | `ca-later-life-planner` | Hosts the Next.js app |
+| Shared resource group | Azure Resource Group | `rg-shared-resources-uks` | Shared platform resources (ACA env + ACR) |
+| App resource group | Azure Resource Group | `rg-later-life-planner` | App-level resources (Container App + data services) |
+| Container registry | Azure Container Registry | `acrsharedresourcesuks` | Stores app images |
+| Runtime environment | Azure Container Apps Environment | `cae-shared-resources-uks` | Shared managed environment for Container Apps |
+| Runtime app | Azure Container App | `ca-later-life-planner` | Hosts the Next.js app |
 | CI deploy identity | Azure service principal (OIDC login) | `AZURE_CLIENT_ID` + `AZURE_TENANT_ID` + `AZURE_SUBSCRIPTION_ID` | Lets GitHub Actions push and deploy |
 | Planner persistence account | Azure Cosmos DB | `cosmos-llp-uks` | Stores encrypted planner documents (managed in `infra/main.bicep`) |
 | Planner database | Cosmos DB SQL database | `later-life-planner` | Logical database for planner storage (managed in `infra/main.bicep`) |
@@ -102,7 +104,12 @@ They are now represented in IaC and should be treated as deployment-managed reso
 
 Recommended v1 layout:
 
-- keep ACR and ACA in `rg-later-life-planner`
+- place shared delivery primitives in `rg-shared-resources-uks`
+  - ACR: `acrsharedresourcesuks`
+  - ACA environment: `cae-shared-resources-uks`
+- keep the app and data services in `rg-later-life-planner`
+  - Container App: `ca-later-life-planner`
+  - Cosmos DB + Key Vault resources
 - keep Cosmos DB and the application Key Vault in the same subscription
 - use either:
   - the same resource group for simplicity, or
@@ -119,7 +126,8 @@ Recommended default for v1:
 
 Current decision:
 
-- use the existing `rg-later-life-planner` for v1 persistence resources
+- use `rg-shared-resources-uks` for shared ACA/ACR resources
+- keep persistence resources in `rg-later-life-planner`
 
 ## IaC Backfill Status
 
@@ -319,7 +327,7 @@ The current Dockerfile uses three stages:
 
 ### Image identity
 
-- image repository: `acrblackdog69llp.azurecr.io/later-life-planner`
+- image repository: `acrsharedresourcesuks.azurecr.io/later-life-planner`
 - immutable deployment tag: `github.sha`
 - convenience tags:
   - `github.run_number`
