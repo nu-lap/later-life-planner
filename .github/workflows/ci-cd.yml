@@ -231,11 +231,10 @@ jobs:
               "anthropic-api-key=${{ secrets.ANTHROPIC_API_KEY }}" \
               "turnstile-secret-key=${{ secrets.TURNSTILE_SECRET_KEY }}" \
               "clerk-secret-key=${{ secrets.CLERK_SECRET_KEY }}"
-          REVISION=$(az containerapp update \
+          az containerapp update \
             --name "$APP_NAME" \
             --resource-group "$APP_RESOURCE_GROUP" \
             --image "$ACR_LOGIN_SERVER/later-life-planner:${{ github.sha }}" \
-            --target-port 3000 \
             --set-env-vars \
               "ANTHROPIC_API_KEY=secretref:anthropic-api-key" \
               "TURNSTILE_SECRET_KEY=secretref:turnstile-secret-key" \
@@ -250,9 +249,21 @@ jobs:
               "AZURE_COSMOSDB_CONTAINER=user-plans" \
               "AZURE_KEY_VAULT_URL=$KEY_VAULT_URL" \
             --query properties.latestRevisionName \
+            -o tsv >/dev/null
+          az containerapp ingress update \
+            --name "$APP_NAME" \
+            --resource-group "$APP_RESOURCE_GROUP" \
+            --target-port 3000 \
+            --type external \
+            --transport auto \
+            --only-show-errors >/dev/null
+          REVISION=$(az containerapp show \
+            --name "$APP_NAME" \
+            --resource-group "$APP_RESOURCE_GROUP" \
+            --query properties.latestRevisionName \
             -o tsv)
           if [ -z "$REVISION" ]; then
-            echo "::error::No revision name returned from az containerapp update." >&2
+            echo "::error::No latest revision name returned after container app update." >&2
             exit 1
           fi
           echo "revision=$REVISION" >> "$GITHUB_OUTPUT"
