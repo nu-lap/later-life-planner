@@ -296,9 +296,6 @@ jobs:
           set -euo pipefail
 
           RESOURCE_GROUP="${APP_RESOURCE_GROUP}"
-          APP_NAME="${APP_NAME}"
-          COSMOS_ACCOUNT="${COSMOS_ACCOUNT}"
-          KEY_VAULT_NAME="${KEY_VAULT_NAME}"
           COSMOS_DATA_CONTRIBUTOR_ROLE_ID="00000000-0000-0000-0000-000000000002"
 
           PRINCIPAL_ID=$(az containerapp show \
