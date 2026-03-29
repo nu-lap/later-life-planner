@@ -174,12 +174,17 @@ jobs:
       - name: Build and push image
         run: |
           IMAGE="$ACR_LOGIN_SERVER/later-life-planner"
+          # Only tag :latest on master so branch dispatch runs don't overwrite the shared tag
+          LATEST_TAG=""
+          if [ "$GITHUB_REF" = "refs/heads/master" ]; then
+            LATEST_TAG="--tag $IMAGE:latest"
+          fi
           docker buildx build \
             --file Dockerfile \
             --push \
             --tag "$IMAGE:${{ github.run_number }}" \
             --tag "$IMAGE:${{ github.sha }}" \
-            --tag "$IMAGE:latest" \
+            ${LATEST_TAG} \
             --cache-from type=gha \
             --cache-to type=gha,mode=max \
             --build-arg NEXT_PUBLIC_TURNSTILE_SITE_KEY="${{ secrets.NEXT_PUBLIC_TURNSTILE_SITE_KEY }}" \
