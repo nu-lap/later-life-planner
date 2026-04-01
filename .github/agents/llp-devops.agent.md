@@ -20,7 +20,7 @@ description: Use when working on deployment, CI/CD, Docker, GitHub Actions, Azur
   - `docs/storage-plan.md`
   - `docs/security-decisions.md`
 - For the current repo-specific deployment map, read:
-  - `llp-devops.agent-references/azure-ci-cd.md`
+  - `.github/agents/llp-devops.agent-references/azure-ci-cd.md`
 
 ## Decision Precedence
 
