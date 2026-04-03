@@ -4,8 +4,17 @@
  * RULE: No financial value should be hardcoded in any component or engine.
  *       All values are defined here with source, reason, and adjustability notes.
  *
- * Update this file to keep the entire app in sync with HMRC/DWP changes.
+ * CGT, pension LSA, and UFPLS fraction values are now sourced from the HMRC
+ * tax rule snapshot (src/config/taxRuleSnapshot.ts) for the current tax year.
+ * Run `npm run gen:tax-snapshot` to refresh the snapshot when HMRC publishes new rates.
  */
+
+import { getSnapshotForYear } from './taxRuleSnapshot';
+
+// Snapshot for the current calendar year — used to initialise constants below.
+// Multi-year projections should call getSnapshotForYear(calendarYear) directly
+// (as projectionEngine.ts does) rather than relying on these static values.
+const _currentYearSnapshot = getSnapshotForYear(new Date().getFullYear());
 
 // ─── UK Income Tax 2024/25 ────────────────────────────────────────────────────
 // Source: HMRC — https://www.gov.uk/income-tax-rates
@@ -32,18 +41,18 @@ export const INCOME_TAX = {
 } as const;
 
 // ─── Capital Gains Tax ────────────────────────────────────────────────────────
-// Source: HMRC — https://www.gov.uk/capital-gains-tax/rates
+// Source: hmrc-tax-mcp rule `cgt_due` — values from taxRuleSnapshot for current year.
 // Rates on non-property assets raised in Autumn Budget 30 Oct 2024.
-// Annual exempt cut from £6,000 (2023/24) to £3,000 (2024/25).
-// User-adjustable: No (HMRC-defined). Update annually.
+// Annual exempt cut from £6,000 (2023/24) to £3,000 (2024/25 onwards).
+// User-adjustable: No (HMRC-defined). Update via `npm run gen:tax-snapshot`.
 
 export const CGT = {
   /** Annual exempt amount per person. Gains below this are not taxed. */
-  ANNUAL_EXEMPT: 3_000,
+  ANNUAL_EXEMPT: _currentYearSnapshot.cgt.exemptAmount,
   /** CGT rate for basic-rate taxpayers on non-property assets (from 30 Oct 2024). */
-  BASIC_RATE: 0.18,
+  BASIC_RATE: _currentYearSnapshot.cgt.basicRate,
   /** CGT rate for higher-rate taxpayers on non-property assets (from 30 Oct 2024). */
-  HIGHER_RATE: 0.24,
+  HIGHER_RATE: _currentYearSnapshot.cgt.higherRate,
   /** CGT rate for basic-rate taxpayers on residential property gains. */
   PROPERTY_BASIC_RATE: 0.18,
   /** CGT rate for higher-rate taxpayers on residential property gains. */
@@ -87,7 +96,9 @@ export const RLSS = {
 } as const;
 
 // ─── DC Pension: UFPLS rules ──────────────────────────────────────────────────
-// Source: HMRC pension rules
+// Source: hmrc-tax-mcp rules `pension_lsa`, `pension_ufpls_tax_free_fraction`,
+//         `pension_ufpls_taxable_fraction` — values from taxRuleSnapshot for current year.
+// Update via `npm run gen:tax-snapshot` when HMRC revises these figures.
 // The app uses a pure UFPLS (Uncrystallised Funds Pension Lump Sum) strategy.
 // No upfront PCLS lump sum is taken at crystallisation — each withdrawal spreads
 // the 25% tax-free entitlement across the drawdown period, leaving the full pot
@@ -96,22 +107,21 @@ export const RLSS = {
 export const PENSION_RULES = {
   /**
    * Fraction of each UFPLS withdrawal that is tax-free.
-   * Source: HMRC — 25% of each Uncrystallised Funds Pension Lump Sum is tax-free.
+   * Source: HMRC rule `pension_ufpls_tax_free_fraction` — 25% of each UFPLS is tax-free.
    * The remaining 75% is taxable as income in the year of withdrawal.
    * Before State Pension age, the 75% taxable portion can often be absorbed
    * by the personal allowance, making early UFPLS draws highly tax-efficient.
    */
-  UFPLS_TAX_FREE_FRACTION: 0.25,
+  UFPLS_TAX_FREE_FRACTION: _currentYearSnapshot.pension.ufplsTaxFreeFraction,
   /**
    * Lifetime Lump Sum Allowance (LSA) — the maximum total tax-free cash a person
    * can take from all pension schemes in their lifetime.
-   * Source: HMRC Finance Act 2024 — the LSA replaced the Lifetime Allowance.
+   * Source: HMRC rule `pension_lsa` (Finance Act 2024).
    * £268,275 = 25% of the former standard Lifetime Allowance (£1,073,100).
    * The 25% tax-free UFPLS portion of each withdrawal accumulates against this limit.
    * Once the LSA is exhausted, subsequent DC withdrawals are fully taxable.
-   * Update annually if HMRC revises the LSA figure.
    */
-  PCLS_LUMP_SUM_ALLOWANCE: 268_275,
+  PCLS_LUMP_SUM_ALLOWANCE: _currentYearSnapshot.pension.lsa,
   /** Minimum age at which DC pension can be accessed (rising to 57 in 2028). */
   MIN_ACCESS_AGE: 55,
 } as const;
