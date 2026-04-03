@@ -6,6 +6,7 @@
 import { describe, test, expect } from 'vitest';
 import { calcIncomeTax, calcCGT, drawFromGIA, isHigherRateTaxpayer } from '@/financialEngine/taxCalculations';
 import { INCOME_TAX, CGT } from '@/config/financialConstants';
+import { getSnapshotForYear } from '@/config/taxRuleSnapshot';
 
 // ─── calcIncomeTax ────────────────────────────────────────────────────────────
 
@@ -53,11 +54,16 @@ describe('calcIncomeTax', () => {
   test('income at additional-rate threshold → PA fully tapered to £0', () => {
     // At £125,140 the PA taper eliminates the personal allowance entirely.
     // effectivePA = max(0, 12570 − (125140 − 100000)/2) = 0
-    // basicBand  = £50,270 × 20% = £10,054
-    // higherBand = (£125,140 − £50,270) × 40% = £29,948
+    // HMRC formula: basic rate band width is always 37,700 (basicRateLimit − personalAllowance).
+    // When PA=0, the 37,700-wide basic band covers £0–£37,700; the remainder up to
+    // £125,140 falls in the higher rate band (creating the 60% effective marginal rate
+    // in the £100,000–£125,140 taper zone).
+    // basicBand  = £37,700 × 20% = £7,540
+    // higherBand = (£125,140 − £37,700) × 40% = £87,440 × 40% = £34,976
     const tax = calcIncomeTax(INCOME_TAX.ADDITIONAL_RATE_THRESHOLD);
-    const expectedBasic  = INCOME_TAX.BASIC_RATE_LIMIT * INCOME_TAX.BASIC_RATE;
-    const expectedHigher = (INCOME_TAX.ADDITIONAL_RATE_THRESHOLD - INCOME_TAX.BASIC_RATE_LIMIT) * INCOME_TAX.HIGHER_RATE;
+    const bandWidth      = INCOME_TAX.BASIC_RATE_LIMIT - INCOME_TAX.PERSONAL_ALLOWANCE; // 37,700
+    const expectedBasic  = bandWidth * INCOME_TAX.BASIC_RATE;
+    const expectedHigher = (INCOME_TAX.ADDITIONAL_RATE_THRESHOLD - bandWidth) * INCOME_TAX.HIGHER_RATE;
     expect(tax).toBeCloseTo(expectedBasic + expectedHigher, 0);
   });
 
@@ -211,5 +217,129 @@ describe('drawFromGIA', () => {
   test('capitalGain is never negative', () => {
     const r = drawFromGIA(10_000, 12_000, 5_000);
     expect(r.capitalGain).toBeGreaterThanOrEqual(0);
+  });
+});
+
+// ─── HMRC worked examples (calendarYear: 2025 → tax year 2025-26) ────────────
+// Expected values cross-checked against the hmrc-local-execute_rule tool
+// for tax year 2025-26, jurisdiction rUK.
+// HMRC rule: income_tax_due | version: 1.0.0
+// HMRC rule: cgt_due        | version: 1.0.0
+
+describe('HMRC income tax worked examples (calendarYear: 2025, tax year 2025-26)', () => {
+  const Y = 2025;
+
+  test('income £10,000 → £0 (below personal allowance)', () => {
+    expect(calcIncomeTax(10_000, Y)).toBe(0);
+  });
+
+  test('income £30,000 → £3,486 (basic rate only: (30000−12570)×20%)', () => {
+    // Verified: hmrc-local income_tax_due 2025-26 → 3486.00
+    expect(calcIncomeTax(30_000, Y)).toBeCloseTo(3_486, 0);
+  });
+
+  test('income £75,000 → £17,432 (basic + higher rate bands)', () => {
+    // basicBand = 37,700 × 20% = £7,540
+    // higherBand = (75,000 − 12,570 − 37,700) × 40% = 24,730 × 40% = £9,892
+    // total = £17,432
+    // Verified: hmrc-local income_tax_due 2025-26 → 17432.00
+    expect(calcIncomeTax(75_000, Y)).toBeCloseTo(17_432, 0);
+  });
+
+  test('income £110,000 → £33,432 (PA tapered from £12,570 to £7,570)', () => {
+    // effectivePA = 12,570 − (110,000 − 100,000) / 2 = 7,570
+    // taxable = 102,430; basicBand = 37,700 × 20% = £7,540
+    // higherBand = (110,000 − 7,570 − 37,700) × 40% = 64,730 × 40% = £25,892
+    // total = £33,432
+    // Verified: hmrc-local income_tax_due 2025-26 → 33432.00
+    expect(calcIncomeTax(110_000, Y)).toBeCloseTo(33_432, 0);
+  });
+
+  test('income £130,000 → £44,703 (PA fully tapered to £0; additional rate applies)', () => {
+    // effectivePA = 0 (fully tapered; PA reaches £0 at £125,140)
+    // basicBand = 37,700 × 20% = £7,540
+    // higherBand = (125,140 − 37,700) × 40% = 87,440 × 40% = £34,976
+    // additionalBand = (130,000 − 125,140) × 45% = 4,860 × 45% = £2,187
+    // total = £44,703
+    // Verified: hmrc-local income_tax_due 2025-26 → 44703.00
+    expect(calcIncomeTax(130_000, Y)).toBeCloseTo(44_703, 0);
+  });
+});
+
+describe('HMRC CGT worked examples (calendarYear: 2025, tax year 2025-26)', () => {
+  const Y = 2025;
+
+  test('gain £2,000, basic rate → £0 (below annual exempt amount of £3,000)', () => {
+    // Verified: hmrc-local cgt_due 2025-26 → 0.00
+    expect(calcCGT(2_000, false, Y)).toBe(0);
+  });
+
+  test('gain £10,000, basic rate → £1,260 (18% on £7,000 taxable gain)', () => {
+    // taxableGain = 10,000 − 3,000 = 7,000; CGT = 7,000 × 18% = £1,260
+    // Verified: hmrc-local cgt_due 2025-26 → 1260.00
+    expect(calcCGT(10_000, false, Y)).toBeCloseTo(1_260, 0);
+  });
+
+  test('gain £10,000, higher rate → £1,680 (24% on £7,000 taxable gain)', () => {
+    // taxableGain = 10,000 − 3,000 = 7,000; CGT = 7,000 × 24% = £1,680
+    // Verified: hmrc-local cgt_due 2025-26 → 1680.00
+    expect(calcCGT(10_000, true, Y)).toBeCloseTo(1_680, 0);
+  });
+});
+
+// ─── Snapshot fallback behaviour ─────────────────────────────────────────────
+// Verifies that getSnapshotForYear correctly falls back to the latest confirmed
+// entry when the requested year is beyond rule coverage, and that the fallback
+// flags are set correctly.
+
+describe('getSnapshotForYear — fallback behaviour', () => {
+  test('calendarYear 2025 → exact 2025-26 income tax entry; no fallback', () => {
+    const s = getSnapshotForYear(2025);
+    expect(s.taxYear).toBe('2025-26');
+    expect(s.incomeTaxBands.taxYear).toBe('2025-26');
+    expect(s.incomeTaxBands.ruleVersion).toBe('1.0.1');
+    expect(s.cgtFallback).toBe(false);
+    expect(s.pensionFallback).toBe(false);
+  });
+
+  test('calendarYear 2025 → exact 2025-26 CGT entry; cgtFallback false', () => {
+    const s = getSnapshotForYear(2025);
+    expect(s.cgt.taxYear).toBe('2025-26');
+    expect(s.cgt.exemptAmount).toBe(3_000);
+    expect(s.cgtFallback).toBe(false);
+  });
+
+  test('calendarYear 2030 → exact 2030-31 income tax entry (full coverage)', () => {
+    const s = getSnapshotForYear(2030);
+    expect(s.taxYear).toBe('2030-31');
+    expect(s.incomeTaxBands.taxYear).toBe('2030-31');
+    expect(s.incomeTaxBands.personalAllowance).toBe(12_570);
+  });
+
+  test('calendarYear 2030 → cgt falls back to 2026-27; cgtFallback true', () => {
+    const s = getSnapshotForYear(2030);
+    expect(s.cgtFallback).toBe(true);
+    // Falls back to latest confirmed CGT entry
+    expect(s.cgt.taxYear).toBe('2026-27');
+    expect(s.cgt.exemptAmount).toBe(3_000);
+    expect(s.cgt.basicRate).toBe(0.18);
+    expect(s.cgt.higherRate).toBe(0.24);
+  });
+
+  test('calendarYear 2030 → pension falls back to 2026-27; pensionFallback true', () => {
+    const s = getSnapshotForYear(2030);
+    expect(s.pensionFallback).toBe(true);
+    expect(s.pension.taxYear).toBe('2026-27');
+    expect(s.pension.lsa).toBe(268_275);
+  });
+
+  test('CGT for 2030 simulation year uses 2026-27 rates (documented fallback)', () => {
+    // This test explicitly asserts the expected fallback behaviour for long-range projections.
+    // HMRC has not published CGT rates beyond 2026-27; the fallback is by design, not a bug.
+    const s2030 = getSnapshotForYear(2030);
+    const s2026 = getSnapshotForYear(2026);
+    expect(s2030.cgt.exemptAmount).toBe(s2026.cgt.exemptAmount);
+    expect(s2030.cgt.basicRate).toBe(s2026.cgt.basicRate);
+    expect(s2030.cgt.higherRate).toBe(s2026.cgt.higherRate);
   });
 });
