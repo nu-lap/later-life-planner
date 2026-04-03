@@ -20,7 +20,7 @@ env:
   APP_NAME: ca-later-life-planner
   ACR_NAME: acrsharedresourcesuks
   ACR_LOGIN_SERVER: acrsharedresourcesuks.azurecr.io
-  COSMOS_RESOURCE_GROUP: rg-later-life-planner
+  COSMOS_RESOURCE_GROUP: rg-shared-resources-uks
   COSMOS_ACCOUNT: cosmos-llp-uks
   KEY_VAULT_RESOURCE_GROUP: rg-later-life-planner
   KEY_VAULT_NAME: kv-llp-app
