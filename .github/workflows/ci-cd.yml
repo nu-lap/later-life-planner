@@ -115,9 +115,47 @@ jobs:
             --build-arg NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL="/" \
             .
 
+  validate-tax-rules:
+    name: Validate HMRC Tax Rule Snapshot
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.ci == 'true'
+    concurrency:
+      group: ci-cd-${{ github.ref }}
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - name: Regenerate snapshot
+        # The gen:tax-snapshot script hard-codes known rule values and re-emits
+        # taxRuleSnapshot.ts. This step confirms the committed snapshot is in sync
+        # with the generator. If the generator or values change, this step regenerates
+        # the file; the next step then fails if the output differs from the committed file.
+        run: npm run gen:tax-snapshot
+
+      - name: Assert snapshot unchanged (drift detection)
+        run: |
+          if ! git diff --exit-code src/config/taxRuleSnapshot.ts; then
+            echo "::error::taxRuleSnapshot.ts differs from the committed version."
+            echo "::error::Run 'npm run gen:tax-snapshot' locally, review the diff, and commit the updated snapshot."
+            exit 1
+          fi
+
+      - name: Run tax calculation tests
+        run: npx vitest run tests/unit/taxCalculations.test.ts
+        env:
+          NODE_ENV: test
+
   merge-gate:
     runs-on: ubuntu-latest
-    needs: [changes, test, container-build-check]
+    needs: [changes, test, container-build-check, validate-tax-rules]
     if: ${{ always() && github.event_name == 'pull_request' }}
     steps:
       - name: Fail if any CI prerequisite failed
@@ -125,6 +163,7 @@ jobs:
           CHANGES_RESULT: ${{ needs.changes.result }}
           TEST_RESULT: ${{ needs.test.result }}
           CONTAINER_BUILD_RESULT: ${{ needs.container-build-check.result }}
+          VALIDATE_TAX_RESULT: ${{ needs.validate-tax-rules.result }}
         run: |
           if [ "$CHANGES_RESULT" != "success" ]; then
             echo "::error::changes job ended with result: $CHANGES_RESULT"
@@ -138,6 +177,11 @@ jobs:
 
           if [ "$CONTAINER_BUILD_RESULT" != "success" ] && [ "$CONTAINER_BUILD_RESULT" != "skipped" ]; then
             echo "::error::container-build-check job ended with result: $CONTAINER_BUILD_RESULT"
+            exit 1
+          fi
+
+          if [ "$VALIDATE_TAX_RESULT" != "success" ] && [ "$VALIDATE_TAX_RESULT" != "skipped" ]; then
+            echo "::error::validate-tax-rules job ended with result: $VALIDATE_TAX_RESULT"
             exit 1
           fi
 
