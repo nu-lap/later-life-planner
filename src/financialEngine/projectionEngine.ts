@@ -41,6 +41,7 @@ import type {
   GamificationMetrics,
 } from '@/models/types';
 import { PENSION_RULES, INCOME_TAX, CGT, RLSS } from '@/config/financialConstants';
+import { getSnapshotForYear } from '@/config/taxRuleSnapshot';
 import { calcIncomeTax, calcCGT, drawFromGIA, isHigherRateTaxpayer } from './taxCalculations';
 
 // ─── Per-person income aggregator ────────────────────────────────────────────
@@ -151,6 +152,13 @@ export function calculateProjections(state: PlannerState): YearlyProjection[] {
     const p2Age     = mode === 'couple' ? person2.currentAge + y : null;
     const inflFactor = Math.pow(1 + inflation / 100, y);
 
+    // Calendar year for this simulation iteration — used to look up the correct
+    // HMRC tax rule snapshot (income tax bands, CGT rates, pension LSA).
+    const calendarYear   = new Date().getFullYear() + y;
+    const yearSnapshot   = getSnapshotForYear(calendarYear);
+    const yearPensionLsa = yearSnapshot.pension.lsa;
+    const yearUfplsFrac  = yearSnapshot.pension.ufplsTaxFreeFraction;
+
     // ── Spending (inflation-adjusted from today's £) ───────────────────────
     const stage    = getStageForAge(lifeStages, p1Age);
     const spending = spendingCategories.reduce((s, c) => s + (c.amounts[stage.id] ?? 0), 0) * inflFactor;
@@ -253,23 +261,23 @@ export function calculateProjections(state: PlannerState): YearlyProjection[] {
         // Only draws what is actually needed to cover spending (remaining).
         if (p1Dc > 0 && dc1.enabled && p1Age >= fiAge) {
           const p1Headroom = Math.max(0, INCOME_TAX.PERSONAL_ALLOWANCE - p1TaxableFixed);
-          const maxWithinAllowance = p1Headroom / (1 - PENSION_RULES.UFPLS_TAX_FREE_FRACTION);
+          const maxWithinAllowance = p1Headroom / (1 - yearUfplsFrac);
           const d = Math.min(maxWithinAllowance, p1Dc, remaining);
           if (d > 0) {
             p1DcD += d; p1Dc -= d; remaining -= d;
-            const p1RemainingLsa = Math.max(0, PENSION_RULES.PCLS_LUMP_SUM_ALLOWANCE - p1LifetimePcls);
-            const tf = Math.min(d * PENSION_RULES.UFPLS_TAX_FREE_FRACTION, p1RemainingLsa);
+            const p1RemainingLsa = Math.max(0, yearPensionLsa - p1LifetimePcls);
+            const tf = Math.min(d * yearUfplsFrac, p1RemainingLsa);
             p1DcTaxFree += tf; p1LifetimePcls += tf;
           }
         }
         if (mode === 'couple' && remaining > 0 && p2Age !== null && p2Dc > 0 && dc2.enabled && p2Age >= fiAge) {
           const p2Headroom = Math.max(0, INCOME_TAX.PERSONAL_ALLOWANCE - p2TaxableFixed);
-          const maxWithinAllowance = p2Headroom / (1 - PENSION_RULES.UFPLS_TAX_FREE_FRACTION);
+          const maxWithinAllowance = p2Headroom / (1 - yearUfplsFrac);
           const d = Math.min(maxWithinAllowance, p2Dc, remaining);
           if (d > 0) {
             p2DcD += d; p2Dc -= d; remaining -= d;
-            const p2RemainingLsa = Math.max(0, PENSION_RULES.PCLS_LUMP_SUM_ALLOWANCE - p2LifetimePcls);
-            const tf = Math.min(d * PENSION_RULES.UFPLS_TAX_FREE_FRACTION, p2RemainingLsa);
+            const p2RemainingLsa = Math.max(0, yearPensionLsa - p2LifetimePcls);
+            const tf = Math.min(d * yearUfplsFrac, p2RemainingLsa);
             p2DcTaxFree += tf; p2LifetimePcls += tf;
           }
         }
@@ -368,15 +376,15 @@ export function calculateProjections(state: PlannerState): YearlyProjection[] {
         // other sources are exhausted or the gap exceeds the personal allowance.
         if (remaining > 0 && p1Dc > 0 && dc1.enabled && p1Age >= fiAge) {
           const d = Math.min(p1Dc, remaining); p1DcD += d; p1Dc -= d; remaining -= d;
-          const p1RemainingLsa = Math.max(0, PENSION_RULES.PCLS_LUMP_SUM_ALLOWANCE - p1LifetimePcls);
-          const tf = Math.min(d * PENSION_RULES.UFPLS_TAX_FREE_FRACTION, p1RemainingLsa);
+          const p1RemainingLsa = Math.max(0, yearPensionLsa - p1LifetimePcls);
+          const tf = Math.min(d * yearUfplsFrac, p1RemainingLsa);
           p1DcTaxFree += tf; p1LifetimePcls += tf;
         }
         if (remaining > 0 && mode === 'couple' && p2Age !== null) {
           if (p2Dc > 0 && dc2.enabled && p2Age >= fiAge) {
             const d = Math.min(p2Dc, remaining); p2DcD += d; p2Dc -= d; remaining -= d;
-            const p2RemainingLsa = Math.max(0, PENSION_RULES.PCLS_LUMP_SUM_ALLOWANCE - p2LifetimePcls);
-            const tf = Math.min(d * PENSION_RULES.UFPLS_TAX_FREE_FRACTION, p2RemainingLsa);
+            const p2RemainingLsa = Math.max(0, yearPensionLsa - p2LifetimePcls);
+            const tf = Math.min(d * yearUfplsFrac, p2RemainingLsa);
             p2DcTaxFree += tf; p2LifetimePcls += tf;
           }
         }
@@ -403,13 +411,13 @@ export function calculateProjections(state: PlannerState): YearlyProjection[] {
       p2SpTaxable      = (spExempt && p2OtherTaxable === 0) ? 0 : p2Inc.sp;
       p1TaxBasis       = p1SpTaxable + p1OtherTaxable;
       p2TaxBasis       = p2SpTaxable + p2OtherTaxable;
-      p1IncomeTax      = calcIncomeTax(p1TaxBasis);
-      p2IncomeTax      = calcIncomeTax(p2TaxBasis);
+      p1IncomeTax      = calcIncomeTax(p1TaxBasis, calendarYear);
+      p2IncomeTax      = calcIncomeTax(p2TaxBasis, calendarYear);
       incomeTaxPaid    = p1IncomeTax + p2IncomeTax;
       p1TotalCG        = p1GiaCG + jointGainEach;
       p2TotalCG        = p2GiaCG + jointGainEach;
-      p1CgtPaid        = calcCGT(p1TotalCG, isHigherRateTaxpayer(p1TaxBasis));
-      p2CgtPaid        = calcCGT(p2TotalCG, isHigherRateTaxpayer(p2TaxBasis));
+      p1CgtPaid        = calcCGT(p1TotalCG, isHigherRateTaxpayer(p1TaxBasis, calendarYear), calendarYear);
+      p2CgtPaid        = calcCGT(p2TotalCG, isHigherRateTaxpayer(p2TaxBasis, calendarYear), calendarYear);
       totalCgtPaid     = p1CgtPaid + p2CgtPaid;
       totalTaxPaid     = incomeTaxPaid + totalCgtPaid;
 
