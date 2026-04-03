@@ -96,30 +96,51 @@ The snapshot stores a `latestAvailableYear` per rule so `getSnapshotForYear` can
 
 ```typescript
 // src/config/taxRuleSnapshot.ts (generated — do not edit by hand)
-export interface TaxYearSnapshot {
-  taxYear: string;          // e.g. "2025-26"
-  jurisdiction: "rUK";
-  ruleVersion: string;      // semver of the rule set used
-  generatedAt: string;      // ISO timestamp
-  pensionLsa: number;
-  ufplsTaxFreeFraction: number;
-  ufplsTaxableFraction: number;
-  cgtExemptAmount: number;
-  cgtRates: { basicRate: number; higherRate: number };
-  fullNewStatePensionAnnual: number;
-  incomeTaxBands: {
-    personalAllowance: number;
-    basicRateLimit: number;
-    additionalRateThreshold: number;
-    basicRate: number;
-    higherRate: number;
-    additionalRate: number;
-    paTaperThreshold: number;
-  };
+
+export interface IncomeTaxBands {
+  taxYear: string;
+  ruleVersion: string;
+  personalAllowance: number;
+  basicRateLimit: number;
+  additionalRateThreshold: number;
+  paTaperThreshold: number;
+  basicRate: number;
+  higherRate: number;
+  additionalRate: number;
 }
 
-export const TAX_RULE_SNAPSHOT: Record<string, TaxYearSnapshot> = { ... };
-export const LATEST_TAX_YEAR = "2030-31";
+export interface CgtSnapshot {
+  taxYear: string;
+  exemptAmount: number;
+  basicRate: number;
+  higherRate: number;
+}
+
+export interface PensionSnapshot {
+  taxYear: string;
+  lsa: number;
+  ufplsTaxFreeFraction: number;
+  ufplsTaxableFraction: number;
+}
+
+// Resolved value returned by getSnapshotForYear — one entry per simulation year
+export interface ResolvedSnapshot {
+  taxYear: string;
+  incomeTaxBands: IncomeTaxBands;
+  cgt: CgtSnapshot;
+  pension: PensionSnapshot;
+  statePensionAnnual: number;
+  cgtFallback: boolean;     // true when cgt entry was absent for requested year
+  pensionFallback: boolean; // true when pension entry was absent for requested year
+}
+
+// The raw snapshot is grouped by rule, not keyed by year
+export const TAX_RULE_SNAPSHOT: {
+  incomeTaxBands: Record<string, IncomeTaxBands>; // confirmed through 2030-31
+  cgt:            Record<string, CgtSnapshot>;    // confirmed through 2026-27
+  pension:        Record<string, PensionSnapshot>; // confirmed through 2026-27
+  statePension:   Record<string, { annualAmount: number }>; // confirmed through 2026-27
+} = { ... };
 ```
 
 ### Running the generator
@@ -142,42 +163,60 @@ The script requires the `hmrc-local` MCP server to be reachable (it is available
 
 ## Tax Year Lookup (`getSnapshotForYear`)
 
-The projection engine needs to look up the correct snapshot for each simulation year. Because rule coverage is not uniform, the snapshot stores each rule's value independently per tax year, with a per-rule fallback to its latest available entry:
+The projection engine needs to look up the correct snapshot for each simulation year. Because rule coverage is not uniform, the snapshot stores each rule's value independently per tax year, with a per-rule fallback to its latest available entry.
+
+Results are **memoized** (one `Map` keyed by `calendarYear`) and fallback warnings are **deduplicated** (emitted at most once per rule group per tax year per process, suppressed in `NODE_ENV=test`).
 
 ```typescript
 // src/config/taxRuleSnapshot.ts
 
-export function getSnapshotForYear(calendarYear: number): TaxYearSnapshot {
+/** Memoized resolved snapshots keyed by calendarYear. */
+const _resolvedCache = new Map<number, ResolvedSnapshot>();
+/** Tracks which (group, taxYear) warnings have already been emitted. */
+const _warnedKeys = new Set<string>();
+
+export function getSnapshotForYear(calendarYear: number): ResolvedSnapshot {
+  const cached = _resolvedCache.get(calendarYear);
+  if (cached) return cached;
+
   const taxYear = `${calendarYear}-${String(calendarYear + 1).slice(-2)}`;
 
-  // Income tax: full coverage — use exact year or fall back to latest
-  const incomeTaxEntry =
+  // Income tax: full coverage through 2030-31.
+  const incomeTaxBands =
     TAX_RULE_SNAPSHOT.incomeTaxBands[taxYear] ??
     TAX_RULE_SNAPSHOT.incomeTaxBands[LATEST_INCOME_TAX_YEAR];
 
-  // CGT, pension, UFPLS: only confirmed to 2026-27 — fall back gracefully
-  const cgtEntry =
-    TAX_RULE_SNAPSHOT.cgt[taxYear] ??
-    TAX_RULE_SNAPSHOT.cgt[LATEST_CGT_YEAR];
+  // CGT: only confirmed to 2026-27. Fall back gracefully.
+  const cgtEntry = TAX_RULE_SNAPSHOT.cgt[taxYear];
+  const cgtFallback = !cgtEntry;
+  const cgt = cgtEntry ?? TAX_RULE_SNAPSHOT.cgt[LATEST_CGT_YEAR];
 
-  const pensionEntry =
-    TAX_RULE_SNAPSHOT.pension[taxYear] ??
-    TAX_RULE_SNAPSHOT.pension[LATEST_PENSION_YEAR];
+  // Pension: only confirmed to 2026-27. Fall back gracefully.
+  const pensionEntry = TAX_RULE_SNAPSHOT.pension[taxYear];
+  const pensionFallback = !pensionEntry;
+  const pension = pensionEntry ?? TAX_RULE_SNAPSHOT.pension[LATEST_PENSION_YEAR];
 
-  if (!(taxYear in TAX_RULE_SNAPSHOT.cgt) && process.env.NODE_ENV !== "test") {
-    console.warn(
-      `[hmrc-tax-mcp] CGT/pension rules not confirmed for ${taxYear}. ` +
-      `Using latest available (${LATEST_CGT_YEAR}). Update snapshot when HMRC publishes rates.`
-    );
+  // State pension: only confirmed to 2026-27. Fall back gracefully.
+  const spEntry = TAX_RULE_SNAPSHOT.statePension[taxYear];
+  const statePensionAnnual = spEntry?.annualAmount
+    ?? TAX_RULE_SNAPSHOT.statePension[LATEST_STATE_PENSION_YEAR].annualAmount;
+
+  if (process.env.NODE_ENV !== 'test') {
+    const warn = (key: string, message: string) => {
+      if (!_warnedKeys.has(key)) { _warnedKeys.add(key); console.warn(message); }
+    };
+    if (cgtFallback)     warn(`cgt:${taxYear}`,     `[hmrc-tax-mcp] CGT not confirmed for ${taxYear}. Using ${LATEST_CGT_YEAR}.`);
+    if (pensionFallback) warn(`pension:${taxYear}`, `[hmrc-tax-mcp] Pension not confirmed for ${taxYear}. Using ${LATEST_PENSION_YEAR}.`);
+    if (!spEntry)        warn(`sp:${taxYear}`,      `[hmrc-tax-mcp] State pension not confirmed for ${taxYear}. Using ${LATEST_STATE_PENSION_YEAR}.`);
   }
 
-  return {
-    taxYear,
-    incomeTaxBands: incomeTaxEntry,
-    cgt: cgtEntry,
-    pension: pensionEntry,
+  const resolved: ResolvedSnapshot = {
+    taxYear, incomeTaxBands, cgt, pension, statePensionAnnual, cgtFallback, pensionFallback,
   };
+  _resolvedCache.set(calendarYear, resolved);
+  return resolved;
 }
+```
 ```
 
 The snapshot is therefore structured by rule group, not as a flat record keyed only by year:
@@ -283,24 +322,26 @@ export function calcCGT(
 
 ### Constants consumed from snapshot
 
-In `financialConstants.ts`, replace hardcoded pension constants with snapshot values. For the default (current) tax year:
+In `financialConstants.ts`, replace hardcoded pension constants with snapshot values. Use the pinned `CURRENT_TAX_YEAR_START` constant (not `new Date()`) for deterministic server/client behaviour:
 
 ```typescript
 import { getSnapshotForYear } from "./taxRuleSnapshot";
 
-const CURRENT_YEAR_SNAPSHOT = getSnapshotForYear(new Date().getFullYear());
+// Pinned to the current tax year — bump each April alongside `npm run gen:tax-snapshot`.
+export const CURRENT_TAX_YEAR_START = 2025; // 2025-26 tax year
+const _snapshot = getSnapshotForYear(CURRENT_TAX_YEAR_START);
 
 export const PENSION_RULES = {
-  UFPLS_TAX_FREE_FRACTION: CURRENT_YEAR_SNAPSHOT.ufplsTaxFreeFraction,  // 0.25
-  UFPLS_TAXABLE_FRACTION: CURRENT_YEAR_SNAPSHOT.ufplsTaxableFraction,   // 0.75
-  LIFETIME_LUMP_SUM_ALLOWANCE: CURRENT_YEAR_SNAPSHOT.pensionLsa,         // 268275
+  UFPLS_TAX_FREE_FRACTION: _snapshot.pension.ufplsTaxFreeFraction,  // 0.25
+  UFPLS_TAXABLE_FRACTION:  _snapshot.pension.ufplsTaxableFraction,   // 0.75
+  LIFETIME_LUMP_SUM_ALLOWANCE: _snapshot.pension.lsa,                // 268275
   // ... rest unchanged
 };
 
 export const CGT = {
-  ANNUAL_EXEMPT_AMOUNT: CURRENT_YEAR_SNAPSHOT.cgtExemptAmount,            // 3000
-  BASIC_RATE: CURRENT_YEAR_SNAPSHOT.cgtRates.basicRate,                   // 18
-  HIGHER_RATE: CURRENT_YEAR_SNAPSHOT.cgtRates.higherRate,                 // 24
+  ANNUAL_EXEMPT: _snapshot.cgt.exemptAmount, // 3000
+  BASIC_RATE:    _snapshot.cgt.basicRate,    // 0.18
+  HIGHER_RATE:   _snapshot.cgt.higherRate,   // 0.24
   // ...
 };
 ```
@@ -353,12 +394,12 @@ The projection engine needs minimal changes:
 
 ```typescript
 // Inside the main simulation loop, at the top of each year iteration:
-const calendarYear = new Date().getFullYear() + y;
+const calendarYear = CURRENT_TAX_YEAR_START + y;
 const yearSnapshot = getSnapshotForYear(calendarYear);
 
 // Replace hardcoded constants:
-const lsa = yearSnapshot.pensionLsa;                    // was: PENSION_RULES.LIFETIME_LUMP_SUM_ALLOWANCE
-const ufplsFraction = yearSnapshot.ufplsTaxFreeFraction; // was: PENSION_RULES.UFPLS_TAX_FREE_FRACTION
+const lsa = yearSnapshot.pension.lsa;                          // was: PENSION_RULES.LIFETIME_LUMP_SUM_ALLOWANCE
+const ufplsFraction = yearSnapshot.pension.ufplsTaxFreeFraction; // was: PENSION_RULES.UFPLS_TAX_FREE_FRACTION
 
 // Pass calendarYear to tax functions:
 const p1Tax = calcIncomeTax(p1TaxBasis, calendarYear);

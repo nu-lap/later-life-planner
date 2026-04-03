@@ -11,44 +11,46 @@ import { getSnapshotForYear } from '@/config/taxRuleSnapshot';
 // ─── calcIncomeTax ────────────────────────────────────────────────────────────
 
 describe('calcIncomeTax', () => {
+  const Y = 2025; // pin to 2025-26 tax year for deterministic expectations
+
   test('zero income → £0', () => {
-    expect(calcIncomeTax(0)).toBe(0);
+    expect(calcIncomeTax(0, Y)).toBe(0);
   });
 
   test('income below personal allowance → £0', () => {
-    expect(calcIncomeTax(10_000)).toBe(0);
+    expect(calcIncomeTax(10_000, Y)).toBe(0);
   });
 
   test('income exactly at personal allowance → £0', () => {
-    expect(calcIncomeTax(INCOME_TAX.PERSONAL_ALLOWANCE)).toBe(0);
+    expect(calcIncomeTax(INCOME_TAX.PERSONAL_ALLOWANCE, Y)).toBe(0);
   });
 
   test('£1 above personal allowance → 20p tax', () => {
-    expect(calcIncomeTax(INCOME_TAX.PERSONAL_ALLOWANCE + 1)).toBeCloseTo(0.20, 2);
+    expect(calcIncomeTax(INCOME_TAX.PERSONAL_ALLOWANCE + 1, Y)).toBeCloseTo(0.20, 2);
   });
 
   test('£20,000 income → £1,486 (£7,430 × 20%)', () => {
-    expect(calcIncomeTax(20_000)).toBeCloseTo(1_486, 0);
+    expect(calcIncomeTax(20_000, Y)).toBeCloseTo(1_486, 0);
   });
 
   test('income at basic-rate limit → £7,540 (full basic band at 20%)', () => {
     const expected = (INCOME_TAX.BASIC_RATE_LIMIT - INCOME_TAX.PERSONAL_ALLOWANCE) * INCOME_TAX.BASIC_RATE;
-    expect(calcIncomeTax(INCOME_TAX.BASIC_RATE_LIMIT)).toBeCloseTo(expected, 0);
+    expect(calcIncomeTax(INCOME_TAX.BASIC_RATE_LIMIT, Y)).toBeCloseTo(expected, 0);
   });
 
   test('£1 above basic-rate limit → basic band + 40p higher rate', () => {
     const basicTax = (INCOME_TAX.BASIC_RATE_LIMIT - INCOME_TAX.PERSONAL_ALLOWANCE) * INCOME_TAX.BASIC_RATE;
-    expect(calcIncomeTax(INCOME_TAX.BASIC_RATE_LIMIT + 1)).toBeCloseTo(basicTax + 0.40, 2);
+    expect(calcIncomeTax(INCOME_TAX.BASIC_RATE_LIMIT + 1, Y)).toBeCloseTo(basicTax + 0.40, 2);
   });
 
   test('£60,000 income → correct higher-rate calculation', () => {
     const basicBand  = (INCOME_TAX.BASIC_RATE_LIMIT - INCOME_TAX.PERSONAL_ALLOWANCE) * INCOME_TAX.BASIC_RATE;
     const higherBand = (60_000 - INCOME_TAX.BASIC_RATE_LIMIT) * INCOME_TAX.HIGHER_RATE;
-    expect(calcIncomeTax(60_000)).toBeCloseTo(basicBand + higherBand, 0);
+    expect(calcIncomeTax(60_000, Y)).toBeCloseTo(basicBand + higherBand, 0);
   });
 
   test('negative income → £0 (never negative)', () => {
-    expect(calcIncomeTax(-5_000)).toBe(0);
+    expect(calcIncomeTax(-5_000, Y)).toBe(0);
   });
 
   test('income at additional-rate threshold → PA fully tapered to £0', () => {
@@ -60,7 +62,7 @@ describe('calcIncomeTax', () => {
     // in the £100,000–£125,140 taper zone).
     // basicBand  = £37,700 × 20% = £7,540
     // higherBand = (£125,140 − £37,700) × 40% = £87,440 × 40% = £34,976
-    const tax = calcIncomeTax(INCOME_TAX.ADDITIONAL_RATE_THRESHOLD);
+    const tax = calcIncomeTax(INCOME_TAX.ADDITIONAL_RATE_THRESHOLD, Y);
     const bandWidth      = INCOME_TAX.BASIC_RATE_LIMIT - INCOME_TAX.PERSONAL_ALLOWANCE; // 37,700
     const expectedBasic  = bandWidth * INCOME_TAX.BASIC_RATE;
     const expectedHigher = (INCOME_TAX.ADDITIONAL_RATE_THRESHOLD - bandWidth) * INCOME_TAX.HIGHER_RATE;
@@ -70,7 +72,7 @@ describe('calcIncomeTax', () => {
   test('income in PA taper zone (£110,000) → reduced PA increases tax vs fixed PA', () => {
     // effectivePA = max(0, 12570 − (110000 − 100000)/2) = 7570
     // At £110,000 with fixed PA the tax would be £31,432; with taper it's £32,432 (£1,000 more).
-    const taxWithTaper = calcIncomeTax(110_000);
+    const taxWithTaper = calcIncomeTax(110_000, Y);
     const taxFixedPa   = (INCOME_TAX.BASIC_RATE_LIMIT - INCOME_TAX.PERSONAL_ALLOWANCE) * INCOME_TAX.BASIC_RATE
                        + (110_000 - INCOME_TAX.BASIC_RATE_LIMIT) * INCOME_TAX.HIGHER_RATE;
     expect(taxWithTaper).toBeGreaterThan(taxFixedPa);
@@ -78,12 +80,12 @@ describe('calcIncomeTax', () => {
 
   test('income above additional-rate threshold → 45% band applies', () => {
     // £140,000: additional band = 140000 − 125140 = £14,860 at 45%
-    const tax = calcIncomeTax(140_000);
+    const tax = calcIncomeTax(140_000, Y);
     const additionalTax = (140_000 - INCOME_TAX.ADDITIONAL_RATE_THRESHOLD) * INCOME_TAX.ADDITIONAL_RATE;
     // Tax must include the 45% additional band contribution
     expect(tax).toBeGreaterThan(additionalTax);
     // Verify additional band is taxed at 45% by checking total exceeds the higher-rate-only result
-    const higherRateOnly = calcIncomeTax(INCOME_TAX.ADDITIONAL_RATE_THRESHOLD);
+    const higherRateOnly = calcIncomeTax(INCOME_TAX.ADDITIONAL_RATE_THRESHOLD, Y);
     expect(tax).toBeGreaterThan(higherRateOnly);
   });
 });
@@ -91,60 +93,64 @@ describe('calcIncomeTax', () => {
 // ─── isHigherRateTaxpayer ─────────────────────────────────────────────────────
 
 describe('isHigherRateTaxpayer', () => {
+  const Y = 2025;
+
   test('£0 income → false', () => {
-    expect(isHigherRateTaxpayer(0)).toBe(false);
+    expect(isHigherRateTaxpayer(0, Y)).toBe(false);
   });
 
   test('income below basic-rate limit → false', () => {
-    expect(isHigherRateTaxpayer(30_000)).toBe(false);
+    expect(isHigherRateTaxpayer(30_000, Y)).toBe(false);
   });
 
   test('income at basic-rate limit → false', () => {
-    expect(isHigherRateTaxpayer(INCOME_TAX.BASIC_RATE_LIMIT)).toBe(false);
+    expect(isHigherRateTaxpayer(INCOME_TAX.BASIC_RATE_LIMIT, Y)).toBe(false);
   });
 
   test('£1 above basic-rate limit → true', () => {
-    expect(isHigherRateTaxpayer(INCOME_TAX.BASIC_RATE_LIMIT + 1)).toBe(true);
+    expect(isHigherRateTaxpayer(INCOME_TAX.BASIC_RATE_LIMIT + 1, Y)).toBe(true);
   });
 
   test('£100,000 income → true', () => {
-    expect(isHigherRateTaxpayer(100_000)).toBe(true);
+    expect(isHigherRateTaxpayer(100_000, Y)).toBe(true);
   });
 });
 
 // ─── calcCGT ─────────────────────────────────────────────────────────────────
 
 describe('calcCGT', () => {
+  const Y = 2025;
+
   test('zero gain → £0', () => {
-    expect(calcCGT(0, false)).toBe(0);
+    expect(calcCGT(0, false, Y)).toBe(0);
   });
 
   test('gain below annual exempt → £0', () => {
-    expect(calcCGT(CGT.ANNUAL_EXEMPT - 1, false)).toBe(0);
+    expect(calcCGT(CGT.ANNUAL_EXEMPT - 1, false, Y)).toBe(0);
   });
 
   test('gain exactly at annual exempt → £0', () => {
-    expect(calcCGT(CGT.ANNUAL_EXEMPT, false)).toBe(0);
+    expect(calcCGT(CGT.ANNUAL_EXEMPT, false, Y)).toBe(0);
   });
 
   test('£1 above exempt, basic rate → 18p', () => {
-    expect(calcCGT(CGT.ANNUAL_EXEMPT + 1, false)).toBeCloseTo(CGT.BASIC_RATE, 2);
+    expect(calcCGT(CGT.ANNUAL_EXEMPT + 1, false, Y)).toBeCloseTo(CGT.BASIC_RATE, 2);
   });
 
   test('£10,000 gain, basic rate → £1,260 (£7,000 × 18%)', () => {
-    expect(calcCGT(10_000, false)).toBeCloseTo((10_000 - CGT.ANNUAL_EXEMPT) * CGT.BASIC_RATE, 0);
+    expect(calcCGT(10_000, false, Y)).toBeCloseTo((10_000 - CGT.ANNUAL_EXEMPT) * CGT.BASIC_RATE, 0);
   });
 
   test('£10,000 gain, higher rate → £1,680 (£7,000 × 24%)', () => {
-    expect(calcCGT(10_000, true)).toBeCloseTo((10_000 - CGT.ANNUAL_EXEMPT) * CGT.HIGHER_RATE, 0);
+    expect(calcCGT(10_000, true, Y)).toBeCloseTo((10_000 - CGT.ANNUAL_EXEMPT) * CGT.HIGHER_RATE, 0);
   });
 
   test('negative gain → £0', () => {
-    expect(calcCGT(-5_000, false)).toBe(0);
+    expect(calcCGT(-5_000, false, Y)).toBe(0);
   });
 
   test('basic rate (18%) is less than higher rate (24%) for same gain', () => {
-    expect(calcCGT(10_000, false)).toBeLessThan(calcCGT(10_000, true));
+    expect(calcCGT(10_000, false, Y)).toBeLessThan(calcCGT(10_000, true, Y));
   });
 });
 

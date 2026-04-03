@@ -14,6 +14,7 @@
  */
 
 import { getSnapshotForYear } from '@/config/taxRuleSnapshot';
+import { CURRENT_TAX_YEAR_START } from '@/config/financialConstants';
 
 /**
  * Calculate UK income tax for a given adjusted net income figure.
@@ -34,7 +35,7 @@ import { getSnapshotForYear } from '@/config/taxRuleSnapshot';
 export function calcIncomeTax(taxableIncome: number, calendarYear?: number): number {
   if (taxableIncome <= 0) return 0;
 
-  const s = getSnapshotForYear(calendarYear ?? new Date().getFullYear());
+  const s = getSnapshotForYear(calendarYear ?? CURRENT_TAX_YEAR_START);
   const bands = s.incomeTaxBands;
 
   // Personal allowance tapers by £1 for every £2 above paTaperThreshold (£100,000),
@@ -75,7 +76,7 @@ export function calcIncomeTax(taxableIncome: number, calendarYear?: number): num
  * @param calendarYear   - Calendar year for rule lookup (default: current year)
  */
 export function isHigherRateTaxpayer(taxableIncome: number, calendarYear?: number): boolean {
-  const s = getSnapshotForYear(calendarYear ?? new Date().getFullYear());
+  const s = getSnapshotForYear(calendarYear ?? CURRENT_TAX_YEAR_START);
   return taxableIncome > s.incomeTaxBands.basicRateLimit;
 }
 
@@ -90,7 +91,7 @@ export function isHigherRateTaxpayer(taxableIncome: number, calendarYear?: numbe
  * @returns CGT due (£)
  */
 export function calcCGT(capitalGain: number, higherRate: boolean, calendarYear?: number): number {
-  const s = getSnapshotForYear(calendarYear ?? new Date().getFullYear());
+  const s = getSnapshotForYear(calendarYear ?? CURRENT_TAX_YEAR_START);
   const taxableGain = Math.max(0, capitalGain - s.cgt.exemptAmount);
   return taxableGain * (higherRate ? s.cgt.higherRate : s.cgt.basicRate);
 }

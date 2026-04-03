@@ -40,7 +40,7 @@ import type {
   PersonIncomeSources, PersonAssets, SimulationResult,
   GamificationMetrics,
 } from '@/models/types';
-import { PENSION_RULES, INCOME_TAX, CGT, RLSS } from '@/config/financialConstants';
+import { CGT, RLSS, CURRENT_TAX_YEAR_START } from '@/config/financialConstants';
 import { getSnapshotForYear } from '@/config/taxRuleSnapshot';
 import { calcIncomeTax, calcCGT, drawFromGIA, isHigherRateTaxpayer } from './taxCalculations';
 
@@ -154,7 +154,7 @@ export function calculateProjections(state: PlannerState): YearlyProjection[] {
 
     // Calendar year for this simulation iteration — used to look up the correct
     // HMRC tax rule snapshot (income tax bands, CGT rates, pension LSA).
-    const calendarYear   = new Date().getFullYear() + y;
+    const calendarYear   = CURRENT_TAX_YEAR_START + y;
     const yearSnapshot   = getSnapshotForYear(calendarYear);
     const yearPensionLsa = yearSnapshot.pension.lsa;
     const yearUfplsFrac  = yearSnapshot.pension.ufplsTaxFreeFraction;
