@@ -1,71 +1,98 @@
 /**
  * UK tax calculation helpers.
  *
- * All thresholds and rates come from /config/financialConstants — never hardcoded here.
- * Each function is pure (no side effects) and unit-testable.
+ * All thresholds and rates are sourced from the HMRC tax rule snapshot
+ * (src/config/taxRuleSnapshot.ts) via getSnapshotForYear(calendarYear).
+ * Each function accepts an optional calendarYear parameter (defaults to the
+ * current calendar year) so multi-year projections can use the correct
+ * rule snapshot for each simulation year.
+ *
+ * HMRC rule references:
+ *   calcIncomeTax       → rule_id: income_tax_due  | version: 1.0.0+
+ *   isHigherRateTaxpayer → rule_id: is_higher_rate_taxpayer | version: 1.0.0+
+ *   calcCGT             → rule_id: cgt_due          | version: 1.0.0+
  */
 
-import { INCOME_TAX, CGT } from '@/config/financialConstants';
+import { getSnapshotForYear } from '@/config/taxRuleSnapshot';
 
 /**
- * Calculate UK income tax for a given taxable income figure.
- * Uses 2024/25 bands from financialConstants.
+ * Calculate UK income tax for a given adjusted net income figure.
+ * Uses HMRC rule `income_tax_due` bands for the specified calendar year.
  *
  * Handles:
  * - Personal allowance taper: PA reduces by £1 per £2 above £100,000, reaching £0 at £125,140.
  * - Three rate bands: basic (20%), higher (40%), additional (45% above £125,140).
  *
- * @param taxableIncome - Gross taxable income before personal allowance (£)
+ * The basic rate band is always 37,700 wide (basicRateLimit − personalAllowance).
+ * When the PA is tapered, additional income is absorbed into the higher rate band,
+ * creating an effective 60% marginal rate in the £100,000–£125,140 taper zone.
+ *
+ * @param taxableIncome  - Adjusted net income before personal allowance (£)
+ * @param calendarYear   - Calendar year for rule lookup (default: current year)
  * @returns Income tax due (£)
  */
-export function calcIncomeTax(taxableIncome: number): number {
+export function calcIncomeTax(taxableIncome: number, calendarYear?: number): number {
   if (taxableIncome <= 0) return 0;
 
-  // Personal allowance tapers by £1 for every £2 above PA_TAPER_THRESHOLD (£100,000),
-  // reaching £0 at ADDITIONAL_RATE_THRESHOLD (£125,140).
+  const s = getSnapshotForYear(calendarYear ?? new Date().getFullYear());
+  const bands = s.incomeTaxBands;
+
+  // Personal allowance tapers by £1 for every £2 above paTaperThreshold (£100,000),
+  // reaching £0 at additionalRateThreshold (£125,140).
   const effectivePA = Math.max(
     0,
-    INCOME_TAX.PERSONAL_ALLOWANCE - Math.max(0, taxableIncome - INCOME_TAX.PA_TAPER_THRESHOLD) / 2,
+    bands.personalAllowance - Math.max(0, taxableIncome - bands.paTaperThreshold) / 2,
   );
 
   if (taxableIncome <= effectivePA) return 0;
 
-  const basicBand = Math.max(0, Math.min(
-    taxableIncome - effectivePA,
-    INCOME_TAX.BASIC_RATE_LIMIT - effectivePA,
-  ));
+  const taxable = taxableIncome - effectivePA;
+
+  // The basic rate band width is always (basicRateLimit − personalAllowance) = £37,700.
+  // When PA is tapered below the original allowance, additional taxable income
+  // above the band cap flows into the higher rate band (HMRC rule: income_tax_due).
+  const bandWidth = bands.basicRateLimit - bands.personalAllowance;
+  const basicBand = Math.min(taxable, bandWidth);
   const higherBand = Math.max(
     0,
-    Math.min(taxableIncome, INCOME_TAX.ADDITIONAL_RATE_THRESHOLD) - INCOME_TAX.BASIC_RATE_LIMIT,
+    Math.min(taxableIncome, bands.additionalRateThreshold) - effectivePA - basicBand,
   );
-  const additionalBand = Math.max(0, taxableIncome - INCOME_TAX.ADDITIONAL_RATE_THRESHOLD);
+  const additionalBand = Math.max(0, taxableIncome - bands.additionalRateThreshold);
 
   return (
-    basicBand      * INCOME_TAX.BASIC_RATE +
-    higherBand     * INCOME_TAX.HIGHER_RATE +
-    additionalBand * INCOME_TAX.ADDITIONAL_RATE
+    basicBand      * bands.basicRate +
+    higherBand     * bands.higherRate +
+    additionalBand * bands.additionalRate
   );
 }
 
 /**
  * Returns true if this taxable income level pushes the person into the higher-rate band.
  * Used to determine which CGT rate applies.
+ * rule_id: is_higher_rate_taxpayer | version: 1.0.0+
+ *
+ * @param taxableIncome  - Adjusted net income (£)
+ * @param calendarYear   - Calendar year for rule lookup (default: current year)
  */
-export function isHigherRateTaxpayer(taxableIncome: number): boolean {
-  return taxableIncome > INCOME_TAX.BASIC_RATE_LIMIT;
+export function isHigherRateTaxpayer(taxableIncome: number, calendarYear?: number): boolean {
+  const s = getSnapshotForYear(calendarYear ?? new Date().getFullYear());
+  return taxableIncome > s.incomeTaxBands.basicRateLimit;
 }
 
 /**
  * Calculate CGT due on a capital gain using the proportional disposal method.
  * Annual exempt amount is applied per person.
+ * rule_id: cgt_due | version: 1.0.0+
  *
- * @param capitalGain - Total gain realised this year (£)
- * @param higherRate  - True if the person is a higher-rate taxpayer
+ * @param capitalGain    - Total gain realised this year (£)
+ * @param higherRate     - True if the person is a higher-rate taxpayer
+ * @param calendarYear   - Calendar year for rule lookup (default: current year)
  * @returns CGT due (£)
  */
-export function calcCGT(capitalGain: number, higherRate: boolean): number {
-  const taxableGain = Math.max(0, capitalGain - CGT.ANNUAL_EXEMPT);
-  return taxableGain * (higherRate ? CGT.HIGHER_RATE : CGT.BASIC_RATE);
+export function calcCGT(capitalGain: number, higherRate: boolean, calendarYear?: number): number {
+  const s = getSnapshotForYear(calendarYear ?? new Date().getFullYear());
+  const taxableGain = Math.max(0, capitalGain - s.cgt.exemptAmount);
+  return taxableGain * (higherRate ? s.cgt.higherRate : s.cgt.basicRate);
 }
 
 /**
