@@ -257,7 +257,7 @@ export function getSnapshotForYear(calendarYear: number): ResolvedSnapshot {
       warn(
         `cgt:${taxYear}`,
         `[hmrc-tax-mcp] CGT rules not confirmed for ${taxYear}. ` +
-        `Using latest available entry (${LATEST_CGT_YEAR}). ` +
+        `Using latest available entry (2026-27). ` +
         `Update snapshot when HMRC publishes new CGT rates.`,
       );
     }
@@ -265,7 +265,7 @@ export function getSnapshotForYear(calendarYear: number): ResolvedSnapshot {
       warn(
         `pension:${taxYear}`,
         `[hmrc-tax-mcp] Pension rules not confirmed for ${taxYear}. ` +
-        `Using latest available entry (${LATEST_PENSION_YEAR}). ` +
+        `Using latest available entry (2026-27). ` +
         `Update snapshot when HMRC publishes new pension allowances.`,
       );
     }
@@ -273,7 +273,7 @@ export function getSnapshotForYear(calendarYear: number): ResolvedSnapshot {
       warn(
         `sp:${taxYear}`,
         `[hmrc-tax-mcp] State pension annual amount not confirmed for ${taxYear}. ` +
-        `Using latest available entry (${LATEST_STATE_PENSION_YEAR}).`,
+        `Using latest available entry (2026-27).`,
       );
     }
   }

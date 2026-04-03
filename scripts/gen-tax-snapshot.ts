@@ -245,6 +245,11 @@ export interface ResolvedSnapshot {
   pensionFallback: boolean;
 }
 
+/** Memoized resolved snapshots keyed by calendarYear to avoid repeated lookups and log spam. */
+const _resolvedCache = new Map<number, ResolvedSnapshot>();
+/** Tracks which (group, taxYear) warning messages have already been emitted this process. */
+const _warnedKeys = new Set<string>();
+
 /**
  * Look up the tax rule snapshot for a given calendar year.
  *
@@ -253,11 +258,15 @@ export interface ResolvedSnapshot {
  * Rule coverage is not uniform:
  *  - Income tax bands: confirmed through ${LATEST_INCOME_TAX_YEAR} (falls back to ${LATEST_INCOME_TAX_YEAR} entry if beyond).
  *  - CGT / pension: confirmed through ${LATEST_CGT_YEAR} only. Falls back and sets cgtFallback /
- *    pensionFallback flags. A console.warn is emitted per group (suppressed in NODE_ENV=test).
+ *    pensionFallback flags. A console.warn is emitted at most once per (group, taxYear)
+ *    per process (suppressed entirely in NODE_ENV=test).
  *
  * @param calendarYear - e.g. 2025 maps to tax year "2025-26"
  */
 export function getSnapshotForYear(calendarYear: number): ResolvedSnapshot {
+  const cached = _resolvedCache.get(calendarYear);
+  if (cached) return cached;
+
   const taxYear = \`\${calendarYear}-\${String(calendarYear + 1).slice(-2)}\`;
 
   // Income tax: full coverage through ${LATEST_INCOME_TAX_YEAR}.
@@ -282,29 +291,42 @@ export function getSnapshotForYear(calendarYear: number): ResolvedSnapshot {
     : TAX_RULE_SNAPSHOT.statePension[LATEST_STATE_PENSION_YEAR].annualAmount;
 
   if (process.env.NODE_ENV !== 'test') {
+    const warn = (key: string, message: string) => {
+      if (!_warnedKeys.has(key)) {
+        _warnedKeys.add(key);
+        console.warn(message);
+      }
+    };
     if (cgtFallback) {
-      console.warn(
+      warn(
+        \`cgt:\${taxYear}\`,
         \`[hmrc-tax-mcp] CGT rules not confirmed for \${taxYear}. \` +
         \`Using latest available entry (${LATEST_CGT_YEAR}). \` +
         \`Update snapshot when HMRC publishes new CGT rates.\`,
       );
     }
     if (pensionFallback) {
-      console.warn(
+      warn(
+        \`pension:\${taxYear}\`,
         \`[hmrc-tax-mcp] Pension rules not confirmed for \${taxYear}. \` +
         \`Using latest available entry (${LATEST_PENSION_YEAR}). \` +
         \`Update snapshot when HMRC publishes new pension allowances.\`,
       );
     }
     if (!spEntry) {
-      console.warn(
+      warn(
+        \`sp:\${taxYear}\`,
         \`[hmrc-tax-mcp] State pension annual amount not confirmed for \${taxYear}. \` +
         \`Using latest available entry (${LATEST_STATE_PENSION_YEAR}).\`,
       );
     }
   }
 
-  return { taxYear, incomeTaxBands, cgt, pension, statePensionAnnual, cgtFallback, pensionFallback };
+  const resolved: ResolvedSnapshot = {
+    taxYear, incomeTaxBands, cgt, pension, statePensionAnnual, cgtFallback, pensionFallback,
+  };
+  _resolvedCache.set(calendarYear, resolved);
+  return resolved;
 }
 `;
 
