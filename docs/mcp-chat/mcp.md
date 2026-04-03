@@ -77,13 +77,15 @@ The AST is intentionally small and domain‑specific. It avoids arbitrary code e
 ### Example: CONST
 ```json
 { "node": "CONST", "value": 12570 }
+```
 
-Example: VAR
-
+### Example: VAR
+```json
 { "node": "VAR", "name": "adjusted_net_income" }
+```
 
-Example: LET
-
+### Example: LET
+```json
 {
   "node": "LET",
   "bindings": {
@@ -91,9 +93,10 @@ Example: LET
   },
   "body": { "node": "VAR", "name": "base" }
 }
+```
 
-Example: IF
-
+### Example: IF
+```json
 {
   "node": "IF",
   "cond": { "node": "LT", "args": [
@@ -103,9 +106,10 @@ Example: IF
   "then": { "node": "CONST", "value": 1000 },
   "else": { "node": "CONST", "value": 0 }
 }
+```
 
-Example: BAND_APPLY
-
+### Example: BAND_APPLY
+```json
 {
   "node": "BAND_APPLY",
   "args": [{ "node": "VAR", "name": "taxable_income" }],
@@ -115,8 +119,9 @@ Example: BAND_APPLY
     { "lower": 125140, "upper": null, "rate": 0.45 }
   ]
 }
+```
 
-Example: TAPER
+### Example: TAPER
 
 {
   "node": "TAPER",

@@ -381,9 +381,9 @@ Extend existing tests with worked examples from HMRC guidance. Each test asserts
 |---|---|---|---|
 | Income below PA | £10,000 | £0 | HMRC basic |
 | Basic rate only | £30,000 | £3,486.00 | HMRC calculator |
-| Higher rate band | £75,000 | £24,432.00 | HMRC calculator |
-| PA taper (£110,000) | £110,000 | £38,432.00 | HMRC calculator |
-| PA fully tapered (£130,000) | £130,000 | £49,460.00 | HMRC calculator |
+| Higher rate band | £75,000 | £17,432.00 | HMRC calculator |
+| PA taper (£110,000) | £110,000 | £33,432.00 | HMRC calculator |
+| PA fully tapered (£130,000) | £130,000 | £44,703.00 | HMRC calculator |
 
 | CGT Scenario | `capital_gain` | `is_higher_rate` | Expected CGT | Source |
 |---|---|---|---|---|

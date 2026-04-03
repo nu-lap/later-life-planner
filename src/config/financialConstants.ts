@@ -11,10 +11,12 @@
 
 import { getSnapshotForYear } from './taxRuleSnapshot';
 
-// Snapshot for the current calendar year — used to initialise constants below.
-// Multi-year projections should call getSnapshotForYear(calendarYear) directly
-// (as projectionEngine.ts does) rather than relying on these static values.
-const _currentYearSnapshot = getSnapshotForYear(new Date().getFullYear());
+// Snapshot for the current tax year — used to initialise constants below.
+// Pinned to a specific calendar year so values are deterministic across server/client
+// and independent of the user's system clock. Bump CURRENT_TAX_YEAR_START each April
+// alongside running `npm run gen:tax-snapshot`.
+export const CURRENT_TAX_YEAR_START = 2025; // 2025-26 tax year
+const _currentYearSnapshot = getSnapshotForYear(CURRENT_TAX_YEAR_START);
 
 // ─── UK Income Tax 2024/25 ────────────────────────────────────────────────────
 // Source: HMRC — https://www.gov.uk/income-tax-rates

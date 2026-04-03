@@ -260,7 +260,7 @@ export function calculateProjections(state: PlannerState): YearlyProjection[] {
         // effective income tax at 0% and leaves the pension growing tax-free for longer.
         // Only draws what is actually needed to cover spending (remaining).
         if (p1Dc > 0 && dc1.enabled && p1Age >= fiAge) {
-          const p1Headroom = Math.max(0, INCOME_TAX.PERSONAL_ALLOWANCE - p1TaxableFixed);
+          const p1Headroom = Math.max(0, yearSnapshot.incomeTaxBands.personalAllowance - p1TaxableFixed);
           const maxWithinAllowance = p1Headroom / (1 - yearUfplsFrac);
           const d = Math.min(maxWithinAllowance, p1Dc, remaining);
           if (d > 0) {
@@ -271,7 +271,7 @@ export function calculateProjections(state: PlannerState): YearlyProjection[] {
           }
         }
         if (mode === 'couple' && remaining > 0 && p2Age !== null && p2Dc > 0 && dc2.enabled && p2Age >= fiAge) {
-          const p2Headroom = Math.max(0, INCOME_TAX.PERSONAL_ALLOWANCE - p2TaxableFixed);
+          const p2Headroom = Math.max(0, yearSnapshot.incomeTaxBands.personalAllowance - p2TaxableFixed);
           const maxWithinAllowance = p2Headroom / (1 - yearUfplsFrac);
           const d = Math.min(maxWithinAllowance, p2Dc, remaining);
           if (d > 0) {
