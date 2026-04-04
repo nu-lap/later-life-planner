@@ -2,8 +2,13 @@ import { readFileSync } from 'fs';
 import { runSimulation } from '../src/financialEngine/projectionEngine';
 import type { PlannerState, SpendingCategory } from '../src/models/types';
 
-const base = JSON.parse(readFileSync('/Users/pauldurbin/Downloads/lifeplan.json', 'utf-8')) as PlannerState;
+const planPath = process.argv[2] ?? process.env.LIFEPLAN_PATH;
 
+if (!planPath) {
+  throw new Error('Missing plan path. Provide it as the first CLI argument or set LIFEPLAN_PATH.');
+}
+
+const base = JSON.parse(readFileSync(planPath, 'utf-8')) as PlannerState;
 const plan: PlannerState = {
   ...base,
   spendingCategories: base.spendingCategories.map((c: SpendingCategory) => ({
