@@ -230,8 +230,9 @@ function optimizeYear(bal: Balances, inp: YearInputs): Candidate {
   const c1 = (() => {
     let paulDC = paulDCtoPA;
     let lisaDC = lisaDCtoPA;
-    // Fixed income + DC-to-PA gives a baseline net
-    const baseNet = paulFixed + lisaFixed + paulDC * HMRC.ufplsTaxable + lisaDC * HMRC.ufplsTaxable
+    // UFPLS withdrawals contribute their full gross draw to cashflow; only the
+    // taxable 75% portion is included in income tax calculations.
+    const baseNet = paulFixed + lisaFixed + paulDC + lisaDC
       - incomeTax(paulFixed + paulDC * HMRC.ufplsTaxable) - incomeTax(lisaFixed + lisaDC * HMRC.ufplsTaxable);
     let remaining = Math.max(0, required - baseNet);
     // GIA first (CGT budget), then ISA, then more DC
