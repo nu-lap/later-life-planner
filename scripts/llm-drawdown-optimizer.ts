@@ -14,8 +14,6 @@
  * Usage: npx tsx --tsconfig tsconfig.json scripts/llm-drawdown-optimizer.ts
  */
 
-import { readFileSync } from 'fs';
-
 // ─── HMRC Rule Values (sourced from hmrc-local MCP) ──────────────────────────
 //
 // Source: hmrc-local tax_get_rule_snapshot, rUK jurisdiction
@@ -301,7 +299,9 @@ function optimizeYear(bal: Balances, inp: YearInputs): Candidate {
   const c3 = (() => {
     const paulDC = paulDCtoPA;
     const lisaDC = lisaDCtoPA;
-    const baseNet = paulFixed + lisaFixed + paulDC * HMRC.ufplsTaxable + lisaDC * HMRC.ufplsTaxable
+    // UFPLS withdrawals contribute their full gross draw to cashflow; only the
+    // taxable 75% portion is included in income tax calculations.
+    const baseNet = paulFixed + lisaFixed + paulDC + lisaDC
       - incomeTax(paulFixed + paulDC * HMRC.ufplsTaxable) - incomeTax(lisaFixed + lisaDC * HMRC.ufplsTaxable);
     let remaining = Math.max(0, required - baseNet);
     // Max GIA: enough to use full £3K CGT exempt each person

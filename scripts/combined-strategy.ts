@@ -441,7 +441,6 @@ function simulate(useLLPBaseline: boolean): YearRecord[] {
       : optimizeYear(paulAge, lisaAge, paulDB, paulSP, lisaSP, req, bal);
 
     // Apply draws
-    const gainFrac = bal.giaValue > 0 ? Math.max(0, (bal.giaValue - bal.giaCostBase) / bal.giaValue) : 0;
     const disposedFrac = bal.giaValue > 0 ? winner.giaTotal / bal.giaValue : 0;
     bal.paulDC      -= winner.paulDC;
     bal.paulISA     -= winner.paulISA;
@@ -493,7 +492,7 @@ function printTable(title: string, rows: YearRecord[], limit?: number) {
 
   for (const r of data) {
     const w = r.winner;
-    const tag = limit ? r.winner.label : '';
+    const tag = r.winner.label;
     console.log(
       ` ${r.paulAge}/${r.lisaAge}`.padEnd(11) +
       `  ${c(r.req)} │` +
