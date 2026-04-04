@@ -299,9 +299,11 @@ function optimizeYear(bal: Balances, inp: YearInputs): Candidate {
 
   // Candidate 4: DC-heavy — draw Paul DC to mid-basic-rate band, preserve ISA for later
   const c4 = (() => {
-    // Draw Paul DC up to £35K total taxable (well within basic rate, effective 15% rate)
-    const paulTargetTaxable = Math.min(35_000, paulDCtoHR * 0.75);
-    const paulTargetDC = Math.max(paulDCtoPA, (paulTargetTaxable - paulFixed) / HMRC.ufplsTaxable);
+    // Target £35K of Paul total taxable income (fixed income + UFPLS taxable portion),
+    // without exceeding the amount that would reach higher-rate tax.
+    const paulMaxTotalTaxable = paulFixed + paulDCtoHR * HMRC.ufplsTaxable;
+    const paulTargetTotalTaxable = Math.min(35_000, paulMaxTotalTaxable);
+    const paulTargetDC = Math.max(paulDCtoPA, (paulTargetTotalTaxable - paulFixed) / HMRC.ufplsTaxable);
     const lisaDC = lisaDCtoPA;
     const gia = Math.min(bal.giaValue, HMRC.cgtExemptPerPerson * 2 * 0.5); // modest harvest
     return evaluate('4-DC-heavy', Math.min(paulTargetDC, bal.paulDC), 0, lisaDC, 0, gia, bal, inp);
