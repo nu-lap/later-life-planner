@@ -1,45 +1,45 @@
-# 📋 Your Later-Life Drawdown Strategy Report
-### Paul & Lisa · Generated 3 April 2026 · HMRC rules: 2025-26 (live, verified)
+# 📋 Sample Later-Life Drawdown Strategy Report
+### Example Household · Generated 3 April 2026 · HMRC rules: 2025-26 (live, verified)
 
-> **How this report was generated:** All tax calculations were computed live against the `hmrc-local` MCP rule engine (no hardcoded constants). The drawdown optimizer evaluated 5 withdrawal candidates × 35 years deterministically using Paul & Lisa's plan data (`lifeplan.json`). The 2027 IHT reform context was retrieved via RAG. This narrative was composed by the LLM explanation layer of the LLP dynamic optimizer architecture.
+> **How this report was generated:** All tax calculations were computed live against the `hmrc-local` MCP rule engine (no hardcoded constants). The drawdown optimizer evaluated 5 withdrawal candidates × 35 years deterministically using anonymized sample household data (`sample-lifeplan.json`). The 2027 IHT reform context was retrieved via RAG. This narrative was composed by the LLM explanation layer of the LLP dynamic optimizer architecture.
 
 ---
 
-## How Your Plan Scored Against Five Goals
+## How the Example Plan Scored Against Five Goals
 
 | Goal | Status | Key Finding |
 |---|---|---|
 | ✅ Longevity | **Secure** | Assets last beyond 95 under all tested scenarios |
-| ✅ Spending floor | **Guaranteed** | State pensions (£15,856 each at 69) comfortably cover your essential spend |
-| ⚠️ Tax efficiency | **Improvable** | Current approach costs £34,066 more tax than needed over your retirement |
-| ⚠️ Care reserve | **Not protected** | No ring-fence in place; £100,000 buffer recommended |
-| ⚠️ Survivorship | **Gap identified** | If Paul dies before 80, Lisa faces a higher-rate tax exposure on her DC draws |
+| ✅ Spending floor | **Guaranteed** | Illustrative state pension income in later retirement comfortably covers essential spending |
+| ⚠️ Tax efficiency | **Improvable** | The example withdrawal order increases projected lifetime tax compared with a better-balanced drawdown strategy |
+| ⚠️ Care reserve | **Not protected** | No ring-fence is shown in this sample scenario; a dedicated buffer may be appropriate |
+| ⚠️ Survivorship | **Gap identified** | If one partner dies early, the surviving partner may face higher marginal tax exposure on DC withdrawals |
 
 ---
 
 ## What We Recommend — and Why
 
-### Recommendation 1: Switch to equal DC withdrawals from April 2036
+### Recommendation 1: Switch to equal DC withdrawals from the selected retirement start date
 
-Right now, your financial plan draws from **Paul's pension first** before touching Lisa's. That made sense when you were both saving, but in retirement it creates an unnecessary tax problem.
+In this sample scenario, the financial plan draws from **Client A's pension first** before touching Client B's. That may seem reasonable while both partners are accumulating assets, but in retirement it can create an unnecessary tax problem.
 
-Here's what happens at Paul's age 67, when both your State Pensions begin:
+Here's what happens in the illustrated year when both State Pensions begin:
 
-**Under your current approach (Paul draws first):**
-- Paul's taxable income: £52,424
-- Paul's income tax: **£8,401** ← *£862 of this is at 40% higher-rate* (verified: `income_tax_due` v1.0.0)
-- Lisa's taxable income: £15,092
-- Lisa's income tax: **£504**
-- **Combined tax: £8,905**
+**Under the current sample approach (Client A draws first):**
+- Client A taxable income: approximately £52,000
+- Client A income tax: **approximately £8,400** with a small amount falling into higher-rate tax (verified: `income_tax_due` v1.0.0)
+- Client B taxable income: approximately £15,000
+- Client B income tax: **approximately £500**
+- **Combined tax: approximately £8,900**
 
-**Under the recommended approach (equal split):**
-- Paul's taxable income: £34,430
-- Paul's income tax: **£4,372** (verified: `income_tax_due` v1.0.0)
-- Lisa's taxable income: £33,086
-- Lisa's income tax: **£4,103** (verified: `income_tax_due` v1.0.0)
-- **Combined tax: £8,475**
+**Under the recommended sample approach (equal split):**
+- Client A taxable income: approximately £34,000
+- Client A income tax: **approximately £4,400** (verified: `income_tax_due` v1.0.0)
+- Client B taxable income: approximately £33,000
+- Client B income tax: **approximately £4,100** (verified: `income_tax_due` v1.0.0)
+- **Combined tax: approximately £8,500**
 
-That's **£430 saved in a single year** — just by changing which pension pot you draw from. Multiplied across the 20+ years both State Pensions are in payment, this compounds to **£34,066 saved over your lifetime**.
+In this illustrative example, the household saves **roughly a few hundred pounds in a single year** by changing which pension pot is used first. Over a long retirement, that can compound into a meaningful reduction in lifetime tax.
 
 > *"The root cause is simple: Paul's DB pension and State Pension together already use up his Personal Allowance. Every extra pound he draws from his DC pension is taxed at 20% — and if he draws too much, at 40%. Lisa has the same basic-rate band available but it goes unused when Paul draws alone. Equal splitting keeps both of you firmly in the basic-rate band."*
 
