@@ -256,7 +256,8 @@ function optimizeYear(bal: Balances, inp: YearInputs): Candidate {
   const c2 = (() => {
     const paulDC = paulDCtoPA;
     const lisaDC = lisaDCtoPA;
-    const baseNet = paulFixed + lisaFixed + paulDC * HMRC.ufplsTaxable + lisaDC * HMRC.ufplsTaxable
+    // UFPLS provides the full gross draw as cash; only the taxable 75% is subject to income tax.
+    const baseNet = paulFixed + lisaFixed + paulDC + lisaDC
       - incomeTax(paulFixed + paulDC * HMRC.ufplsTaxable) - incomeTax(lisaFixed + lisaDC * HMRC.ufplsTaxable);
     let remaining = Math.max(0, required - baseNet);
     let paulISA = Math.min(bal.paulISA, remaining);
