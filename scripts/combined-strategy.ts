@@ -29,10 +29,11 @@
  *   state_pension_annual: base £11,973 (2025-26, hmrc-local v1.1.0)
  *
  * Usage:
- *   npx tsx --tsconfig tsconfig.json scripts/combined-strategy.ts
+ *   npx tsx --tsconfig tsconfig.json scripts/combined-strategy.ts <path-to-lifeplan.json>
+ *      or: PLAN_PATH=<path-to-lifeplan.json> npx tsx --tsconfig tsconfig.json scripts/combined-strategy.ts
  */
 
-import { readFileSync } from 'fs';
+import { existsSync, readFileSync } from 'fs';
 
 // ─── HMRC constants (from hmrc-local MCP) ────────────────────────────────────
 const PA           = 12_570;   // income_tax_bands.personal_allowance
@@ -49,7 +50,17 @@ const UFPLS_TX     = 0.75;     // pension_ufpls_taxable_fraction
 const LSA          = 268_275;  // Lump Sum Allowance (pension lifetime tax-free limit)
 
 // ─── Load plan data ───────────────────────────────────────────────────────────
-const plan = JSON.parse(readFileSync('/Users/pauldurbin/Downloads/lifeplan.json', 'utf8'));
+const planPath = process.argv[2] ?? process.env.PLAN_PATH;
+
+if (!planPath) {
+  throw new Error('Missing plan path. Pass it as the first CLI argument or set PLAN_PATH.');
+}
+
+if (!existsSync(planPath)) {
+  throw new Error(`Plan file not found: ${planPath}`);
+}
+
+const plan = JSON.parse(readFileSync(planPath, 'utf8'));
 
 const p1 = plan.person1;
 const p2 = plan.person2;
@@ -132,9 +143,15 @@ function spending(paulAge: number): number {
 
 // ─── Tax functions ────────────────────────────────────────────────────────────
 
+function effectivePA(totalIncome: number): number {
+  if (totalIncome <= 100_000) return PA;
+  return Math.max(0, PA - (totalIncome - 100_000) / 2);
+}
+
 function incomeTax(taxable: number): number {
-  if (taxable <= PA) return 0;
-  let tax = (Math.min(taxable, BASIC_LIMIT) - PA) * BASIC_RATE;
+  const pa = effectivePA(taxable);
+  if (taxable <= pa) return 0;
+  let tax = (Math.min(taxable, BASIC_LIMIT) - pa) * BASIC_RATE;
   if (taxable > BASIC_LIMIT)  tax += (Math.min(taxable, HIGHER_LIMIT) - BASIC_LIMIT) * HIGHER_RATE;
   if (taxable > HIGHER_LIMIT) tax += (taxable - HIGHER_LIMIT) * ADDL_RATE;
   return tax;

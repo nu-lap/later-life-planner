@@ -4,17 +4,30 @@
  * Runs 5 alternative drawdown strategies through the LLP projection engine
  * and prints a side-by-side comparison of key outcomes.
  *
- * Usage: npx tsx --tsconfig tsconfig.json scripts/drawdown-scenarios.ts
+ * Usage: npx tsx --tsconfig tsconfig.json scripts/drawdown-scenarios.ts <path-to-lifeplan.json>
+ *    or: LIFEPLAN_PATH=<path-to-lifeplan.json> npx tsx --tsconfig tsconfig.json scripts/drawdown-scenarios.ts
  */
 
-import { readFileSync } from 'fs';
+import { existsSync, readFileSync } from 'fs';
 import { runSimulation } from '../src/financialEngine/projectionEngine';
 import type { PlannerState, SpendingCategory } from '../src/models/types';
 
 // ─── Load base plan ───────────────────────────────────────────────────────────
 
+const planPath = process.argv[2] ?? process.env.LIFEPLAN_PATH;
+
+if (!planPath) {
+  throw new Error(
+    'Missing life plan JSON path. Pass it as the first CLI argument or set LIFEPLAN_PATH.',
+  );
+}
+
+if (!existsSync(planPath)) {
+  throw new Error(`Life plan JSON file not found: ${planPath}`);
+}
+
 const basePlan = JSON.parse(
-  readFileSync('/Users/pauldurbin/Downloads/lifeplan.json', 'utf-8'),
+  readFileSync(planPath, 'utf-8'),
 ) as PlannerState;
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
