@@ -1,9 +1,21 @@
-import { readFileSync } from 'fs';
+import { existsSync, readFileSync } from 'fs';
+import { resolve } from 'path';
 import { runSimulation } from '../src/financialEngine/projectionEngine';
 import type { PlannerState, SpendingCategory } from '../src/models/types';
 
-const base = JSON.parse(readFileSync('/Users/pauldurbin/Downloads/lifeplan.json', 'utf-8')) as PlannerState;
+const planFileArg = process.argv[2] ?? process.env.LIFEPLAN_FILE;
 
+if (!planFileArg) {
+  throw new Error('Missing plan file path. Provide it as the first CLI argument or set LIFEPLAN_FILE.');
+}
+
+const planFilePath = resolve(planFileArg);
+
+if (!existsSync(planFilePath)) {
+  throw new Error(`Plan file not found: ${planFilePath}. Provide a valid path as the first CLI argument or set LIFEPLAN_FILE.`);
+}
+
+const base = JSON.parse(readFileSync(planFilePath, 'utf-8')) as PlannerState;
 function scaleSpending(cats: SpendingCategory[], factors: Record<string,number>) {
   return cats.map(c => ({
     ...c,
