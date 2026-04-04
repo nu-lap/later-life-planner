@@ -88,19 +88,43 @@ const SP_SCHEDULE: Record<number, { paulSP: number; lisaSP: number }> = {
 
 // ─── Tax functions (implementing HMRC DSL rules) ──────────────────────────────
 
+function personalAllowanceForIncome(totalIncome: number): number {
+  if (totalIncome <= 100_000) return HMRC.personalAllowance;
+  return Math.max(0, HMRC.personalAllowance - (totalIncome - 100_000) / 2);
+}
+
+function basicRateBandWidth(): number {
+  return HMRC.basicRateLimit - HMRC.personalAllowance;
+}
+
+function higherRateThresholdForIncome(totalIncome: number): number {
+  return personalAllowanceForIncome(totalIncome) + basicRateBandWidth();
+}
+
 function incomeTax(taxableIncome: number): number {
-  if (taxableIncome <= HMRC.personalAllowance) return 0;
+  const personalAllowance = personalAllowanceForIncome(taxableIncome);
+  if (taxableIncome <= personalAllowance) return 0;
+
+  const taxableAfterAllowance = taxableIncome - personalAllowance;
+  const basicBand = basicRateBandWidth();
+  const higherBand = HMRC.higherRateLimit - HMRC.basicRateLimit;
+
   let tax = 0;
-  tax += (Math.min(taxableIncome, HMRC.basicRateLimit) - HMRC.personalAllowance) * HMRC.basicRate;
-  if (taxableIncome > HMRC.basicRateLimit)
-    tax += (Math.min(taxableIncome, HMRC.higherRateLimit) - HMRC.basicRateLimit) * HMRC.higherRate;
-  if (taxableIncome > HMRC.higherRateLimit)
-    tax += (taxableIncome - HMRC.higherRateLimit) * HMRC.additionalRate;
+  tax += Math.min(taxableAfterAllowance, basicBand) * HMRC.basicRate;
+
+  if (taxableAfterAllowance > basicBand) {
+    tax += Math.min(taxableAfterAllowance - basicBand, higherBand) * HMRC.higherRate;
+  }
+
+  if (taxableAfterAllowance > basicBand + higherBand) {
+    tax += (taxableAfterAllowance - basicBand - higherBand) * HMRC.additionalRate;
+  }
+
   return Math.max(0, tax);
 }
 
 function isHigherRate(taxableIncome: number): boolean {
-  return taxableIncome > HMRC.basicRateLimit;
+  return taxableIncome > higherRateThresholdForIncome(taxableIncome);
 }
 
 /** Tax on a DC draw via UFPLS (25% tax-free, 75% taxable added to other income). */
