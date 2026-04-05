@@ -453,8 +453,8 @@ The LLM's role is strictly to **explain and contextualise** using authoritative 
 | Provider | Model | Status | Notes |
 |---|---|---|---|
 | **Anthropic (direct)** | `claude-haiku-4-5` / `claude-sonnet-4` | ✅ MVP — already integrated | `@anthropic-ai/sdk` installed; streaming pattern established in `/api/generate-vision` |
-| **Azure OpenAI** | `gpt-4o-mini` / `gpt-4.1` | ⏳ Preferred production path | Already provisioned in `rg-shared-resources-uks` for embeddings; same OIDC managed identity; no new Azure service needed; consolidates AI spend under one subscription |
-| **OpenAI (direct)** | `gpt-4o-mini` / `gpt-4.1` | ⏳ Alternative | Direct API key; `openai` npm package; no existing provisioning |
+| **Azure OpenAI** | `gpt-4.1-mini` / `gpt-4.1` | ⏳ Preferred production path | Already provisioned in `rg-shared-resources-uks` for embeddings; same OIDC managed identity; no new Azure service needed; consolidates AI spend under one subscription |
+| **OpenAI (direct)** | `gpt-4.1-mini` / `gpt-4.1` | ⏳ Alternative | Direct API key; `openai` npm package; no existing provisioning |
 | **GitHub Models** | Various (OpenAI-compatible) | ⏳ Dev/test only | Free tier useful for local development; production rate limits apply |
 
 > **Reconciled recommendation:** Keep the explanation layer provider-agnostic. Anthropic is acceptable for MVP because LLP already has the SDK and streaming pattern. Azure OpenAI remains the preferred production target when quota and deployment are ready.

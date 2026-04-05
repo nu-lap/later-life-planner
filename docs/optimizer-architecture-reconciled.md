@@ -41,6 +41,7 @@ The key reconciliation is:
 - LLP does not yet expose its own MCP server
 - RAG retrieval should assume Cosmos DB vector search for MVP and Azure AI Search as an upgrade path, not as the current baseline
 - The explanation endpoint should be provider-agnostic, with Anthropic acceptable for MVP and Azure OpenAI the preferred production target if quota and operations align
+- For Azure OpenAI, the current recommended low-cost chat model is `gpt-4.1-mini`
 
 ## Current State
 
@@ -128,6 +129,7 @@ Decision:
 - provider must be abstracted at the explanation layer
 - Anthropic is acceptable for MVP because LLP already has SDK usage and streaming patterns
 - Azure OpenAI is the preferred production target when quota, deployment, and operational ownership are in place
+- when using Azure OpenAI, prefer `gpt-4.1-mini` as the low-cost chat deployment
 
 Reasoning:
 - this removes false conflict between the docs
