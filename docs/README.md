@@ -4,7 +4,7 @@
 
 - Status: Active
 - Owner: Later-Life Planner Engineering (`NxLap Ltd`)
-- Last reviewed: 2026-03-27
+- Last reviewed: 2026-04-05
 - Review cadence: Quarterly and on material implementation change
 
 This index is the source of truth for documentation status and ownership.
@@ -23,7 +23,7 @@ This index is the source of truth for documentation status and ownership.
 | `docs/persistence-security-review.md` | Security review baseline for persistence model | Engineering + Security | Active |
 | `docs/privacy-notice.md` | Production privacy notice text | Privacy Owner | Active |
 | `docs/privacy-notice-outline.md` | Drafting baseline for privacy notice updates | Privacy Owner | Active |
-| `docs/withdrawal-optimizer-mcp-design.md` | Forward-looking optimizer/MCP design notes | Engineering | Active |
+| `docs/optimizer-architecture-reconciled.md` | Canonical LLP/HMRC MCP/RAG/LLM integration architecture | Engineering | Active |
 
 ## Active Operational Docs
 
@@ -64,6 +64,10 @@ Retained for traceability; not active implementation sources.
 
 ## Superseded Docs
 
+- `docs/superseded/withdrawal-optimizer-mcp-design.md`
+- `docs/superseded/hmrc-tax-mcp-integration-plan.md`
+- `docs/superseded/hmrc-tax-mcp-implementation.md`
+- `docs/superseded/drawdown-optimizer-goals.md`
 - `docs/superseded/auth-implementation-prompt.md`
 - `docs/superseded/data-storage-design.md`
 

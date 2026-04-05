@@ -2,12 +2,22 @@
 
 ## Document Control
 
-- Status: Active
+- Status: Superseded
 - Owner: Later-Life Planner Engineering (`NxLap Ltd`)
-- Last reviewed: 2026-03-27
+- Last reviewed: 2026-04-05
 - Review cadence: Quarterly and on optimizer-architecture changes
 
 This document captures the current assessment of the later-life-planner withdrawal engine and the proposed next-step architecture for a tax-aware optimizer exposed through an MCP server.
+
+Superseded by:
+
+- `docs/optimizer-architecture-reconciled.md`
+
+Reconciliation note:
+
+- The cross-cutting source of truth for LLP + HMRC MCP + RAG + LLM integration is now `docs/optimizer-architecture-reconciled.md`.
+- In particular, an LLP-owned MCP server is no longer treated as an MVP requirement.
+- The near-term path is: deterministic optimizer inside LLP, HMRC snapshot for runtime tax, and internal API routes for explanation and audit.
 
 ## Problem Statement
 

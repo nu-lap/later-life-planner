@@ -2,17 +2,37 @@
 
 ## Document Control
 
-- Status: Active
+- Status: Superseded
 - Owner: Later-Life Planner Engineering (`NxLap Ltd`)
 - Created: 2026-04-03
-- Last reviewed: 2026-04-03
+- Last reviewed: 2026-04-05
 - Review cadence: On each phase completion and on rule-set version bumps
 
 ---
 
+## Status Summary
+
+Phase 1 is partly implemented:
+
+- `src/config/taxRuleSnapshot.ts` exists and is committed
+- `src/config/financialConstants.ts`, `src/financialEngine/taxCalculations.ts`, and `src/financialEngine/projectionEngine.ts` already consume the snapshot
+- CI already validates snapshot drift
+
+Important current-state correction:
+
+- the current `scripts/gen-tax-snapshot.ts` emits committed values that were previously verified against `hmrc-tax-mcp`
+- it does not execute live MCP calls in CI or at runtime today
+- `src/app/api/tax-trace/route.ts` is still planned, not implemented
+
+Superseded by:
+
+- `docs/optimizer-architecture-reconciled.md`
+
+For the reconciled architecture across HMRC MCP, optimizer, RAG, and LLM work, see `docs/optimizer-architecture-reconciled.md`.
+
 ## Problem Statement
 
-LLP's financial engine (`projectionEngine.ts`, `taxCalculations.ts`) uses manually maintained constants in `financialConstants.ts` to compute UK income tax, CGT, and pension allowances. These constants are hardcoded against one tax year (currently 2024/25) and must be updated by hand each April. There is no versioning, no audit trail, and no mechanism to detect when HMRC changes a rate or threshold.
+Historically, LLP's financial engine (`projectionEngine.ts`, `taxCalculations.ts`) used manually maintained constants in `financialConstants.ts` to compute UK income tax, CGT, and pension allowances. That created annual maintenance risk, weak auditability, and no clear mechanism to detect HMRC rule drift.
 
 The `hmrc-tax-mcp` project provides a versioned, DSL-authored rule set for UK tax rules, covering income tax, CGT, UFPLS, personal allowance taper, and pension allowances. Integrating these rules makes LLP's tax engine authoritative, versioned, and auditable.
 
@@ -87,7 +107,7 @@ src/financialEngine/projectionEngine.ts
   └─ unchanged interface — calls calcIncomeTax(), calcCGT() as today
   └─ these wrappers now read from snapshot instead of hardcoded constants
 
-src/app/api/tax-trace/route.ts  (dev/audit only)
+src/app/api/tax-trace/route.ts  (planned dev/audit only)
   └─ executes rules with trace=true at request time
   └─ returns step-by-step audit for a given person-year
 ```
@@ -196,10 +216,10 @@ These rules return a single value for a given tax year. Because CGT and pension 
 | Typed snapshot | `src/config/taxRuleSnapshot.ts` |
 | Updated constants | `src/config/financialConstants.ts` (references snapshot) |
 | Updated tax calculations | `src/financialEngine/taxCalculations.ts` (wrappers) |
-| Dev audit API route | `src/app/api/tax-trace/route.ts` |
+| Dev audit API route | `src/app/api/tax-trace/route.ts` (planned) |
 | Unit + integration tests | `tests/unit/taxCalculations.test.ts` (extended) |
 | CI validation step | `.github/workflows/ci-cd.yml` (new job: `validate-tax-rules`) |
-| Developer docs | `docs/hmrc-tax-mcp-implementation.md` |
+| Developer docs | `docs/superseded/hmrc-tax-mcp-implementation.md` |
 
 ### Phase 2 — Extended Rule Coverage
 
@@ -240,4 +260,4 @@ These rules return a single value for a given tax year. Because CGT and pension 
 
 ### Code quality
 - [ ] All rule references in code include `rule_id`, `version`, `tax_year`, and `latestAvailableYear` in comments or snapshot metadata
-- [ ] `docs/hmrc-tax-mcp-implementation.md` explains the per-group fallback and how to bump rule versions when HMRC publishes new years
+- [ ] `docs/superseded/hmrc-tax-mcp-implementation.md` explains the per-group fallback and how to bump rule versions when HMRC publishes new years
