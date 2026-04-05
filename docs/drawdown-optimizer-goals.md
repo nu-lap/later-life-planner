@@ -5,7 +5,7 @@
 - Status: Active
 - Owner: Later-Life Planner Engineering (`NxLap Ltd`)
 - Created: 2026-04-03
-- Last reviewed: 2026-04-03
+- Last reviewed: 2026-04-05
 - Review cadence: Quarterly and on product strategy changes
 
 ---
@@ -423,8 +423,11 @@ POST /api/optimizer-explain
      (e.g. DSL source for income_tax_bands, cgt_exempt, ufpls)
      ← MCP call: live, versioned, citable
   3. Retrieves regulatory context via RAG
-     (e.g. 2027 pension IHT reform text, triple-lock history)
-     ← RAG: grounded in authoritative documents
+     (HMRC internal manuals: PTM, IHTM, CG, PIM, IPTM, EIM, SAIM, SDLTM —
+      indexed, chunked, and stored in Azure Cosmos DB `hmrc-chunks` container;
+      each chunk is tagged with the `rule_id` values it governs via `citation_map.json`)
+     ← RAG: corpus live in Azure Cosmos DB; retrieval via Azure AI Search
+     ← Note: also covers forthcoming regulatory changes (e.g. 2027 pension IHT reform)
   4. Calls Anthropic with:
      - structured optimizer result (deterministic)
      - live HMRC rule citations (from MCP)
@@ -470,7 +473,8 @@ Layer 2 — Optimizer Core:
   [NOW: static scripts]──[TARGET: stays deterministic, rules from snapshot]
 
 Layer 3 — LLM Explanation:
-  [NOW: not built]──────────────────────[TARGET: fully dynamic, MCP + RAG]
+  [RAG corpus: LIVE in Cosmos DB]────[TARGET: fully dynamic, MCP + RAG]
+                                    (API endpoint: not yet built)
 
 Layer 4 — Goal Orchestration:
   [NOW: not built]────────────────────────────[TARGET: LLM-driven, dynamic]
@@ -517,7 +521,7 @@ User → LLP UI
 |---|---|---|
 | Tax rules | Constants embedded in proof-of-concept scripts | Need `gen-tax-snapshot.ts` + live MCP audit route |
 | Optimizer core | Working in `scripts/combined-strategy.ts` | Needs porting to `src/financialEngine/withdrawalOptimizer.ts` |
-| LLM explanation | Not built | Needs `POST /api/optimizer-explain` with MCP + RAG context |
+| LLM explanation | RAG corpus live in Cosmos DB (8 HMRC manuals indexed); `POST /api/optimizer-explain` endpoint not yet built | Build API route in LLP wiring Anthropic + MCP citations + Cosmos DB RAG retrieval |
 | Goal orchestration | Not built | Needs goal registry + LLM orchestration layer |
 
 The build-time snapshot (Phase 1 HMRC work) closes the Layer 1 gap. Layers 3 and 4 are the genuine product innovation — and the most differentiating capability LLP can deliver.
@@ -533,6 +537,8 @@ The build-time snapshot (Phase 1 HMRC work) closes the Layer 1 gap. Layers 3 and
 3. **Phase 3:** Store integration and `OptimizerPanel` UI in Step 4 Dashboard. Show lifetime tax saving and strategy recommendation.
 
 4. **Phase 4:** LLM explanation via `POST /api/optimizer-explain`. Plain-English rationale, concrete action list.
+   RAG data layer is **live** (8 HMRC manuals in Azure Cosmos DB `hmrc-chunks`, citation metadata in `citation_map.json`).
+   Remaining work: build the API route in LLP to wire Anthropic + MCP rule citations + Cosmos DB RAG retrieval.
 
 5. **Phase 5:** Scenario set integration. Evaluate each candidate policy across 5 scenarios. Surface depletion probability and robustness metrics.
 
