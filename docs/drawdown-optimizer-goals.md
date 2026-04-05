@@ -426,7 +426,8 @@ POST /api/optimizer-explain
      (HMRC internal manuals: PTM, IHTM, CG, PIM, IPTM, EIM, SAIM, SDLTM —
       indexed, chunked, and stored in Azure Cosmos DB `hmrc-chunks` container;
       each chunk is tagged with the `rule_id` values it governs via `citation_map.json`)
-     ← RAG: corpus live in Azure Cosmos DB; retrieval via Azure AI Search
+     ← RAG: corpus live in Azure Cosmos DB; retrieval via Cosmos DB native vector search
+       (DiskANN indexing on the `/embedding` field — text-embedding-3-large, 3072 dims)
      ← Note: also covers forthcoming regulatory changes (e.g. 2027 pension IHT reform)
   4. Calls Anthropic with:
      - structured optimizer result (deterministic)
@@ -521,7 +522,7 @@ User → LLP UI
 |---|---|---|
 | Tax rules | Constants embedded in proof-of-concept scripts | Need `gen-tax-snapshot.ts` + live MCP audit route |
 | Optimizer core | Working in `scripts/combined-strategy.ts` | Needs porting to `src/financialEngine/withdrawalOptimizer.ts` |
-| LLM explanation | RAG corpus live in Cosmos DB (8 HMRC manuals indexed); `POST /api/optimizer-explain` endpoint not yet built | Build API route in LLP wiring Anthropic + MCP citations + Cosmos DB RAG retrieval |
+| LLM explanation | RAG corpus live in Cosmos DB (8 HMRC manuals, DiskANN vector search); `POST /api/optimizer-explain` endpoint not yet built | Build API route in LLP wiring Anthropic + MCP citations + Cosmos DB vector retrieval |
 | Goal orchestration | Not built | Needs goal registry + LLM orchestration layer |
 
 The build-time snapshot (Phase 1 HMRC work) closes the Layer 1 gap. Layers 3 and 4 are the genuine product innovation — and the most differentiating capability LLP can deliver.
