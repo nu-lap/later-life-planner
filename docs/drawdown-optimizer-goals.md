@@ -431,16 +431,28 @@ POST /api/optimizer-explain
      ← Future upgrade: Azure AI Search S1 — adds semantic re-ranker for higher-quality
        results on natural-language financial queries; ~£250/month vs ~£10–20 for Cosmos DB
      ← Note: also covers forthcoming regulatory changes (e.g. 2027 pension IHT reform)
-  4. Calls Anthropic with:
+  4. Calls LLM with:
      - structured optimizer result (deterministic)
      - live HMRC rule citations (from MCP)
      - RAG-retrieved regulatory context
      - user's plan summary and stated goals
+     ← LLM provider options: see table below
   5. Streams back plain-English explanation
      ← LLM role: explain and contextualise only
 ```
 
 The LLM's role is strictly to **explain and contextualise** using authoritative rule data retrieved live. It does not compute, decide, or score.
+
+**LLM provider options for `/api/optimizer-explain`:**
+
+| Provider | Model | Status | Notes |
+|---|---|---|---|
+| **Anthropic (direct)** | `claude-haiku-4-5` / `claude-sonnet-4` | ✅ MVP — already integrated | `@anthropic-ai/sdk` installed; streaming pattern established in `/api/generate-vision` |
+| **Azure OpenAI** | `gpt-4o-mini` / `gpt-4.1` | ⏳ Preferred production path | Already provisioned in `rg-shared-resources-uks` for embeddings; same OIDC managed identity; no new Azure service needed; consolidates AI spend under one subscription |
+| **OpenAI (direct)** | `gpt-4o-mini` / `gpt-4.1` | ⏳ Alternative | Direct API key; `openai` npm package; no existing provisioning |
+| **GitHub Models** | Various (OpenAI-compatible) | ⏳ Dev/test only | Free tier useful for local development; production rate limits apply |
+
+> **Recommendation:** Use Anthropic (Claude) for MVP — SDK installed, pattern established. Migrate to Azure OpenAI for production to share the existing OIDC credential and consolidate AI spend under the Azure subscription.
 
 #### Layer 4 — Goal Orchestration
 *Decides which goals to pursue and in what priority order, based on user preferences*
