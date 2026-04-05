@@ -316,7 +316,7 @@ Implementation:
 2. Vector query `hmrc-chunks` container filtered by:
    - `rule_ids ARRAY_CONTAINS` any of `ruleIds`
    - `applicable_tax_year = taxYear`
-   - `jurisdiction = jurisdiction`
+   - `jurisdiction = <jurisdiction param>`
 3. Return top-K chunks ordered by cosine similarity
 
 Authentication: `DefaultAzureCredential` (managed identity in ACA; `az login` locally).
