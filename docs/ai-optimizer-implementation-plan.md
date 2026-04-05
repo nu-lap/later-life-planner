@@ -263,8 +263,11 @@ File: `src/app/api/optimizer-explain/route.ts`
 ### 3.3 Hydrate live HMRC MCP citations
 
 In the route handler, for each entry in `optimizationResult.ruleProvenance`:
-- Call `hmrc-tax-mcp` `explain_rule` with `rule_id`, `version`, `tax_year`, and
-  `jurisdiction` from the `RuleProvenance` entry
+- Call `hmrc-tax-mcp` `explain_rule` with `rule_id`, `version`, `tax_year_used`,
+  and `jurisdiction` from the `RuleProvenance` entry
+- Do not reference a generic `tax_year` field here: `RuleProvenance` distinguishes
+  between `tax_year_requested` and `tax_year_used`, and MCP citation hydration should
+  use `tax_year_used` so the cited rule version matches the rule actually applied
 - Add citations to `ExplanationContext.mcpCitations`
 - Graceful fallback: if MCP unavailable, proceed without citations
 
