@@ -53,7 +53,7 @@ Layer 4: Goal orch.     — LLM maps preferences → optimizer config (later)
 | Decision | Choice | Upgrade path |
 |---|---|---|
 | RAG retrieval | Cosmos DB DiskANN vector search | Azure AI Search S1 (semantic reranker) |
-| LLM provider (MVP) | Anthropic `claude-haiku-4-5` | Azure OpenAI `gpt-4.1-mini` |
+| LLM provider (MVP) | Azure OpenAI `gpt-4.1-mini` | Higher-capacity Azure OpenAI model if quality or latency requires it |
 | LLM abstraction | `src/lib/llm.ts` — swap via `LLM_PROVIDER` env var | — |
 | Live MCP calls | Explanation and audit only — never in hot path | — |
 | LLP MCP server | Deferred — not an MVP requirement | — |
@@ -222,8 +222,8 @@ Provider selection via env var:
 
 | `LLM_PROVIDER` | Model | Notes |
 |---|---|---|
-| `anthropic` (default) | `claude-haiku-4-5` | `@anthropic-ai/sdk` already installed |
-| `azure-openai` | `gpt-4.1-mini` | Preferred for production; shares OIDC credential with Cosmos |
+| `azure-openai` (default) | `gpt-4.1-mini` | MVP default; shares Azure identity and operational surface with Cosmos |
+| `anthropic` | `claude-haiku-4-5` | Optional fallback/provider alternative |
 
 ### 3.2 `POST /api/optimizer-explain`
 
@@ -413,7 +413,7 @@ default `'rUK'`).
 | Decision trigger | Impact |
 |---|---|
 | Cosmos RAG retrieval quality insufficient | Upgrade to Azure AI Search S1 (semantic reranker) |
-| Azure OpenAI quota and OIDC wiring confirmed | Switch `LLM_PROVIDER` to `azure-openai`; no code change needed |
+| `gpt-4.1-mini` quality or throughput insufficient | Move to a larger Azure OpenAI deployment behind the same `llm.ts` abstraction |
 | External agent workflow (e.g. Copilot in VS Code) needs LLP tools | Consider LLP-owned MCP server surface |
 | Scotland support landed | Revisit jurisdiction model for Wales/NI (both use rUK rates currently) |
 | Pension IHT reform (April 2027) approaches | Add `pension_estate_inclusion_2027` rule to hmrc-tax-mcp; wire into optimizer IHT goal |
