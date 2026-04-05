@@ -148,7 +148,7 @@ The No-Go stage accounts for 69% of the total saving — both State Pensions are
 
 ## Authoritative Sources Used in This Analysis
 
-All tax calculations were computed live against the `hmrc-local` rule engine. No hardcoded constants were used.
+Historical note: this report is retained for traceability. The current LLP codebase now uses a committed HMRC snapshot in `src/config/taxRuleSnapshot.ts`, and the proof-of-concept scripts in `scripts/` embed values that should be kept aligned with that snapshot.
 
 | Rule | Version | Output used | Checksum |
 |---|---|---|---|
@@ -156,7 +156,7 @@ All tax calculations were computed live against the `hmrc-local` rule engine. No
 | `cgt_exempt` (2025-26) | v1.0.0 | £3,000 per person | `a8c6f627` |
 | `cgt_due` (2025-26) | v1.0.0 | £0 CGT on £3,000 gain per person | `5c23ead7` |
 | `pension_lsa` (2025-26) | v1.0.0 | £268,275 lifetime limit | `c361daee` |
-| `state_pension_annual` (2025-26) | v1.1.0 | £11,973 base | `5d0db37c` |
+| `state_pension_annual` (2025-26) | v1.1.0 | superseded in current LLP snapshot: `£11,502.40` for `2025-26`; `£11,973` is the `2026-27` entry | `5d0db37c` |
 | `pension_ufpls_tax_free_fraction` | v1.0.0 | 25% tax-free per UFPLS withdrawal | `1c3603d2` |
 
 ### Legislative citations

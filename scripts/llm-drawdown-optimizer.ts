@@ -1,9 +1,9 @@
 /**
  * LLM-Orchestrated Tax-Efficient Drawdown Optimizer
  *
- * Architecture: This script IS the LLM orchestrator described in
- * docs/withdrawal-optimizer-mcp-design.md. Tax rules are sourced
- * exclusively from hmrc-local MCP — no LLP hardcoded constants used.
+ * Architecture: This script is a proof-of-concept aligned with
+ * docs/optimizer-architecture-reconciled.md. Tax rule values embedded in this
+ * proof-of-concept script were previously verified against hmrc-local MCP.
  *
  * HMRC rule values embedded below were fetched from hmrc-local MCP
  * tax_get_rule_snapshot for tax years 2025-26 through 2030-31.
@@ -21,7 +21,7 @@
 // cgt_exempt:        confirmed 2025-26, 2026-27 (£3,000 per person)
 // cgt_rates:         confirmed 2025-26, 2026-27 (18% basic / 24% higher)
 // pension_ufpls_*:   confirmed 2025-26, 2026-27 (25% tax-free / 75% taxable)
-// state_pension_annual: 2025-26 base £11,973 (hmrc-local rule v1.1.0)
+// state_pension_annual: 2025-26 base £11,502.40 (aligned with LLP snapshot)
 // Citations:
 //   https://www.gov.uk/income-tax-rates
 //   https://www.gov.uk/tax-on-pension
@@ -39,7 +39,7 @@ const HMRC = {
   cgtRateHigher:        0.24,    // cgt_rates higher
   ufplsTaxFree:         0.25,    // pension_ufpls_tax_free_fraction
   ufplsTaxable:         0.75,    // pension_ufpls_taxable_fraction
-  statePensionBase:    11_973,   // state_pension_annual 2025-26 (hmrc-local v1.1.0)
+  statePensionBase:    11_502.4, // state_pension_annual 2025-26 (aligned with LLP snapshot)
 };
 
 // ─── Plan data (from lifeplan.json) ──────────────────────────────────────────
@@ -66,10 +66,10 @@ const BASE_SPENDING = 66_891;
 // (£1,024 × 1.025^4 ≈ £1,130 at Paul age 60)
 const DB_PENSION_AT_60 = 1_130;
 
-// State pension from hmrc-local base £11,973 (2025-26).
+// State pension from base £11,502.40 (2025-26, aligned with LLP snapshot).
 // Projected forward at 3.9%/yr (triple-lock earnings assumption, consistent
 // with simulation output: Lisa gets £14,724 at her age 67 = Paul age 66 = year 6)
-// Verification: £11,973 × 1.039^6 = £14,994... close but sim uses different growth.
+// Verification: £11,502.40 × 1.039^6 = £14,406... close but sim uses different growth.
 // Using sim-validated schedule below (cross-checked against LLP tables).
 const SP_SCHEDULE: Record<number, { paulSP: number; lisaSP: number }> = {
   60: { paulSP:      0, lisaSP:      0 },
@@ -484,4 +484,4 @@ console.log('\nHMRC rule citations:');
 console.log('  income_tax_bands:  https://www.gov.uk/income-tax-rates (confirmed 2025-26 → 2030-31)');
 console.log('  cgt_exempt/rates:  https://www.gov.uk/capital-gains-tax/rates (confirmed 2025-26, 2026-27)');
 console.log('  UFPLS:             https://www.gov.uk/government/publications/rates-and-allowances-pension-schemes (confirmed 2025-26, 2026-27)');
-console.log('  state_pension:     hmrc-local state_pension_annual v1.1.0, base £11,973 (2025-26)');
+console.log('  state_pension:     LLP snapshot 2025-26 base £11,502.40; 2026-27 snapshot base £11,973');

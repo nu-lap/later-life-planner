@@ -22,11 +22,12 @@
  *   4. Lisa-first      Lisa fills PA from DC first, then Paul
  *   5. ISA-preserve    Equal DC, but defer ISA → use DC above PA instead
  *
- * HMRC values from hmrc-local MCP (no LLP hardcoded constants):
+ * HMRC values in this proof-of-concept script were previously verified against
+ * hmrc-local MCP and should be kept aligned with LLP snapshot values:
  *   income_tax_bands:    confirmed 2025-26 → 2030-31 (all identical)
  *   cgt_exempt/rates:    confirmed 2025-26, 2026-27; used for all years
  *   pension_ufpls_*:     confirmed 2025-26, 2026-27; used for all years
- *   state_pension_annual: base £11,973 (2025-26, hmrc-local v1.1.0)
+ *   state_pension_annual: base £11,502.40 (2025-26 LLP snapshot)
  *
  * Usage:
  *   npx tsx --tsconfig tsconfig.json scripts/combined-strategy.ts <path-to-lifeplan.json>
@@ -624,4 +625,4 @@ console.log('\n  HMRC citations:');
 console.log('  income_tax_bands: https://www.gov.uk/income-tax-rates (confirmed 2025-26 → 2030-31)');
 console.log('  cgt_exempt/rates: https://www.gov.uk/capital-gains-tax/rates (confirmed 2025-26, 2026-27)');
 console.log('  UFPLS/LSA:        https://www.gov.uk/tax-on-pension (confirmed 2025-26, 2026-27)');
-console.log('  state_pension:    hmrc-local state_pension_annual v1.1.0, base £11,973 (2025-26)');
+console.log('  state_pension:    LLP snapshot 2025-26 base £11,502.40; 2026-27 snapshot base £11,973');
