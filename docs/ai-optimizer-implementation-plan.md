@@ -5,7 +5,7 @@
 - Status: Active
 - Owner: Later-Life Planner Engineering (`NxLap Ltd`)
 - Created: 2026-04-05
-- Last reviewed: 2026-04-05
+- Last reviewed: 2026-04-07
 - Review cadence: On phase completion or architecture change
 
 This document is the implementation plan for delivering the full AI-enabled drawdown
@@ -108,13 +108,27 @@ export interface YearRecord {
   result: WaterfallResult;
 }
 
+/**
+ * Per-rule provenance captured during optimizer execution.
+ * Required by the explanation route to hydrate accurate HMRC MCP citations.
+ */
+export interface RuleProvenance {
+  rule_id: string;
+  version: string;
+  tax_year_requested: string;
+  tax_year_used: string;       // may differ from requested if fallback was applied
+  jurisdiction: TaxJurisdiction;
+  is_fallback: boolean;        // true when snapshot fell back to a prior year
+}
+
 export interface OptimizationResult {
   recommendedStrategy: WaterfallConfig;
   baselineStrategy: WaterfallConfig;
   lifetimeTaxSaving: number;
   assetDepletionAge: number | null;
+  terminalAssets: number;          // total assets at end of projection
   yearRecords: YearRecord[];
-  taxRuleVersions: Record<string, string>; // rule_id → version used
+  ruleProvenance: RuleProvenance[];  // replaces taxRuleVersions; one entry per rule used
 }
 ```
 
@@ -146,7 +160,7 @@ export function optimizeWithdrawals(
 
 - Evaluates 5 candidates per year: LLP-Baseline, Couple-equal, Proportional, Lisa-first, ISA-preserve
 - Returns the lowest-tax feasible strategy for each year
-- Records `taxRuleVersions` from the snapshot for auditability
+- Records `ruleProvenance: RuleProvenance[]` from the snapshot for each rule consumed
 
 ### 1.4 Unit tests
 
@@ -161,8 +175,15 @@ Coverage required:
 - Output matches known values from `scripts/combined-strategy.ts` runs
 
 **Acceptance criteria for Phase 1:** `optimizeWithdrawals()` imported from
-`src/financialEngine/withdrawalOptimizer.ts` produces the same headline tax saving
-as `scripts/combined-strategy.ts` for the same plan input.
+`src/financialEngine/withdrawalOptimizer.ts` passes golden fixture tests covering:
+- Headline lifetime tax saving matches `scripts/combined-strategy.ts` for the same plan input.
+- Per-year totals: `totalTax`, `feasible` flag, and running asset balances match the script output year-by-year.
+- Asset depletion year (or `null`) matches.
+- Terminal asset value (`terminalAssets`) matches to within £1 (rounding).
+- The strategy sequence (best candidate per year) matches the script's selection.
+- No regression in UFPLS 25%/75% split, CGT harvest, or LSA tracking across years.
+
+Golden fixtures are stored in `tests/financialEngine/fixtures/` as JSON and version-controlled.
 
 ---
 
@@ -231,14 +252,22 @@ File: `src/app/api/optimizer-explain/route.ts`
 
 - Auth-gated via `requireUser()`
 - Rate-limited (reuse `src/lib/rateLimit.ts` pattern)
-- Accepts: `{ optimizationResult, planSummary }`
+- Accepts: `{ planId: string }` — the persisted plan identifier stored in Cosmos DB
+- **Never accepts client-supplied optimization results.** The route re-runs
+  `optimizeWithdrawals()` server-side from the canonical persisted plan state fetched
+  by `planId`. This preserves the "deterministic and auditable" contract: the LLM
+  explains results computed from trusted server state only.
 - Calls `streamExplanation()` → streams response
 - LLM role: explain and contextualise only — never computes tax
 
 ### 3.3 Hydrate live HMRC MCP citations
 
-In the route handler, for each `rule_id` in `optimizationResult.taxRuleVersions`:
-- Call `hmrc-tax-mcp` `explain_rule` to fetch rule metadata and HMRC citations
+In the route handler, for each entry in `optimizationResult.ruleProvenance`:
+- Call `hmrc-tax-mcp` `explain_rule` with `rule_id`, `version`, `tax_year_used`,
+  and `jurisdiction` from the `RuleProvenance` entry
+- Do not reference a generic `tax_year` field here: `RuleProvenance` distinguishes
+  between `tax_year_requested` and `tax_year_used`, and MCP citation hydration should
+  use `tax_year_used` so the cited rule version matches the rule actually applied
 - Add citations to `ExplanationContext.mcpCitations`
 - Graceful fallback: if MCP unavailable, proceed without citations
 
@@ -264,34 +293,44 @@ File: `src/lib/hmrcRag.ts`
 ```typescript
 export interface HmrcChunk {
   id: string;
-  manual_ref: string;
-  section_title: string;
+  manual_ref: string;         // e.g. "PTM063010", "IHTM14811"
+  section_title: string;      // human-readable section label
   text: string;
   rule_ids: string[];
+  source_url: string;         // canonical HMRC.gov.uk URL for this section
+  applicable_tax_year: string; // e.g. "2025-26" — chunk is valid for this year
+  jurisdiction: TaxJurisdiction; // 'rUK' | 'scotland'
 }
 
 export async function retrieveHmrcChunks(
   ruleIds: string[],
   queryText: string,
+  taxYear: string,
+  jurisdiction: TaxJurisdiction,
   topK = 5
 ): Promise<HmrcChunk[]>
 ```
 
 Implementation:
 1. Embed `queryText` using Azure OpenAI `text-embedding-3-large` (3072 dims)
-2. Vector query `hmrc-chunks` container, filtered by `rule_ids ARRAY_CONTAINS`
+2. Vector query `hmrc-chunks` container filtered by:
+   - `rule_ids ARRAY_CONTAINS` any of `ruleIds`
+   - `applicable_tax_year = taxYear`
+   - `jurisdiction = <jurisdiction param>`
 3. Return top-K chunks ordered by cosine similarity
 
 Authentication: `DefaultAzureCredential` (managed identity in ACA; `az login` locally).
 
 ### 4.2 Wire into `optimizer-explain` route
 
-- Call `retrieveHmrcChunks(ruleIds, planContextQuery)`
+- Call `retrieveHmrcChunks(ruleIds, planContextQuery, taxYear, jurisdiction)`
 - Add returned chunks to `ExplanationContext.ragChunks`
 - Handle Cosmos unavailability gracefully — skip RAG, proceed with MCP citations only
 
 **Acceptance criteria for Phase 4:** Explanation generated for a pension drawdown
-scenario includes a quoted HMRC PTM or IHTM excerpt sourced from the RAG corpus.
+scenario includes a quoted HMRC PTM or IHTM excerpt sourced from the RAG corpus,
+with `source_url` surfaced in the response. Retrieval is filtered to the correct
+`applicable_tax_year` and `jurisdiction` — cross-year leakage is a test failure.
 
 ---
 
@@ -348,6 +387,27 @@ export interface GoalConfig {
 }
 
 export type GoalRegistry = GoalConfig[];
+
+/**
+ * Structured output from the goal-orchestrate route.
+ * Richer than a waterfall config override — captures constraint thresholds
+ * and objective adjustments that the optimizer consumes as constraints,
+ * not just ordering hints.
+ */
+export interface OptimizerPolicyOverride {
+  // Waterfall ordering hints (may be absent if goals don't imply an order)
+  dcOrder?: DCOrder;
+  isaMode?: ISAMode;
+
+  // Constraint thresholds derived from goals
+  minAnnualIncome?: number;        // spending floor (£/year) — longevity_protection / spending_floor
+  careReserveTarget?: number;      // capital to protect — care_reserve
+  bequestTarget?: number;          // estate value floor — bequest
+  inflationAdjustSpending?: boolean; // inflation_resilience
+
+  // Rationale returned alongside override for UI display
+  rationale: string;
+}
 ```
 
 Default priority stack matches `docs/optimizer-architecture-reconciled.md` §Canonical Layer Model.
@@ -363,13 +423,18 @@ Default priority stack matches `docs/optimizer-architecture-reconciled.md` §Can
 File: `src/app/api/goal-orchestrate/route.ts`
 
 - Accepts: `{ planSummary, goalRegistry, naturalLanguageInput? }`
-- Uses `llm.ts` wrapper to map inputs → `Partial<WaterfallConfig>`
-- Returns structured config override — not prose
-- Downstream: `optimizeWithdrawals(state, { configOverride })`
+- Uses `llm.ts` wrapper to map inputs → `OptimizerPolicyOverride`
+- Returns structured policy override — not prose. Phase 6 is explicitly designed to
+  evolve **beyond** the 5-strategy waterfall family: `OptimizerPolicyOverride` expresses
+  constraint thresholds (care reserve, bequest floor, spending floor) that the optimizer
+  enforces as objective constraints, not just ordering preferences.
+- Downstream: `optimizeWithdrawals(state, { policyOverride })`
 
 **Acceptance criteria for Phase 6:** Given `goalRegistry` with `bequest` at
-priority 1, the orchestrator returns a `WaterfallConfig` that favours ISA-preserve
-and deferring DC drawdown.
+priority 1 and a target value, the orchestrator returns an `OptimizerPolicyOverride`
+with `bequestTarget` set and `isaMode: 'defer'`. The optimizer respects the bequest
+floor as a constraint — a solution that violates it is rejected as infeasible even if
+it produces lower lifetime tax.
 
 ---
 
