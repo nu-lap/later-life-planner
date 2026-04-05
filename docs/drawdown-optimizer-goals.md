@@ -426,8 +426,10 @@ POST /api/optimizer-explain
      (HMRC internal manuals: PTM, IHTM, CG, PIM, IPTM, EIM, SAIM, SDLTM —
       indexed, chunked, and stored in Azure Cosmos DB `hmrc-chunks` container;
       each chunk is tagged with the `rule_id` values it governs via `citation_map.json`)
-     ← RAG: corpus live in Azure Cosmos DB; retrieval via Cosmos DB native vector search
-       (DiskANN indexing on the `/embedding` field — text-embedding-3-large, 3072 dims)
+     ← MVP retrieval: Cosmos DB native vector search
+       (DiskANN index on `/embedding` — text-embedding-3-large, 3072 dims; zero extra infra)
+     ← Future upgrade: Azure AI Search S1 — adds semantic re-ranker for higher-quality
+       results on natural-language financial queries; ~£250/month vs ~£10–20 for Cosmos DB
      ← Note: also covers forthcoming regulatory changes (e.g. 2027 pension IHT reform)
   4. Calls Anthropic with:
      - structured optimizer result (deterministic)
@@ -522,7 +524,7 @@ User → LLP UI
 |---|---|---|
 | Tax rules | Constants embedded in proof-of-concept scripts | Need `gen-tax-snapshot.ts` + live MCP audit route |
 | Optimizer core | Working in `scripts/combined-strategy.ts` | Needs porting to `src/financialEngine/withdrawalOptimizer.ts` |
-| LLM explanation | RAG corpus live in Cosmos DB (8 HMRC manuals, DiskANN vector search); `POST /api/optimizer-explain` endpoint not yet built | Build API route in LLP wiring Anthropic + MCP citations + Cosmos DB vector retrieval |
+| LLM explanation | RAG corpus live in Cosmos DB (8 HMRC manuals, DiskANN vector search); `POST /api/optimizer-explain` endpoint not yet built | Build API route wiring Anthropic + MCP citations + Cosmos DB vector retrieval (MVP); upgrade to Azure AI Search S1 for semantic re-ranking when quality matters |
 | Goal orchestration | Not built | Needs goal registry + LLM orchestration layer |
 
 The build-time snapshot (Phase 1 HMRC work) closes the Layer 1 gap. Layers 3 and 4 are the genuine product innovation — and the most differentiating capability LLP can deliver.
