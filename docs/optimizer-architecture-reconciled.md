@@ -120,7 +120,7 @@ Reasoning:
 
 Reconciled interpretation of the docs:
 - `docs/architecture/vector-search-options.md` is the correct decision frame: Cosmos first, AI Search later if needed
-- `docs/architecture/ai-search-integration.md` should be treated as an optional target architecture, not proof that Azure AI Search is the chosen baseline
+- any Azure AI Search integration material should be treated as an optional target architecture, not proof that Azure AI Search is the chosen baseline
 
 ### 5. LLM provider choice
 
