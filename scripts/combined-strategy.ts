@@ -625,4 +625,4 @@ console.log('\n  HMRC citations:');
 console.log('  income_tax_bands: https://www.gov.uk/income-tax-rates (confirmed 2025-26 → 2030-31)');
 console.log('  cgt_exempt/rates: https://www.gov.uk/capital-gains-tax/rates (confirmed 2025-26, 2026-27)');
 console.log('  UFPLS/LSA:        https://www.gov.uk/tax-on-pension (confirmed 2025-26, 2026-27)');
-console.log('  state_pension:    LLP snapshot 2025-26 base £11,502.40; 2026-27 snapshot base £11,973');
+console.log('  state_pension:    LLP snapshot 2025-26 base £11,502.40; 2026-27 snapshot base £11,973 (estimated)');
