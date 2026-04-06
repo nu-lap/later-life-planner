@@ -23,9 +23,20 @@ function jsonError(error: string, status: number, details?: Record<string, unkno
 }
 
 function rateLimitExceeded(resetInMs: number): Response {
-  return jsonError('Rate limit exceeded.', 429, {
-    retryAfterSeconds: Math.ceil(resetInMs / 1000),
-  });
+  const retryAfterSeconds = Math.ceil(resetInMs / 1000);
+
+  return Response.json(
+    {
+      error: 'Rate limit exceeded.',
+      retryAfterSeconds,
+    },
+    {
+      status: 429,
+      headers: {
+        'Retry-After': String(retryAfterSeconds),
+      },
+    },
+  );
 }
 
 function iteratorToReadableStream(iterator: AsyncGenerator<string>): ReadableStream<Uint8Array> {

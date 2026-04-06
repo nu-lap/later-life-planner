@@ -123,6 +123,7 @@ describe('/api/optimizer-explain route', () => {
     }));
 
     expect(response.status).toBe(429);
+    expect(response.headers.get('Retry-After')).toBe('6');
     await expect(response.json()).resolves.toEqual({
       error: 'Rate limit exceeded.',
       retryAfterSeconds: 6,

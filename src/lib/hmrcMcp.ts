@@ -104,5 +104,19 @@ export async function collectHmrcRuleCitations(
     uniqueRules.map((rule) => fetchRuleCitations(rule, baseUrl)),
   );
 
+  const failedRequests = settled.filter(
+    (result): result is PromiseRejectedResult => result.status === 'rejected',
+  );
+
+  if (failedRequests.length > 0) {
+    const reasons = failedRequests
+      .map((result) => (result.reason instanceof Error ? result.reason.message : String(result.reason)))
+      .join('; ');
+
+    throw new Error(
+      `Failed to fetch HMRC MCP citations for ${failedRequests.length} of ${uniqueRules.length} rules: ${reasons}`,
+    );
+  }
+
   return settled.flatMap((result) => (result.status === 'fulfilled' ? result.value : []));
 }
