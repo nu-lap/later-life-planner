@@ -271,6 +271,21 @@ File: `src/app/api/optimizer-explain/route.ts`
 Suggested request shape:
 
 ```typescript
+/**
+ * Minimised summary of the optimizer output sent to the server.
+ * yearRecords is deliberately excluded — per-year breakdowns contain
+ * detailed asset and income data and are not needed to generate an explanation.
+ * The server uses only aggregated figures and ruleProvenance.
+ */
+export interface OptimizationSummary {
+  recommendedStrategy: WaterfallConfig;
+  baselineStrategy: WaterfallConfig;
+  lifetimeTaxSaving: number;
+  assetDepletionAge: number | null;
+  terminalAssets: number;
+  ruleProvenance: RuleProvenance[];
+}
+
 export interface OptimizerExplainRequest {
   requestId: string;
   planRevision: string;
@@ -292,7 +307,7 @@ export interface OptimizerExplainRequest {
     giaTotal: number;
     targetSpendingAnnual: number;
   };
-  optimizationResult: OptimizationResult;
+  optimizationResult: OptimizationSummary;  // yearRecords excluded
 }
 ```
 
@@ -322,9 +337,12 @@ High-level flow
 
 1. Local compute and payload derivation
    - Decrypt planner state in the browser.
-   - Run `optimizeWithdrawals()` locally.
-   - Derive a compact explanation payload containing only the fields required to
-     explain the optimizer output.
+   - Run `optimizeWithdrawals()` locally (returns full `OptimizationResult` including `yearRecords`).
+   - Derive an `OptimizationSummary` from the result — copy the aggregated fields
+     (`recommendedStrategy`, `baselineStrategy`, `lifetimeTaxSaving`, `assetDepletionAge`,
+     `terminalAssets`, `ruleProvenance`) and **explicitly drop `yearRecords`**. Per-year
+     breakdowns contain detailed asset and income data that is not needed for explanation
+     and must not leave the browser.
    - Exclude direct identifiers and unnecessary raw account detail.
 
 2. User consent
