@@ -165,7 +165,7 @@ function describeTaxRuleCaveat(optimizationResult: OptimizationSummary): string 
     ].filter(Boolean).join(' ');
   }
 
-  return `The tax calculations use the confirmed HMRC rules referenced in the optimizer output.${rangeText}`.trim();
+  return `The tax calculations use the confirmed HMRC rules referenced in this projection.${rangeText}`.trim();
 }
 
 function buildCitationsSection(citations: RuleCitation[]): string[] {
