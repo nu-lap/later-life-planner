@@ -286,14 +286,37 @@ export interface OptimizationSummary {
   ruleProvenance: RuleProvenance[];
 }
 
+/**
+ * Vocabulary of data categories the user consents to share.
+ * Each value maps to a human-readable label shown in the consent dialog.
+ * Extend this enum — do not use free strings — so the server can whitelist
+ * known scope values and reject unknown ones.
+ */
+export type ConsentScope =
+  | 'household-demographics'  // householdType, ages, jurisdiction
+  | 'financial-summary'       // anonymised DC/ISA/GIA totals, target spend
+  | 'optimization-result'     // recommendedStrategy, lifetimeTaxSaving, etc.
+  | 'rule-provenance'         // HMRC rule IDs, versions, tax-years used
+  | 'mcp-citations'           // server will fetch live HMRC MCP citations
+  | 'rag-guidance';           // server will retrieve RAG guidance chunks
+
 export interface OptimizerExplainRequest {
   requestId: string;
+  /**
+   * Opaque revision token bound to the plan state used for this optimizer run.
+   * Must be the Cosmos DB ETag (or SHA-256 of the encrypted plan blob) for the
+   * document version from which the optimizer input was decrypted.
+   * Free strings are rejected: the server validates that the value matches the
+   * pattern /^(etag:[0-9a-f-]+|sha256:[0-9a-f]{64})$/.
+   */
   planRevision: string;
   schemaVersion: string;
   consent: {
-    grantedAt: string;
-    scope: string[];
-    provider: 'azure-openai' | 'anthropic';
+    grantedAt: string;          // ISO-8601 timestamp of user approval
+    scope: ConsentScope[];      // typed enum — no free strings
+    // Note: LLM provider is NOT in the client consent struct.
+    // The actual provider used is selected and recorded server-side in the
+    // audit record so client-supplied values cannot influence routing.
   };
   subject: {
     householdType: 'single' | 'couple';
@@ -350,7 +373,7 @@ High-level flow
    - The dialog must state:
      - which data categories leave the browser
      - that LLP will use the payload only for explanation generation
-     - which provider will process the explanation request
+     - which **provider category** will process the explanation request (e.g. "a cloud AI service"); the exact provider is not disclosed client-side to prevent client-influenced routing
      - whether HMRC citations and RAG guidance may be fetched server-side
    - The user must explicitly approve the submission.
 
@@ -365,17 +388,45 @@ High-level flow
    - Store only lightweight request metadata needed for diagnostics or audit.
    - Do not persist full planner plaintext as part of the explanation workflow.
    - Any retained record should be limited to:
-     `{ requestId, planRevision, schemaVersion, consentScope, provider, timestamp, ruleProvenance }`.
+     `{ requestId, planRevision, schemaVersion, consentScope, provider, payloadHash, timestamp, ruleProvenance }`.
+     - `provider`: the **server-selected** LLM provider (e.g. `'azure-openai'`), recorded
+       here — not taken from the client payload.
+     - `payloadHash`: SHA-256 of the canonical JSON-serialised `OptimizerExplainRequest`,
+       computed server-side before processing. This makes the audit record verifiable —
+       a client can re-hash its original submission and confirm the server saw the same
+       payload.
+   - Audit records must not be retained longer than **90 days**. Implement a TTL index
+     on the audit collection (or equivalent) to enforce automatic expiry.
+   - Users may request deletion of their audit records under GDPR Article 17. The API
+     must expose a deletion path for records tied to the authenticated user's `userId`.
+
+5. In-memory lifecycle
+   - The decrypted `PlannerState` and derived `OptimizationSummary` must not be held in
+     any server-side memory or variable after the streaming response is complete.
+   - Route handler implementation must: (a) derive all LLM context within a single
+     request closure, (b) not assign plan data to module-level or singleton variables,
+     (c) rely on the JS GC to collect the closure once the response stream ends.
+   - Required test: a unit test that mocks the route handler, captures the request closure,
+     and asserts that no reference to `financialSummary` or `optimizationResult` is
+     exported or persisted after the handler resolves.
 
 Design constraints
 
-- Treat the payload as minimised and pseudonymised, not truly anonymous.
+- Treat the payload as de-identified and minimised, not truly anonymous.
 - Keep names, addresses, account numbers, and free-text notes out of the payload.
 - Use a versioned payload schema so the client and server evolve safely.
 - Bind the request to the optimizer result revision so the explanation matches the
-  visible dashboard state.
+  visible dashboard state (`planRevision` must be a Cosmos ETag or SHA-256 blob hash —
+  see `OptimizerExplainRequest.planRevision` doc comment above).
 - Keep MCP and RAG enrichment server-side so API credentials and retrieval logic do
   not move into the browser.
+- **Prompt injection:** all string fields from the client that enter LLM prompts must
+  be validated as typed enums before reaching the prompt builder. Fields such as
+  `WaterfallConfig.dcOrder`, `WaterfallConfig.isaMode`, `subject.jurisdiction`, and
+  `consent.scope[]` must be whitelisted against their declared enum values.
+  Free-text fields must not be accepted by the schema. The route handler must call
+  a `sanitiseForPrompt(payload: OptimizerExplainRequest): void` helper that throws
+  `400 Bad Request` on any value that does not match its declared type.
 
 API contract (suggested endpoint)
 
@@ -389,13 +440,21 @@ Acceptance criteria for the consented workflow
 - Explicit consent: submission is blocked until the user approves the disclosure.
 - No planner plaintext persistence: the explanation workflow does not store the
   full decrypted plan on the server.
-- Provider transparency: the consent UI tells the user which LLM provider will
-  process the request.
+- Provider transparency: the consent dialog tells the user which LLM provider
+  **category** will process the request (e.g. "a cloud AI service"); the exact
+  provider is recorded server-side in the audit record, not in the client consent struct.
+- Prompt injection prevention: `sanitiseForPrompt()` is called before any prompt
+  construction and rejects any payload with non-enum string values.
+- Audit verifiability: `payloadHash` in the audit record matches a client-computed
+  SHA-256 of the submitted payload.
 
 Testing and integration
 
-- Unit tests for payload derivation so sensitive fields are excluded.
+- Unit tests for payload derivation so sensitive fields (including `yearRecords`) are excluded.
+- Unit test for `sanitiseForPrompt()` covering both valid and injection-attempt inputs.
+- Unit test for in-memory lifecycle: asserts no plan data escapes the request closure.
 - Route tests for schema validation, consent enforcement, and MCP fallback.
+- Route test: submitting a payload with a non-enum string in any typed field returns `400`.
 - Integration test: decrypted plan in browser → local optimizer run → consented
   payload submission → streamed explanation with citations.
 - Security test: reject oversized or over-disclosive payloads that violate the
