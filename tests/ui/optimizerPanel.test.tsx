@@ -43,7 +43,9 @@ describe('OptimizerPanel', () => {
     expect(screen.getByRole('dialog')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Generate explanation' })).toBeDisabled();
 
-    await userEvent.click(screen.getByRole('checkbox'));
+    const consentCheckbox = await screen.findByRole('checkbox');
+    await waitFor(() => { expect(consentCheckbox).toBeEnabled(); });
+    await userEvent.click(consentCheckbox);
     await userEvent.click(screen.getByRole('button', { name: 'Generate explanation' }));
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
@@ -79,7 +81,9 @@ describe('OptimizerPanel', () => {
     render(<OptimizerPanel plannerState={plannerState} result={result} />);
 
     await userEvent.click(screen.getByRole('button', { name: 'Explain this recommendation' }));
-    await userEvent.click(await screen.findByRole('checkbox'));
+    const consentCheckbox1 = await screen.findByRole('checkbox');
+    await waitFor(() => { expect(consentCheckbox1).toBeEnabled(); });
+    await userEvent.click(consentCheckbox1);
     await userEvent.click(screen.getByRole('button', { name: 'Generate explanation' }));
 
     await waitFor(() => {
@@ -113,7 +117,9 @@ describe('OptimizerPanel', () => {
     const { rerender } = render(<OptimizerPanel plannerState={plannerState} result={result} />);
 
     await userEvent.click(screen.getByRole('button', { name: 'Explain this recommendation' }));
-    await userEvent.click(await screen.findByRole('checkbox'));
+    const consentCheckbox2 = await screen.findByRole('checkbox');
+    await waitFor(() => { expect(consentCheckbox2).toBeEnabled(); });
+    await userEvent.click(consentCheckbox2);
     await userEvent.click(screen.getByRole('button', { name: 'Generate explanation' }));
 
     await waitFor(() => {
@@ -155,7 +161,9 @@ describe('OptimizerPanel', () => {
     render(<OptimizerPanel plannerState={plannerState} result={result} />);
 
     await userEvent.click(screen.getByRole('button', { name: 'Explain this recommendation' }));
-    await userEvent.click(screen.getByRole('checkbox'));
+    const consentCheckbox3 = await screen.findByRole('checkbox');
+    await waitFor(() => { expect(consentCheckbox3).toBeEnabled(); });
+    await userEvent.click(consentCheckbox3);
     await userEvent.click(screen.getByRole('button', { name: 'Generate explanation' }));
 
     const closeButton = await screen.findByRole('button', { name: 'Close' });
@@ -185,7 +193,9 @@ describe('OptimizerPanel', () => {
     render(<OptimizerPanel plannerState={plannerState} result={result} />);
 
     await userEvent.click(screen.getByRole('button', { name: 'Explain this recommendation' }));
-    await userEvent.click(screen.getByRole('checkbox'));
+    const consentCheckbox4 = await screen.findByRole('checkbox');
+    await waitFor(() => { expect(consentCheckbox4).toBeEnabled(); });
+    await userEvent.click(consentCheckbox4);
     await userEvent.click(screen.getByRole('button', { name: 'Generate explanation' }));
 
     await waitFor(() => {

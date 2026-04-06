@@ -228,7 +228,7 @@ export default function OptimizerPanel({ plannerState, result }: Props) {
           <div className="relative flex min-h-full items-center justify-center p-4 sm:p-6">
             <div
               data-testid="optimizer-explain-panel"
-              className="relative flex w-full max-w-2xl max-h-[calc(100vh-2rem)] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl"
+              className="relative flex w-full max-w-2xl max-h-[calc(100vh-2rem)] sm:max-h-[calc(100vh-3rem)] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl"
             >
               <div data-testid="optimizer-explain-body" className="overflow-y-auto p-6">
                 <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-500">

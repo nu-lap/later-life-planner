@@ -50,14 +50,23 @@ function loadCachedExplanation(planRevision: string): string | null {
   const storage = getExplanationStorage();
   if (!storage) return null;
 
-  const cached = storage.getItem(getExplanationCacheKey(planRevision));
-  return cached && cached.trim().length > 0 ? cached : null;
+  try {
+    const cached = storage.getItem(getExplanationCacheKey(planRevision));
+    return cached && cached.trim().length > 0 ? cached : null;
+  } catch {
+    return null;
+  }
 }
 
 function persistExplanation(planRevision: string, text: string): void {
   const storage = getExplanationStorage();
   if (!storage) return;
-  storage.setItem(getExplanationCacheKey(planRevision), text);
+
+  try {
+    storage.setItem(getExplanationCacheKey(planRevision), text);
+  } catch {
+    // Best-effort cache write: explanation generation should not fail if storage is unavailable.
+  }
 }
 
 async function derivePlanRevision(
