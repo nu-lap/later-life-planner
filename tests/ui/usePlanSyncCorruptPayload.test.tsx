@@ -81,7 +81,6 @@ describe('usePlanSync corrupted payload handling', () => {
       return new Response('Unexpected', { status: 500 });
     });
 
-    // @ts-expect-error test override
     globalThis.fetch = fetchMock;
 
     render(<Harness />);
@@ -110,7 +109,6 @@ describe('usePlanSync corrupted payload handling', () => {
       return new Response('Unexpected', { status: 500 });
     });
 
-    // @ts-expect-error test override
     globalThis.fetch = fetchMock;
 
     render(<Harness />);

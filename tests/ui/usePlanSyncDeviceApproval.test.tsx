@@ -116,7 +116,6 @@ describe('usePlanSync device approval', () => {
       return new Response('Unexpected', { status: 500 });
     });
 
-    // @ts-expect-error test override
     globalThis.fetch = fetchMock;
 
     const view = render(<Harness />);
@@ -207,7 +206,6 @@ describe('usePlanSync device approval', () => {
       return new Response('Unexpected', { status: 500 });
     });
 
-    // @ts-expect-error test override
     globalThis.fetch = fetchMock;
 
     const view = render(<Harness />);
@@ -227,7 +225,6 @@ describe('usePlanSync device approval', () => {
     Object.defineProperty(globalThis, 'indexedDB', { value: undefined, configurable: true });
 
     const fetchMock = vi.fn(async () => new Response('Unexpected', { status: 500 }));
-    // @ts-expect-error test override
     globalThis.fetch = fetchMock;
 
     try {
@@ -315,7 +312,6 @@ describe('usePlanSync device approval', () => {
       return new Response('Unexpected', { status: 500 });
     });
 
-    // @ts-expect-error test override
     globalThis.fetch = fetchMock;
 
     const view = render(<Harness />);

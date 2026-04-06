@@ -81,7 +81,6 @@ describe('usePlanSync migration flow', () => {
       return new Response('Unexpected', { status: 500 });
     });
 
-    // @ts-expect-error test override
     globalThis.fetch = fetchMock;
 
     render(<Harness />);
@@ -124,7 +123,6 @@ describe('usePlanSync migration flow', () => {
       return new Response('Unexpected', { status: 500 });
     });
 
-    // @ts-expect-error test override
     globalThis.fetch = fetchMock;
 
     render(<Harness />);
