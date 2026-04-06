@@ -160,9 +160,15 @@ jobs:
                   repository(owner: $owner, name: $repo) {
                     pullRequest(number: $pullNumber) {
                       reviewThreads(first: 100) {
+                        pageInfo {
+                          hasNextPage
+                        }
                         nodes {
                           isResolved
                           comments(first: 50) {
+                            pageInfo {
+                              hasNextPage
+                            }
                             nodes {
                               databaseId
                               commit {
@@ -184,6 +190,26 @@ jobs:
               `,
               { owner, repo, pullNumber: pull_number }
             );
+            // Fail conservatively if the page limits were hit — the gate cannot
+            // guarantee all Copilot findings were inspected when results are truncated.
+            const threadsData = reviewThreads.repository?.pullRequest?.reviewThreads;
+            if (threadsData?.pageInfo?.hasNextPage) {
+              core.setFailed(
+                "PR has more than 100 review threads; the Copilot gate cannot guarantee " +
+                "all findings were inspected. Split this PR into smaller changes to proceed."
+              );
+              return;
+            }
+            const overflowThread = (threadsData?.nodes || []).find(
+              (thread) => thread?.comments?.pageInfo?.hasNextPage
+            );
+            if (overflowThread) {
+              core.setFailed(
+                "A review thread has more than 50 comments; the Copilot gate cannot guarantee " +
+                "all Copilot comments were inspected. Resolve or consolidate review threads to proceed."
+              );
+              return;
+            }
             const unresolvedReviewCommentIds = new Set(
               (((reviewThreads.repository?.pullRequest?.reviewThreads?.nodes) || [])
                 .filter((thread) => thread && thread.isResolved === false)
