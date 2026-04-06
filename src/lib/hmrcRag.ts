@@ -1,4 +1,4 @@
-import { CosmosClient, type Container, type CosmosClientOptions, type SqlQuerySpec } from '@azure/cosmos';
+import { CosmosClient, type Container, type CosmosClientOptions, type SqlParameter, type SqlQuerySpec } from '@azure/cosmos';
 import { DefaultAzureCredential } from '@azure/identity';
 import type { TaxJurisdiction } from '@/models/types';
 import type { HmrcChunk } from '@/lib/optimizerExplain';
@@ -187,7 +187,7 @@ function buildQuery(ruleIds: string[], taxYear: string, jurisdiction: TaxJurisdi
     Math.max(topK * CANDIDATE_MULTIPLIER, MIN_CANDIDATE_LIMIT),
     MAX_CANDIDATE_LIMIT,
   );
-  const parameters: Array<{ name: string; value: unknown }> = [
+  const parameters: SqlParameter[] = [
     { name: '@taxYear', value: taxYear },
     { name: '@jurisdiction', value: jurisdiction },
   ];
