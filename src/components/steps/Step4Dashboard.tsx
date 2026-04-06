@@ -389,7 +389,7 @@ export default function Step4Dashboard({ onBack }: Props) {
       <TaxOverview projections={displayProjections} />
 
       {optimizerEnabled && optimizerResult && (
-        <OptimizerPanel result={optimizerResult} />
+        <OptimizerPanel plannerState={deferredState} result={optimizerResult} />
       )}
 
       {/* Projection table */}
