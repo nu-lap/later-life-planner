@@ -3,11 +3,28 @@ import type { OptimizerExplainRequest } from '@/lib/optimizerExplain';
 import { buildOptimizerExplainRequest, REQUIRED_EXPLAIN_CONSENT_SCOPES } from '@/lib/optimizerExplain';
 import type { PlannerState } from '@/models/types';
 
+const EXPLANATION_CACHE_PREFIX = 'llp.optimizer-explanation:';
+
 export class OptimizerExplainClientError extends Error {
   constructor(message: string) {
     super(message);
     this.name = 'OptimizerExplainClientError';
   }
+}
+
+export interface ExplainOptimizerResultArgs {
+  plannerState: PlannerState;
+  optimizationResult: OptimizationResult;
+}
+
+export interface CachedOptimizerExplanation {
+  planRevision: string;
+  explanation: string | null;
+}
+
+export interface GeneratedOptimizerExplanation {
+  planRevision: string;
+  text: string;
 }
 
 async function sha256Hex(input: string): Promise<string> {
@@ -17,11 +34,67 @@ async function sha256Hex(input: string): Promise<string> {
     .join('');
 }
 
+function getExplanationStorage(): Storage | null {
+  try {
+    return window.localStorage;
+  } catch {
+    return null;
+  }
+}
+
+function getExplanationCacheKey(planRevision: string): string {
+  return `${EXPLANATION_CACHE_PREFIX}${planRevision}`;
+}
+
+function loadCachedExplanation(planRevision: string): string | null {
+  const storage = getExplanationStorage();
+  if (!storage) return null;
+
+  try {
+    const cached = storage.getItem(getExplanationCacheKey(planRevision));
+    return cached && cached.trim().length > 0 ? cached : null;
+  } catch {
+    return null;
+  }
+}
+
+function persistExplanation(planRevision: string, text: string): void {
+  const storage = getExplanationStorage();
+  if (!storage) return;
+
+  try {
+    storage.setItem(getExplanationCacheKey(planRevision), text);
+  } catch {
+    // Best-effort cache write: explanation generation should not fail if storage is unavailable.
+  }
+}
+
 async function derivePlanRevision(
   stablePayload: Pick<OptimizerExplainRequest, 'schemaVersion' | 'subject' | 'financialSummary' | 'optimizationResult'>,
 ): Promise<string> {
   const canonical = JSON.stringify(stablePayload);
   return `sha256:${await sha256Hex(canonical)}`;
+}
+
+async function buildRequestWithDerivedRevision(
+  args: ExplainOptimizerResultArgs,
+): Promise<OptimizerExplainRequest> {
+  const requestId = crypto.randomUUID();
+  const grantedAt = new Date().toISOString();
+
+  const tempRequest = buildOptimizerExplainRequest({
+    plannerState: args.plannerState,
+    optimizationResult: args.optimizationResult,
+    planRevision: `sha256:${'0'.repeat(64)}`,
+    consentScope: [...REQUIRED_EXPLAIN_CONSENT_SCOPES, 'mcp-citations', 'rag-guidance'],
+    requestId,
+    grantedAt,
+  });
+
+  const { schemaVersion, subject, financialSummary, optimizationResult } = tempRequest;
+  const planRevision = await derivePlanRevision({ schemaVersion, subject, financialSummary, optimizationResult });
+
+  return { ...tempRequest, planRevision };
 }
 
 async function readExplainResponse(response: Response): Promise<string> {
@@ -43,30 +116,20 @@ async function readExplainResponse(response: Response): Promise<string> {
   return output;
 }
 
-export interface ExplainOptimizerResultArgs {
-  plannerState: PlannerState;
-  optimizationResult: OptimizationResult;
+export async function getCachedOptimizerExplanation(
+  args: ExplainOptimizerResultArgs,
+): Promise<CachedOptimizerExplanation> {
+  const request = await buildRequestWithDerivedRevision(args);
+  return {
+    planRevision: request.planRevision,
+    explanation: loadCachedExplanation(request.planRevision),
+  };
 }
 
 export async function explainOptimizerResult(
   args: ExplainOptimizerResultArgs,
-): Promise<string> {
-  const requestId = crypto.randomUUID();
-  const grantedAt = new Date().toISOString();
-
-  const tempRequest = buildOptimizerExplainRequest({
-    plannerState: args.plannerState,
-    optimizationResult: args.optimizationResult,
-    planRevision: `sha256:${'0'.repeat(64)}`,
-    consentScope: [...REQUIRED_EXPLAIN_CONSENT_SCOPES, 'mcp-citations', 'rag-guidance'],
-    requestId,
-    grantedAt,
-  });
-
-  const { schemaVersion, subject, financialSummary, optimizationResult } = tempRequest;
-  const planRevision = await derivePlanRevision({ schemaVersion, subject, financialSummary, optimizationResult });
-
-  const request: OptimizerExplainRequest = { ...tempRequest, planRevision };
+): Promise<GeneratedOptimizerExplanation> {
+  const request = await buildRequestWithDerivedRevision(args);
 
   const response = await fetch('/api/optimizer-explain', {
     method: 'POST',
@@ -93,5 +156,7 @@ export async function explainOptimizerResult(
     throw new OptimizerExplainClientError(errorMessage);
   }
 
-  return readExplainResponse(response);
+  const text = await readExplainResponse(response);
+  persistExplanation(request.planRevision, text);
+  return { planRevision: request.planRevision, text };
 }
