@@ -6,6 +6,11 @@ import type { TaxJurisdiction } from '@/models/types';
 
 const LLM_PROVIDER_VALUES = ['azure-openai', 'anthropic'] as const;
 const LLMProviderSchema = z.enum(LLM_PROVIDER_VALUES);
+const GBP_FORMATTER = new Intl.NumberFormat('en-GB', {
+  style: 'currency',
+  currency: 'GBP',
+  maximumFractionDigits: 0,
+});
 
 export type LlmProvider = z.infer<typeof LLMProviderSchema>;
 
@@ -35,8 +40,9 @@ export class LlmConfigError extends Error {
   }
 }
 
-const SYSTEM_PROMPT = `You explain later-life withdrawal optimizer results in plain English.
+const SYSTEM_PROMPT = `You explain later-life withdrawal optimizer results in plain English for end users.
 Rules:
+- Start with the recommendation itself. Do not open with filler such as "Here is the explanation".
 - Explain the optimizer result using only the supplied facts.
 - Never recalculate tax or invent figures.
 - Be direct and specific. Avoid fluff.
@@ -44,8 +50,11 @@ Rules:
 - Do not return one long wall of text.
 - Use any supplied HMRC guidance and citations to ground the explanation. Prefer paraphrase; only quote short excerpts when useful.
 - When you reference HMRC guidance, name the HMRC manual reference and link when they are available.
-- Do not mention internal system terms such as RAG, chunk, payload, schema, optimizer summary, or supplied data.
-- If no HMRC guidance or citations are available, just explain the recommendation plainly without mentioning missing internal inputs.
+- Use plain English instead of internal labels or abbreviations.
+- If you mention secure income, make clear that some of it may start later in retirement, for example State Pension.
+- If you mention spending, make clear that the figure shown is the first projected year's target unless you explicitly say otherwise.
+- If the recommended strategy matches the app's standard starting strategy, say that plainly.
+- Do not mention internal system terms or missing internal inputs.
 - Do not ask follow-up questions.`;
 
 function getAzureApiVersion(): string {
@@ -60,21 +69,174 @@ export function getConfiguredLlmProvider(): LlmProvider {
   return parsed.data;
 }
 
-function buildPrompt(context: ExplanationContext): string {
-  return JSON.stringify({
-    planSummary: context.planSummary,
-    optimizationResult: context.optimizationResult,
-    mcpCitations: context.mcpCitations ?? [],
-    ragChunks: (context.ragChunks ?? []).map((chunk) => ({
-      manual_ref: chunk.manual_ref,
-      section_title: chunk.section_title,
-      text: chunk.text,
-      source_url: chunk.source_url,
-      applicable_tax_year: chunk.applicable_tax_year,
-      jurisdiction: chunk.jurisdiction,
-      rule_ids: chunk.rule_ids,
-    })),
-  }, null, 2);
+function formatMoney(value: number): string {
+  return GBP_FORMATTER.format(value);
+}
+
+function describeJurisdiction(jurisdiction: TaxJurisdiction): string {
+  return jurisdiction === 'rUK' ? 'England, Wales or Northern Ireland' : 'Scotland';
+}
+
+function describeHousehold(planSummary: PlanSummary): string {
+  if (planSummary.householdType === 'single') {
+    return `One person aged ${planSummary.ages[0]} living in ${describeJurisdiction(planSummary.jurisdiction)}`;
+  }
+
+  return `A couple aged ${planSummary.ages.join(' and ')} living in ${describeJurisdiction(planSummary.jurisdiction)}`;
+}
+
+function describeSecureIncome(planSummary: PlanSummary): string {
+  if (planSummary.guaranteedIncomeAnnual <= 0) {
+    return 'No secure pension or annuity income is included in this summary yet.';
+  }
+
+  return [
+    `Secure income later in retirement is about ${formatMoney(planSummary.guaranteedIncomeAnnual)} a year when fully in payment.`,
+    'This can include State Pension, which only starts from State Pension age.',
+  ].join(' ');
+}
+
+function describeSpending(planSummary: PlanSummary): string {
+  return `The spending figure is the first projected year's target, about ${formatMoney(planSummary.targetSpendingAnnual)}.`;
+}
+
+function describeDcOrder(planSummary: PlanSummary, dcOrder: OptimizationSummary['recommendedStrategy']['dcOrder']): string {
+  if (planSummary.householdType === 'single') {
+    return 'Use the defined contribution pension to help fund spending.';
+  }
+
+  switch (dcOrder) {
+    case 'paul-first':
+      return "Start taxable pension withdrawals from one partner before moving to the other partner's pension.";
+    case 'lisa-first':
+      return "Start taxable pension withdrawals from the other partner before moving back to the first partner's pension.";
+    case 'equal':
+      return 'Split taxable pension withdrawals evenly across both partners.';
+    case 'proportional':
+      return 'Split taxable pension withdrawals across both partners in proportion to the pension pots available.';
+    default:
+      return 'Use the defined contribution pensions to help fund spending.';
+  }
+}
+
+function describeIsaMode(isaMode: OptimizationSummary['recommendedStrategy']['isaMode']): string {
+  return isaMode === 'now'
+    ? 'Use ISA withdrawals from the start of the plan where needed.'
+    : 'Keep ISA withdrawals back for later years unless they are needed sooner.';
+}
+
+function describeStrategy(planSummary: PlanSummary, strategy: OptimizationSummary['recommendedStrategy']): string {
+  return `${describeDcOrder(planSummary, strategy.dcOrder)} ${describeIsaMode(strategy.isaMode)}`;
+}
+
+function describeStrategyComparison(context: ExplanationContext): string {
+  const { optimizationResult, planSummary } = context;
+  const matchesStandard = optimizationResult.recommendedStrategy.dcOrder === optimizationResult.baselineStrategy.dcOrder
+    && optimizationResult.recommendedStrategy.isaMode === optimizationResult.baselineStrategy.isaMode;
+
+  if (matchesStandard) {
+    return "The recommendation matches the app's standard starting strategy for this plan.";
+  }
+
+  return [
+    "The app's standard starting strategy would be:",
+    describeStrategy(planSummary, optimizationResult.baselineStrategy),
+  ].join(' ');
+}
+
+function describeAssetOutcome(optimizationResult: OptimizationSummary): string {
+  if (optimizationResult.assetDepletionAge === null) {
+    return `Assets are projected to last through the modelled horizon, with about ${formatMoney(optimizationResult.terminalAssets)} remaining at the end.`;
+  }
+
+  return `Assets are projected to run out around age ${optimizationResult.assetDepletionAge}, with about ${formatMoney(optimizationResult.terminalAssets)} remaining just before that point.`;
+}
+
+function describeTaxRuleCaveat(optimizationResult: OptimizationSummary): string {
+  const usedYears = Array.from(new Set(optimizationResult.ruleProvenance.map((entry) => entry.tax_year_used))).sort();
+  const rangeText = usedYears.length > 0
+    ? ` The projection uses tax rules referenced across ${usedYears[0]} to ${usedYears[usedYears.length - 1]}.`
+    : '';
+
+  if (optimizationResult.ruleProvenance.some((entry) => entry.is_fallback)) {
+    return [
+      'Some later-year tax calculations still rely on the latest confirmed HMRC rules currently available, because not every future rate and allowance has been published yet.',
+      rangeText.trim(),
+    ].filter(Boolean).join(' ');
+  }
+
+  return `The tax calculations use the confirmed HMRC rules referenced in the optimizer output.${rangeText}`.trim();
+}
+
+function buildCitationsSection(citations: RuleCitation[]): string[] {
+  if (citations.length === 0) {
+    return [];
+  }
+
+  return [
+    'HMRC citations:',
+    ...citations.map((citation) => {
+      const parts = [citation.title, citation.taxYear];
+      if (citation.url) parts.push(citation.url);
+      return `- ${parts.join(' | ')}`;
+    }),
+  ];
+}
+
+function buildGuidanceSection(chunks: HmrcChunk[]): string[] {
+  if (chunks.length === 0) {
+    return [];
+  }
+
+  return [
+    'Relevant HMRC guidance excerpts:',
+    ...chunks.map((chunk) => `- ${chunk.manual_ref}: ${chunk.section_title} | ${chunk.text} | ${chunk.source_url}`),
+  ];
+}
+
+export function buildPrompt(context: ExplanationContext): string {
+  const { planSummary, optimizationResult } = context;
+  const recommendation = describeStrategy(planSummary, optimizationResult.recommendedStrategy);
+  const outcome = optimizationResult.lifetimeTaxSaving > 0
+    ? `This is projected to save about ${formatMoney(optimizationResult.lifetimeTaxSaving)} in lifetime tax compared with the app's standard starting strategy.`
+    : "This is not projected to produce a meaningful lifetime tax saving versus the app's standard starting strategy.";
+
+  return [
+    'Write a plain-English explanation for an end user of a later-life withdrawal plan.',
+    'Use the facts below. Do not mention internal labels, abbreviations, raw field names, or missing internal inputs.',
+    '',
+    'Starting point:',
+    `- Household: ${describeHousehold(planSummary)}.`,
+    `- ${describeSecureIncome(planSummary)}`,
+    `- Defined contribution pensions total about ${formatMoney(planSummary.dcTotal)}.`,
+    `- ISAs total about ${formatMoney(planSummary.isaTotal)}.`,
+    `- General investment accounts total about ${formatMoney(planSummary.giaTotal)}.`,
+    `- ${describeSpending(planSummary)}`,
+    '',
+    'Recommendation:',
+    `- Recommended approach: ${recommendation}`,
+    `- ${describeStrategyComparison(context)}`,
+    '',
+    'Likely outcome:',
+    `- ${outcome}`,
+    `- ${describeAssetOutcome(optimizationResult)}`,
+    '',
+    'Tax rule caveat:',
+    `- ${describeTaxRuleCaveat(optimizationResult)}`,
+    '',
+    'Writing requirements:',
+    '- Start directly with the recommendation and why it matters.',
+    '- Use plain English throughout. For example, say England, Wales or Northern Ireland rather than a code.',
+    '- Do not say things like ISA mode, baseline, fallback version, payload, schema, or technical guidance retrieval terms.',
+    "- If the recommendation matches the app's standard starting strategy, explain that plainly rather than calling it optimal by default.",
+    '- If you mention secure income, make clear that part of it may only arrive later in retirement, such as State Pension.',
+    '- If you mention spending, make clear that the figure is for the first projected year.',
+    '- Keep the answer concise, readable, and useful.',
+    '',
+    ...buildCitationsSection(context.mcpCitations ?? []),
+    ...(context.mcpCitations && context.mcpCitations.length > 0 ? [''] : []),
+    ...buildGuidanceSection(context.ragChunks ?? []),
+  ].join('\n').trim();
 }
 
 async function getAzureHeaders(): Promise<HeadersInit> {
