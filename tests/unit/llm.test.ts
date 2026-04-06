@@ -41,8 +41,7 @@ describe('buildPrompt', () => {
 
     expect(prompt).toContain('England, Wales or Northern Ireland');
     expect(prompt).toContain("first projected year's target");
-    expect(prompt).toContain('State Pension');
-    expect(prompt).toContain('only starts from State Pension age');
+    expect(prompt).toMatch(/State Pension.*start from State Pension age/i);
     expect(prompt).toMatch(/starting strategy/i);
     expect(prompt).toContain('Use ISA withdrawals from the start of the plan where needed.');
   });
