@@ -329,4 +329,28 @@ describe('OptimizerPanel', () => {
       expect(screen.getByText('Authentication required.')).toBeInTheDocument();
     });
   });
+
+  test('treats a whitespace-only streamed response as no explanation', async () => {
+    const plannerState = paulAndLisaState();
+    const result = optimizeWithdrawals(plannerState);
+    const fetchMock = vi.fn().mockResolvedValue(new Response('\n  \n', {
+      status: 200,
+      headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<OptimizerPanel plannerState={plannerState} result={result} />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Explain this recommendation' }));
+    await userEvent.click(screen.getByRole('checkbox'));
+    await userEvent.click(screen.getByRole('button', { name: 'Generate explanation' }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+
+    // Whitespace-only response should not show the explanation container or "Close" label
+    expect(screen.queryByText('Explanation')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Cancel' })).toBeInTheDocument();
+    // "Generate explanation" should still be available since hasExplanation is false
+    expect(screen.getByRole('button', { name: 'Generate explanation' })).toBeInTheDocument();
+  });
 });

@@ -58,10 +58,11 @@ function getProviderLabel(): string {
 
 function splitDenseParagraph(text: string): string[] {
   // Split only on real sentence boundaries: punctuation followed by whitespace and
-  // a capital letter. This avoids false splits inside decimal numbers (e.g. £1.5m)
-  // and lower-case abbreviations (e.g. e.g., i.e.).
+  // either a capital letter or a common lowercase abbreviation that can start a
+  // new sentence (e.g., i.e.). This avoids false splits inside decimal numbers
+  // (e.g. £1.5m) and before arbitrary lowercase continuations.
   const sentences = text
-    .split(/(?<=[.!?])\s+(?=[A-Z])/)
+    .split(/(?<=[.!?])\s+(?=(?:[A-Z]|e\.g\.|i\.e\.))/)
     .map((sentence) => sentence.trim())
     .filter(Boolean);
 
@@ -139,8 +140,8 @@ export default function OptimizerPanel({ plannerState, result }: Props) {
   const providerLabel = getProviderLabel();
   const hasExplanation = Boolean(explanation && explanation.trim().length > 0);
   const explanationBlocks = useMemo(
-    () => (explanation ? formatExplanationBlocks(explanation) : []),
-    [explanation],
+    () => (hasExplanation ? formatExplanationBlocks(explanation!) : []),
+    [explanation, hasExplanation],
   );
 
   async function handleExplain() {
@@ -365,7 +366,7 @@ export default function OptimizerPanel({ plannerState, result }: Props) {
                   </div>
                 ) : null}
 
-                {explanation ? (
+                {hasExplanation ? (
                   <div className="mt-4 rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
                     <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">
                       Explanation
@@ -404,7 +405,7 @@ export default function OptimizerPanel({ plannerState, result }: Props) {
                   className="btn-secondary py-2.5 text-sm"
                   disabled={isExplaining || isLoadingCachedExplanation}
                 >
-                  {explanation ? 'Close' : 'Cancel'}
+                  {hasExplanation ? 'Close' : 'Cancel'}
                 </button>
                 {!hasExplanation ? (
                   <button
