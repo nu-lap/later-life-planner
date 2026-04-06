@@ -6,7 +6,7 @@ describe('deviceCrypto HPKE', () => {
   it('round-trips plaintext with matching AAD', async () => {
     const suite = hpkeSuite();
     const kp = await suite.kem.generateKeyPair();
-    const recipientPublicKeyB64 = bytesToBase64(await suite.kem.serializePublicKey(kp.publicKey));
+    const recipientPublicKeyB64 = bytesToBase64(new Uint8Array(await suite.kem.serializePublicKey(kp.publicKey)));
 
     const plaintext = new TextEncoder().encode('secret');
     const aad = new TextEncoder().encode('aad');
@@ -25,7 +25,7 @@ describe('deviceCrypto HPKE', () => {
   it('fails to open when AAD differs', async () => {
     const suite = hpkeSuite();
     const kp = await suite.kem.generateKeyPair();
-    const recipientPublicKeyB64 = bytesToBase64(await suite.kem.serializePublicKey(kp.publicKey));
+    const recipientPublicKeyB64 = bytesToBase64(new Uint8Array(await suite.kem.serializePublicKey(kp.publicKey)));
 
     const plaintext = base64ToBytes(bytesToBase64(new TextEncoder().encode('secret')));
     const sealed = await hpkeSealForRecipient({
@@ -46,7 +46,7 @@ describe('deviceCrypto HPKE', () => {
     const suite = hpkeSuite();
     const kp1 = await suite.kem.generateKeyPair();
     const kp2 = await suite.kem.generateKeyPair();
-    const recipientPublicKeyB64 = bytesToBase64(await suite.kem.serializePublicKey(kp1.publicKey));
+    const recipientPublicKeyB64 = bytesToBase64(new Uint8Array(await suite.kem.serializePublicKey(kp1.publicKey)));
 
     const plaintext = new TextEncoder().encode('secret');
     const aad = new TextEncoder().encode('aad');
@@ -63,7 +63,7 @@ describe('deviceCrypto HPKE', () => {
   it('rejects tampered ciphertext', async () => {
     const suite = hpkeSuite();
     const kp = await suite.kem.generateKeyPair();
-    const recipientPublicKeyB64 = bytesToBase64(await suite.kem.serializePublicKey(kp.publicKey));
+    const recipientPublicKeyB64 = bytesToBase64(new Uint8Array(await suite.kem.serializePublicKey(kp.publicKey)));
 
     const plaintext = new TextEncoder().encode('secret');
     const aad = new TextEncoder().encode('aad');
@@ -83,7 +83,7 @@ describe('deviceCrypto HPKE', () => {
   it('round-trips a 32-byte DEK payload', async () => {
     const suite = hpkeSuite();
     const kp = await suite.kem.generateKeyPair();
-    const recipientPublicKeyB64 = bytesToBase64(await suite.kem.serializePublicKey(kp.publicKey));
+    const recipientPublicKeyB64 = bytesToBase64(new Uint8Array(await suite.kem.serializePublicKey(kp.publicKey)));
 
     const dek = new Uint8Array(32);
     dek.fill(9);

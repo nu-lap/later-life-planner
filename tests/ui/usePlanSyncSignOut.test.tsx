@@ -39,7 +39,6 @@ describe('usePlanSync sign-out handling', () => {
       return new Response('Unexpected', { status: 500 });
     });
 
-    // @ts-expect-error test override
     globalThis.fetch = fetchMock;
 
     const view = render(<Harness />);
