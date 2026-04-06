@@ -40,8 +40,10 @@ Rules:
 - Explain the optimizer result using only the supplied facts.
 - Never recalculate tax or invent figures.
 - Be direct and specific. Avoid fluff.
-- Mention HMRC citations when they are available.
-- If no citation is available, say the explanation is based on the optimizer summary alone.
+- Use HMRC citations and RAG guidance when they are available.
+- Treat RAG guidance as grounded source material. Prefer paraphrase; only quote short excerpts when useful.
+- When you reference a RAG chunk, include its HMRC manual reference and source_url inline.
+- If no citation or RAG chunk is available, say the explanation is based on the optimizer summary alone.
 - Do not ask follow-up questions.`;
 
 function getAzureApiVersion(): string {
@@ -61,7 +63,15 @@ function buildPrompt(context: ExplanationContext): string {
     planSummary: context.planSummary,
     optimizationResult: context.optimizationResult,
     mcpCitations: context.mcpCitations ?? [],
-    ragChunks: context.ragChunks ?? [],
+    ragChunks: (context.ragChunks ?? []).map((chunk) => ({
+      manual_ref: chunk.manual_ref,
+      section_title: chunk.section_title,
+      text: chunk.text,
+      source_url: chunk.source_url,
+      applicable_tax_year: chunk.applicable_tax_year,
+      jurisdiction: chunk.jurisdiction,
+      rule_ids: chunk.rule_ids,
+    })),
   }, null, 2);
 }
 

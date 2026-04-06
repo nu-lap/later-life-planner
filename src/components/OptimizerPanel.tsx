@@ -224,7 +224,9 @@ export default function OptimizerPanel({ plannerState, result }: Props) {
             <p className="mt-2 text-sm leading-6 text-slate-600">
               LLP will send a minimised summary of your ages, household type, high-level asset totals,
               optimizer result, and HMRC rule provenance to {providerLabel} through the server-side
-              explanation route. Names, addresses, account numbers, and full yearly plan data are not sent.
+              explanation route. If you consent, the server will also retrieve matching HMRC guidance
+              excerpts using the disclosed rule IDs, tax year, and jurisdiction. Names, addresses,
+              account numbers, and full yearly plan data are not sent.
             </p>
 
             <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
@@ -236,6 +238,7 @@ export default function OptimizerPanel({ plannerState, result }: Props) {
                 <li>Guaranteed income total and DC, ISA, and GIA balances</li>
                 <li>Recommended strategy, baseline comparison, tax saving, and terminal assets</li>
                 <li>HMRC rule IDs, versions, and tax years used to build the recommendation</li>
+                <li>Matched HMRC guidance excerpts filtered by those rule IDs, tax year, and jurisdiction</li>
               </ul>
             </div>
 
@@ -248,7 +251,7 @@ export default function OptimizerPanel({ plannerState, result }: Props) {
                 disabled={isExplaining}
               />
               <span>
-                I consent to LLP sending this minimised optimizer summary for explanation generation.
+                I consent to LLP sending this minimised optimizer summary and retrieving matched HMRC guidance for explanation generation.
               </span>
             </label>
 
