@@ -56,6 +56,64 @@ function getProviderLabel(): string {
   return KNOWN_PROVIDER_LABELS[raw] ?? 'your configured AI provider';
 }
 
+function splitDenseParagraph(text: string): string[] {
+  const sentences = text.match(/[^.!?]+(?:[.!?]+|$)/g)?.map((sentence) => sentence.trim()).filter(Boolean) ?? [];
+
+  if (sentences.length <= 2) {
+    return [text.trim()];
+  }
+
+  const paragraphs: string[] = [];
+  for (let index = 0; index < sentences.length; index += 2) {
+    paragraphs.push(sentences.slice(index, index + 2).join(' '));
+  }
+
+  return paragraphs;
+}
+
+type ExplanationBlock =
+  | { type: 'paragraph'; content: string }
+  | { type: 'list'; items: string[] };
+
+function formatExplanationBlocks(text: string): ExplanationBlock[] {
+  const sections = text
+    .split(/\n\s*\n+/)
+    .map((section) => section.trim())
+    .filter(Boolean);
+
+  if (sections.length === 0) {
+    return [];
+  }
+
+  const blocks: ExplanationBlock[] = [];
+
+  for (const section of sections) {
+    const lines = section.split('\n').map((line) => line.trim()).filter(Boolean);
+    const bulletLines = lines.filter((line) => /^[*-]\s+/.test(line));
+
+    if (bulletLines.length === lines.length && bulletLines.length > 0) {
+      blocks.push({
+        type: 'list',
+        items: bulletLines.map((line) => line.replace(/^[*-]\s+/, '').trim()),
+      });
+      continue;
+    }
+
+    if (sections.length === 1 && lines.length === 1) {
+      for (const paragraph of splitDenseParagraph(lines[0])) {
+        blocks.push({ type: 'paragraph', content: paragraph });
+      }
+      continue;
+    }
+
+    for (const line of lines) {
+      blocks.push({ type: 'paragraph', content: line });
+    }
+  }
+
+  return blocks;
+}
+
 export default function OptimizerPanel({ plannerState, result }: Props) {
   const [showAll, setShowAll] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -74,6 +132,10 @@ export default function OptimizerPanel({ plannerState, result }: Props) {
     : `Age ${result.assetDepletionAge}`;
   const providerLabel = getProviderLabel();
   const hasExplanation = Boolean(explanation && explanation.trim().length > 0);
+  const explanationBlocks = useMemo(
+    () => (explanation ? formatExplanationBlocks(explanation) : []),
+    [explanation],
+  );
 
   async function handleExplain() {
     if (!hasConsented || isExplaining || isLoadingCachedExplanation || hasExplanation) return;
@@ -235,7 +297,7 @@ export default function OptimizerPanel({ plannerState, result }: Props) {
                   Optimizer Explanation
                 </p>
                 <h2 id="optimizer-explain-title" className="mt-2 text-xl font-black text-slate-900">
-                  Send a minimised summary to explain this recommendation
+                  Explain this recommendation
                 </h2>
                 <p className="mt-2 text-sm leading-6 text-slate-600">
                   LLP will send a minimised summary of your ages, household type, high-level asset totals,
@@ -253,7 +315,7 @@ export default function OptimizerPanel({ plannerState, result }: Props) {
 
                 {hasExplanation ? (
                   <div className="mt-4 rounded-2xl border border-emerald-100 bg-emerald-50 p-4 text-sm text-emerald-900">
-                    Using the saved explanation for this unchanged plan. Generate a new one only after plan changes.
+                    This saved explanation matches your current plan. Change your plan to generate a new one.
                   </div>
                 ) : (
                   <>
@@ -302,9 +364,29 @@ export default function OptimizerPanel({ plannerState, result }: Props) {
                     <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">
                       Explanation
                     </p>
-                    <p className="mt-2 whitespace-pre-line text-sm leading-6 text-emerald-950">
-                      {explanation}
-                    </p>
+                    <div className="mt-3 space-y-3 text-sm leading-6 text-emerald-950">
+                      {explanationBlocks.map((block, index) => {
+                        if (block.type === 'list') {
+                          return (
+                            <ul
+                              key={`list-${index}`}
+                              data-testid="optimizer-explanation-list"
+                              className="list-disc space-y-2 pl-5"
+                            >
+                              {block.items.map((item, itemIndex) => (
+                                <li key={`list-${index}-item-${itemIndex}`}>{item}</li>
+                              ))}
+                            </ul>
+                          );
+                        }
+
+                        return (
+                          <p key={`paragraph-${index}`} data-testid="optimizer-explanation-paragraph">
+                            {block.content}
+                          </p>
+                        );
+                      })}
+                    </div>
                   </div>
                 ) : null}
               </div>

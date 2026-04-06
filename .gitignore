@@ -40,3 +40,4 @@ playwright-report/
 test-results/
 
 optimizer-explain-requests.txt
+optimizer-dialog-layout.json

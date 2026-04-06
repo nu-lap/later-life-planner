@@ -41,6 +41,7 @@ describe('OptimizerPanel', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Explain this recommendation' }));
 
     expect(screen.getByRole('dialog')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Explain this recommendation' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Generate explanation' })).toBeDisabled();
 
     await userEvent.click(screen.getByRole('checkbox'));
@@ -97,6 +98,7 @@ describe('OptimizerPanel', () => {
     await waitFor(() => {
       expect(screen.getByText('Cached explanation text')).toBeInTheDocument();
     });
+    expect(screen.getByText('This saved explanation matches your current plan. Change your plan to generate a new one.')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Generate explanation' })).not.toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
@@ -140,6 +142,35 @@ describe('OptimizerPanel', () => {
 
     expect(await screen.findByRole('checkbox')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Generate explanation' })).toBeDisabled();
+  });
+
+  test('splits a dense explanation into readable paragraphs', async () => {
+    const plannerState = paulAndLisaState();
+    const result = optimizeWithdrawals(plannerState);
+    const denseExplanation = [
+      'First sentence explains the recommendation.',
+      'Second sentence explains the tax outcome.',
+      'Third sentence explains the asset impact.',
+      'Fourth sentence explains the fallback assumptions.',
+    ].join(' ');
+    const fetchMock = vi.fn().mockResolvedValue(new Response(denseExplanation, {
+      status: 200,
+      headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<OptimizerPanel plannerState={plannerState} result={result} />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Explain this recommendation' }));
+    await userEvent.click(screen.getByRole('checkbox'));
+    await userEvent.click(screen.getByRole('button', { name: 'Generate explanation' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('First sentence explains the recommendation. Second sentence explains the tax outcome.')).toBeInTheDocument();
+    });
+
+    expect(screen.getAllByTestId('optimizer-explanation-paragraph')).toHaveLength(2);
+    expect(screen.getByText('Third sentence explains the asset impact. Fourth sentence explains the fallback assumptions.')).toBeInTheDocument();
   });
 
   test('keeps the dialog scrollable and dismissible when the explanation is long', async () => {
