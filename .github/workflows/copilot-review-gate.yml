@@ -154,6 +154,52 @@ jobs:
               github.rest.pulls.listReviewComments,
               { owner, repo, pull_number, per_page: 100 }
             );
+            const reviewThreads = await github.graphql(
+              `
+                query($owner: String!, $repo: String!, $pullNumber: Int!) {
+                  repository(owner: $owner, name: $repo) {
+                    pullRequest(number: $pullNumber) {
+                      reviewThreads(first: 100) {
+                        nodes {
+                          isResolved
+                          comments(first: 50) {
+                            nodes {
+                              databaseId
+                              commit {
+                                oid
+                              }
+                              originalCommit {
+                                oid
+                              }
+                              author {
+                                login
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              `,
+              { owner, repo, pullNumber: pull_number }
+            );
+            const unresolvedReviewCommentIds = new Set(
+              (((reviewThreads.repository?.pullRequest?.reviewThreads?.nodes) || [])
+                .filter((thread) => thread && thread.isResolved === false)
+                .flatMap((thread) => thread.comments?.nodes || [])
+                .filter((comment) => {
+                  const author = normalizeLogin(comment?.author?.login);
+                  const commentCommitSha = comment?.commit?.oid;
+                  const originalCommitSha = comment?.originalCommit?.oid;
+                  return (
+                    isCopilotUser(author) &&
+                    (commentCommitSha === targetSha || originalCommitSha === targetSha) &&
+                    typeof comment?.databaseId === "number"
+                  );
+                })
+                .map((comment) => comment.databaseId))
+            );
 
             const copilotReviews = reviews.filter((review) => {
               const author = normalizeLogin(review.user?.login);
@@ -175,7 +221,8 @@ jobs:
               const author = normalizeLogin(comment.user?.login);
               return (
                 isCopilotUser(author) &&
-                (comment.commit_id === targetSha || comment.original_commit_id === targetSha)
+                (comment.commit_id === targetSha || comment.original_commit_id === targetSha) &&
+                unresolvedReviewCommentIds.has(comment.id)
               );
             });
 
