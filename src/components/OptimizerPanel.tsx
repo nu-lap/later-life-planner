@@ -4,7 +4,13 @@ import { useMemo, useState } from 'react';
 import clsx from 'clsx';
 import { formatCurrency } from '@/financialEngine/projectionEngine';
 import { describeStrategyLabel } from '@/financialEngine/withdrawalOptimizer';
-import type { OptimizationResult, WaterfallResult } from '@/financialEngine/types';
+import type {
+  OptimizationResult,
+  PensionWithdrawalBreakdown,
+  TaxableWithdrawalBreakdown,
+  TaxFreeWithdrawalBreakdown,
+  WaterfallResult,
+} from '@/financialEngine/types';
 import { explainOptimizerResult, getCachedOptimizerExplanation } from '@/lib/optimizerExplainClient';
 import type { PlannerState } from '@/models/types';
 
@@ -43,6 +49,63 @@ function StrategyRow({
       </div>
     </div>
   );
+}
+
+
+function formatBreakdownAmount(value?: number): string {
+  return value && value > 0 ? formatCurrency(value, true) : '—';
+}
+
+function BreakdownField({ label, value }: { label: string; value?: number }) {
+  return (
+    <div className="flex items-start justify-between gap-3">
+      <span className="text-slate-500">{label}</span>
+      <span className="text-right font-semibold text-slate-700">{formatBreakdownAmount(value)}</span>
+    </div>
+  );
+}
+
+function PensionBreakdownCell({ breakdown }: { breakdown?: PensionWithdrawalBreakdown }) {
+  if (!breakdown) {
+    return <span className="text-slate-400">—</span>;
+  }
+
+  return (
+    <div className="space-y-1">
+      <BreakdownField label="Gross" value={breakdown.grossAmount} />
+      <BreakdownField label="PCLS" value={breakdown.pcls} />
+      <BreakdownField label="Taxable" value={breakdown.taxableAmount} />
+      <BreakdownField label="Tax due" value={breakdown.taxDue} />
+    </div>
+  );
+}
+
+function TaxableBreakdownCell({
+  breakdown,
+  taxableLabel,
+}: {
+  breakdown?: TaxableWithdrawalBreakdown;
+  taxableLabel: string;
+}) {
+  if (!breakdown) {
+    return <span className="text-slate-400">—</span>;
+  }
+
+  return (
+    <div className="space-y-1">
+      <BreakdownField label="Gross" value={breakdown.grossAmount} />
+      <BreakdownField label={taxableLabel} value={breakdown.taxableAmount} />
+      <BreakdownField label="Tax due" value={breakdown.taxDue} />
+    </div>
+  );
+}
+
+function TaxFreeBreakdownCell({ breakdown }: { breakdown?: TaxFreeWithdrawalBreakdown }) {
+  if (!breakdown) {
+    return <span className="text-slate-400">—</span>;
+  }
+
+  return <BreakdownField label="Gross" value={breakdown.grossAmount} />;
 }
 
 const KNOWN_PROVIDER_LABELS: Record<string, string> = {
@@ -137,6 +200,7 @@ export default function OptimizerPanel({ plannerState, result }: Props) {
   const depletionLabel = result.assetDepletionAge === null
     ? 'Assets last to horizon'
     : `Age ${result.assetDepletionAge}`;
+  const isCouple = plannerState.mode === 'couple';
   const providerLabel = getProviderLabel();
   const hasExplanation = Boolean(explanation && explanation.trim().length > 0);
   const explanationBlocks = useMemo(
@@ -273,6 +337,83 @@ export default function OptimizerPanel({ plannerState, result }: Props) {
               })}
             </tbody>
           </table>
+        </div>
+
+        <div className="mt-6">
+          <div className="mb-3">
+            <h4 className="text-sm font-black uppercase tracking-wide text-slate-700">
+              Year-by-year drawdown breakdown
+            </h4>
+            <p className="mt-1 text-xs text-slate-500">
+              Shows what each person draws from pension, ISA, GIA, and cash each year, including
+              tax-free pension cash, taxable pension withdrawals, and tax due on taxable withdrawals.
+            </p>
+          </div>
+          <div className="overflow-x-auto" data-testid="optimizer-drawdown-breakdown-table">
+            <table className="min-w-full text-xs">
+              <thead>
+                <tr className="border-b border-slate-100 text-left text-slate-500">
+                  <th className="pb-2 pr-3 font-bold">Year</th>
+                  <th className="pb-2 pr-3 font-bold">Person 1 pension</th>
+                  <th className="pb-2 pr-3 font-bold">Person 1 ISA</th>
+                  <th className="pb-2 pr-3 font-bold">Person 1 GIA</th>
+                  <th className="pb-2 pr-3 font-bold">Person 1 cash</th>
+                  {isCouple ? <th className="pb-2 pr-3 font-bold">Person 2 pension</th> : null}
+                  {isCouple ? <th className="pb-2 pr-3 font-bold">Person 2 ISA</th> : null}
+                  {isCouple ? <th className="pb-2 pr-3 font-bold">Person 2 GIA</th> : null}
+                  {isCouple ? <th className="pb-2 pr-3 font-bold">Person 2 cash</th> : null}
+                  {isCouple ? <th className="pb-2 pr-0 font-bold">Joint GIA</th> : null}
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((record) => (
+                  <tr key={`breakdown-${record.p1Age}-${record.yearIndex}`} className="border-b border-slate-50 align-top">
+                    <td className="py-3 pr-3 text-slate-700">
+                      {record.p1Age}
+                      {record.p2Age !== null ? ` / ${record.p2Age}` : ''}
+                    </td>
+                    <td className="py-3 pr-3 text-slate-600">
+                      <PensionBreakdownCell breakdown={record.drawdownBreakdown.person1.pension} />
+                    </td>
+                    <td className="py-3 pr-3 text-slate-600">
+                      <TaxFreeBreakdownCell breakdown={record.drawdownBreakdown.person1.isa} />
+                    </td>
+                    <td className="py-3 pr-3 text-slate-600">
+                      <TaxableBreakdownCell breakdown={record.drawdownBreakdown.person1.gia} taxableLabel="Taxable gain" />
+                    </td>
+                    <td className="py-3 pr-3 text-slate-600">
+                      <TaxFreeBreakdownCell breakdown={record.drawdownBreakdown.person1.cash} />
+                    </td>
+                    {isCouple ? (
+                      <td className="py-3 pr-3 text-slate-600">
+                        <PensionBreakdownCell breakdown={record.drawdownBreakdown.person2?.pension} />
+                      </td>
+                    ) : null}
+                    {isCouple ? (
+                      <td className="py-3 pr-3 text-slate-600">
+                        <TaxFreeBreakdownCell breakdown={record.drawdownBreakdown.person2?.isa} />
+                      </td>
+                    ) : null}
+                    {isCouple ? (
+                      <td className="py-3 pr-3 text-slate-600">
+                        <TaxableBreakdownCell breakdown={record.drawdownBreakdown.person2?.gia} taxableLabel="Taxable gain" />
+                      </td>
+                    ) : null}
+                    {isCouple ? (
+                      <td className="py-3 pr-3 text-slate-600">
+                        <TaxFreeBreakdownCell breakdown={record.drawdownBreakdown.person2?.cash} />
+                      </td>
+                    ) : null}
+                    {isCouple ? (
+                      <td className="py-3 pr-0 text-slate-600">
+                        <TaxableBreakdownCell breakdown={record.drawdownBreakdown.joint?.gia} taxableLabel="Taxable gain" />
+                      </td>
+                    ) : null}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
 
         {result.yearRecords.length > 10 && (

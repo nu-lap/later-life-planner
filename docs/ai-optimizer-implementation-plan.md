@@ -65,9 +65,10 @@ Layer 4: Goal orch.     — LLM maps preferences → optimizer config (later)
 ```
 Phase 1 (Optimizer Core)    → Phase 2 (UI Panel)
 Phase 1                     → Phase 3 (Explain Route) → Phase 4 (RAG)
-Phase 3                     → Phase 6 (Goal Orchestration)
-Phase 5 (Audit Route)       — unblocked; deliver any time
-Phase 7 (Scotland)          — unblocked; deliver in parallel
+Phase 1                     → Phase 5 (Year-by-Year Drawdown Breakdown)
+Phase 3                     → Phase 7 (Goal Orchestration)
+Phase 6 (Audit Route)       — unblocked; deliver any time
+Phase 8 (Scotland)          — unblocked; deliver in parallel
 ```
 
 ---
@@ -530,14 +531,148 @@ with `source_url` surfaced in the response. Retrieval is filtered to the correct
 
 ---
 
-## Phase 5 — Audit/Trace Route
+## Phase 5 — Year-by-Year Drawdown Breakdown
+
+**Goal:** Add an auditable yearly withdrawal breakdown that shows, for each year of the
+plan, exactly how much each person withdraws from each investment bucket and how much
+tax is due on each taxable withdrawal.
+
+**Depends on:** Phase 1 complete.
+**Recommended dependency:** Phase 2 complete, so the breakdown can sit alongside the
+optimizer UI rather than becoming a parallel one-off display.
+
+### 5.1 Extend optimizer output contracts
+
+File: `src/financialEngine/types.ts`
+
+Add explicit per-person, per-bucket drawdown detail to `WaterfallResult` / `YearRecord`.
+The shape should be explicit and numeric rather than embedded in display labels.
+
+Suggested additions:
+
+```typescript
+export interface PensionWithdrawalBreakdown {
+  grossAmount: number;
+  pcls: number;              // tax-free UFPLS component
+  taxableAmount: number;     // taxable UFPLS component
+  taxDue: number;            // income tax due on the taxable component
+}
+
+export interface TaxableWithdrawalBreakdown {
+  grossAmount: number;       // amount withdrawn from the bucket
+  taxableAmount: number;     // amount subject to tax
+  taxDue: number;            // tax due attributable to this withdrawal
+}
+
+export interface TaxFreeWithdrawalBreakdown {
+  grossAmount: number;
+}
+
+export interface PersonDrawdownBreakdown {
+  pension?: PensionWithdrawalBreakdown;
+  isa?: TaxFreeWithdrawalBreakdown;
+  gia?: TaxableWithdrawalBreakdown;
+  cash?: TaxFreeWithdrawalBreakdown;
+}
+
+export interface JointDrawdownBreakdown {
+  gia?: TaxableWithdrawalBreakdown;
+}
+
+export interface YearDrawdownBreakdown {
+  person1: PersonDrawdownBreakdown;
+  person2?: PersonDrawdownBreakdown;
+  joint?: JointDrawdownBreakdown;
+}
+
+export interface YearRecord {
+  // existing fields
+  drawdownBreakdown: YearDrawdownBreakdown;
+}
+```
+
+Rules:
+- For pension withdrawals, always show:
+  - `grossAmount`
+  - `pcls`
+  - `taxableAmount`
+  - `taxDue` on the taxable amount
+- For GIA withdrawals, show the gross disposal amount and the tax due attributable to
+the taxable gain realised that year
+- For ISA and cash withdrawals, show gross amount only (no tax field)
+- For couples, keep person-level ownership explicit; do not collapse into a household total
+
+### 5.2 Populate the breakdown in the waterfall engine
+
+Files:
+- `src/financialEngine/withdrawalOptimizer.ts`
+- any shared helpers extracted into `src/financialEngine/`
+
+Implementation requirements:
+- Capture the actual withdrawal amounts chosen by the winning strategy for each year
+- Preserve bucket ownership:
+  - person 1 pension / ISA / GIA / cash
+  - person 2 pension / ISA / GIA / cash
+  - joint GIA where applicable
+- For UFPLS pension withdrawals, split each gross withdrawal into:
+  - 25% `pcls`
+  - 75% `taxableAmount`
+- Surface the tax due attributable to each taxable withdrawal source, rather than only
+a year-level total tax number
+- Keep the breakdown as deterministic engine output, not presentation logic
+
+### 5.3 Add a yearly breakdown panel or table
+
+Files:
+- `src/components/OptimizerPanel.tsx`
+- optional extracted component such as `src/components/optimizer/YearlyDrawdownBreakdown.tsx`
+
+Display requirements:
+- one row per year in the plan horizon
+- columns grouped by person and bucket
+- for each pension withdrawal show:
+  - gross withdrawal
+  - PCLS component
+  - taxable component
+  - tax due
+- for each GIA withdrawal show:
+  - gross withdrawal / disposal amount
+  - taxable amount or taxable gain
+  - tax due
+- for each ISA / cash withdrawal show gross amount
+- allow collapse/expand or pagination if needed; do not overwhelm the default dashboard view
+
+### 5.4 Tests
+
+Files:
+- `tests/unit/withdrawalOptimizer.test.ts`
+- `tests/ui/optimizerPanel.test.tsx`
+- fixture updates under `tests/fixtures/` if required
+
+Coverage required:
+- single-person plan with pension + ISA drawdown
+- couple plan with both pensions active
+- joint GIA drawdown with attributable tax
+- UFPLS split correctness (`grossAmount = pcls + taxableAmount`)
+- tax due shown against each taxable source, not only the annual total
+- UI renders person-by-person bucket rows without dropping empty-but-relevant columns
+
+**Acceptance criteria for Phase 5:** For a test plan, the optimizer exposes a yearly
+drawdown breakdown showing, for each person and each year, withdrawals from pension,
+ISA, GIA, and cash. Pension rows show `grossAmount`, `pcls`, `taxableAmount`, and
+`taxDue`. Taxable GIA and pension withdrawals show attributable tax due. The UI renders
+the breakdown in a readable year-by-year table without changing the optimizer decision logic.
+
+---
+
+## Phase 6 — Audit/Trace Route
 
 **Goal:** Developer and auditor tool to inspect exact rule execution for a given
 projection year.
 
 **Unblocked — no dependencies. Deliver any time.**
 
-### 5.1 `GET /api/tax-trace`
+### 6.1 `GET /api/tax-trace`
 
 File: `src/app/api/tax-trace/route.ts`
 
@@ -547,19 +682,19 @@ File: `src/app/api/tax-trace/route.ts`
 - Returns structured trace (step-by-step evaluation)
 - Not user-facing in MVP — for developer and audit use
 
-**Acceptance criteria for Phase 5:** Route returns a valid trace for
+**Acceptance criteria for Phase 6:** Route returns a valid trace for
 `income_tax_bands` with `{ taxable_income: 35000 }` and `tax_year: "2025-26"`.
 
 ---
 
-## Phase 6 — Goal Orchestration
+## Phase 7 — Goal Orchestration
 
 **Goal:** Allow users to express goal priorities in natural language or structured UI;
 an LLM maps these into a `WaterfallConfig` override for the optimizer.
 
 **Depends on:** Phase 3 complete. Deliver after optimizer output contracts are stable.
 
-### 6.1 Goal registry types
+### 7.1 Goal registry types
 
 Add to `src/models/types.ts`:
 
@@ -608,13 +743,13 @@ export interface OptimizerPolicyOverride {
 
 Default priority stack matches `docs/optimizer-architecture-reconciled.md` §Canonical Layer Model.
 
-### 6.2 Goal preference UI
+### 7.2 Goal preference UI
 
 - Add goal priority panel (Step 5 or dedicated Goals step)
 - Drag-and-drop reordering or ranked sliders
 - Store `GoalRegistry` in `PlannerState`
 
-### 6.3 `POST /api/goal-orchestrate`
+### 7.3 `POST /api/goal-orchestrate`
 
 File: `src/app/api/goal-orchestrate/route.ts`
 
@@ -626,7 +761,7 @@ File: `src/app/api/goal-orchestrate/route.ts`
   enforces as objective constraints, not just ordering preferences.
 - Downstream: `optimizeWithdrawals(state, { policyOverride })`
 
-**Acceptance criteria for Phase 6:** Given `goalRegistry` with `bequest` at
+**Acceptance criteria for Phase 7:** Given `goalRegistry` with `bequest` at
 priority 1 and a target value, the orchestrator returns an `OptimizerPolicyOverride`
 with `bequestTarget` set and `isaMode: 'defer'`. The optimizer respects the bequest
 floor as a constraint — a solution that violates it is rejected as infeasible even if
@@ -634,13 +769,13 @@ it produces lower lifetime tax.
 
 ---
 
-## Phase 7 — Scotland Jurisdiction
+## Phase 8 — Scotland Jurisdiction
 
 **Goal:** Support Scottish taxpayers correctly through the optimizer and projection engine.
 
 **Unblocked — deliver in parallel with any phase.**
 
-### 7.1 Capture `taxJurisdiction` in plan model
+### 8.1 Capture `taxJurisdiction` in plan model
 
 Add to `src/models/types.ts`:
 
@@ -651,20 +786,20 @@ export type TaxJurisdiction = 'rUK' | 'scotland';
 Add to `PersonalDetails` or top-level `PlannerState`. Capture in Step 1 UI (radio select,
 default `'rUK'`).
 
-### 7.2 Extend tax snapshot for Scotland
+### 8.2 Extend tax snapshot for Scotland
 
 - Update `scripts/gen-tax-snapshot.ts` to emit Scotland bands (6 bands: nil, starter,
   basic, intermediate, higher, advanced, top)
 - Update `src/config/taxRuleSnapshot.ts` to include Scotland entries
 - Update `getSnapshotForYear(year, jurisdiction?)` signature
 
-### 7.3 Pass jurisdiction through engine
+### 8.3 Pass jurisdiction through engine
 
 - Update `optimizeWithdrawals(state)` — reads `state.taxJurisdiction`
 - Update `calculateProjections(state)` — use jurisdiction-aware snapshot lookup
 - Scotland savings and dividend allowances are UK-wide — no change needed there
 
-**Acceptance criteria for Phase 7:** Scottish taxpayer at £35,000 income produces
+**Acceptance criteria for Phase 8:** Scottish taxpayer at £35,000 income produces
 £4,532.82 income tax (6-band Scottish calculation) matching `hmrc-tax-mcp` output.
 
 ---
