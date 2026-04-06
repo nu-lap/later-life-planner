@@ -21,9 +21,8 @@ const AssetChart    = dynamic(() => import('@/components/charts/AssetChart'),   
 
 interface Props { onBack: () => void }
 
-const STAGE_COLORS = { 'go-go': '#f97316', 'slo-go': '#10b981', 'no-go': '#8b5cf6' } as const;
-
 // ─── Life stage timeline ───────────────────────────────────────────────────────
+
 
 function StageTimeline({ projections, lifeStages, p1Age }: {
   projections: YearlyProjection[];
