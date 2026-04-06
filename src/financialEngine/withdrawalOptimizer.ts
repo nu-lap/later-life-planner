@@ -52,6 +52,9 @@ export const OPTIMIZER_CANDIDATES: WaterfallConfig[] = [
 
 export const BASELINE_STRATEGY = OPTIMIZER_CANDIDATES[0];
 
+// £1 tolerance to absorb floating-point rounding in after-tax net income vs spending.
+const FEASIBILITY_TOLERANCE_GBP = 1;
+
 export function describeStrategyLabel(label: string): string {
   switch (label) {
     case '1-LLP-Baseline':
@@ -345,7 +348,9 @@ function evaluateCandidate(
 
   let remaining = Math.max(0, row.spending - fixed.total);
 
-  // Align DC headroom with projection logic by treating State Pension as taxable fixed income.
+  // Under UK UFPLS rules State Pension counts as taxable income, consuming personal
+  // allowance headroom before any DC drawdown. Excluding it (as the original code did)
+  // overstated how much DC could be drawn tax-free. Aligns with projectionEngine logic.
   const p1TaxableFixedIncome = fixed.p1OtherTaxable + fixed.p1StatePension;
   const p2TaxableFixedIncome = fixed.p2OtherTaxable + fixed.p2StatePension;
   const p1Headroom = Math.max(0, snapshot.incomeTaxBands.personalAllowance - p1TaxableFixedIncome);
@@ -577,7 +582,7 @@ function evaluateCandidate(
       totalTax,
       incomeTax,
       cgtPaid,
-      feasible: netIncome >= row.spending - 1,
+      feasible: netIncome >= row.spending - FEASIBILITY_TOLERANCE_GBP,
       gap: Math.max(0, row.spending - netIncome),
       spendingTarget: row.spending,
       fixedIncome: fixed.total,
