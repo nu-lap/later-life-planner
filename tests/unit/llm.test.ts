@@ -46,6 +46,16 @@ describe('buildPrompt', () => {
     expect(prompt).toContain('Use ISA withdrawals from the start of the plan where needed.');
   });
 
+
+  test('requires a fixed bullet-led explanation structure and forbids internal labels', () => {
+    const prompt = buildPrompt(sampleContext());
+
+    expect(prompt).toContain('The final answer must use exactly these headings: Recommendation, Why this fits, Points to note.');
+    expect(prompt).toContain('Under each heading, use bullet points rather than dense prose.');
+    expect(prompt).toContain('Do not say things like ISA mode, baseline, fallback version, payload, schema, technical guidance retrieval terms, or raw strategy labels.');
+    expect(prompt).toContain("app's usual starting approach");
+  });
+
   test('does not expose raw internal strategy codes in the explanation context', () => {
     const prompt = buildPrompt(sampleContext());
 

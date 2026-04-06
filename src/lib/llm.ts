@@ -46,14 +46,22 @@ Rules:
 - Explain the optimizer result using only the supplied facts.
 - Never recalculate tax or invent figures.
 - Be direct and specific. Avoid fluff.
-- Format the explanation for scanning: use short paragraphs, and use bullets for grouped points or caveats.
-- Do not return one long wall of text.
+- Use short paragraphs and bullet points. Do not return one long wall of text.
+- Follow this exact structure. Output these headings exactly as plain lines with no leading spaces, bullets, or trailing colons:
+Recommendation
+- one or two bullets
+Why this fits
+- two or three bullets
+Points to note
+- one or two bullets
+- Do not add any other headings.
 - Use any supplied HMRC guidance and citations to ground the explanation. Prefer paraphrase; only quote short excerpts when useful.
 - When you reference HMRC guidance, name the HMRC manual reference and link when they are available.
 - Use plain English instead of internal labels or abbreviations.
+- Never mention raw strategy labels, field names, internal abbreviations, or system codes.
 - If you mention secure income, make clear that some of it may start later in retirement, for example State Pension.
 - If you mention spending, make clear that the figure shown is the first projected year's target unless you explicitly say otherwise.
-- If the recommended strategy matches the app's standard starting strategy, say that plainly.
+- If the recommended strategy matches the app's standard starting strategy, say that plainly as the app's usual starting approach.
 - Do not mention internal system terms or missing internal inputs.
 - Do not ask follow-up questions.`;
 
@@ -204,6 +212,8 @@ export function buildPrompt(context: ExplanationContext): string {
   return [
     'Write a plain-English explanation for an end user of a later-life withdrawal plan.',
     'Use the facts below. Do not mention internal labels, abbreviations, raw field names, or missing internal inputs.',
+    'The final answer must use exactly these headings: Recommendation, Why this fits, Points to note.',
+    'Under each heading, use bullet points rather than dense prose.',
     '',
     'Starting point:',
     `- Household: ${describeHousehold(planSummary)}.`,
@@ -227,8 +237,8 @@ export function buildPrompt(context: ExplanationContext): string {
     'Writing requirements:',
     '- Start directly with the recommendation and why it matters.',
     '- Use plain English throughout. For example, say England, Wales or Northern Ireland rather than a code.',
-    '- Do not say things like ISA mode, baseline, fallback version, payload, schema, or technical guidance retrieval terms.',
-    "- If the recommendation matches the app's standard starting strategy, explain that plainly rather than calling it optimal by default.",
+    '- Do not say things like ISA mode, baseline, fallback version, payload, schema, technical guidance retrieval terms, or raw strategy labels.',
+    "- If the recommendation matches the app's standard starting strategy, explain that plainly as the app's usual starting approach rather than calling it optimal by default.",
     '- If you mention secure income, make clear that part of it may only arrive later in retirement, such as State Pension.',
     '- If you mention spending, make clear that the figure is for the first projected year.',
     '- Keep the answer concise, readable, and useful.',
