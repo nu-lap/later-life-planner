@@ -302,7 +302,10 @@ jobs:
               "LLM_PROVIDER=azure-openai" \
               "AZURE_OPENAI_ENDPOINT=https://hmrc-tax-openai.openai.azure.com/" \
               "AZURE_OPENAI_CHAT_DEPLOYMENT=gpt-4-1-mini" \
+              "AZURE_OPENAI_EMBEDDING_DEPLOYMENT=text-embedding-3-large" \
               "AZURE_OPENAI_API_VERSION=2024-10-21" \
+              "HMRC_RAG_DATABASE=hmrc-guidance" \
+              "HMRC_RAG_CONTAINER=hmrc-chunks" \
               "NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in" \
               "NEXT_PUBLIC_CLERK_SIGN_UP_URL=/sign-up" \
               "NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL=/" \

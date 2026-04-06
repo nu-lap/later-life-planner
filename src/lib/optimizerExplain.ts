@@ -77,11 +77,16 @@ export interface RuleCitation {
 
 export interface HmrcChunk {
   id: string;
-  title: string;
+  manual_ref: string;
+  section_title: string;
   text: string;
+  rule_ids: string[];
+  source_url: string;
+  applicable_tax_year: string;
+  jurisdiction: TaxJurisdiction;
+  title?: string;
   url?: string;
   taxYear?: string;
-  jurisdiction?: TaxJurisdiction;
 }
 
 const WATERFALL_DC_ORDER_VALUES = ['paul-first', 'equal', 'proportional', 'lisa-first'] as const;

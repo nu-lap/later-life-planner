@@ -60,6 +60,7 @@ describe('OptimizerPanel', () => {
     expect(body.subject.householdType).toBe('couple');
     expect(body.optimizationResult.yearRecords).toBeUndefined();
     expect(body.consent.scope).toContain('mcp-citations');
+    expect(body.consent.scope).toContain('rag-guidance');
     expect(serialized).not.toContain(plannerState.person1.name);
     expect(serialized).not.toContain(plannerState.person2.name);
   });
