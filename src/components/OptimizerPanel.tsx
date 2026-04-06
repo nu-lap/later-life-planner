@@ -211,87 +211,94 @@ export default function OptimizerPanel({ plannerState, result }: Props) {
           role="dialog"
           aria-modal="true"
           aria-labelledby="optimizer-explain-title"
-          className="fixed inset-0 z-50 flex items-center justify-center"
+          className="fixed inset-0 z-50 overflow-y-auto"
         >
           <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
-          <div className="relative mx-4 w-full max-w-2xl rounded-2xl border border-slate-200 bg-white p-6 shadow-xl">
-            <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-500">
-              Optimizer Explanation
-            </p>
-            <h2 id="optimizer-explain-title" className="mt-2 text-xl font-black text-slate-900">
-              Send a minimised summary to explain this recommendation
-            </h2>
-            <p className="mt-2 text-sm leading-6 text-slate-600">
-              LLP will send a minimised summary of your ages, household type, high-level asset totals,
-              optimizer result, and HMRC rule provenance to {providerLabel} through the server-side
-              explanation route. Names, addresses, account numbers, and full yearly plan data are not sent.
-            </p>
-
-            <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Data disclosed if you continue
-              </p>
-              <ul className="mt-3 space-y-2 text-sm text-slate-700">
-                <li>Household type, ages, and tax jurisdiction</li>
-                <li>Guaranteed income total and DC, ISA, and GIA balances</li>
-                <li>Recommended strategy, baseline comparison, tax saving, and terminal assets</li>
-                <li>HMRC rule IDs, versions, and tax years used to build the recommendation</li>
-              </ul>
-            </div>
-
-            <label className="mt-4 flex items-start gap-3 rounded-2xl border border-orange-200 bg-orange-50 p-4 text-sm text-slate-700">
-              <input
-                type="checkbox"
-                className="mt-1 h-4 w-4 rounded border-slate-300 text-orange-600 focus:ring-orange-500"
-                checked={hasConsented}
-                onChange={(event) => setHasConsented(event.target.checked)}
-                disabled={isExplaining}
-              />
-              <span>
-                I consent to LLP sending this minimised optimizer summary for explanation generation.
-              </span>
-            </label>
-
-            {explainError ? (
-              <p className="mt-4 rounded-xl border border-rose-100 bg-rose-50 px-3 py-2 text-sm text-rose-700">
-                {explainError}
-              </p>
-            ) : null}
-
-            {isExplaining ? (
-              <div className="mt-4 rounded-2xl border border-sky-100 bg-sky-50 p-4 text-sm text-sky-800">
-                Generating explanation...
-              </div>
-            ) : null}
-
-            {explanation ? (
-              <div className="mt-4 rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
-                <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">
-                  Explanation
+          <div className="relative flex min-h-full items-center justify-center p-4 sm:p-6">
+            <div
+              data-testid="optimizer-explain-panel"
+              className="relative flex w-full max-w-2xl max-h-[calc(100vh-2rem)] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl"
+            >
+              <div data-testid="optimizer-explain-body" className="overflow-y-auto p-6">
+                <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-500">
+                  Optimizer Explanation
                 </p>
-                <p className="mt-2 whitespace-pre-line text-sm leading-6 text-emerald-950">
-                  {explanation}
+                <h2 id="optimizer-explain-title" className="mt-2 text-xl font-black text-slate-900">
+                  Send a minimised summary to explain this recommendation
+                </h2>
+                <p className="mt-2 text-sm leading-6 text-slate-600">
+                  LLP will send a minimised summary of your ages, household type, high-level asset totals,
+                  optimizer result, and HMRC rule provenance to {providerLabel} through the server-side
+                  explanation route. Names, addresses, account numbers, and full yearly plan data are not sent.
                 </p>
-              </div>
-            ) : null}
 
-            <div className="mt-5 flex justify-end gap-3">
-              <button
-                type="button"
-                onClick={closeDialog}
-                className="btn-secondary py-2.5 text-sm"
-                disabled={isExplaining}
-              >
-                {explanation ? 'Close' : 'Cancel'}
-              </button>
-              <button
-                type="button"
-                onClick={() => void handleExplain()}
-                className="btn-primary py-2.5 text-sm disabled:cursor-not-allowed disabled:opacity-50"
-                disabled={!hasConsented || isExplaining}
-              >
-                {isExplaining ? 'Generating...' : 'Generate explanation'}
-              </button>
+                <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Data disclosed if you continue
+                  </p>
+                  <ul className="mt-3 space-y-2 text-sm text-slate-700">
+                    <li>Household type, ages, and tax jurisdiction</li>
+                    <li>Guaranteed income total and DC, ISA, and GIA balances</li>
+                    <li>Recommended strategy, baseline comparison, tax saving, and terminal assets</li>
+                    <li>HMRC rule IDs, versions, and tax years used to build the recommendation</li>
+                  </ul>
+                </div>
+
+                <label className="mt-4 flex items-start gap-3 rounded-2xl border border-orange-200 bg-orange-50 p-4 text-sm text-slate-700">
+                  <input
+                    type="checkbox"
+                    className="mt-1 h-4 w-4 rounded border-slate-300 text-orange-600 focus:ring-orange-500"
+                    checked={hasConsented}
+                    onChange={(event) => setHasConsented(event.target.checked)}
+                    disabled={isExplaining}
+                  />
+                  <span>
+                    I consent to LLP sending this minimised optimizer summary for explanation generation.
+                  </span>
+                </label>
+
+                {explainError ? (
+                  <p className="mt-4 rounded-xl border border-rose-100 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+                    {explainError}
+                  </p>
+                ) : null}
+
+                {isExplaining ? (
+                  <div className="mt-4 rounded-2xl border border-sky-100 bg-sky-50 p-4 text-sm text-sky-800">
+                    Generating explanation...
+                  </div>
+                ) : null}
+
+                {explanation ? (
+                  <div className="mt-4 rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">
+                      Explanation
+                    </p>
+                    <p className="mt-2 whitespace-pre-line text-sm leading-6 text-emerald-950">
+                      {explanation}
+                    </p>
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="flex shrink-0 justify-end gap-3 border-t border-slate-200 bg-white px-6 py-4">
+                <button
+                  type="button"
+                  onClick={closeDialog}
+                  className="btn-secondary py-2.5 text-sm"
+                  disabled={isExplaining}
+                >
+                  {explanation ? 'Close' : 'Cancel'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handleExplain()}
+                  className="btn-primary py-2.5 text-sm disabled:cursor-not-allowed disabled:opacity-50"
+                  disabled={!hasConsented || isExplaining}
+                >
+                  {isExplaining ? 'Generating...' : 'Generate explanation'}
+                </button>
+              </div>
             </div>
           </div>
         </div>
