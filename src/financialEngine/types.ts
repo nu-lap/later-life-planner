@@ -26,6 +26,40 @@ export interface DrawdownBreakdown {
   p2DcTaxFree: number;
 }
 
+export interface PensionWithdrawalBreakdown {
+  grossAmount: number;
+  pcls: number;
+  taxableAmount: number;
+  taxDue: number;
+}
+
+export interface TaxableWithdrawalBreakdown {
+  grossAmount: number;
+  taxableAmount: number;
+  taxDue: number;
+}
+
+export interface TaxFreeWithdrawalBreakdown {
+  grossAmount: number;
+}
+
+export interface PersonDrawdownBreakdown {
+  pension?: PensionWithdrawalBreakdown;
+  isa?: TaxFreeWithdrawalBreakdown;
+  gia?: TaxableWithdrawalBreakdown;
+  cash?: TaxFreeWithdrawalBreakdown;
+}
+
+export interface JointDrawdownBreakdown {
+  gia?: TaxableWithdrawalBreakdown;
+}
+
+export interface YearDrawdownBreakdown {
+  person1: PersonDrawdownBreakdown;
+  person2?: PersonDrawdownBreakdown;
+  joint?: JointDrawdownBreakdown;
+}
+
 export interface WaterfallResult {
   strategy: WaterfallConfig;
   totalTax: number;
@@ -41,6 +75,7 @@ export interface WaterfallResult {
   p2TaxableIncome: number;
   terminalAssets: number;
   drawdowns: DrawdownBreakdown;
+  breakdown: YearDrawdownBreakdown;
 }
 
 export interface RuleProvenance {
@@ -63,6 +98,7 @@ export interface YearRecord {
   candidateResults: WaterfallResult[];
   baseline: WaterfallResult;
   terminalAssets: number;
+  drawdownBreakdown: YearDrawdownBreakdown;
 }
 
 export interface OptimizationResult {

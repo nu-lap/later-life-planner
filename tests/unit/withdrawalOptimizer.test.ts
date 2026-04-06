@@ -113,6 +113,38 @@ describe('optimizeWithdrawals', () => {
     expect(firstYear.cgtPaid).toBe(0);
   });
 
+
+  test('captures pension UFPLS breakdown and attributable tax by year', () => {
+    const result = optimizeWithdrawals(withSpending(dcOnlyState(60, 100_000), 20_000));
+    const firstYear = result.yearRecords[0];
+    const pension = firstYear.drawdownBreakdown.person1.pension;
+
+    expect(pension).toBeDefined();
+    expect(pension?.grossAmount).toBeCloseTo(firstYear.winner.drawdowns.p1Dc, 2);
+    expect(pension?.pcls).toBeCloseTo(firstYear.winner.drawdowns.p1DcTaxFree, 2);
+    expect((pension?.pcls ?? 0) + (pension?.taxableAmount ?? 0)).toBeCloseTo(pension?.grossAmount ?? 0, 2);
+    expect(pension?.taxDue).toBeCloseTo(firstYear.winner.incomeTax, 2);
+    expect(firstYear.drawdownBreakdown).toEqual(firstYear.winner.breakdown);
+  });
+
+  test('captures joint GIA taxable gains and attributable tax in the yearly breakdown', () => {
+    const base = bareCoupleState(60, 60);
+    const state = withSpending({
+      ...base,
+      jointGia: { enabled: true, totalValue: 50_000, baseCost: 0, growthRate: 0 },
+      assumptions: { ...base.assumptions, investmentGrowth: 0 },
+    }, 10_000);
+
+    const firstYear = optimizeWithdrawals(state).yearRecords[0];
+    const jointGia = firstYear.drawdownBreakdown.joint?.gia;
+
+    expect(jointGia).toBeDefined();
+    expect(jointGia?.grossAmount).toBeCloseTo(firstYear.winner.drawdowns.jointGia, 2);
+    expect(jointGia?.taxableAmount).toBeGreaterThan(0);
+    expect(jointGia?.taxDue).toBeGreaterThan(0);
+    expect(jointGia?.taxDue).toBeCloseTo(firstYear.winner.cgtPaid, 2);
+  });
+
   test('keeps ISA untouched for the ISA-preserve candidate until the last step', () => {
     const base = bareCoupleState(60, 60);
     const state = withSpending({

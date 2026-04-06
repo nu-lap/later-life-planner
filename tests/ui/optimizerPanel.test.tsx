@@ -27,6 +27,22 @@ describe('OptimizerPanel', () => {
     expect(screen.getAllByText('Runner-up').length).toBeGreaterThan(0);
   });
 
+
+  test('renders the year-by-year drawdown breakdown table', () => {
+    const plannerState = paulAndLisaState();
+    const result = optimizeWithdrawals(plannerState);
+
+    render(<OptimizerPanel plannerState={plannerState} result={result} />);
+
+    expect(screen.getByText('Year-by-year drawdown breakdown')).toBeInTheDocument();
+    expect(screen.getByTestId('optimizer-drawdown-breakdown-table')).toBeInTheDocument();
+    expect(screen.getByText('Person 1 pension')).toBeInTheDocument();
+    expect(screen.getByText('Person 2 pension')).toBeInTheDocument();
+    expect(screen.getByText('Joint GIA')).toBeInTheDocument();
+    expect(screen.getAllByText('PCLS').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Tax due').length).toBeGreaterThan(0);
+  });
+
   test('requires consent before generating an explanation and sends a minimised payload', async () => {
     const plannerState = paulAndLisaState();
     const result = optimizeWithdrawals(plannerState);

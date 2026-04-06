@@ -5,10 +5,14 @@ import { calculateProjections } from './projectionEngine';
 import { calcCGT, calcIncomeTax, drawFromGIA, isHigherRateTaxpayer } from './taxCalculations';
 import type {
   DCOrder,
+  DrawdownBreakdown,
   OptimizationResult,
   RuleProvenance,
+  TaxableWithdrawalBreakdown,
+  TaxFreeWithdrawalBreakdown,
   WaterfallConfig,
   WaterfallResult,
+  YearDrawdownBreakdown,
   YearRecord,
 } from './types';
 
@@ -316,6 +320,104 @@ function recordRuleProvenance(
   }
 }
 
+function buildTaxFreeWithdrawalBreakdown(grossAmount: number): TaxFreeWithdrawalBreakdown | undefined {
+  if (grossAmount <= 0) return undefined;
+  return { grossAmount };
+}
+
+function buildTaxableWithdrawalBreakdown(
+  grossAmount: number,
+  taxableAmount: number,
+  taxDue: number,
+): TaxableWithdrawalBreakdown | undefined {
+  if (grossAmount <= 0) return undefined;
+  return { grossAmount, taxableAmount, taxDue };
+}
+
+function attributeCapitalGainsTax(
+  personalGain: number,
+  jointGainShare: number,
+  higherRate: boolean,
+  calendarYear: number,
+  exemptAmount: number,
+): {
+  personalTaxableGain: number;
+  personalTaxDue: number;
+  jointTaxableGain: number;
+  jointTaxDue: number;
+} {
+  const personalTaxDue = personalGain > 0 ? calcCGT(personalGain, higherRate, calendarYear) : 0;
+  const totalTaxDue = personalGain + jointGainShare > 0
+    ? calcCGT(personalGain + jointGainShare, higherRate, calendarYear)
+    : 0;
+  const personalTaxableGain = Math.max(0, personalGain - exemptAmount);
+  const jointTaxableGain = Math.max(0, jointGainShare - Math.max(0, exemptAmount - personalGain));
+
+  return {
+    personalTaxableGain,
+    personalTaxDue,
+    jointTaxableGain,
+    jointTaxDue: Math.max(0, totalTaxDue - personalTaxDue),
+  };
+}
+
+function buildYearDrawdownBreakdown(
+  mode: PlannerState['mode'],
+  drawdowns: DrawdownBreakdown,
+  taxes: {
+    p1PensionTaxDue: number;
+    p2PensionTaxDue: number;
+    p1GiaTaxableAmount: number;
+    p1GiaTaxDue: number;
+    p2GiaTaxableAmount: number;
+    p2GiaTaxDue: number;
+    jointGiaTaxableAmount: number;
+    jointGiaTaxDue: number;
+  },
+): YearDrawdownBreakdown {
+  const person1 = {
+    pension: drawdowns.p1Dc > 0
+      ? {
+        grossAmount: drawdowns.p1Dc,
+        pcls: drawdowns.p1DcTaxFree,
+        taxableAmount: Math.max(0, drawdowns.p1Dc - drawdowns.p1DcTaxFree),
+        taxDue: taxes.p1PensionTaxDue,
+      }
+      : undefined,
+    isa: buildTaxFreeWithdrawalBreakdown(drawdowns.p1Isa),
+    gia: buildTaxableWithdrawalBreakdown(drawdowns.p1Gia, taxes.p1GiaTaxableAmount, taxes.p1GiaTaxDue),
+    cash: buildTaxFreeWithdrawalBreakdown(drawdowns.p1Cash),
+  };
+
+  const person2 = mode === 'couple'
+    ? {
+      pension: drawdowns.p2Dc > 0
+        ? {
+          grossAmount: drawdowns.p2Dc,
+          pcls: drawdowns.p2DcTaxFree,
+          taxableAmount: Math.max(0, drawdowns.p2Dc - drawdowns.p2DcTaxFree),
+          taxDue: taxes.p2PensionTaxDue,
+        }
+        : undefined,
+      isa: buildTaxFreeWithdrawalBreakdown(drawdowns.p2Isa),
+      gia: buildTaxableWithdrawalBreakdown(drawdowns.p2Gia, taxes.p2GiaTaxableAmount, taxes.p2GiaTaxDue),
+      cash: buildTaxFreeWithdrawalBreakdown(drawdowns.p2Cash),
+    }
+    : undefined;
+
+  const joint = drawdowns.jointGia > 0
+    ? {
+      gia: buildTaxableWithdrawalBreakdown(drawdowns.jointGia, taxes.jointGiaTaxableAmount, taxes.jointGiaTaxDue),
+    }
+    : undefined;
+
+  return {
+    person1,
+    person2,
+    joint,
+  };
+}
+
 function evaluateCandidate(
   state: PlannerState,
   row: YearlyProjection,
@@ -329,7 +431,7 @@ function evaluateCandidate(
   const snapshot = getSnapshotForYear(calendarYear);
   const spExempt = state.assumptions.statePensionSoleIncomeExempt ?? true;
 
-  const drawdowns = {
+  const drawdowns: DrawdownBreakdown = {
     p1Dc: 0,
     p1Isa: 0,
     p1Gia: 0,
@@ -546,6 +648,11 @@ function evaluateCandidate(
     ? drawdowns.jointCapitalGain / 2
     : drawdowns.jointCapitalGain;
 
+  const p1BaseStatePensionTaxable = spExempt && fixed.p1OtherTaxable === 0 ? 0 : fixed.p1StatePension;
+  const p2BaseStatePensionTaxable = spExempt && fixed.p2OtherTaxable === 0 ? 0 : fixed.p2StatePension;
+  const p1BaseTaxableIncome = p1BaseStatePensionTaxable + fixed.p1OtherTaxable;
+  const p2BaseTaxableIncome = p2BaseStatePensionTaxable + fixed.p2OtherTaxable;
+
   const p1OtherTaxable = fixed.p1OtherTaxable + (drawdowns.p1Dc - drawdowns.p1DcTaxFree);
   const p2OtherTaxable = fixed.p2OtherTaxable + (drawdowns.p2Dc - drawdowns.p2DcTaxFree);
   const p1StatePensionTaxable = spExempt && p1OtherTaxable === 0 ? 0 : fixed.p1StatePension;
@@ -555,19 +662,32 @@ function evaluateCandidate(
 
   const p1IncomeTax = calcIncomeTax(p1TaxableIncome, calendarYear);
   const p2IncomeTax = mode === 'couple' ? calcIncomeTax(p2TaxableIncome, calendarYear) : 0;
-  const p1CgtPaid = calcCGT(
-    drawdowns.p1CapitalGain + jointGainEach,
-    isHigherRateTaxpayer(p1TaxableIncome, calendarYear),
-    calendarYear,
-  );
-  const p2CgtPaid = mode === 'couple'
-    ? calcCGT(
-      drawdowns.p2CapitalGain + jointGainEach,
-      isHigherRateTaxpayer(p2TaxableIncome, calendarYear),
-      calendarYear,
-    )
-    : 0;
+  const p1BaseIncomeTax = calcIncomeTax(p1BaseTaxableIncome, calendarYear);
+  const p2BaseIncomeTax = mode === 'couple' ? calcIncomeTax(p2BaseTaxableIncome, calendarYear) : 0;
+  const p1PensionTaxDue = drawdowns.p1Dc > 0 ? Math.max(0, p1IncomeTax - p1BaseIncomeTax) : 0;
+  const p2PensionTaxDue = drawdowns.p2Dc > 0 ? Math.max(0, p2IncomeTax - p2BaseIncomeTax) : 0;
 
+  const p1HigherRate = isHigherRateTaxpayer(p1TaxableIncome, calendarYear);
+  const p2HigherRate = mode === 'couple' && isHigherRateTaxpayer(p2TaxableIncome, calendarYear);
+  const p1Gains = attributeCapitalGainsTax(
+    drawdowns.p1CapitalGain,
+    jointGainEach,
+    p1HigherRate,
+    calendarYear,
+    snapshot.cgt.exemptAmount,
+  );
+  const p2Gains = mode === 'couple'
+    ? attributeCapitalGainsTax(
+      drawdowns.p2CapitalGain,
+      jointGainEach,
+      p2HigherRate,
+      calendarYear,
+      snapshot.cgt.exemptAmount,
+    )
+    : { personalTaxableGain: 0, personalTaxDue: 0, jointTaxableGain: 0, jointTaxDue: 0 };
+
+  const p1CgtPaid = p1Gains.personalTaxDue + p1Gains.jointTaxDue;
+  const p2CgtPaid = p2Gains.personalTaxDue + p2Gains.jointTaxDue;
   const incomeTax = p1IncomeTax + p2IncomeTax;
   const cgtPaid = p1CgtPaid + p2CgtPaid;
   const totalTax = incomeTax + cgtPaid;
@@ -575,6 +695,17 @@ function evaluateCandidate(
     + drawdowns.p2Dc + drawdowns.p2Isa + drawdowns.p2Gia + drawdowns.p2Cash + drawdowns.jointGia;
   const totalIncome = fixed.total + totalDrawn;
   const netIncome = totalIncome - totalTax;
+
+  const breakdown = buildYearDrawdownBreakdown(mode, drawdowns, {
+    p1PensionTaxDue,
+    p2PensionTaxDue,
+    p1GiaTaxableAmount: p1Gains.personalTaxableGain,
+    p1GiaTaxDue: p1Gains.personalTaxDue,
+    p2GiaTaxableAmount: p2Gains.personalTaxableGain,
+    p2GiaTaxDue: p2Gains.personalTaxDue,
+    jointGiaTaxableAmount: p1Gains.jointTaxableGain + p2Gains.jointTaxableGain,
+    jointGiaTaxDue: p1Gains.jointTaxDue + p2Gains.jointTaxDue,
+  });
 
   return {
     result: {
@@ -592,6 +723,7 @@ function evaluateCandidate(
       p2TaxableIncome,
       terminalAssets: Math.max(0, sumTerminalAssets(working)),
       drawdowns,
+      breakdown,
     },
     endBalances: working,
   };
@@ -665,6 +797,7 @@ function simulateStrategies(
         evaluated.find((candidate) => candidate.result.strategy.label === BASELINE_STRATEGY.label)?.result
         ?? evaluated[0].result,
       terminalAssets: winner.result.terminalAssets,
+      drawdownBreakdown: winner.result.breakdown,
     });
   }
 
