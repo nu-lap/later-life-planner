@@ -5,6 +5,50 @@ import React from 'react';
 import { webcrypto } from 'node:crypto';
 import { vi } from 'vitest';
 
+const localStorageShim = (() => {
+  const store = new Map<string, string>();
+
+  return {
+    getItem(key: string) {
+      return store.has(key) ? store.get(key)! : null;
+    },
+    setItem(key: string, value: string) {
+      store.set(String(key), String(value));
+    },
+    removeItem(key: string) {
+      store.delete(String(key));
+    },
+    clear() {
+      store.clear();
+    },
+    key(index: number) {
+      return Array.from(store.keys())[index] ?? null;
+    },
+    get length() {
+      return store.size;
+    },
+  };
+})();
+
+try {
+  const hasStorageMethods =
+    typeof globalThis.localStorage?.getItem === 'function' &&
+    typeof globalThis.localStorage?.setItem === 'function' &&
+    typeof globalThis.localStorage?.removeItem === 'function';
+
+  if (!hasStorageMethods) {
+    Object.defineProperty(globalThis, 'localStorage', {
+      value: localStorageShim,
+      configurable: true,
+    });
+  }
+} catch {
+  Object.defineProperty(globalThis, 'localStorage', {
+    value: localStorageShim,
+    configurable: true,
+  });
+}
+
 // next/image relies on Next.js runtime internals which are not available in vitest.
 // Render a plain img element for component tests.
 vi.mock('next/image', () => {

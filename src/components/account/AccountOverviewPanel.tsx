@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { PLANNER_SAVE_STATUS_LABELS, plannerSyncMessageClass } from '@/lib/plannerSaveStatus';
 import type { PlannerSaveStatus } from '@/models/types';
 
 interface Props {
@@ -61,7 +62,7 @@ export default function AccountOverviewPanel({
       <div className="mt-4 grid gap-3 sm:grid-cols-3">
         <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Sync status</p>
-          <p className="mt-1 text-sm font-bold text-slate-800 capitalize">{saveStatus}</p>
+          <p className="mt-1 text-sm font-bold text-slate-800">{PLANNER_SAVE_STATUS_LABELS[saveStatus]}</p>
         </div>
         <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Last saved</p>
@@ -74,7 +75,7 @@ export default function AccountOverviewPanel({
       </div>
 
       {syncError ? (
-        <p className="mt-4 rounded-xl border border-rose-100 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+        <p className={`mt-4 ${plannerSyncMessageClass(saveStatus)}`}>
           {syncError}
         </p>
       ) : null}

@@ -81,10 +81,13 @@ export async function approveDevice(input: {
 export async function fetchWrappedDek(input: {
   deviceId: string;
   requestId: string;
-}): Promise<WrappedDekPackage> {
+}): Promise<WrappedDekPackage | null> {
   const url = new URL(`/api/devices/${encodeURIComponent(input.deviceId)}/wrapped-dek`, window.location.origin);
   url.searchParams.set('requestId', input.requestId);
   const response = await fetch(url.toString(), { cache: 'no-store' });
+  if (response.status === 204 || response.status === 404) {
+    return null;
+  }
   if (!response.ok) {
     throw new Error(`Wrapped key fetch failed (${response.status}).`);
   }

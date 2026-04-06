@@ -51,7 +51,7 @@ export async function GET(
     });
 
     if (!wrapped) {
-      return new Response('Not found.', { status: 404 });
+      return new Response(null, { status: 204 });
     }
 
     return Response.json({ wrappedKeyPackage: wrapped });

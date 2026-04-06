@@ -92,7 +92,7 @@ describe('/api/devices/:deviceId/wrapped-dek route', () => {
     expect(fetchApprovedWrappedDekMock).not.toHaveBeenCalled();
   });
 
-  test('GET returns 404 when no wrapped package exists', async () => {
+  test('GET returns 204 while approval is still pending', async () => {
     requireUserMock.mockResolvedValue({ userId: 'user_123' });
     fetchApprovedWrappedDekMock.mockResolvedValue(null);
 
@@ -101,7 +101,7 @@ describe('/api/devices/:deviceId/wrapped-dek route', () => {
       { params: { deviceId: 'device-1' } },
     );
 
-    expect(response.status).toBe(404);
+    expect(response.status).toBe(204);
   });
 
   test('GET returns wrapped key package without consuming it', async () => {
@@ -131,7 +131,7 @@ describe('/api/devices/:deviceId/wrapped-dek route', () => {
     });
   });
 
-  test('GET returns 404 when wrapped package exists for a different user', async () => {
+  test('GET returns 204 when no wrapped package is visible to this user', async () => {
     const pkg = {
       v: 1,
       suite: { kem: 'DHKEM(P-256,HKDF-SHA256)', kdf: 'HKDF-SHA256', aead: 'AES-256-GCM' },
@@ -153,7 +153,7 @@ describe('/api/devices/:deviceId/wrapped-dek route', () => {
       { params: { deviceId: 'device-1' } },
     );
 
-    expect(response.status).toBe(404);
+    expect(response.status).toBe(204);
     expect(fetchApprovedWrappedDekMock).toHaveBeenCalledWith({
       userId: 'user_wrong',
       deviceId: 'device-1',
