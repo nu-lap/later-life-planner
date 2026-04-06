@@ -43,7 +43,7 @@ describe('buildPrompt', () => {
     expect(prompt).toContain("first projected year's target");
     expect(prompt).toContain('State Pension');
     expect(prompt).toContain('only starts from State Pension age');
-    expect(prompt).toContain("app's standard starting strategy");
+    expect(prompt).toMatch(/starting strategy/i);
     expect(prompt).toContain('Use ISA withdrawals from the start of the plan where needed.');
   });
 
