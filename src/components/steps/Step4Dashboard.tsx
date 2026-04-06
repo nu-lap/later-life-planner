@@ -206,11 +206,22 @@ export default function Step4Dashboard({ onBack }: Props) {
   const optimizerEnabled = process.env.NEXT_PUBLIC_OPTIMIZER_ENABLED === 'true';
   const { mode, person1, person2, lifeStages, rlssStandard, spendingCategories, fiAge } = state;
 
-  const projections   = useMemo(() => calculateProjections(deferredState), [deferredState]);
-  const optimizerResult = useMemo(
-    () => (optimizerEnabled ? optimizeWithdrawals(deferredState) : null),
-    [deferredState, optimizerEnabled],
-  );
+  const { projections, optimizerResult } = useMemo(() => {
+    if (!optimizerEnabled) {
+      return {
+        projections: calculateProjections(deferredState),
+        optimizerResult: null,
+      };
+    }
+
+    // Run the optimizer once; reuse its pre-computed projections so we avoid
+    // a duplicate calculateProjections() call.
+    const result = optimizeWithdrawals(deferredState);
+    return {
+      projections: result.baselineProjections,
+      optimizerResult: result,
+    };
+  }, [deferredState, optimizerEnabled]);
   // Income and spending only starts at FI age — filter for display, but keep full
   // projections for asset depletion checks (assets grow from current age).
   const displayProjections = useMemo(

@@ -345,8 +345,11 @@ function evaluateCandidate(
 
   let remaining = Math.max(0, row.spending - fixed.total);
 
-  const p1Headroom = Math.max(0, snapshot.incomeTaxBands.personalAllowance - fixed.p1OtherTaxable);
-  const p2Headroom = Math.max(0, snapshot.incomeTaxBands.personalAllowance - fixed.p2OtherTaxable);
+  // Align DC headroom with projection logic by treating State Pension as taxable fixed income.
+  const p1TaxableFixedIncome = fixed.p1OtherTaxable + fixed.p1StatePension;
+  const p2TaxableFixedIncome = fixed.p2OtherTaxable + fixed.p2StatePension;
+  const p1Headroom = Math.max(0, snapshot.incomeTaxBands.personalAllowance - p1TaxableFixedIncome);
+  const p2Headroom = Math.max(0, snapshot.incomeTaxBands.personalAllowance - p2TaxableFixedIncome);
   const p1WithinAllowance = p1Headroom / snapshot.pension.ufplsTaxableFraction;
   const p2WithinAllowance = p2Headroom / snapshot.pension.ufplsTaxableFraction;
 
@@ -574,8 +577,8 @@ function evaluateCandidate(
       totalTax,
       incomeTax,
       cgtPaid,
-      feasible: remaining <= 1,
-      gap: Math.max(0, remaining),
+      feasible: netIncome >= row.spending - 1,
+      gap: Math.max(0, row.spending - netIncome),
       spendingTarget: row.spending,
       fixedIncome: fixed.total,
       totalIncome,
@@ -615,14 +618,16 @@ function dominantStrategy(records: YearRecord[]): WaterfallConfig {
 function simulateStrategies(
   state: PlannerState,
   strategySelector: 'optimized' | 'baseline',
+  precomputedProjections?: YearlyProjection[],
 ): {
   yearRecords: YearRecord[];
   lifetimeTaxPaid: number;
   assetDepletionAge: number | null;
   terminalAssets: number;
   ruleProvenance: RuleProvenance[];
+  baseProjections: YearlyProjection[];
 } {
-  const baseProjections = calculateProjections(state);
+  const baseProjections = precomputedProjections ?? calculateProjections(state);
   const postFiRows = baseProjections.filter((row) => row.p1Age >= state.fiAge);
   const growth = assetGrowthRates(state);
   let balances = seedBalances(state, baseProjections);
@@ -666,6 +671,7 @@ function simulateStrategies(
     assetDepletionAge: depletionAge,
     terminalAssets: yearRecords.at(-1)?.terminalAssets ?? sumTerminalAssets(balances),
     ruleProvenance: [...provenance.values()],
+    baseProjections,
   };
 }
 
@@ -673,8 +679,11 @@ export function optimizeWithdrawals(
   state: PlannerState,
   options?: { baselineOnly?: boolean },
 ): OptimizationResult {
-  const optimized = simulateStrategies(state, options?.baselineOnly ? 'baseline' : 'optimized');
-  const baseline = simulateStrategies(state, 'baseline');
+  // Compute projections once and share between both simulation passes to avoid
+  // duplicate calculateProjections() calls.
+  const sharedProjections = calculateProjections(state);
+  const optimized = simulateStrategies(state, options?.baselineOnly ? 'baseline' : 'optimized', sharedProjections);
+  const baseline = simulateStrategies(state, 'baseline', sharedProjections);
   const records = optimized.yearRecords;
   const recommendedStrategy = dominantStrategy(records);
 
@@ -689,5 +698,6 @@ export function optimizeWithdrawals(
     terminalAssets: optimized.terminalAssets,
     yearRecords: records,
     ruleProvenance: optimized.ruleProvenance,
+    baselineProjections: sharedProjections,
   };
 }

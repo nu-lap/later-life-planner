@@ -1,4 +1,4 @@
-import type { TaxJurisdiction } from '@/models/types';
+import type { TaxJurisdiction, YearlyProjection } from '@/models/types';
 
 export type DCOrder = 'paul-first' | 'equal' | 'proportional' | 'lisa-first';
 export type ISAMode = 'now' | 'defer';
@@ -76,4 +76,5 @@ export interface OptimizationResult {
   terminalAssets: number;
   yearRecords: YearRecord[];
   ruleProvenance: RuleProvenance[];
+  baselineProjections: YearlyProjection[];
 }
