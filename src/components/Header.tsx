@@ -53,12 +53,12 @@ export default function Header({
 
 	          <div className="flex items-center gap-2 self-end sm:self-auto">
 	            <div
-	              className={`rounded-full px-2 py-1 text-[11px] font-semibold sm:px-3 sm:text-xs ${SAVE_STATUS_STYLES[saveStatus]}`}
-	              aria-label={`Save status: ${SAVE_STATUS_LABELS[saveStatus]}`}
-	              title={SAVE_STATUS_LABELS[saveStatus]}
+	              className={`rounded-full px-2 py-1 text-[11px] font-semibold sm:px-3 sm:text-xs ${PLANNER_SAVE_STATUS_STYLES[saveStatus]}`}
+	              aria-label={`Save status: ${PLANNER_SAVE_STATUS_LABELS[saveStatus]}`}
+	              title={PLANNER_SAVE_STATUS_LABELS[saveStatus]}
 	            >
-	              <span className="sm:hidden">{SAVE_STATUS_LABELS_COMPACT[saveStatus]}</span>
-	              <span className="hidden sm:inline">{SAVE_STATUS_LABELS[saveStatus]}</span>
+	              <span className="sm:hidden">{PLANNER_SAVE_STATUS_LABELS_COMPACT[saveStatus]}</span>
+	              <span className="hidden sm:inline">{PLANNER_SAVE_STATUS_LABELS[saveStatus]}</span>
 	            </div>
 	            {saveStatus === 'conflict' && onReloadRemote ? (
 	              <button
