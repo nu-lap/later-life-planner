@@ -4,36 +4,14 @@ import { useState } from 'react';
 import Image from 'next/image';
 import { usePlannerStore } from '@/store/plannerStore';
 import ConfirmModal from '@/components/ui/ConfirmModal';
+import {
+  PLANNER_SAVE_STATUS_LABELS,
+  PLANNER_SAVE_STATUS_LABELS_COMPACT,
+  PLANNER_SAVE_STATUS_STYLES,
+} from '@/lib/plannerSaveStatus';
 import type { PlannerSaveStatus } from '@/models/types';
 
 type PendingAction = 'reset' | 'demo' | null;
-
-const SAVE_STATUS_STYLES: Record<PlannerSaveStatus, string> = {
-  local: 'bg-slate-100 text-slate-500',
-  loading: 'bg-amber-100 text-amber-700',
-  saving: 'bg-amber-100 text-amber-700',
-  saved: 'bg-emerald-100 text-emerald-700',
-  error: 'bg-rose-100 text-rose-700',
-  conflict: 'bg-rose-100 text-rose-700',
-};
-
-const SAVE_STATUS_LABELS: Record<PlannerSaveStatus, string> = {
-  local: 'Local draft',
-  loading: 'Loading',
-  saving: 'Saving',
-  saved: 'Saved',
-  error: 'Save error',
-  conflict: 'Conflict',
-};
-
-const SAVE_STATUS_LABELS_COMPACT: Record<PlannerSaveStatus, string> = {
-  local: 'Local',
-  loading: 'Loading',
-  saving: 'Saving',
-  saved: 'Saved',
-  error: 'Error',
-  conflict: 'Conflict',
-};
 
 interface Props {
   onReset: () => void;

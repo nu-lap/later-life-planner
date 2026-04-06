@@ -111,6 +111,37 @@ function plannerAad(userId: string): Record<string, string | number> {
   };
 }
 
+function readLocalStorageItem(key: string): string | null {
+  try {
+    if (typeof window === 'undefined') return null;
+    return typeof window.localStorage?.getItem === 'function'
+      ? window.localStorage.getItem(key)
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeLocalStorageItem(key: string, value: string): void {
+  try {
+    if (typeof window === 'undefined') return;
+    if (typeof window.localStorage?.setItem !== 'function') return;
+    window.localStorage.setItem(key, value);
+  } catch {
+    // Ignore blocked or unavailable localStorage writes.
+  }
+}
+
+function removeLocalStorageItem(key: string): void {
+  try {
+    if (typeof window === 'undefined') return;
+    if (typeof window.localStorage?.removeItem !== 'function') return;
+    window.localStorage.removeItem(key);
+  } catch {
+    // Ignore blocked or unavailable localStorage writes.
+  }
+}
+
 function safeErrorMessage(error: unknown): string {
   if (error instanceof Error && error.message.trim().length > 0) return error.message;
   return 'Unexpected sync error.';
@@ -121,7 +152,7 @@ function selectCanonicalPlannerState(state: PlannerState): PersistedPlannerState
 }
 
 function readMigrationDecision(userId: string): MigrationDecision | null {
-  const decision = localStorage.getItem(getSyncMigrationDecisionStorageKey(userId));
+  const decision = readLocalStorageItem(getSyncMigrationDecisionStorageKey(userId));
   if (decision === 'imported' || decision === 'start-fresh' || decision === 'keep-remote') {
     return decision;
   }
@@ -129,11 +160,11 @@ function readMigrationDecision(userId: string): MigrationDecision | null {
 }
 
 function writeMigrationDecision(userId: string, decision: MigrationDecision): void {
-  localStorage.setItem(getSyncMigrationDecisionStorageKey(userId), decision);
+  writeLocalStorageItem(getSyncMigrationDecisionStorageKey(userId), decision);
 }
 
 function clearLegacyLocalPlannerCache(): void {
-  localStorage.removeItem(LEGACY_PLANNER_STORAGE_KEY);
+  removeLocalStorageItem(LEGACY_PLANNER_STORAGE_KEY);
 }
 
 export function usePlanSync(): UsePlanSyncResult {
@@ -416,7 +447,7 @@ export function usePlanSync(): UsePlanSyncResult {
 
       const fallbackState = createDefaultState(STATE_PENSION.DEFAULT_AGE);
       legacyPlanRef.current = parseLegacyPlannerStoragePayload(
-        localStorage.getItem(LEGACY_PLANNER_STORAGE_KEY),
+        readLocalStorageItem(LEGACY_PLANNER_STORAGE_KEY),
         fallbackState,
       );
 
@@ -538,6 +569,7 @@ export function usePlanSync(): UsePlanSyncResult {
 
               try {
                 const pkg = await fetchWrappedDek({ deviceId, requestId: approval.requestId });
+                if (!pkg) return;
                 if (pkg.v !== 1) {
                   throw new Error('Unsupported wrapped key package version.');
                 }
@@ -578,8 +610,6 @@ export function usePlanSync(): UsePlanSyncResult {
                 void loadRemotePlan(false);
               } catch (error) {
                 const message = safeErrorMessage(error);
-                const lower = message.toLowerCase();
-                if (lower.includes('not found') || message.includes('(404)')) return;
                 setDeviceApprovalPrompt((current) => (
                   current.isOpen ? { ...current, error: message } : current
                 ));
@@ -587,8 +617,8 @@ export function usePlanSync(): UsePlanSyncResult {
             })();
           }, DEVICE_APPROVAL_POLL_MS);
 
-          setSaveStatus('error');
-          setSyncError('Device approval required to decrypt the saved plan.');
+          setSaveStatus('approval_required');
+          setSyncError('Approve this device from one that already has access to unlock your saved plan.');
           setIsSyncReady(true);
           syncEnabledRef.current = false;
           return;

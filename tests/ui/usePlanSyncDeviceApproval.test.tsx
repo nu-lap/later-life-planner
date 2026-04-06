@@ -110,7 +110,7 @@ describe('usePlanSync device approval', () => {
       }
 
       if (url.includes('/api/devices/') && url.includes('/wrapped-dek')) {
-        return new Response('Not found.', { status: 404 });
+        return new Response(null, { status: 204 });
       }
 
       return new Response('Unexpected', { status: 500 });
@@ -123,7 +123,8 @@ describe('usePlanSync device approval', () => {
 
     await waitFor(() => {
       expect(view.getByTestId('approval-open').textContent).toBe('yes');
-      expect(view.getByTestId('error').textContent).toContain('Device approval required');
+      expect(view.getByTestId('status').textContent).toBe('approval_required');
+      expect(view.getByTestId('error').textContent).toContain('Approve this device');
     });
 
     view.unmount();
@@ -217,7 +218,7 @@ describe('usePlanSync device approval', () => {
     }, { timeout: 8000 });
 
     view.unmount();
-  });
+  }, 10_000);
 
   test('falls back to local mode with a clear error when IndexedDB is unavailable', async () => {
     mockUseAuth.mockReturnValue({ isLoaded: true, userId: 'user_123' });

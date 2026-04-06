@@ -207,7 +207,7 @@ export interface PlannerState {
 
 export type PlannerUiState = Pick<PlannerState, 'currentStep' | 'maxVisitedStep'>;
 export type PersistedPlannerState = Omit<PlannerState, keyof PlannerUiState>;
-export type PlannerSaveStatus = 'local' | 'loading' | 'saving' | 'saved' | 'error' | 'conflict';
+export type PlannerSaveStatus = 'local' | 'loading' | 'saving' | 'saved' | 'approval_required' | 'error' | 'conflict';
 
 // ─── Projection output ────────────────────────────────────────────────────────
 
