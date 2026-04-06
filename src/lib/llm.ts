@@ -91,8 +91,8 @@ function describeSecureIncome(planSummary: PlanSummary): string {
   }
 
   return [
-    `Secure income later in retirement is about ${formatMoney(planSummary.guaranteedIncomeAnnual)} a year when fully in payment.`,
-    'This can include State Pension, which only starts from State Pension age.',
+    `Secure pension or annuity income is about ${formatMoney(planSummary.guaranteedIncomeAnnual)} a year when fully in payment.`,
+    'Some components, such as State Pension, may only start from State Pension age.',
   ].join(' ');
 }
 
