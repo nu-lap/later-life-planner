@@ -3,7 +3,7 @@
  * Tests every boundary, rate, and edge case for income tax, CGT, and GIA drawdown.
  */
 
-import { describe, test, expect } from 'vitest';
+import { describe, test, expect, vi } from 'vitest';
 import { calcIncomeTax, calcCGT, drawFromGIA, isHigherRateTaxpayer } from '@/financialEngine/taxCalculations';
 import { INCOME_TAX, CGT } from '@/config/financialConstants';
 import { getSnapshotForYear } from '@/config/taxRuleSnapshot';
@@ -347,5 +347,36 @@ describe('getSnapshotForYear — fallback behaviour', () => {
     expect(s2030.cgt.exemptAmount).toBe(s2026.cgt.exemptAmount);
     expect(s2030.cgt.basicRate).toBe(s2026.cgt.basicRate);
     expect(s2030.cgt.higherRate).toBe(s2026.cgt.higherRate);
+  });
+
+  test('future-year fallback warnings are emitted once per fallback group', async () => {
+    const originalNodeEnv = process.env.NODE_ENV;
+    process.env.NODE_ENV = 'development';
+
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    try {
+      vi.resetModules();
+      const { getSnapshotForYear: getFreshSnapshotForYear } = await import('@/config/taxRuleSnapshot');
+
+      getFreshSnapshotForYear(2027);
+      getFreshSnapshotForYear(2028);
+      getFreshSnapshotForYear(2030);
+
+      expect(warnSpy).toHaveBeenCalledTimes(3);
+
+      const messages = warnSpy.mock.calls.map(([message]) => String(message));
+      expect(messages.some((message) => message.includes('CGT rules not confirmed'))).toBe(true);
+      expect(messages.some((message) => message.includes('Pension rules not confirmed'))).toBe(true);
+      expect(messages.some((message) => message.includes('State pension annual amount not confirmed'))).toBe(true);
+    } finally {
+      warnSpy.mockRestore();
+      if (originalNodeEnv === undefined) {
+        delete process.env.NODE_ENV;
+      } else {
+        process.env.NODE_ENV = originalNodeEnv;
+      }
+      vi.resetModules();
+    }
   });
 });
