@@ -1,6 +1,6 @@
 import type { OptimizationResult } from '@/financialEngine/types';
+import type { OptimizerExplainRequest } from '@/lib/optimizerExplain';
 import { buildOptimizerExplainRequest, REQUIRED_EXPLAIN_CONSENT_SCOPES } from '@/lib/optimizerExplain';
-import { extractPersistedPlannerState } from '@/lib/persistedPlan';
 import type { PlannerState } from '@/models/types';
 
 export class OptimizerExplainClientError extends Error {
@@ -17,9 +17,10 @@ async function sha256Hex(input: string): Promise<string> {
     .join('');
 }
 
-async function derivePlanRevision(plannerState: PlannerState): Promise<string> {
-  const persistedState = extractPersistedPlannerState(plannerState);
-  const canonical = JSON.stringify(persistedState);
+async function derivePlanRevision(
+  stablePayload: Pick<OptimizerExplainRequest, 'schemaVersion' | 'subject' | 'financialSummary' | 'optimizationResult'>,
+): Promise<string> {
+  const canonical = JSON.stringify(stablePayload);
   return `sha256:${await sha256Hex(canonical)}`;
 }
 
@@ -50,14 +51,24 @@ export interface ExplainOptimizerResultArgs {
 export async function explainOptimizerResult(
   args: ExplainOptimizerResultArgs,
 ): Promise<string> {
-  const planRevision = await derivePlanRevision(args.plannerState);
-  const request = buildOptimizerExplainRequest({
+  const requestId = crypto.randomUUID();
+  const grantedAt = new Date().toISOString();
+
+  // Build a temporary request with a placeholder revision to extract stable, non-PII fields.
+  const tempRequest = buildOptimizerExplainRequest({
     plannerState: args.plannerState,
     optimizationResult: args.optimizationResult,
-    planRevision,
+    planRevision: `sha256:${'0'.repeat(64)}`,
     consentScope: [...REQUIRED_EXPLAIN_CONSENT_SCOPES, 'mcp-citations'],
-    requestId: crypto.randomUUID(),
+    requestId,
+    grantedAt,
   });
+
+  // Derive the revision by hashing only the minimised, non-PII stable fields.
+  const { schemaVersion, subject, financialSummary, optimizationResult } = tempRequest;
+  const planRevision = await derivePlanRevision({ schemaVersion, subject, financialSummary, optimizationResult });
+
+  const request: OptimizerExplainRequest = { ...tempRequest, planRevision };
 
   const response = await fetch('/api/optimizer-explain', {
     method: 'POST',

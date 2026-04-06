@@ -45,10 +45,15 @@ function StrategyRow({
   );
 }
 
+const KNOWN_PROVIDER_LABELS: Record<string, string> = {
+  'azure-openai': 'Azure OpenAI',
+  'anthropic': 'Anthropic',
+};
+
 function getProviderLabel(): string {
-  const provider = process.env.NEXT_PUBLIC_LLM_PROVIDER ?? 'azure-openai';
-  if (provider === 'anthropic') return 'Anthropic';
-  return 'Azure OpenAI';
+  const raw = process.env.NEXT_PUBLIC_LLM_PROVIDER;
+  if (!raw) return KNOWN_PROVIDER_LABELS['azure-openai'];
+  return KNOWN_PROVIDER_LABELS[raw] ?? 'your configured AI provider';
 }
 
 export default function OptimizerPanel({ plannerState, result }: Props) {

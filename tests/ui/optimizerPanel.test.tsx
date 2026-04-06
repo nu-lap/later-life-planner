@@ -8,6 +8,7 @@ import { paulAndLisaState } from '../fixtures/states';
 
 afterEach(() => {
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
 });
 
 describe('OptimizerPanel', () => {
