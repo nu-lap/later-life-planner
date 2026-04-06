@@ -149,7 +149,7 @@ function describeAssetOutcome(optimizationResult: OptimizationSummary): string {
     return `Assets are projected to last through the modelled horizon, with about ${formatMoney(optimizationResult.terminalAssets)} remaining at the end.`;
   }
 
-  return `Assets are projected to run out around age ${optimizationResult.assetDepletionAge}, with about ${formatMoney(optimizationResult.terminalAssets)} remaining just before that point.`;
+  return `Assets are projected to run out around age ${optimizationResult.assetDepletionAge}, reaching ${formatMoney(optimizationResult.terminalAssets)} at that point.`;
 }
 
 function describeTaxRuleCaveat(optimizationResult: OptimizationSummary): string {
