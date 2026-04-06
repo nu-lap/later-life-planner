@@ -109,7 +109,7 @@ function describeDcOrder(planSummary: PlanSummary, dcOrder: OptimizationSummary[
     case 'paul-first':
       return "Start taxable pension withdrawals from one partner before moving to the other partner's pension.";
     case 'lisa-first':
-      return "Start taxable pension withdrawals from the other partner before moving back to the first partner's pension.";
+      return "Start taxable pension withdrawals from one partner's pension before moving to the other partner's pension.";
     case 'equal':
       return 'Split taxable pension withdrawals evenly across both partners.';
     case 'proportional':
