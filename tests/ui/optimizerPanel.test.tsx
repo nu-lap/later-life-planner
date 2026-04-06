@@ -41,6 +41,7 @@ describe('OptimizerPanel', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Explain this recommendation' }));
 
     expect(screen.getByRole('dialog')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Explain this recommendation' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Generate explanation' })).toBeDisabled();
 
     const consentCheckbox = await screen.findByRole('checkbox');
@@ -101,6 +102,7 @@ describe('OptimizerPanel', () => {
     await waitFor(() => {
       expect(screen.getByText('Cached explanation text')).toBeInTheDocument();
     });
+    expect(screen.getByText('This saved explanation matches your current plan. Change your plan to generate a new one.')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Generate explanation' })).not.toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
@@ -146,6 +148,141 @@ describe('OptimizerPanel', () => {
 
     expect(await screen.findByRole('checkbox')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Generate explanation' })).toBeDisabled();
+  });
+
+  test('does not split decimals or abbreviations inside dense explanations', async () => {
+    const plannerState = paulAndLisaState();
+    const result = optimizeWithdrawals(plannerState);
+    const denseExplanation = 'Hold £1.5m in ISA. e.g. a SIPP is sheltered. Final sentence explains the outcome.';
+    const fetchMock = vi.fn().mockResolvedValue(new Response(denseExplanation, {
+      status: 200,
+      headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<OptimizerPanel plannerState={plannerState} result={result} />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Explain this recommendation' }));
+    await userEvent.click(screen.getByRole('checkbox'));
+    await userEvent.click(screen.getByRole('button', { name: 'Generate explanation' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Hold £1.5m in ISA. e.g. a SIPP is sheltered.')).toBeInTheDocument();
+    });
+
+    expect(screen.queryByText(/^5m in ISA\./)).not.toBeInTheDocument();
+    expect(screen.getByText('Final sentence explains the outcome.')).toBeInTheDocument();
+  });
+
+  test('renders bullet-list explanations as a list', async () => {
+    const plannerState = paulAndLisaState();
+    const result = optimizeWithdrawals(plannerState);
+    const listExplanation = '* Item one\n* Item two';
+    const fetchMock = vi.fn().mockResolvedValue(new Response(listExplanation, {
+      status: 200,
+      headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<OptimizerPanel plannerState={plannerState} result={result} />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Explain this recommendation' }));
+    await userEvent.click(screen.getByRole('checkbox'));
+    await userEvent.click(screen.getByRole('button', { name: 'Generate explanation' }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('optimizer-explanation-list')).toBeInTheDocument();
+    });
+
+    expect(screen.getByRole('list')).toBeInTheDocument();
+    expect(screen.getByText('Item one')).toBeInTheDocument();
+    expect(screen.getByText('Item two')).toBeInTheDocument();
+  });
+
+  test('splits a dense explanation into readable paragraphs', async () => {
+    const plannerState = paulAndLisaState();
+    const result = optimizeWithdrawals(plannerState);
+    const denseExplanation = [
+      'First sentence explains the recommendation.',
+      'Second sentence explains the tax outcome.',
+      'Third sentence explains the asset impact.',
+      'Fourth sentence explains the fallback assumptions.',
+    ].join(' ');
+    const fetchMock = vi.fn().mockResolvedValue(new Response(denseExplanation, {
+      status: 200,
+      headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<OptimizerPanel plannerState={plannerState} result={result} />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Explain this recommendation' }));
+    await userEvent.click(screen.getByRole('checkbox'));
+    await userEvent.click(screen.getByRole('button', { name: 'Generate explanation' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('First sentence explains the recommendation. Second sentence explains the tax outcome.')).toBeInTheDocument();
+    });
+
+    expect(screen.getAllByTestId('optimizer-explanation-paragraph')).toHaveLength(2);
+    expect(screen.getByText('Third sentence explains the asset impact. Fourth sentence explains the fallback assumptions.')).toBeInTheDocument();
+  });
+
+  test('does not split on decimal numbers inside a dense explanation', async () => {
+    const plannerState = paulAndLisaState();
+    const result = optimizeWithdrawals(plannerState);
+    // Decimal number (£1.5m) must not be treated as a sentence boundary.
+    const denseExplanation = [
+      'Hold £1.5m in ISA for tax-free growth.',
+      'Draw down £0.8m from DC first.',
+      'Residual cash covers short-term needs.',
+      'Review annually as rules change.',
+    ].join(' ');
+    const fetchMock = vi.fn().mockResolvedValue(new Response(denseExplanation, {
+      status: 200,
+      headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<OptimizerPanel plannerState={plannerState} result={result} />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Explain this recommendation' }));
+    await userEvent.click(screen.getByRole('checkbox'));
+    await userEvent.click(screen.getByRole('button', { name: 'Generate explanation' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Hold £1.5m in ISA for tax-free growth. Draw down £0.8m from DC first.')).toBeInTheDocument();
+    });
+
+    expect(screen.getAllByTestId('optimizer-explanation-paragraph')).toHaveLength(2);
+    expect(screen.getByText('Residual cash covers short-term needs. Review annually as rules change.')).toBeInTheDocument();
+  });
+
+  test('renders bullet-list blocks as a list', async () => {
+    const plannerState = paulAndLisaState();
+    const result = optimizeWithdrawals(plannerState);
+    const bulletExplanation = 'Summary sentence.\n\n* Use ISA first for tax-free withdrawals.\n* Draw DC within the personal allowance.\n* Keep cash as a short-term buffer.';
+    const fetchMock = vi.fn().mockResolvedValue(new Response(bulletExplanation, {
+      status: 200,
+      headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<OptimizerPanel plannerState={plannerState} result={result} />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Explain this recommendation' }));
+    await userEvent.click(screen.getByRole('checkbox'));
+    await userEvent.click(screen.getByRole('button', { name: 'Generate explanation' }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('optimizer-explanation-list')).toBeInTheDocument();
+    });
+
+    const listItems = screen.getAllByRole('listitem');
+    expect(listItems).toHaveLength(3);
+    expect(listItems[0]).toHaveTextContent('Use ISA first for tax-free withdrawals.');
+    expect(listItems[1]).toHaveTextContent('Draw DC within the personal allowance.');
+    expect(listItems[2]).toHaveTextContent('Keep cash as a short-term buffer.');
   });
 
   test('keeps the dialog scrollable and dismissible when the explanation is long', async () => {
@@ -201,5 +338,29 @@ describe('OptimizerPanel', () => {
     await waitFor(() => {
       expect(screen.getByText('Authentication required.')).toBeInTheDocument();
     });
+  });
+
+  test('treats a whitespace-only streamed response as no explanation', async () => {
+    const plannerState = paulAndLisaState();
+    const result = optimizeWithdrawals(plannerState);
+    const fetchMock = vi.fn().mockResolvedValue(new Response('\n  \n', {
+      status: 200,
+      headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<OptimizerPanel plannerState={plannerState} result={result} />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Explain this recommendation' }));
+    await userEvent.click(screen.getByRole('checkbox'));
+    await userEvent.click(screen.getByRole('button', { name: 'Generate explanation' }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+
+    // Whitespace-only response should not show the explanation container or "Close" label
+    expect(screen.queryByText('Explanation')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Cancel' })).toBeInTheDocument();
+    // "Generate explanation" should still be available since hasExplanation is false
+    expect(screen.getByRole('button', { name: 'Generate explanation' })).toBeInTheDocument();
   });
 });
