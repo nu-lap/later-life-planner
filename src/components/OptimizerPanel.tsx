@@ -53,7 +53,11 @@ function StrategyRow({
 
 
 function formatBreakdownAmount(value?: number): string {
-  return value && value > 0 ? formatCurrency(value, true) : '—';
+  if (value == null || Number.isNaN(value)) {
+    return '—';
+  }
+
+  return formatCurrency(value, true);
 }
 
 function BreakdownField({ label, value }: { label: string; value?: number }) {
