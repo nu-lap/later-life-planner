@@ -298,8 +298,8 @@ function recordRuleProvenance(
       is_fallback: snapshot.cgtFallback,
     },
     {
-      rule_id: snapshot.pension.ruleId,
-      version: snapshot.pension.ruleVersion,
+      rule_id: 'pension_lsa',
+      version: '1.0.0',
       tax_year_requested: requestedYear,
       tax_year_used: snapshot.pension.taxYear,
       jurisdiction: snapshot.pension.jurisdiction,
