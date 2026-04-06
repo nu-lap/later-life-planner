@@ -173,6 +173,63 @@ describe('OptimizerPanel', () => {
     expect(screen.getByText('Third sentence explains the asset impact. Fourth sentence explains the fallback assumptions.')).toBeInTheDocument();
   });
 
+  test('does not split on decimal numbers inside a dense explanation', async () => {
+    const plannerState = paulAndLisaState();
+    const result = optimizeWithdrawals(plannerState);
+    // Decimal number (£1.5m) must not be treated as a sentence boundary.
+    const denseExplanation = [
+      'Hold £1.5m in ISA for tax-free growth.',
+      'Draw down £0.8m from DC first.',
+      'Residual cash covers short-term needs.',
+      'Review annually as rules change.',
+    ].join(' ');
+    const fetchMock = vi.fn().mockResolvedValue(new Response(denseExplanation, {
+      status: 200,
+      headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<OptimizerPanel plannerState={plannerState} result={result} />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Explain this recommendation' }));
+    await userEvent.click(screen.getByRole('checkbox'));
+    await userEvent.click(screen.getByRole('button', { name: 'Generate explanation' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Hold £1.5m in ISA for tax-free growth. Draw down £0.8m from DC first.')).toBeInTheDocument();
+    });
+
+    expect(screen.getAllByTestId('optimizer-explanation-paragraph')).toHaveLength(2);
+    expect(screen.getByText('Residual cash covers short-term needs. Review annually as rules change.')).toBeInTheDocument();
+  });
+
+  test('renders bullet-list blocks as a list', async () => {
+    const plannerState = paulAndLisaState();
+    const result = optimizeWithdrawals(plannerState);
+    const bulletExplanation = 'Summary sentence.\n\n* Use ISA first for tax-free withdrawals.\n* Draw DC within the personal allowance.\n* Keep cash as a short-term buffer.';
+    const fetchMock = vi.fn().mockResolvedValue(new Response(bulletExplanation, {
+      status: 200,
+      headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<OptimizerPanel plannerState={plannerState} result={result} />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Explain this recommendation' }));
+    await userEvent.click(screen.getByRole('checkbox'));
+    await userEvent.click(screen.getByRole('button', { name: 'Generate explanation' }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('optimizer-explanation-list')).toBeInTheDocument();
+    });
+
+    const listItems = screen.getAllByRole('listitem');
+    expect(listItems).toHaveLength(3);
+    expect(listItems[0]).toHaveTextContent('Use ISA first for tax-free withdrawals.');
+    expect(listItems[1]).toHaveTextContent('Draw DC within the personal allowance.');
+    expect(listItems[2]).toHaveTextContent('Keep cash as a short-term buffer.');
+  });
+
   test('keeps the dialog scrollable and dismissible when the explanation is long', async () => {
     const plannerState = paulAndLisaState();
     const result = optimizeWithdrawals(plannerState);

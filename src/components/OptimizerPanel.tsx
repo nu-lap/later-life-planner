@@ -57,7 +57,13 @@ function getProviderLabel(): string {
 }
 
 function splitDenseParagraph(text: string): string[] {
-  const sentences = text.match(/[^.!?]+(?:[.!?]+|$)/g)?.map((sentence) => sentence.trim()).filter(Boolean) ?? [];
+  // Split only on real sentence boundaries: punctuation followed by whitespace and
+  // a capital letter. This avoids false splits inside decimal numbers (e.g. £1.5m)
+  // and lower-case abbreviations (e.g. e.g., i.e.).
+  const sentences = text
+    .split(/(?<=[.!?])\s+(?=[A-Z])/)
+    .map((sentence) => sentence.trim())
+    .filter(Boolean);
 
   if (sentences.length <= 2) {
     return [text.trim()];
