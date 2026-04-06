@@ -144,6 +144,55 @@ describe('OptimizerPanel', () => {
     expect(screen.getByRole('button', { name: 'Generate explanation' })).toBeDisabled();
   });
 
+  test('does not split decimals or abbreviations inside dense explanations', async () => {
+    const plannerState = paulAndLisaState();
+    const result = optimizeWithdrawals(plannerState);
+    const denseExplanation = 'Hold £1.5m in ISA. e.g. a SIPP is sheltered. Final sentence explains the outcome.';
+    const fetchMock = vi.fn().mockResolvedValue(new Response(denseExplanation, {
+      status: 200,
+      headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<OptimizerPanel plannerState={plannerState} result={result} />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Explain this recommendation' }));
+    await userEvent.click(screen.getByRole('checkbox'));
+    await userEvent.click(screen.getByRole('button', { name: 'Generate explanation' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Hold £1.5m in ISA. e.g. a SIPP is sheltered.')).toBeInTheDocument();
+    });
+
+    expect(screen.queryByText(/^5m in ISA\./)).not.toBeInTheDocument();
+    expect(screen.getByText('Final sentence explains the outcome.')).toBeInTheDocument();
+  });
+
+  test('renders bullet-list explanations as a list', async () => {
+    const plannerState = paulAndLisaState();
+    const result = optimizeWithdrawals(plannerState);
+    const listExplanation = '* Item one\n* Item two';
+    const fetchMock = vi.fn().mockResolvedValue(new Response(listExplanation, {
+      status: 200,
+      headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<OptimizerPanel plannerState={plannerState} result={result} />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Explain this recommendation' }));
+    await userEvent.click(screen.getByRole('checkbox'));
+    await userEvent.click(screen.getByRole('button', { name: 'Generate explanation' }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('optimizer-explanation-list')).toBeInTheDocument();
+    });
+
+    expect(screen.getByRole('list')).toBeInTheDocument();
+    expect(screen.getByText('Item one')).toBeInTheDocument();
+    expect(screen.getByText('Item two')).toBeInTheDocument();
+  });
+
   test('splits a dense explanation into readable paragraphs', async () => {
     const plannerState = paulAndLisaState();
     const result = optimizeWithdrawals(plannerState);

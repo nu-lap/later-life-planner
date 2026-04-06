@@ -42,10 +42,10 @@ Rules:
 - Be direct and specific. Avoid fluff.
 - Format the explanation for scanning: use short paragraphs, and use bullets for grouped points or caveats.
 - Do not return one long wall of text.
-- Use HMRC citations and RAG guidance when they are available.
-- Treat RAG guidance as grounded source material. Prefer paraphrase; only quote short excerpts when useful.
-- When you reference a RAG chunk, include its HMRC manual reference and source_url inline.
-- If no citation or RAG chunk is available, say the explanation is based on the optimizer summary alone.
+- Use any supplied HMRC guidance and citations to ground the explanation. Prefer paraphrase; only quote short excerpts when useful.
+- When you reference HMRC guidance, name the HMRC manual reference and link when they are available.
+- Do not mention internal system terms such as RAG, chunk, payload, schema, optimizer summary, or supplied data.
+- If no HMRC guidance or citations are available, just explain the recommendation plainly without mentioning missing internal inputs.
 - Do not ask follow-up questions.`;
 
 function getAzureApiVersion(): string {
