@@ -7,6 +7,7 @@ import { optimizeWithdrawals } from '@/financialEngine/withdrawalOptimizer';
 import { paulAndLisaState } from '../fixtures/states';
 
 afterEach(() => {
+  window.localStorage.clear();
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
@@ -49,6 +50,7 @@ describe('OptimizerPanel', () => {
     await waitFor(() => {
       expect(screen.getByText('Explanation text')).toBeInTheDocument();
     });
+    expect(screen.queryByRole('button', { name: 'Generate explanation' })).not.toBeInTheDocument();
 
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(url).toBe('/api/optimizer-explain');
@@ -63,6 +65,81 @@ describe('OptimizerPanel', () => {
     expect(body.consent.scope).toContain('rag-guidance');
     expect(serialized).not.toContain(plannerState.person1.name);
     expect(serialized).not.toContain(plannerState.person2.name);
+  });
+
+  test('reuses a saved explanation for the same unchanged plan', async () => {
+    const plannerState = paulAndLisaState();
+    const result = optimizeWithdrawals(plannerState);
+    const fetchMock = vi.fn().mockResolvedValue(new Response('Cached explanation text', {
+      status: 200,
+      headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<OptimizerPanel plannerState={plannerState} result={result} />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Explain this recommendation' }));
+    await userEvent.click(await screen.findByRole('checkbox'));
+    await userEvent.click(screen.getByRole('button', { name: 'Generate explanation' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Cached explanation text')).toBeInTheDocument();
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Close' }));
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
+
+    await userEvent.click(screen.getByRole('button', { name: 'Explain this recommendation' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Cached explanation text')).toBeInTheDocument();
+    });
+    expect(screen.queryByRole('button', { name: 'Generate explanation' })).not.toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  test('shows Generate explanation again after the plan changes', async () => {
+    const plannerState = paulAndLisaState();
+    const result = optimizeWithdrawals(plannerState);
+    const fetchMock = vi.fn().mockResolvedValue(new Response('Cached explanation text', {
+      status: 200,
+      headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { rerender } = render(<OptimizerPanel plannerState={plannerState} result={result} />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Explain this recommendation' }));
+    await userEvent.click(await screen.findByRole('checkbox'));
+    await userEvent.click(screen.getByRole('button', { name: 'Generate explanation' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Cached explanation text')).toBeInTheDocument();
+    });
+
+    await userEvent.click(screen.getByRole('button', { name: 'Close' }));
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
+
+    const changedPlannerState = {
+      ...plannerState,
+      person1: {
+        ...plannerState.person1,
+        currentAge: plannerState.person1.currentAge + 1,
+      },
+    };
+    const changedResult = optimizeWithdrawals(changedPlannerState);
+
+    rerender(<OptimizerPanel plannerState={changedPlannerState} result={changedResult} />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Explain this recommendation' }));
+
+    expect(await screen.findByRole('checkbox')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Generate explanation' })).toBeDisabled();
   });
 
   test('keeps the dialog scrollable and dismissible when the explanation is long', async () => {

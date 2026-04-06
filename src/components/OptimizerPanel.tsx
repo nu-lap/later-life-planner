@@ -5,7 +5,7 @@ import clsx from 'clsx';
 import { formatCurrency } from '@/financialEngine/projectionEngine';
 import { describeStrategyLabel } from '@/financialEngine/withdrawalOptimizer';
 import type { OptimizationResult, WaterfallResult } from '@/financialEngine/types';
-import { explainOptimizerResult } from '@/lib/optimizerExplainClient';
+import { explainOptimizerResult, getCachedOptimizerExplanation } from '@/lib/optimizerExplainClient';
 import type { PlannerState } from '@/models/types';
 
 interface Props {
@@ -47,7 +47,7 @@ function StrategyRow({
 
 const KNOWN_PROVIDER_LABELS: Record<string, string> = {
   'azure-openai': 'Azure OpenAI',
-  'anthropic': 'Anthropic',
+  anthropic: 'Anthropic',
 };
 
 function getProviderLabel(): string {
@@ -61,6 +61,7 @@ export default function OptimizerPanel({ plannerState, result }: Props) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [hasConsented, setHasConsented] = useState(false);
   const [isExplaining, setIsExplaining] = useState(false);
+  const [isLoadingCachedExplanation, setIsLoadingCachedExplanation] = useState(false);
   const [explanation, setExplanation] = useState<string | null>(null);
   const [explainError, setExplainError] = useState<string | null>(null);
   const rows = useMemo(
@@ -72,17 +73,17 @@ export default function OptimizerPanel({ plannerState, result }: Props) {
     ? 'Assets last to horizon'
     : `Age ${result.assetDepletionAge}`;
   const providerLabel = getProviderLabel();
+  const hasExplanation = Boolean(explanation && explanation.trim().length > 0);
 
   async function handleExplain() {
-    if (!hasConsented || isExplaining) return;
+    if (!hasConsented || isExplaining || isLoadingCachedExplanation || hasExplanation) return;
 
     setIsExplaining(true);
     setExplainError(null);
-    setExplanation(null);
 
     try {
-      const text = await explainOptimizerResult({ plannerState, optimizationResult: result });
-      setExplanation(text);
+      const generated = await explainOptimizerResult({ plannerState, optimizationResult: result });
+      setExplanation(generated.text);
     } catch (error) {
       setExplainError(error instanceof Error ? error.message : 'Unable to generate explanation.');
     } finally {
@@ -90,15 +91,25 @@ export default function OptimizerPanel({ plannerState, result }: Props) {
     }
   }
 
-  function openDialog() {
+  async function openDialog() {
     setExplainError(null);
     setExplanation(null);
     setHasConsented(false);
     setIsDialogOpen(true);
+    setIsLoadingCachedExplanation(true);
+
+    try {
+      const cached = await getCachedOptimizerExplanation({ plannerState, optimizationResult: result });
+      setExplanation(cached.explanation);
+    } catch {
+      setExplanation(null);
+    } finally {
+      setIsLoadingCachedExplanation(false);
+    }
   }
 
   function closeDialog() {
-    if (isExplaining) return;
+    if (isExplaining || isLoadingCachedExplanation) return;
     setIsDialogOpen(false);
     setHasConsented(false);
   }
@@ -120,7 +131,7 @@ export default function OptimizerPanel({ plannerState, result }: Props) {
             </div>
             <button
               type="button"
-              onClick={openDialog}
+              onClick={() => void openDialog()}
               className="btn-secondary py-2 text-sm"
             >
               Explain this recommendation
@@ -214,46 +225,65 @@ export default function OptimizerPanel({ plannerState, result }: Props) {
           className="fixed inset-0 z-50 overflow-y-auto"
         >
           <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
-          <div className="relative mx-4 w-full max-w-2xl rounded-2xl border border-slate-200 bg-white p-6 shadow-xl">
-            <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-500">
-              Optimizer Explanation
-            </p>
-            <h2 id="optimizer-explain-title" className="mt-2 text-xl font-black text-slate-900">
-              Send a minimised summary to explain this recommendation
-            </h2>
-            <p className="mt-2 text-sm leading-6 text-slate-600">
-              LLP will send a minimised summary of your ages, household type, high-level asset totals,
-              optimizer result, and HMRC rule provenance to {providerLabel} through the server-side
-              explanation route. If you consent, the server will also retrieve matching HMRC guidance
-              excerpts using the disclosed rule IDs, tax year, and jurisdiction. Names, addresses,
-              account numbers, and full yearly plan data are not sent.
-            </p>
+          <div className="relative flex min-h-full items-center justify-center p-4 sm:p-6">
+            <div
+              data-testid="optimizer-explain-panel"
+              className="relative flex w-full max-w-2xl max-h-[calc(100vh-2rem)] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl"
+            >
+              <div data-testid="optimizer-explain-body" className="overflow-y-auto p-6">
+                <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-500">
+                  Optimizer Explanation
+                </p>
+                <h2 id="optimizer-explain-title" className="mt-2 text-xl font-black text-slate-900">
+                  Send a minimised summary to explain this recommendation
+                </h2>
+                <p className="mt-2 text-sm leading-6 text-slate-600">
+                  LLP will send a minimised summary of your ages, household type, high-level asset totals,
+                  optimizer result, and HMRC rule provenance to {providerLabel} through the server-side
+                  explanation route. If you consent, the server will also retrieve matching HMRC guidance
+                  excerpts using the disclosed rule IDs, tax year, and jurisdiction. Names, addresses,
+                  account numbers, and full yearly plan data are not sent.
+                </p>
 
-            <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Data disclosed if you continue
-              </p>
-              <ul className="mt-3 space-y-2 text-sm text-slate-700">
-                <li>Household type, ages, and tax jurisdiction</li>
-                <li>Guaranteed income total and DC, ISA, and GIA balances</li>
-                <li>Recommended strategy, baseline comparison, tax saving, and terminal assets</li>
-                <li>HMRC rule IDs, versions, and tax years used to build the recommendation</li>
-                <li>Matched HMRC guidance excerpts filtered by those rule IDs, tax year, and jurisdiction</li>
-              </ul>
-            </div>
+                {isLoadingCachedExplanation ? (
+                  <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
+                    Checking for a saved explanation for this plan...
+                  </div>
+                ) : null}
 
-            <label className="mt-4 flex items-start gap-3 rounded-2xl border border-orange-200 bg-orange-50 p-4 text-sm text-slate-700">
-              <input
-                type="checkbox"
-                className="mt-1 h-4 w-4 rounded border-slate-300 text-orange-600 focus:ring-orange-500"
-                checked={hasConsented}
-                onChange={(event) => setHasConsented(event.target.checked)}
-                disabled={isExplaining}
-              />
-              <span>
-                I consent to LLP sending this minimised optimizer summary and retrieving matched HMRC guidance for explanation generation.
-              </span>
-            </label>
+                {hasExplanation ? (
+                  <div className="mt-4 rounded-2xl border border-emerald-100 bg-emerald-50 p-4 text-sm text-emerald-900">
+                    Using the saved explanation for this unchanged plan. Generate a new one only after plan changes.
+                  </div>
+                ) : (
+                  <>
+                    <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        Data disclosed if you continue
+                      </p>
+                      <ul className="mt-3 space-y-2 text-sm text-slate-700">
+                        <li>Household type, ages, and tax jurisdiction</li>
+                        <li>Guaranteed income total and DC, ISA, and GIA balances</li>
+                        <li>Recommended strategy, baseline comparison, tax saving, and terminal assets</li>
+                        <li>HMRC rule IDs, versions, and tax years used to build the recommendation</li>
+                        <li>Matched HMRC guidance excerpts filtered by those rule IDs, tax year, and jurisdiction</li>
+                      </ul>
+                    </div>
+
+                    <label className="mt-4 flex items-start gap-3 rounded-2xl border border-orange-200 bg-orange-50 p-4 text-sm text-slate-700">
+                      <input
+                        type="checkbox"
+                        className="mt-1 h-4 w-4 rounded border-slate-300 text-orange-600 focus:ring-orange-500"
+                        checked={hasConsented}
+                        onChange={(event) => setHasConsented(event.target.checked)}
+                        disabled={isExplaining || isLoadingCachedExplanation}
+                      />
+                      <span>
+                        I consent to LLP sending this minimised optimizer summary and retrieving matched HMRC guidance for explanation generation.
+                      </span>
+                    </label>
+                  </>
+                )}
 
                 {explainError ? (
                   <p className="mt-4 rounded-xl border border-rose-100 bg-rose-50 px-3 py-2 text-sm text-rose-700">
@@ -284,18 +314,20 @@ export default function OptimizerPanel({ plannerState, result }: Props) {
                   type="button"
                   onClick={closeDialog}
                   className="btn-secondary py-2.5 text-sm"
-                  disabled={isExplaining}
+                  disabled={isExplaining || isLoadingCachedExplanation}
                 >
                   {explanation ? 'Close' : 'Cancel'}
                 </button>
-                <button
-                  type="button"
-                  onClick={() => void handleExplain()}
-                  className="btn-primary py-2.5 text-sm disabled:cursor-not-allowed disabled:opacity-50"
-                  disabled={!hasConsented || isExplaining}
-                >
-                  {isExplaining ? 'Generating...' : 'Generate explanation'}
-                </button>
+                {!hasExplanation ? (
+                  <button
+                    type="button"
+                    onClick={() => void handleExplain()}
+                    className="btn-primary py-2.5 text-sm disabled:cursor-not-allowed disabled:opacity-50"
+                    disabled={!hasConsented || isExplaining || isLoadingCachedExplanation}
+                  >
+                    {isLoadingCachedExplanation ? 'Checking cache...' : isExplaining ? 'Generating...' : 'Generate explanation'}
+                  </button>
+                ) : null}
               </div>
             </div>
           </div>
