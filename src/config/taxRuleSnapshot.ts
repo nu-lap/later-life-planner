@@ -47,6 +47,8 @@ export interface CgtSnapshot {
 export interface PensionSnapshot {
   taxYear: string;
   jurisdiction: 'rUK';
+  ruleId: 'pension_lsa';
+  ruleVersion: string;
   lsa: number;                    // Lifetime Lump Sum Allowance (£268,275)
   ufplsTaxFreeFraction: number;   // 0.25 — tax-free portion of each UFPLS withdrawal
   ufplsTaxableFraction: number;   // 0.75 — taxable portion of each UFPLS withdrawal
@@ -162,12 +164,16 @@ const cgtData: Record<string, CgtSnapshot> = {
 const pensionData: Record<string, PensionSnapshot> = {
   '2025-26': {
     taxYear: '2025-26', jurisdiction: 'rUK' as const,
+    ruleId: 'pension_lsa' as const,
+    ruleVersion: '1.0.0',
     lsa: 268_275,
     ufplsTaxFreeFraction: 0.25,
     ufplsTaxableFraction: 0.75,
   },
   '2026-27': {
     taxYear: '2026-27', jurisdiction: 'rUK' as const,
+    ruleId: 'pension_lsa' as const,
+    ruleVersion: '1.0.0',
     lsa: 268_275,
     ufplsTaxFreeFraction: 0.25,
     ufplsTaxableFraction: 0.75,
