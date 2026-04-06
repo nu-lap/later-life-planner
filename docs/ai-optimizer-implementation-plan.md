@@ -252,15 +252,49 @@ File: `src/app/api/optimizer-explain/route.ts`
 
 - Auth-gated via `requireUser()`
 - Rate-limited (reuse `src/lib/rateLimit.ts` pattern)
-- Accepts: `{ planId: string }` — the persisted plan identifier stored in Cosmos DB
-- **Never accepts untrusted client-supplied optimization results.** The route should
-  either (a) re-run `optimizeWithdrawals()` server-side from the canonical persisted
-  plan state fetched by `planId`, or (b) accept a client-submitted, signed and
-  provable artifact that is verifiable against a cryptographic commitment (see
-  §3.4 Merkle-based privacy-preserving explain). This preserves the "deterministic
-  and auditable" contract: the LLM explains results computed from trusted state only.
-- Calls `streamExplanation()` → streams response
+- Accepts a client-submitted explanation payload built from locally decrypted plan
+  state and locally computed optimizer output
+- The route does **not** fetch planner plaintext by `planId` and does **not**
+  re-run the optimizer server-side in MVP
+- The client is responsible for:
+  - decrypting planner state locally
+  - running `optimizeWithdrawals()` locally
+  - deriving a minimised explanation payload
+  - collecting explicit user consent before submission
+- The server is responsible for:
+  - authenticating the user
+  - validating payload schema, version, and consent metadata
+  - hydrating HMRC MCP citations and optional RAG guidance
+  - calling `streamExplanation()` and streaming the response
 - LLM role: explain and contextualise only — never computes tax
+
+Suggested request shape:
+
+```typescript
+export interface OptimizerExplainRequest {
+  requestId: string;
+  planRevision: string;
+  schemaVersion: string;
+  consent: {
+    grantedAt: string;
+    scope: string[];
+    provider: 'azure-openai' | 'anthropic';
+  };
+  subject: {
+    householdType: 'single' | 'couple';
+    ages: number[];
+    jurisdiction: TaxJurisdiction;
+  };
+  financialSummary: {
+    guaranteedIncomeAnnual: number;
+    dcTotal: number;
+    isaTotal: number;
+    giaTotal: number;
+    targetSpendingAnnual: number;
+  };
+  optimizationResult: OptimizationResult;
+}
+```
 
 ### 3.3 Hydrate live HMRC MCP citations
 
@@ -274,101 +308,88 @@ In the route handler, for each entry in `optimizationResult.ruleProvenance`:
 - Graceful fallback: if MCP unavailable, proceed without citations
 
 **Acceptance criteria for Phase 3:** `POST /api/optimizer-explain` returns a
-streaming plain-English explanation that references at least one HMRC rule citation
-for a test optimization result.
+streaming plain-English explanation for a client-computed optimization result,
+uses only the submitted minimised payload, and references at least one HMRC rule
+citation for a test request.
 
-### 3.4 Merkle-based privacy-preserving explain (optional mode)
+### 3.4 Client-side consented explain workflow
 
-To preserve client-side encryption and minimise plaintext leakage while
-allowing the server to verify and trust values used in explanations, implement
-an optional Merkle-commitment workflow. The goal is to let the client keep the
-full plan locally but provide compact, verifiable proofs for only the fields
-or aggregates the server needs to compute or trust when generating an
-explanation or audit record.
+To preserve LLP's current browser-encryption model, keep optimizer computation
+and plan decryption in the browser. The explanation flow sends only a minimised,
+consented payload to the server.
 
 High-level flow
 
-1. Client-side canonicalisation and commitment
-   - Canonicalise the planner state to a deterministic JSON representation
-     (stable key ordering, decimal scaled integers for currency) and split into
-     logical leaves (accounts, pots, personal details).
-   - Build a Merkle tree over the leaves. Each internal node includes cryptographic
-     aggregates (e.g., sum_pence, count) in its node hash so aggregates become
-     provably bound to the committed root.
-   - Sign the Merkle root with the device key and store the signed commitment locally.
+1. Local compute and payload derivation
+   - Decrypt planner state in the browser.
+   - Run `optimizeWithdrawals()` locally.
+   - Derive a compact explanation payload containing only the fields required to
+     explain the optimizer output.
+   - Exclude direct identifiers and unnecessary raw account detail.
 
-2. Submission and proof exchange
-   - When the user approves submission, the client opens the consent dialog which
-     explicitly lists the fields and aggregates that will be revealed to the server.
-   - The client sends a small set of proofs to the server — either:
-     a) leaf disclosures: specific leaves + Merkle paths (for small fields that must
-        appear verbatim in the explanation), or
-     b) node-cover proofs: node hashes + aggregated metadata + Merkle paths that
-        cover the requested subset (for aggregates like total GIA balance).
-   - The server verifies each proof against the signed root and accepts the
-     disclosed values/aggregates as authoritative for the explanation context.
+2. User consent
+   - Before submission, show a consent dialog listing exactly what will be sent.
+   - The dialog must state:
+     - which data categories leave the browser
+     - that LLP will use the payload only for explanation generation
+     - which provider will process the explanation request
+     - whether HMRC citations and RAG guidance may be fetched server-side
+   - The user must explicitly approve the submission.
 
-3. Server processing and audit record
-   - The server NEVER requests nor stores full plaintext plan data. It accepts only
-     the signed root and supplied proofs that the user explicitly disclosed.
-   - The server produces an explanation (server-side or streaming) using only the
-     disclosed fields/aggregates. It stores an audit record containing:
-     `{ request_id, user_pseudonym, device_pubkey, signed_root, proofs_metadata, consent_sig, ruleProvenance, timestamp }`.
-   - The audit record contains no plaintext leaves. It contains the signed root,
-     compact proof metadata, and the consent signature that the user made at the
-     time of submission.
+3. Server-side explanation
+   - The client submits the minimised explanation payload to
+     `POST /api/optimizer-explain`.
+   - The server validates the payload and consent record.
+   - The server enriches the request with HMRC MCP citations and optional RAG chunks.
+   - The server streams the explanation response.
 
-Design details
+4. Audit and retention
+   - Store only lightweight request metadata needed for diagnostics or audit.
+   - Do not persist full planner plaintext as part of the explanation workflow.
+   - Any retained record should be limited to:
+     `{ requestId, planRevision, schemaVersion, consentScope, provider, timestamp, ruleProvenance }`.
 
-- Leaf encoding: `H("leaf|" || json_path || "|" || canonical_value)` (SHA-256)
-- Node encoding: `H("node|" || left_hash || right_hash || "|sum:" || sum_pence || "|count:" || count)`
-  — include canonical fixed-width integers for aggregates in node hash.
-- Merkle cover: client selects the minimal set of nodes whose union equals the
-  disclosure set and returns each node's aggregate metadata and the Merkle path
-  to the root. Server recomputes sums by aggregating node metadata and verifies
-  paths cryptographically.
-- Canonicalisation: define a strict serializer (numbers scaled to pence, ISO dates,
-  sorted object keys). Implement reference implementations for browser (TS) and
-  server (TS/Node or Python) to ensure compatibility.
+Design constraints
 
-API contract (suggested endpoints)
+- Treat the payload as minimised and pseudonymised, not truly anonymous.
+- Keep names, addresses, account numbers, and free-text notes out of the payload.
+- Use a versioned payload schema so the client and server evolve safely.
+- Bind the request to the optimizer result revision so the explanation matches the
+  visible dashboard state.
+- Keep MCP and RAG enrichment server-side so API credentials and retrieval logic do
+  not move into the browser.
 
-- POST /api/optimizer-submit
-  - Input: `{ mode: 'merkle', signed_root, device_pubkey, requested_scope, consent_sig }`
-  - Returns: `{ request_id, required_proofs: [ ... ] }` if server-side compute needs more proofs or
-    acceptance immediate if client already submitted proofs.
+API contract (suggested endpoint)
 
-- POST /api/optimizer-proofs
-  - Input: `{ request_id, proofs: [ { node_or_leaf_id, merkle_path, aggregate_meta?, leaf_value? } ], consent_sig }`
-  - Server verifies signatures and proofs, then proceeds to generate explanation.
+- POST `/api/optimizer-explain`
+  - Input: `OptimizerExplainRequest`
+  - Output: streaming plain-English explanation
 
-Acceptance criteria for Merkle mode
+Acceptance criteria for the consented workflow
 
-- Proof verification: server verifies Merkle paths and node aggregate metadata
-  against the signed root and rejects any mismatched proofs.
-- Minimal disclosure: explanation uses only the disclosed aggregates/fields.
-- Audit record: server stores an immutable audit record with root, proofs metadata,
-  and user consent signature (no plaintext payload persisted).
-- User transparency: UI shows exactly what will be disclosed and presents the
-  signed root/hashes for user verification.
+- Minimal disclosure: explanation uses only the submitted minimised payload.
+- Explicit consent: submission is blocked until the user approves the disclosure.
+- No planner plaintext persistence: the explanation workflow does not store the
+  full decrypted plan on the server.
+- Provider transparency: the consent UI tells the user which LLM provider will
+  process the request.
 
 Testing and integration
 
-- Unit tests for canonical serializer parity (client ↔ server), Merkle path
-  verification, and aggregate arithmetic consistency.
-- Integration test: synthetic plan → client builds root and proofs → server
-  verifies and generates explanation using only proofs; assert no plaintext stored.
-- Security tests: attempt tampered proofs and assert server rejects them; assert
-  audit record contains correct signed root and no plaintext.
+- Unit tests for payload derivation so sensitive fields are excluded.
+- Route tests for schema validation, consent enforcement, and MCP fallback.
+- Integration test: decrypted plan in browser → local optimizer run → consented
+  payload submission → streamed explanation with citations.
+- Security test: reject oversized or over-disclosive payloads that violate the
+  schema contract.
 
 Trade-offs and notes
 
-- Complexity: client must compute Merkle covers and produce proofs. Provide a
-  client TS library to make this seamless.
-- Aggregate expressiveness: precompute aggregates (sum, count, min, max) at node
-  build time to permit server verification without leaf disclosure.
-- UX: provide an opt-in privacy mode and an "allow deeper proofs" flow if the
-  user wants the server to recompute internal derived values.
+- This is an explanation workflow, not a server-authoritative recomputation flow.
+- The trust model is: client computes, server explains, and the user consents to
+  the disclosed payload.
+- This is materially simpler than introducing cryptographic proof machinery and is
+  aligned with LLP's existing encrypted-blob storage design.
 
 ---
 
