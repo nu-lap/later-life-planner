@@ -14,6 +14,7 @@ export type AspirationTag =
 export type SpendingTier = 'essential' | 'moderate' | 'aspirational' | 'variable';
 export type PlanningMode = 'single' | 'couple';
 export type RlssStandard = 'minimum' | 'moderate' | 'comfortable';
+export type TaxJurisdiction = 'rUK' | 'scotland';
 
 /** Who owns a shared asset. 'joint' splits CGT gains equally between both persons. */
 export type AssetOwner = 'p1' | 'p2' | 'joint';

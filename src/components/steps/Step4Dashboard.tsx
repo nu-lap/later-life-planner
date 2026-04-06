@@ -8,7 +8,9 @@ import {
   getAssetDepletionAge, formatCurrency, getTotalUnrealisedGain,
   calculateGamificationMetrics,
 } from '@/lib/calculations';
+import OptimizerPanel from '@/components/OptimizerPanel';
 import { CGT, INCOME_TAX } from '@/config/financialConstants';
+import { optimizeWithdrawals } from '@/financialEngine/withdrawalOptimizer';
 import { RLSS_STANDARDS } from '@/lib/mockData';
 import type { YearlyProjection } from '@/lib/types';
 import clsx from 'clsx';
@@ -201,9 +203,25 @@ function ProjectionTable({ projections, lifeStages }: {
 export default function Step4Dashboard({ onBack }: Props) {
   const state = usePlannerStore();
   const deferredState = useDeferredValue(state);
+  const optimizerEnabled = process.env.NEXT_PUBLIC_OPTIMIZER_ENABLED === 'true';
   const { mode, person1, person2, lifeStages, rlssStandard, spendingCategories, fiAge } = state;
 
-  const projections   = useMemo(() => calculateProjections(deferredState), [deferredState]);
+  const { projections, optimizerResult } = useMemo(() => {
+    if (!optimizerEnabled) {
+      return {
+        projections: calculateProjections(deferredState),
+        optimizerResult: null,
+      };
+    }
+
+    // Run the optimizer once; reuse its pre-computed projections so we avoid
+    // a duplicate calculateProjections() call.
+    const result = optimizeWithdrawals(deferredState);
+    return {
+      projections: result.baselineProjections,
+      optimizerResult: result,
+    };
+  }, [deferredState, optimizerEnabled]);
   // Income and spending only starts at FI age — filter for display, but keep full
   // projections for asset depletion checks (assets grow from current age).
   const displayProjections = useMemo(
@@ -369,6 +387,10 @@ export default function Step4Dashboard({ onBack }: Props) {
 
       {/* Tax strategy */}
       <TaxOverview projections={displayProjections} />
+
+      {optimizerEnabled && optimizerResult && (
+        <OptimizerPanel result={optimizerResult} />
+      )}
 
       {/* Projection table */}
       <ProjectionTable projections={displayProjections} lifeStages={lifeStages} />
