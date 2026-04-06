@@ -54,17 +54,15 @@ export async function explainOptimizerResult(
   const requestId = crypto.randomUUID();
   const grantedAt = new Date().toISOString();
 
-  // Build a temporary request with a placeholder revision to extract stable, non-PII fields.
   const tempRequest = buildOptimizerExplainRequest({
     plannerState: args.plannerState,
     optimizationResult: args.optimizationResult,
     planRevision: `sha256:${'0'.repeat(64)}`,
-    consentScope: [...REQUIRED_EXPLAIN_CONSENT_SCOPES, 'mcp-citations'],
+    consentScope: [...REQUIRED_EXPLAIN_CONSENT_SCOPES, 'mcp-citations', 'rag-guidance'],
     requestId,
     grantedAt,
   });
 
-  // Derive the revision by hashing only the minimised, non-PII stable fields.
   const { schemaVersion, subject, financialSummary, optimizationResult } = tempRequest;
   const planRevision = await derivePlanRevision({ schemaVersion, subject, financialSummary, optimizationResult });
 

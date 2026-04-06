@@ -11,6 +11,7 @@ const {
   rateLimitMock,
   auditLogMock,
   collectHmrcRuleCitationsMock,
+  retrieveHmrcChunksMock,
   getConfiguredLlmProviderMock,
   streamExplanationMock,
 } = vi.hoisted(() => ({
@@ -18,6 +19,7 @@ const {
   rateLimitMock: vi.fn(() => ({ ok: true, remaining: 1, resetInMs: 0 })),
   auditLogMock: vi.fn(),
   collectHmrcRuleCitationsMock: vi.fn(),
+  retrieveHmrcChunksMock: vi.fn(),
   getConfiguredLlmProviderMock: vi.fn(() => 'azure-openai'),
   streamExplanationMock: vi.fn(),
 }));
@@ -48,6 +50,10 @@ vi.mock('@/lib/hmrcMcp', () => ({
   collectHmrcRuleCitations: collectHmrcRuleCitationsMock,
 }));
 
+vi.mock('@/lib/hmrcRag', () => ({
+  retrieveHmrcChunks: retrieveHmrcChunksMock,
+}));
+
 vi.mock('@/lib/llm', () => {
   class LlmConfigError extends Error {
     constructor(message = 'AI features are not configured.') {
@@ -67,13 +73,13 @@ import { POST } from '@/app/api/optimizer-explain/route';
 import { UnauthorizedError } from '@/lib/auth/requireUser';
 import { LlmConfigError } from '@/lib/llm';
 
-function makePayload() {
+function makePayload(extraScopes: Array<'mcp-citations' | 'rag-guidance'> = ['mcp-citations']) {
   const plannerState = paulAndLisaState();
   return buildOptimizerExplainRequest({
     plannerState,
     optimizationResult: optimizeWithdrawals(plannerState),
     planRevision: 'etag:plan-rev-1',
-    consentScope: [...REQUIRED_EXPLAIN_CONSENT_SCOPES, 'mcp-citations'],
+    consentScope: [...REQUIRED_EXPLAIN_CONSENT_SCOPES, ...extraScopes],
     requestId: 'req_optimizer_explain_route',
     grantedAt: '2026-04-06T10:30:00.000Z',
   });
@@ -96,6 +102,8 @@ describe('/api/optimizer-explain route', () => {
     auditLogMock.mockReset();
     collectHmrcRuleCitationsMock.mockReset();
     collectHmrcRuleCitationsMock.mockResolvedValue([]);
+    retrieveHmrcChunksMock.mockReset();
+    retrieveHmrcChunksMock.mockResolvedValue([]);
     getConfiguredLlmProviderMock.mockReset();
     getConfiguredLlmProviderMock.mockReturnValue('azure-openai');
     streamExplanationMock.mockReset();
@@ -161,8 +169,9 @@ describe('/api/optimizer-explain route', () => {
     ]);
     streamExplanationMock.mockImplementation(async function* (context) {
       expect(context.mcpCitations).toHaveLength(1);
+      expect(context.ragChunks).toEqual([]);
       expect(context.planSummary.planRevision).toBe(payload.planRevision);
-      yield 'Tax saving '; 
+      yield 'Tax saving ';
       yield 'comes from using pension withdrawals before ISA drawdown.';
     });
 
@@ -178,7 +187,52 @@ describe('/api/optimizer-explain route', () => {
     expect(collectHmrcRuleCitationsMock).toHaveBeenCalledWith(payload.optimizationResult.ruleProvenance);
     expect(auditLogMock).toHaveBeenCalledWith(
       'optimizer.explain.request',
-      expect.objectContaining({ citationCount: 1, provider: 'azure-openai' }),
+      expect.objectContaining({ citationCount: 1, provider: 'azure-openai', ragChunkCount: 0 }),
+    );
+  });
+
+  test('retrieves RAG guidance when consented and passes chunks to the LLM context', async () => {
+    const payload = makePayload(['mcp-citations', 'rag-guidance']);
+    retrieveHmrcChunksMock.mockResolvedValue([
+      {
+        id: 'ptm-1',
+        manual_ref: 'PTM063010',
+        section_title: 'Lump sum allowance',
+        text: 'The lump sum allowance places a cap on tax-free lump sums.',
+        rule_ids: ['pension_lsa_cap'],
+        source_url: 'https://www.gov.uk/hmrc-internal-manuals/pensions-tax-manual/ptm063010',
+        applicable_tax_year: '2025-26',
+        jurisdiction: 'rUK',
+      },
+    ]);
+    streamExplanationMock.mockImplementation(async function* (context) {
+      expect(context.ragChunks).toHaveLength(1);
+      expect(context.ragChunks?.[0]?.source_url).toContain('ptm063010');
+      yield 'Explanation with HMRC RAG guidance.';
+    });
+
+    const response = await POST(new Request('http://localhost/api/optimizer-explain', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }));
+
+    expect(response.status).toBe(200);
+    await expect(response.text()).resolves.toBe('Explanation with HMRC RAG guidance.');
+    const [ruleIds, queryText, taxYear, jurisdiction] = retrieveHmrcChunksMock.mock.calls[0] ?? [];
+    const taxYearCounts = payload.optimizationResult.ruleProvenance.reduce<Record<string, number>>((counts, entry) => {
+      counts[entry.tax_year_used] = (counts[entry.tax_year_used] ?? 0) + 1;
+      return counts;
+    }, {});
+    const expectedTaxYear = Object.entries(taxYearCounts)
+      .sort((left, right) => right[1] - left[1])[0]?.[0];
+
+    expect(ruleIds).toEqual(expect.arrayContaining(['income_tax_bands', 'cgt_due', 'pension_lsa']));
+    expect(queryText).toContain(payload.optimizationResult.recommendedStrategy.label);
+    expect(taxYear).toBe(expectedTaxYear);
+    expect(jurisdiction).toBe('rUK');
+    expect(auditLogMock).toHaveBeenCalledWith(
+      'optimizer.explain.request',
+      expect.objectContaining({ ragChunkCount: 1 }),
     );
   });
 
@@ -199,6 +253,27 @@ describe('/api/optimizer-explain route', () => {
     await expect(response.text()).resolves.toBe('Explanation without citations.');
     expect(auditLogMock).toHaveBeenCalledWith(
       'optimizer.explain.citationsUnavailable',
+      expect.objectContaining({ requestId: payload.requestId }),
+    );
+  });
+
+  test('falls back to explanation without RAG chunks when retrieval is unavailable', async () => {
+    const payload = makePayload(['rag-guidance']);
+    retrieveHmrcChunksMock.mockRejectedValue(new Error('Cosmos unavailable'));
+    streamExplanationMock.mockImplementation(async function* (context) {
+      expect(context.ragChunks).toEqual([]);
+      yield 'Explanation without RAG guidance.';
+    });
+
+    const response = await POST(new Request('http://localhost/api/optimizer-explain', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }));
+
+    expect(response.status).toBe(200);
+    await expect(response.text()).resolves.toBe('Explanation without RAG guidance.');
+    expect(auditLogMock).toHaveBeenCalledWith(
+      'optimizer.explain.ragUnavailable',
       expect.objectContaining({ requestId: payload.requestId }),
     );
   });
