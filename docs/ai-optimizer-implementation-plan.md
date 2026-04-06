@@ -253,10 +253,12 @@ File: `src/app/api/optimizer-explain/route.ts`
 - Auth-gated via `requireUser()`
 - Rate-limited (reuse `src/lib/rateLimit.ts` pattern)
 - Accepts: `{ planId: string }` — the persisted plan identifier stored in Cosmos DB
-- **Never accepts client-supplied optimization results.** The route re-runs
-  `optimizeWithdrawals()` server-side from the canonical persisted plan state fetched
-  by `planId`. This preserves the "deterministic and auditable" contract: the LLM
-  explains results computed from trusted server state only.
+- **Never accepts untrusted client-supplied optimization results.** The route should
+  either (a) re-run `optimizeWithdrawals()` server-side from the canonical persisted
+  plan state fetched by `planId`, or (b) accept a client-submitted, signed and
+  provable artifact that is verifiable against a cryptographic commitment (see
+  §3.4 Merkle-based privacy-preserving explain). This preserves the "deterministic
+  and auditable" contract: the LLM explains results computed from trusted state only.
 - Calls `streamExplanation()` → streams response
 - LLM role: explain and contextualise only — never computes tax
 
@@ -274,6 +276,102 @@ In the route handler, for each entry in `optimizationResult.ruleProvenance`:
 **Acceptance criteria for Phase 3:** `POST /api/optimizer-explain` returns a
 streaming plain-English explanation that references at least one HMRC rule citation
 for a test optimization result.
+
+### 3.4 Merkle-based privacy-preserving explain (optional mode)
+
+To preserve client-side encryption and minimise plaintext leakage while
+allowing the server to verify and trust values used in explanations, implement
+an optional Merkle-commitment workflow. The goal is to let the client keep the
+full plan locally but provide compact, verifiable proofs for only the fields
+or aggregates the server needs to compute or trust when generating an
+explanation or audit record.
+
+High-level flow
+
+1. Client-side canonicalisation and commitment
+   - Canonicalise the planner state to a deterministic JSON representation
+     (stable key ordering, decimal scaled integers for currency) and split into
+     logical leaves (accounts, pots, personal details).
+   - Build a Merkle tree over the leaves. Each internal node includes cryptographic
+     aggregates (e.g., sum_pence, count) in its node hash so aggregates become
+     provably bound to the committed root.
+   - Sign the Merkle root with the device key and store the signed commitment locally.
+
+2. Submission and proof exchange
+   - When the user approves submission, the client opens the consent dialog which
+     explicitly lists the fields and aggregates that will be revealed to the server.
+   - The client sends a small set of proofs to the server — either:
+     a) leaf disclosures: specific leaves + Merkle paths (for small fields that must
+        appear verbatim in the explanation), or
+     b) node-cover proofs: node hashes + aggregated metadata + Merkle paths that
+        cover the requested subset (for aggregates like total GIA balance).
+   - The server verifies each proof against the signed root and accepts the
+     disclosed values/aggregates as authoritative for the explanation context.
+
+3. Server processing and audit record
+   - The server NEVER requests nor stores full plaintext plan data. It accepts only
+     the signed root and supplied proofs that the user explicitly disclosed.
+   - The server produces an explanation (server-side or streaming) using only the
+     disclosed fields/aggregates. It stores an audit record containing:
+     `{ request_id, user_pseudonym, device_pubkey, signed_root, proofs_metadata, consent_sig, ruleProvenance, timestamp }`.
+   - The audit record contains no plaintext leaves. It contains the signed root,
+     compact proof metadata, and the consent signature that the user made at the
+     time of submission.
+
+Design details
+
+- Leaf encoding: `H("leaf|" || json_path || "|" || canonical_value)` (SHA-256)
+- Node encoding: `H("node|" || left_hash || right_hash || "|sum:" || sum_pence || "|count:" || count)`
+  — include canonical fixed-width integers for aggregates in node hash.
+- Merkle cover: client selects the minimal set of nodes whose union equals the
+  disclosure set and returns each node's aggregate metadata and the Merkle path
+  to the root. Server recomputes sums by aggregating node metadata and verifies
+  paths cryptographically.
+- Canonicalisation: define a strict serializer (numbers scaled to pence, ISO dates,
+  sorted object keys). Implement reference implementations for browser (TS) and
+  server (TS/Node or Python) to ensure compatibility.
+
+API contract (suggested endpoints)
+
+- POST /api/optimizer-submit
+  - Input: `{ mode: 'merkle', signed_root, device_pubkey, requested_scope, consent_sig }`
+  - Returns: `{ request_id, required_proofs: [ ... ] }` if server-side compute needs more proofs or
+    acceptance immediate if client already submitted proofs.
+
+- POST /api/optimizer-proofs
+  - Input: `{ request_id, proofs: [ { node_or_leaf_id, merkle_path, aggregate_meta?, leaf_value? } ], consent_sig }`
+  - Server verifies signatures and proofs, then proceeds to generate explanation.
+
+Acceptance criteria for Merkle mode
+
+- Proof verification: server verifies Merkle paths and node aggregate metadata
+  against the signed root and rejects any mismatched proofs.
+- Minimal disclosure: explanation uses only the disclosed aggregates/fields.
+- Audit record: server stores an immutable audit record with root, proofs metadata,
+  and user consent signature (no plaintext payload persisted).
+- User transparency: UI shows exactly what will be disclosed and presents the
+  signed root/hashes for user verification.
+
+Testing and integration
+
+- Unit tests for canonical serializer parity (client ↔ server), Merkle path
+  verification, and aggregate arithmetic consistency.
+- Integration test: synthetic plan → client builds root and proofs → server
+  verifies and generates explanation using only proofs; assert no plaintext stored.
+- Security tests: attempt tampered proofs and assert server rejects them; assert
+  audit record contains correct signed root and no plaintext.
+
+Trade-offs and notes
+
+- Complexity: client must compute Merkle covers and produce proofs. Provide a
+  client TS library to make this seamless.
+- Aggregate expressiveness: precompute aggregates (sum, count, min, max) at node
+  build time to permit server verification without leaf disclosure.
+- UX: provide an opt-in privacy mode and an "allow deeper proofs" flow if the
+  user wants the server to recompute internal derived values.
+
+---
+
 
 ---
 
