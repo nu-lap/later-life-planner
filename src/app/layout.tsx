@@ -4,7 +4,7 @@ import AuthStateSync from '@/components/AuthStateSync';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'LifePlan — Design the life you want',
+  title: 'LaterLifePlan — Design the life you want',
   description: 'Plan the lifestyle you want in later life and understand how your income sources and assets can fund it.',
   icons: {
     icon: '/favicon.png',

@@ -80,7 +80,7 @@ describe('OptimizerPanel', () => {
 
     expect(screen.getByText('Strategy guide')).toBeInTheDocument();
     expect(screen.getByText(/These labels describe the optimiser's comparison options/i)).toBeInTheDocument();
-    expect(screen.getByText(/LLP baseline waterfall appears in the Overall pattern above/i)).toBeInTheDocument();
+    expect(screen.getByText(/LaterLifePlan's baseline waterfall appears in the Overall pattern above/i)).toBeInTheDocument();
     expect(screen.getByText('LLP baseline waterfall')).toBeInTheDocument();
     expect(screen.getByText('Couple-equal DC drawdown')).toBeInTheDocument();
     expect(screen.getByText('Proportional DC drawdown')).toBeInTheDocument();

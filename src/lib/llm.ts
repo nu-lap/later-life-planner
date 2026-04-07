@@ -145,7 +145,7 @@ function describeStrategyComparison(context: ExplanationContext): string {
     && optimizationResult.recommendedStrategy.isaMode === optimizationResult.baselineStrategy.isaMode;
 
   if (matchesStandard) {
-    return "The recommendation matches the app's standard starting strategy for this plan.";
+    return "The recommendation matches LaterLifePlan's usual starting approach for this plan.";
   }
 
   return `The app's usual starting approach is: ${getBaselineWaterfallDescription(planSummary.householdType)}`;

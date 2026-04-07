@@ -329,7 +329,7 @@ export default function OptimizerPanel({ plannerState, result }: Props) {
           <div className="flex-1 min-w-0">
             <h3 className="section-heading mb-1">Withdrawal plan optimisation</h3>
             <p className="text-xs text-slate-500">
-              Compare LLP&apos;s standard withdrawal order with other deterministic options.
+              Compare LaterLifePlan&apos;s standard withdrawal order with other deterministic options.
             </p>
             <p className="mt-2 max-w-2xl text-xs leading-6 text-slate-500">
               Required spending is treated as a net cash target. If withdrawals incur tax, the optimiser grosses them up so the year still delivers the required spendable income.
@@ -356,7 +356,7 @@ export default function OptimizerPanel({ plannerState, result }: Props) {
             <div className="min-w-0 flex-1">
               <p className="text-xs font-bold uppercase tracking-wide text-blue-700">Strategy guide</p>
               <p className="mt-1 text-xs leading-5 text-blue-700">
-                These labels describe the optimiser&apos;s comparison options. The first mention of LLP baseline waterfall appears in the Overall pattern above.
+                These labels describe the optimiser&apos;s comparison options. The first mention of LaterLifePlan&apos;s baseline waterfall appears in the Overall pattern above.
               </p>
             </div>
             <button

@@ -65,6 +65,7 @@ describe('buildPrompt', () => {
 
     expect(prompt).toContain('England, Wales or Northern Ireland');
     expect(prompt).toContain("first projected year's target");
+    expect(prompt).toContain("LaterLifePlan's usual starting approach");
     expect(prompt).toMatch(/State Pension.*start from State Pension age/i);
     expect(prompt).toMatch(/starting strategy/i);
     expect(prompt).toContain('Use ISA withdrawals from the start of the plan where needed.');
@@ -94,7 +95,7 @@ describe('buildPrompt', () => {
     const prompt = buildPrompt(singleSampleContext());
 
     expect(prompt).toContain('One person aged 65 living in England, Wales or Northern Ireland');
-    expect(prompt).toContain('DC pension within the personal allowance plus 25% PCLS, then GIA within the CGT allowance, then ISA, then remaining GIA, then DC pension above the personal allowance.');
+    expect(prompt).toContain("LaterLifePlan's standard order is DC pension within the personal allowance plus 25% PCLS, then GIA within the CGT allowance, then ISA, then remaining GIA, then DC pension above the personal allowance.");
     expect(prompt).not.toContain('each person’s personal allowance');
   });
 });

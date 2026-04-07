@@ -10,10 +10,10 @@ export interface StrategyDefinition {
 
 export function getBaselineWaterfallDescription(mode: StrategyPlanMode): string {
   if (mode === 'single') {
-    return 'DC pension within the personal allowance plus 25% PCLS, then GIA within the CGT allowance, then ISA, then remaining GIA, then DC pension above the personal allowance.';
+    return "LaterLifePlan's standard order is DC pension within the personal allowance plus 25% PCLS, then GIA within the CGT allowance, then ISA, then remaining GIA, then DC pension above the personal allowance.";
   }
 
-  return 'DC pension within each person’s personal allowance plus 25% PCLS, then GIA within the CGT allowance, then ISA, then remaining GIA, then DC pension above the personal allowance.';
+  return "LaterLifePlan's standard order is DC pension within each person’s personal allowance plus 25% PCLS, then GIA within the CGT allowance, then ISA, then remaining GIA, then DC pension above the personal allowance.";
 }
 
 export function getStrategyDisplayLabel(mode: StrategyPlanMode, rawLabel: string): string {
