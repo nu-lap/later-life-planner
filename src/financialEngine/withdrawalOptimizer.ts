@@ -418,11 +418,12 @@ function buildYearDrawdownBreakdown(
   };
 }
 
-function evaluateCandidate(
+function simulateCandidatePass(
   state: PlannerState,
   row: YearlyProjection,
   balances: OptimizerBalances,
   strategy: WaterfallConfig,
+  grossTarget: number,
 ): CandidateEvaluation {
   const mode = state.mode;
   const working = cloneBalances(balances);
@@ -448,7 +449,7 @@ function evaluateCandidate(
     p2DcTaxFree: 0,
   };
 
-  let remaining = Math.max(0, row.spending - fixed.total);
+  let remaining = Math.max(0, grossTarget - fixed.total);
 
   // Under UK UFPLS rules State Pension counts as taxable income, consuming personal
   // allowance headroom before any DC drawdown. Excluding it (as the original code did)
@@ -727,6 +728,31 @@ function evaluateCandidate(
     },
     endBalances: working,
   };
+}
+
+function evaluateCandidate(
+  state: PlannerState,
+  row: YearlyProjection,
+  balances: OptimizerBalances,
+  strategy: WaterfallConfig,
+): CandidateEvaluation {
+  // Treat required spending as a net cash target. Gross withdrawals are
+  // iteratively increased until the after-tax result matches the target or
+  // the candidate runs out of assets.
+  let grossTarget = row.spending;
+  let evaluation = simulateCandidatePass(state, row, balances, strategy, grossTarget);
+
+  for (let grossIter = 0; grossIter < 7; grossIter += 1) {
+    const newTarget = row.spending + evaluation.result.totalTax;
+    if (Math.abs(newTarget - grossTarget) < FEASIBILITY_TOLERANCE_GBP) {
+      break;
+    }
+
+    grossTarget = newTarget;
+    evaluation = simulateCandidatePass(state, row, balances, strategy, grossTarget);
+  }
+
+  return evaluation;
 }
 
 function dominantStrategy(records: YearRecord[]): WaterfallConfig {

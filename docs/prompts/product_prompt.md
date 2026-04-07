@@ -152,9 +152,10 @@ An optional earmarked capital reserve for potential late-life care costs — sep
   4. **Remaining GIA** — gains above the CGT allowance are now taxable.
   5. **Cash savings** — tax-free on withdrawal.
   6. **DC pension (remaining gap)** — any amount above the personal allowance is taxable at marginal rate.
-- No more is drawn than required to cover the year's spending — no surplus drawdowns.
+- No more net spending is drawn than required to cover the year's spending; gross withdrawals may exceed the spending figure because tax is not spendable.
 - Optimised for couples: both personal allowances and CGT allowances used before taxable income.
 - All allowances sourced from `/config/financialConstants.ts`, not hardcoded.
+- Required spending is an absolute net cash target. The engine must gross up withdrawals so the plan still delivers the required spendable income after tax. If a year cannot fully meet the target, surface the shortfall explicitly rather than treating the year as solved.
 
 ### Step 6 — Dashboard / Lifetime Timeline
 - Visualisation of income sources, spending, assets by age

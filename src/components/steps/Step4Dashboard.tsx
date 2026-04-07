@@ -94,7 +94,7 @@ function TaxOverview({ projections }: { projections: YearlyProjection[] }) {
     <div className="game-card">
       <h3 className="section-heading">Simplified tax-efficient withdrawal strategy</h3>
       <p className="text-xs text-slate-500 mb-4">
-        A simplified guide to how income is structured each year to minimise tax. Fixed income (State Pension, DB pension, annuity) is always used first — the steps below show how the remaining spending gap is filled.
+        A simplified guide to how income is structured each year to minimise tax. Required spending is a net cash target, so any tax on withdrawals means the plan must gross up income to leave the same spendable amount.
       </p>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
@@ -126,7 +126,7 @@ function TaxOverview({ projections }: { projections: YearlyProjection[] }) {
           { n: 2, icon: '📊', label: 'GIA — within CGT exempt amount', desc: `Investment gains up to ${annualExempt}/person are crystallised tax-free each year. Only drawn when needed for spending.`, color: 'bg-amber-50 border-amber-100' },
           { n: 3, icon: '✅', label: 'ISA', desc: 'Completely tax-free. Used after personal allowance and CGT allowance have been maximised.', color: 'bg-emerald-50 border-emerald-100' },
           { n: 4, icon: '💰', label: 'Remaining GIA & cash', desc: `GIA gains above the exempt amount are taxed at ${cgtBasicRate} (basic-rate) or ${cgtHigherRate} (higher-rate). Cash withdrawals are always tax-free.`, color: 'bg-sky-50 border-sky-100' },
-          { n: 5, icon: '💼', label: 'DC pension — above personal allowance', desc: 'Remaining gap covered by further pension withdrawals. The 75% taxable portion now attracts income tax at marginal rate. Only reached when other sources are exhausted or the spending gap is large.', color: 'bg-slate-50 border-slate-100' },
+          { n: 5, icon: '💼', label: 'DC pension — above personal allowance', desc: 'Remaining net spending gap is covered by further pension withdrawals. The 75% taxable portion now attracts income tax at marginal rate. Only reached when other sources are exhausted or the gap is large.', color: 'bg-slate-50 border-slate-100' },
         ].map(({ n, icon, label, desc, color }) => (
           <div key={n} className={clsx('flex gap-3 p-3 rounded-2xl border', color)}>
             <div className="w-6 h-6 rounded-full bg-white shadow-sm flex items-center justify-center font-black text-xs flex-shrink-0 text-slate-700">
@@ -197,6 +197,50 @@ function ProjectionTable({ projections, lifeStages }: {
   );
 }
 
+function buildOptimizerViewProjections(
+  displayRows: YearlyProjection[],
+  optimizerResult: NonNullable<ReturnType<typeof optimizeWithdrawals> | null>,
+): YearlyProjection[] {
+  return displayRows.map((baseRow, index) => {
+    const record = optimizerResult.yearRecords[index];
+    if (!record) {
+      return baseRow;
+    }
+
+    const winner = record.winner;
+    const totalP1Tax = winner.drawdowns.p1Dc > 0 ? record.drawdownBreakdown.person1.pension?.taxDue ?? 0 : 0;
+    const totalP2Tax = winner.drawdowns.p2Dc > 0 ? record.drawdownBreakdown.person2?.pension?.taxDue ?? 0 : 0;
+
+    return {
+      ...baseRow,
+      p1IsaDrawdown: winner.drawdowns.p1Isa,
+      p1GiaDrawdown: winner.drawdowns.p1Gia,
+      p1CashDrawdown: winner.drawdowns.p1Cash,
+      p1DcDrawdown: winner.drawdowns.p1Dc,
+      p2IsaDrawdown: winner.drawdowns.p2Isa,
+      p2GiaDrawdown: winner.drawdowns.p2Gia,
+      p2CashDrawdown: winner.drawdowns.p2Cash,
+      p2DcDrawdown: winner.drawdowns.p2Dc,
+      isaDrawdown: winner.drawdowns.p1Isa + winner.drawdowns.p2Isa,
+      giaDrawdown: winner.drawdowns.p1Gia + winner.drawdowns.p2Gia + winner.drawdowns.jointGia,
+      cashDrawdown: winner.drawdowns.p1Cash + winner.drawdowns.p2Cash,
+      dcDrawdown: winner.drawdowns.p1Dc + winner.drawdowns.p2Dc,
+      dcTaxFreeDrawdown: winner.drawdowns.p1DcTaxFree + winner.drawdowns.p2DcTaxFree,
+      p1CgtPaid: winner.drawdowns.p1CapitalGain,
+      p2CgtPaid: winner.drawdowns.p2CapitalGain,
+      totalCgtPaid: winner.cgtPaid,
+      p1IncomeTax: totalP1Tax,
+      p2IncomeTax: totalP2Tax,
+      incomeTaxPaid: winner.incomeTax,
+      totalIncome: winner.totalIncome,
+      totalTaxPaid: winner.totalTax,
+      netIncome: winner.netIncome,
+      gap: winner.gap,
+      totalAssets: winner.terminalAssets,
+    };
+  });
+}
+
 // ─── Main dashboard ────────────────────────────────────────────────────────────
 
 export default function Step4Dashboard({ onBack }: Props) {
@@ -226,6 +270,12 @@ export default function Step4Dashboard({ onBack }: Props) {
   const displayProjections = useMemo(
     () => projections.filter(p => p.p1Age >= fiAge),
     [projections, fiAge],
+  );
+  const chartProjections = useMemo(
+    () => (optimizerEnabled && optimizerResult
+      ? buildOptimizerViewProjections(displayProjections, optimizerResult)
+      : displayProjections),
+    [displayProjections, optimizerEnabled, optimizerResult],
   );
   const firstYear     = displayProjections[0] ?? projections[0];
   const depletionAge  = getAssetDepletionAge(projections);
@@ -272,11 +322,11 @@ export default function Step4Dashboard({ onBack }: Props) {
 
       {/* KPI stat cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <StatCard icon="💰" label="Annual spending" value={formatCurrency(annualSpend, true)}
+        <StatCard icon="💰" label="Required net spending" value={formatCurrency(annualSpend, true)}
           sub={rlssStandard ? `${RLSS_STANDARDS[mode][rlssStandard].label} lifestyle` : "today's £"}
           accent="slate" />
-        <StatCard icon="📥" label={`Income at ${fiAge}`} value={formatCurrency(firstYear?.totalIncome ?? 0, true)}
-          sub={firstYear && firstYear.totalTaxPaid > 0 ? `${formatCurrency(firstYear.totalTaxPaid, true)} tax — year 1` : 'year 1'}
+        <StatCard icon="📥" label={`Gross income at ${fiAge}`} value={formatCurrency(firstYear?.totalIncome ?? 0, true)}
+          sub={firstYear ? `Net after tax: ${formatCurrency(firstYear.netIncome, true)} — year 1` : 'year 1'}
           accent="sky" />
         <StatCard icon="🏦" label={`Assets at ${fiAge}`} value={formatCurrency(firstYear?.totalAssets ?? 0, true)}
           sub={unrealisedGain > 0 ? `${formatCurrency(unrealisedGain, true)} unrealised gain` : 'across all accounts'}
@@ -365,12 +415,16 @@ export default function Step4Dashboard({ onBack }: Props) {
       {/* Charts */}
       <div className="game-card">
         <div className="flex items-start justify-between mb-1">
-          <h3 className="section-heading mb-0">Income vs spending — lifetime view</h3>
+          <h3 className="section-heading mb-0">
+            {optimizerEnabled ? 'Gross income vs required spending — optimiser view' : 'Gross income vs required spending — lifetime view'}
+          </h3>
         </div>
         <p className="text-xs text-slate-500 mb-4">
-          Stacked bars = income sources. Dashed line = <strong>Spending Smile</strong> — spending is higher in active early years and naturally declines over time, giving your plan long-term resilience.
+          {optimizerEnabled
+            ? 'This chart uses the optimiser-selected strategy, so it matches the year-by-year drawdown table below. Tax reduces spendable cash, so gross income can be higher than required spending.'
+            : 'Stacked bars = gross income sources. Dashed line = required spending — the cash need the plan must meet after tax. Tax reduces spendable cash, so gross income can be higher than spending in a given year.'}
         </p>
-        <LifetimeChart projections={displayProjections} mode={mode} p1Name={p1Name} p2Name={p2Name} />
+        <LifetimeChart projections={chartProjections} mode={mode} p1Name={p1Name} p2Name={p2Name} />
       </div>
 
       <div className="game-card">

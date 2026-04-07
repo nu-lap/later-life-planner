@@ -44,6 +44,7 @@ describe('buildPrompt', () => {
     expect(prompt).toMatch(/State Pension.*start from State Pension age/i);
     expect(prompt).toMatch(/starting strategy/i);
     expect(prompt).toContain('Use ISA withdrawals from the start of the plan where needed.');
+    expect(prompt).toContain('Treat required spending as a net cash target.');
   });
 
 

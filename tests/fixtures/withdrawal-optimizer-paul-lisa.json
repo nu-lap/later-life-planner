@@ -1,11 +1,11 @@
 {
   "recommended": "1-LLP-Baseline",
-  "lifetimeTaxSaving": 66389.68337719713,
-  "lifetimeTaxPaid": 561997.9025857262,
-  "baselineLifetimeTaxPaid": 628387.5859629234,
+  "lifetimeTaxSaving": 161526.33689714014,
+  "lifetimeTaxPaid": 1014487.1487318575,
+  "baselineLifetimeTaxPaid": 1176013.4856289977,
   "assetDepletionAge": null,
   "baselineAssetDepletionAge": null,
-  "terminalAssets": 2803872.4325893316,
+  "terminalAssets": 1359583.9078274535,
   "yearCount": 36,
   "firstYear": {
     "label": "1-LLP-Baseline",
@@ -14,11 +14,11 @@
   },
   "lastYear": {
     "label": "1-LLP-Baseline",
-    "totalTax": 44091.928525897,
-    "terminalAssets": 2803872.4325893316
+    "totalTax": 80032.34071856231,
+    "terminalAssets": 1359583.9078274535
   },
   "counts": {
-    "1-LLP-Baseline": 22,
-    "2-Couple-equal": 14
+    "1-LLP-Baseline": 25,
+    "2-Couple-equal": 11
   }
 }

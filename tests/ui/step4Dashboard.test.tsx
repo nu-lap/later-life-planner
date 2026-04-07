@@ -31,5 +31,8 @@ describe('Step4Dashboard', () => {
 
     expect(screen.getByText('Withdrawal plan optimisation')).toBeInTheDocument();
     expect(screen.queryByText('Simplified tax-efficient withdrawal strategy')).not.toBeInTheDocument();
+    expect(screen.getByText('Required net spending')).toBeInTheDocument();
+    expect(screen.getByText(/Gross income at/)).toBeInTheDocument();
+    expect(screen.getByText('Gross income vs required spending — optimiser view')).toBeInTheDocument();
   });
 });

@@ -37,14 +37,22 @@ function StrategyRow({
     <div className={clsx('rounded-2xl border p-3', accents[accent])}>
       <p className="text-xs font-bold uppercase tracking-wide opacity-70">{label}</p>
       <p className="mt-1 text-sm font-semibold">{describeStrategyLabel(result.strategy.label)}</p>
-      <div className="mt-2 grid grid-cols-2 gap-3 text-xs">
+      <div className="mt-2 grid grid-cols-2 gap-3 text-xs sm:grid-cols-4">
+        <div>
+          <p className="opacity-60">Required net income</p>
+          <p className="font-bold">{formatCurrency(result.spendingTarget, true)}</p>
+        </div>
+        <div>
+          <p className="opacity-60">Net income after tax</p>
+          <p className="font-bold">{formatCurrency(result.netIncome, true)}</p>
+        </div>
+        <div>
+          <p className="opacity-60">Shortfall</p>
+          <p className="font-bold">{formatCurrency(result.gap, true)}</p>
+        </div>
         <div>
           <p className="opacity-60">Tax</p>
           <p className="font-bold">{formatCurrency(result.totalTax, true)}</p>
-        </div>
-        <div>
-          <p className="opacity-60">Net income</p>
-          <p className="font-bold">{formatCurrency(result.netIncome, true)}</p>
         </div>
       </div>
     </div>
@@ -164,6 +172,31 @@ function buildOverallPatternSummary(result: OptimizationResult): string {
   return `Starts with ${firstYearLabel}. The withdrawals vary by year, with ${dominantLabel} used most often overall.`;
 }
 
+function strategyGuideEntries(): Array<{ label: string; description: string }> {
+  return [
+    {
+      label: 'LLP baseline waterfall',
+      description: 'The app’s usual starting approach. Draw from Paul’s pension first, use ISA withdrawals from the start, then move through the remaining buckets in the default order.',
+    },
+    {
+      label: 'Couple-equal DC drawdown',
+      description: 'Split pension withdrawals evenly between both partners where possible.',
+    },
+    {
+      label: 'Proportional DC drawdown',
+      description: 'Split pension withdrawals in proportion to each partner’s pension pot size.',
+    },
+    {
+      label: 'Lisa-first DC drawdown',
+      description: 'Draw from Lisa’s pension before Paul’s pension.',
+    },
+    {
+      label: 'ISA-preserve',
+      description: 'Delay ISA withdrawals until later years and lean on pensions or cash first.',
+    },
+  ];
+}
+
 const KNOWN_PROVIDER_LABELS: Record<string, string> = {
   'azure-openai': 'Azure OpenAI',
   anthropic: 'Anthropic',
@@ -243,6 +276,7 @@ function formatExplanationBlocks(text: string): ExplanationBlock[] {
 export default function OptimizerPanel({ plannerState, result }: Props) {
   const [showAll, setShowAll] = useState(false);
   const [showStrategyComparison, setShowStrategyComparison] = useState(false);
+  const [showStrategyGuide, setShowStrategyGuide] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [hasConsented, setHasConsented] = useState(false);
   const [isExplaining, setIsExplaining] = useState(false);
@@ -315,6 +349,9 @@ export default function OptimizerPanel({ plannerState, result }: Props) {
             <p className="text-xs text-slate-500">
               Compares the app&apos;s standard withdrawal order with other deterministic options.
             </p>
+            <p className="mt-2 max-w-2xl text-xs leading-6 text-slate-500">
+              Required spending is treated as a net cash target. If withdrawals create tax, the optimiser grosses them up so the year still delivers the required spendable income.
+            </p>
             <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
               <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Overall pattern</p>
               <p className="mt-1 text-sm font-semibold text-slate-900">{overallPatternSummary}</p>
@@ -368,7 +405,7 @@ export default function OptimizerPanel({ plannerState, result }: Props) {
                 Year-by-year drawdown breakdown
               </h4>
               <p className="mt-1 text-xs text-slate-500">
-                Shows the actual withdrawals used year by year. This is the source of truth when the plan changes over time.
+                Shows the actual withdrawals used year by year. This is the source of truth when the plan changes over time and the net spend target must still be met after tax.
               </p>
             </div>
             <p className="text-xs text-slate-500">
@@ -457,14 +494,42 @@ export default function OptimizerPanel({ plannerState, result }: Props) {
                 Secondary detail showing the best and runner-up options for each year. Showing {shownYearCount} of {result.yearRecords.length} years.
               </p>
             </div>
-            <button
-              type="button"
-              onClick={() => setShowStrategyComparison((current) => !current)}
-              className="text-sm font-semibold text-orange-600 hover:text-orange-700"
-            >
-              {showStrategyComparison ? '▲ Hide comparison' : '▼ Show comparison'}
-            </button>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setShowStrategyGuide((current) => !current)}
+                className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+                aria-expanded={showStrategyGuide}
+                aria-controls="strategy-guide-panel"
+              >
+                What do these strategies mean?
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowStrategyComparison((current) => !current)}
+                className="text-sm font-semibold text-orange-600 hover:text-orange-700"
+              >
+                {showStrategyComparison ? '▲ Hide comparison' : '▼ Show comparison'}
+              </button>
+            </div>
           </div>
+
+          {showStrategyGuide ? (
+            <div id="strategy-guide-panel" className="mt-4 rounded-2xl border border-blue-100 bg-blue-50 p-4">
+              <p className="text-xs font-bold uppercase tracking-wide text-blue-700">Strategy guide</p>
+              <p className="mt-1 text-xs text-blue-700">
+                These labels describe the optimizer&apos;s comparison options. The year-by-year table below shows the actual outcome for each year.
+              </p>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                {strategyGuideEntries().map((entry) => (
+                  <div key={entry.label} className="rounded-xl border border-blue-100 bg-white p-3">
+                    <p className="text-sm font-semibold text-slate-900">{entry.label}</p>
+                    <p className="mt-1 text-xs leading-5 text-slate-600">{entry.description}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
 
           {showStrategyComparison ? (
             <div className="mt-4 overflow-x-auto">

@@ -26,14 +26,14 @@ export default function SummaryBar() {
       <span className="w-px h-4 bg-slate-200 hidden sm:block shrink-0" />
 
       <div className="flex items-center gap-1 shrink-0">
-        <span className="text-slate-500 text-xs">Spend</span>
+        <span className="text-slate-500 text-xs">Required spend</span>
         <span className="font-bold text-slate-800 text-xs">{formatCurrency(annualSpending)}</span>
       </div>
 
       <span className="w-px h-4 bg-slate-200 shrink-0" />
 
       <div className="flex items-center gap-1 shrink-0">
-        <span className="text-slate-500 text-xs">Income</span>
+        <span className="text-slate-500 text-xs">Gross income</span>
         <span className="font-bold text-slate-800 text-xs">{formatCurrency(totalIncome)}</span>
       </div>
 

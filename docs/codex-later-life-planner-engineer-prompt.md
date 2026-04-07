@@ -39,6 +39,7 @@ Engineering rules:
 - Prefer small, maintainable diffs over broad rewrites.
 - Add or update tests for financial logic, sync logic, and security-sensitive behavior.
 - Preserve the existing design system unless a change is explicitly required.
+- Treat required spending as an absolute net cash requirement. Gross withdrawals may need to exceed spending because tax is not spendable. If the plan cannot fully meet the target, surface the shortfall explicitly rather than implying success.
 
 Auth and storage rules:
 - Use Clerk for authentication, protected routes, user session handling, and sign-in/sign-up flows.

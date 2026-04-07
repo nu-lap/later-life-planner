@@ -119,7 +119,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
         <div className="flex justify-between gap-4 text-slate-600">
           <span className="flex items-center gap-1.5">
             <span className="w-2.5 h-2.5 rounded-full bg-slate-700 inline-block flex-shrink-0" />
-            Spending target
+            Required spending
           </span>
           <span className="font-semibold flex-shrink-0">{formatCurrency(spendingEntry?.value ?? 0)}</span>
         </div>
@@ -169,7 +169,7 @@ export default function LifetimeChart({ projections }: Props) {
           <Bar dataKey="shortfall" name="Shortfall" stackId="income" fill={SHORTFALL_COLOR}
             radius={[4, 4, 0, 0]} />
         )}
-        <Line dataKey="spending" name="Spending target" type="monotone"
+        <Line dataKey="spending" name="Required spending" type="monotone"
           stroke="#0f172a" strokeWidth={2.5} dot={false} strokeDasharray="6 3" />
       </ComposedChart>
     </ResponsiveContainer>
