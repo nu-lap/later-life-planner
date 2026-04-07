@@ -79,10 +79,23 @@ describe('OptimizerPanel', () => {
     expect(screen.getByText('Strategy guide')).toBeInTheDocument();
     expect(screen.getByText(/These are the winning strategies from the first 5 years/i)).toBeInTheDocument();
 
-    const expectedLabels = result.yearRecords
-      .slice(0, 5)
-      .map((record) => getStrategyDisplayLabel(plannerState.mode, record.winner.strategy.label));
+    const firstFiveRecords = result.yearRecords.slice(0, 5);
 
+    // One card per year: verify each "Year {ageLabel}" heading is rendered
+    for (const record of firstFiveRecords) {
+      const ageLabel = record.p2Age !== null
+        ? `${record.p1Age} / ${record.p2Age}`
+        : `${record.p1Age}`;
+      expect(screen.getByText(`Year ${ageLabel}`)).toBeInTheDocument();
+    }
+
+    // Confirm the guide shows exactly the first-five years and no more
+    expect(screen.getAllByText(/^Year \d/).length).toBe(firstFiveRecords.length);
+
+    // Each year's winning strategy label is also displayed
+    const expectedLabels = firstFiveRecords.map((record) =>
+      getStrategyDisplayLabel(plannerState.mode, record.winner.strategy.label),
+    );
     for (const label of expectedLabels) {
       expect(screen.getAllByText(label).length).toBeGreaterThan(0);
     }
@@ -96,10 +109,23 @@ describe('OptimizerPanel', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Show strategy summary' }));
 
-    const expectedLabels = result.yearRecords
-      .slice(0, 5)
-      .map((record) => getStrategyDisplayLabel(plannerState.mode, record.winner.strategy.label));
+    const firstFiveRecords = result.yearRecords.slice(0, 5);
 
+    // One card per year: verify each "Year {ageLabel}" heading is rendered
+    for (const record of firstFiveRecords) {
+      const ageLabel = record.p2Age !== null
+        ? `${record.p1Age} / ${record.p2Age}`
+        : `${record.p1Age}`;
+      expect(screen.getByText(`Year ${ageLabel}`)).toBeInTheDocument();
+    }
+
+    // Confirm the guide shows exactly the first-five years and no more
+    expect(screen.getAllByText(/^Year \d/).length).toBe(firstFiveRecords.length);
+
+    // Each year's winning strategy label is also displayed
+    const expectedLabels = firstFiveRecords.map((record) =>
+      getStrategyDisplayLabel(plannerState.mode, record.winner.strategy.label),
+    );
     for (const label of expectedLabels) {
       expect(screen.getAllByText(label).length).toBeGreaterThan(0);
     }
