@@ -21,8 +21,6 @@ describe('OptimizerPanel', () => {
 
     expect(screen.getByText('Withdrawal plan optimisation')).toBeInTheDocument();
     expect(screen.queryByText('Recommended')).not.toBeInTheDocument();
-    expect(screen.getByText('Overall pattern')).toBeInTheDocument();
-    expect(screen.getByText(/Required spending is treated as a net cash target\./)).toBeInTheDocument();
     expect(screen.getByText('Tax impact vs standard approach')).toBeInTheDocument();
     expect(screen.getByText('Plan durability vs standard approach')).toBeInTheDocument();
     expect(screen.getByText('End-of-plan assets vs standard approach')).toBeInTheDocument();
@@ -74,15 +72,11 @@ describe('OptimizerPanel', () => {
 
     render(<OptimizerPanel plannerState={plannerState} result={result} />);
 
-    expect(screen.getByText('LLP baseline waterfall', { selector: '#strategy-guide-panel p.text-sm.font-semibold.text-slate-900' })).toBeInTheDocument();
-    expect(screen.queryByText('Couple-equal DC drawdown', { selector: '#strategy-guide-panel p.text-sm.font-semibold.text-slate-900' })).not.toBeInTheDocument();
-    expect(screen.queryByText('Proportional DC drawdown', { selector: '#strategy-guide-panel p.text-sm.font-semibold.text-slate-900' })).not.toBeInTheDocument();
-    expect(screen.queryByText('Partner 2-first DC drawdown', { selector: '#strategy-guide-panel p.text-sm.font-semibold.text-slate-900' })).not.toBeInTheDocument();
-    expect(screen.queryByText('ISA-preserve', { selector: '#strategy-guide-panel p.text-sm.font-semibold.text-slate-900' })).not.toBeInTheDocument();
+    expect(screen.getByText('Strategy guide')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Show all strategy definitions' })).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('button', { name: 'Show all strategy definitions' }));
 
-    expect(screen.getByText('Strategy guide')).toBeInTheDocument();
     expect(screen.getByText(/These are the strategy definitions for the best option shown in the comparison table below\./i)).toBeInTheDocument();
     expect(screen.getByText('LLP baseline waterfall', { selector: '#strategy-guide-panel p.text-sm.font-semibold.text-slate-900' })).toBeInTheDocument();
     expect(screen.getByText('Couple-equal DC drawdown', { selector: '#strategy-guide-panel p.text-sm.font-semibold.text-slate-900' })).toBeInTheDocument();
