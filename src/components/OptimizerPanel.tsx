@@ -580,7 +580,7 @@ export default function OptimizerPanel({ plannerState, result }: Props) {
           ) : null}
         </div>
 
-        {result.yearRecords.length > 10 && (
+        {result.yearRecords.length > 5 && (
           <button
             type="button"
             onClick={() => setShowAll((current) => !current)}
