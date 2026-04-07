@@ -11,7 +11,7 @@
 This document is the reconciled source of truth for how Later Life Planner should use:
 
 - the `hmrc-tax-mcp` rule engine
-- build-time tax snapshots inside LLP
+- build-time tax snapshots inside LaterLifePlan
 - live MCP access for audit and explanation
 - RAG over HMRC guidance
 - LLMs for explanation and orchestration
@@ -29,31 +29,31 @@ Those historical documents remain useful for rationale and design history, but t
 
 The architecture is four layers with different runtime rules:
 
-1. HMRC tax rules: deterministic, versioned, consumed in LLP via a committed build-time snapshot
+1. HMRC tax rules: deterministic, versioned, consumed in LaterLifePlan via a committed build-time snapshot
 2. Optimizer core: deterministic TypeScript, no LLM and no network in the hot path
 3. Explanation layer: server-side API route that combines deterministic outputs with HMRC citations and RAG context
 4. Goal orchestration: optional later layer where an LLM helps map user priorities into optimizer settings
 
 The key reconciliation is:
 
-- LLP is already using a tax snapshot in the runtime engine
-- LLP is not yet calling `hmrc-tax-mcp` live at request time
-- LLP does not yet expose its own MCP server
+- LaterLifePlan is already using a tax snapshot in the runtime engine
+- LaterLifePlan is not yet calling `hmrc-tax-mcp` live at request time
+- LaterLifePlan does not yet expose its own MCP server
 - RAG retrieval should assume Cosmos DB vector search for MVP and Azure AI Search as an upgrade path, not as the current baseline
 - The explanation endpoint should be provider-agnostic, with Anthropic acceptable for MVP and Azure OpenAI the preferred production target if quota and operations align
 - For Azure OpenAI, the current recommended low-cost chat model is `gpt-4.1-mini`
 
 ## Current State
 
-| Area | Current state in LLP | Notes |
+| Area | Current state in LaterLifePlan | Notes |
 |---|---|---|
 | HMRC tax constants replacement | Implemented | `src/config/taxRuleSnapshot.ts`, `src/config/financialConstants.ts`, `src/financialEngine/taxCalculations.ts`, `src/financialEngine/projectionEngine.ts` |
 | Snapshot generation | Implemented as committed code generation | `scripts/gen-tax-snapshot.ts` emits known verified values; it does not call MCP directly at runtime or in CI today |
 | Tax-year-aware projection engine | Implemented | Per-year snapshot lookup and fallback warnings exist |
-| Live HMRC MCP calls from LLP | Not implemented | No `tax-trace` or `optimizer-explain` route yet |
+| Live HMRC MCP calls from LaterLifePlan | Not implemented | No `tax-trace` or `optimizer-explain` route yet |
 | Deterministic withdrawal optimizer in app runtime | Not implemented | Strategy work exists in scripts, not yet as supported engine module |
-| LLP-owned MCP server | Not implemented | Defer until optimizer core and API contracts stabilize |
-| RAG retrieval in LLP runtime | Not implemented | Cosmos-backed corpus may exist operationally, but LLP has no retrieval route yet |
+| LaterLifePlan-owned MCP server | Not implemented | Defer until optimizer core and API contracts stabilize |
+| RAG retrieval in LaterLifePlan runtime | Not implemented | Cosmos-backed corpus may exist operationally, but LaterLifePlan has no retrieval route yet |
 | LLM explanation endpoint | Not implemented | Anthropic streaming pattern exists elsewhere in app and can be reused |
 | Goal orchestration | Not implemented | Still future design work |
 
@@ -62,7 +62,7 @@ The key reconciliation is:
 ### 1. HMRC rules in the planner
 
 Decision:
-- LLP uses a committed build-time tax snapshot for planner runtime calculations.
+- LaterLifePlan uses a committed build-time tax snapshot for planner runtime calculations.
 
 Why:
 - browser-side simulations must stay fast, deterministic, and offline from external services
@@ -80,7 +80,7 @@ Important clarification:
 - it is not yet a true MCP-backed generator that executes `hmrc-tax-mcp` live in CI or at build time
 - the docs must treat direct MCP-backed generation as a later hardening step, not as already implemented behaviour
 
-### 2. Live MCP usage inside LLP
+### 2. Live MCP usage inside LaterLifePlan
 
 Decision:
 - live MCP access is for audit and explanation only, not for the planner hot path.
@@ -93,20 +93,20 @@ Not allowed:
 - calling MCP from the browser simulation loop
 - using LLMs or MCP responses as the numerical source of truth for projections
 
-### 3. LLP-owned MCP server
+### 3. LaterLifePlan-owned MCP server
 
 Decision:
-- do not treat an LLP-owned MCP server as an MVP requirement.
+- do not treat an LaterLifePlan-owned MCP server as an MVP requirement.
 
 Reasoning:
 - the immediate value is in making the optimizer deterministic inside the app and exposing one or two internal API routes
-- an LLP MCP layer only becomes useful once there is a stable optimizer engine and a real external-agent consumer
+- an LaterLifePlan MCP layer only becomes useful once there is a stable optimizer engine and a real external-agent consumer
 - building an MCP surface too early risks freezing the wrong contract
 
 Result:
-- HMRC MCP is an external dependency LLP consumes
-- LLP internal APIs come before any LLP-specific MCP server
-- an LLP MCP facade remains a later packaging option, not a prerequisite
+- HMRC MCP is an external dependency LaterLifePlan consumes
+- LaterLifePlan internal APIs come before any LaterLifePlan-specific MCP server
+- an LaterLifePlan MCP facade remains a later packaging option, not a prerequisite
 
 ### 4. RAG backend choice
 
@@ -127,7 +127,7 @@ Reconciled interpretation of the docs:
 
 Decision:
 - provider must be abstracted at the explanation layer
-- Anthropic is acceptable for MVP because LLP already has SDK usage and streaming patterns
+- Anthropic is acceptable for MVP because LaterLifePlan already has SDK usage and streaming patterns
 - Azure OpenAI is the preferred production target when quota, deployment, and operational ownership are in place
 - when using Azure OpenAI, prefer `gpt-4.1-mini` as the low-cost chat deployment
 
@@ -154,7 +154,7 @@ The explanation route should receive:
 ### Layer 1: Tax Rules
 
 Canonical state:
-- runtime source of truth in LLP is the committed snapshot
+- runtime source of truth in LaterLifePlan is the committed snapshot
 - future hardening target is MCP-assisted regeneration and audit verification
 
 Contract:
@@ -178,7 +178,7 @@ Contract:
 ### Layer 3: Explanation and RAG
 
 Canonical state:
-- planned, not implemented in LLP
+- planned, not implemented in LaterLifePlan
 
 Contract:
 - server-side API route
@@ -213,7 +213,7 @@ Contract:
 3. Add retrieval over HMRC guidance corpus
 4. Add optional live HMRC MCP audit route
 5. Add Scotland and richer tax inputs
-6. Revisit LLP-specific MCP interface only after the above stabilises
+6. Revisit LaterLifePlan-specific MCP interface only after the above stabilises
 
 ## Open Gaps and Corrections to Existing Docs
 
@@ -239,20 +239,20 @@ Required wording going forward:
 ### RAG status
 
 Correction:
-- some docs speak as if LLP already has live explanation retrieval wired into runtime
-- LLP does not currently expose a retrieval route or explanation route
+- some docs speak as if LaterLifePlan already has live explanation retrieval wired into runtime
+- LaterLifePlan does not currently expose a retrieval route or explanation route
 
 Required wording going forward:
-- corpus/indexing may exist outside LLP runtime, but LLP integration is still pending
+- corpus/indexing may exist outside LaterLifePlan runtime, but LaterLifePlan integration is still pending
 
 ### MCP scope
 
 Correction:
-- earlier wording can read as if LLP must become an MCP server in order to deliver the optimizer
+- earlier wording can read as if LaterLifePlan must become an MCP server in order to deliver the optimizer
 - this is not required for the next meaningful product milestone
 
 Required wording going forward:
-- consume HMRC MCP first; defer LLP MCP exposure
+- consume HMRC MCP first; defer LaterLifePlan MCP exposure
 
 ## Recommended Delivery Sequence
 
@@ -262,7 +262,7 @@ Required wording going forward:
 4. Implement Cosmos-backed retrieval for HMRC guidance chunks
 5. Add optional live HMRC MCP calls for rule trace and citation hydration
 6. Add goal orchestration only after optimizer output contracts are stable
-7. Consider an LLP MCP surface only if there is a concrete external-agent workflow to support
+7. Consider an LaterLifePlan MCP surface only if there is a concrete external-agent workflow to support
 
 ## Current and Historical References
 
@@ -278,7 +278,7 @@ Required wording going forward:
 
 Revisit these decisions when any of the following becomes true:
 
-- LLP needs a public agent-facing interface beyond its own UI and API routes
+- LaterLifePlan needs a public agent-facing interface beyond its own UI and API routes
 - Cosmos retrieval quality is insufficient for explanation quality targets
 - Azure OpenAI quota and deployment are available and operationally simpler than Anthropic
 - Scotland support lands and drives a broader tax context model change

@@ -1,7 +1,7 @@
 # 📋 Sample Later-Life Drawdown Strategy Report
 ### Example Household · Generated 3 April 2026 · HMRC rules: 2025-26 (live, verified)
 
-> **How this report was generated:** All tax calculations were computed live against the `hmrc-local` MCP rule engine (no hardcoded constants). The drawdown optimizer evaluated 5 withdrawal candidates × 35 years deterministically using anonymized sample household data (`sample-lifeplan.json`). The 2027 IHT reform context was retrieved via RAG. This narrative was composed by the LLM explanation layer of the LLP dynamic optimizer architecture.
+> **How this report was generated:** All tax calculations were computed live against the `hmrc-local` MCP rule engine (no hardcoded constants). The drawdown optimizer evaluated 5 withdrawal candidates × 35 years deterministically using anonymized sample household data (`sample-lifeplan.json`). The 2027 IHT reform context was retrieved via RAG. This narrative was composed by the LLM explanation layer of the LaterLifePlan dynamic optimizer architecture.
 
 ---
 
@@ -127,7 +127,7 @@ From **April 2027**, uncrystallised pension funds (your DC pots) will be **broug
 
 | Strategy | Years selected | Description |
 |---|---|---|
-| LLP-Baseline | 24 | Paul fills PA from DC first, then Lisa (LLP waterfall default) |
+| LaterLifePlan-Baseline | 24 | Paul fills PA from DC first, then Lisa (LaterLifePlan waterfall default) |
 | Couple-equal | 10 | Both draw equal gross DC within their respective PAs |
 | Proportional | 1 | DC draw split proportional to respective pot sizes |
 | Lisa-first | 0 | Lisa fills PA from DC first, then Paul |
@@ -135,7 +135,7 @@ From **April 2027**, uncrystallised pension funds (your DC pots) will be **broug
 
 ### Tax by life stage
 
-| Stage | Optimizer | LLP Baseline | Saving |
+| Stage | Optimizer | LaterLifePlan Baseline | Saving |
 |---|---|---|---|
 | Go-Go (Paul 60–70) | £39,860 | £43,182 | £3,322 |
 | Slo-Go (Paul 71–80) | £120,935 | £128,303 | £7,368 |
@@ -148,7 +148,7 @@ The No-Go stage accounts for 69% of the total saving — both State Pensions are
 
 ## Authoritative Sources Used in This Analysis
 
-Historical note: this report is retained for traceability. The current LLP codebase now uses a committed HMRC snapshot in `src/config/taxRuleSnapshot.ts`, and the proof-of-concept scripts in `scripts/` embed values that should be kept aligned with that snapshot.
+Historical note: this report is retained for traceability. The current LaterLifePlan codebase now uses a committed HMRC snapshot in `src/config/taxRuleSnapshot.ts`, and the proof-of-concept scripts in `scripts/` embed values that should be kept aligned with that snapshot.
 
 | Rule | Version | Output used | Checksum |
 |---|---|---|---|
@@ -159,7 +159,7 @@ Historical note: this report is retained for traceability. The current LLP codeb
 | `state_pension_annual` (2025-26) | v1.1.0 | Historical MCP output used by this report; see checksum for the archived rule result | `5d0db37c` |
 | `pension_ufpls_tax_free_fraction` | v1.0.0 | 25% tax-free per UFPLS withdrawal | `1c3603d2` |
 
-*Note:* The current LLP snapshot may now differ from this archived `state_pension_annual` output. Any comparison with today's committed snapshot should be recorded separately and not in the “Output used” column of this historical report.
+*Note:* The current LaterLifePlan snapshot may now differ from this archived `state_pension_annual` output. Any comparison with today's committed snapshot should be recorded separately and not in the “Output used” column of this historical report.
 ### Legislative citations
 
 - Income Tax rates and Personal Allowances: [gov.uk/income-tax-rates](https://www.gov.uk/income-tax-rates)

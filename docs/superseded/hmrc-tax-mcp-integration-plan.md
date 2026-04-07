@@ -32,15 +32,15 @@ For the reconciled architecture across HMRC MCP, optimizer, RAG, and LLM work, s
 
 ## Problem Statement
 
-Historically, LLP's financial engine (`projectionEngine.ts`, `taxCalculations.ts`) used manually maintained constants in `financialConstants.ts` to compute UK income tax, CGT, and pension allowances. That created annual maintenance risk, weak auditability, and no clear mechanism to detect HMRC rule drift.
+Historically, LaterLifePlan's financial engine (`projectionEngine.ts`, `taxCalculations.ts`) used manually maintained constants in `financialConstants.ts` to compute UK income tax, CGT, and pension allowances. That created annual maintenance risk, weak auditability, and no clear mechanism to detect HMRC rule drift.
 
-The `hmrc-tax-mcp` project provides a versioned, DSL-authored rule set for UK tax rules, covering income tax, CGT, UFPLS, personal allowance taper, and pension allowances. Integrating these rules makes LLP's tax engine authoritative, versioned, and auditable.
+The `hmrc-tax-mcp` project provides a versioned, DSL-authored rule set for UK tax rules, covering income tax, CGT, UFPLS, personal allowance taper, and pension allowances. Integrating these rules makes LaterLifePlan's tax engine authoritative, versioned, and auditable.
 
 ---
 
 ## Objectives
 
-1. Replace hardcoded UK tax constants in LLP with values derived from the `hmrc-tax-mcp` rule set.
+1. Replace hardcoded UK tax constants in LaterLifePlan with values derived from the `hmrc-tax-mcp` rule set.
 2. Support multi-year projections by mapping simulation years to the correct rule version.
 3. Keep the projection engine client-safe and zero-latency (no runtime network calls during simulation).
 4. Provide an audit trail for tax calculations (rule ID, version, tax year, input, output).
@@ -52,7 +52,7 @@ The `hmrc-tax-mcp` project provides a versioned, DSL-authored rule set for UK ta
 
 ### In scope (Phase 1)
 
-| Rule ID | Replaces in LLP |
+| Rule ID | Replaces in LaterLifePlan |
 |---|---|
 | `income_tax_due` | `calcIncomeTax()` in `taxCalculations.ts` |
 | `cgt_due` | `calcCGT()` in `taxCalculations.ts` |
@@ -74,9 +74,9 @@ The `hmrc-tax-mcp` project provides a versioned, DSL-authored rule set for UK ta
 
 ### Out of scope
 
-- `savings_allowance_*` — LLP does not model savings account interest income
-- `dividend_income_bands` / `dividend_allowance` — LLP does not model dividend income
-- `property_income_bands` — LLP handles rental as a raw annual income figure
+- `savings_allowance_*` — LaterLifePlan does not model savings account interest income
+- `dividend_income_bands` / `dividend_allowance` — LaterLifePlan does not model dividend income
+- `property_income_bands` — LaterLifePlan handles rental as a raw annual income figure
 - `savings_income_bands` — no savings income modelling
 - Scotland jurisdiction (`jurisdiction: 'scotland'`) — Phase 3; requires data model change
 
@@ -142,7 +142,7 @@ HMRC has not published CGT rates or pension constants beyond 2026-27. When a sim
 
 ### `income_tax_due`
 
-| Direction | LLP variable | Rule variable |
+| Direction | LaterLifePlan variable | Rule variable |
 |---|---|---|
 | Input | `p1TaxBasis` (sum of taxable income sources) | `adjusted_net_income` |
 | Output | `p1IncomeTax` | return value (£, rounded to 2dp) |
@@ -151,7 +151,7 @@ HMRC has not published CGT rates or pension constants beyond 2026-27. When a sim
 
 ### `cgt_due`
 
-| Direction | LLP variable | Rule variable |
+| Direction | LaterLifePlan variable | Rule variable |
 |---|---|---|
 | Input | `p1TotalCG` (capital gains realised this year) | `capital_gain` |
 | Input | result of `is_higher_rate_taxpayer` | `is_higher_rate_taxpayer` |
@@ -159,7 +159,7 @@ HMRC has not published CGT rates or pension constants beyond 2026-27. When a sim
 
 ### `is_higher_rate_taxpayer`
 
-| Direction | LLP variable | Rule variable |
+| Direction | LaterLifePlan variable | Rule variable |
 |---|---|---|
 | Input | `p1TaxBasis` | `adjusted_net_income` |
 | Output | used to select CGT rate | return value (boolean) |
@@ -186,7 +186,7 @@ These rules return a single value for a given tax year. Because CGT and pension 
 
 3. **State Pension user input** — `StatePensionSource.weeklyAmount` is user-supplied. `state_pension_annual` provides the authoritative full new SP for validation/defaulting, but does not replace the user field.
 
-4. **`drawFromGIA()` correctness** — LLP's proportional disposal method is equivalent to the `gia_disposal_gain` rule. No code change required; the rule is used for cross-validation in tests only.
+4. **`drawFromGIA()` correctness** — LaterLifePlan's proportional disposal method is equivalent to the `gia_disposal_gain` rule. No code change required; the rule is used for cross-validation in tests only.
 
 5. **Rule coverage beyond 2030-31** — The current rule set ends at 2030-31. Projections beyond that fall back to latest. A CI check will warn if simulation horizon exceeds rule coverage.
 
@@ -199,7 +199,7 @@ These rules return a single value for a given tax year. Because CGT and pension 
 | Rule version mismatch causes silent behavioural change | Medium | Pin rule versions in snapshot; CI diff on rule outputs |
 | CGT/pension fallback silently uses stale 2026-27 rates for 2027+ years | **High** (by design until HMRC publishes) | `getSnapshotForYear` emits structured warning per rule group; CI job asserts warning is expected and documented |
 | Simulation horizon exceeds income-tax rule coverage (beyond 2030-31) | Medium (long-lived plans) | Fallback to 2030-31 + warning; CI alert if new rule versions available |
-| Decimal precision drift between rule engine and LLP | Low | Rules use `round(…, 2)`; LLP uses `Math.round`; add precision test |
+| Decimal precision drift between rule engine and LaterLifePlan | Low | Rules use `round(…, 2)`; LaterLifePlan uses `Math.round`; add precision test |
 | Scotland users silently computed at rUK rates | Medium (Phase 1) | Add UI disclaimer; fix in Phase 3 |
 | `hmrc-local` changes API shape | Low | Snapshot isolates runtime from tool changes; generator fails loudly |
 | HMRC changes CGT rates for 2026-27 retroactively | Very low | CI diff job detects snapshot drift; snapshot is committed and reviewed in PRs |

@@ -7,7 +7,7 @@
 - Created: 2026-04-03
 - Last reviewed: 2026-04-05
 
-This document records the HMRC integration that is actually implemented in LLP today.
+This document records the HMRC integration that is actually implemented in LaterLifePlan today.
 
 Superseded by:
 
@@ -20,7 +20,7 @@ Use it with:
 
 ## What Is Implemented
 
-LLP now consumes HMRC tax rule data through a committed snapshot in the runtime planner path.
+LaterLifePlan now consumes HMRC tax rule data through a committed snapshot in the runtime planner path.
 
 Implemented files:
 
@@ -39,7 +39,7 @@ Not yet implemented:
 | File / capability | Status |
 |---|---|
 | `src/app/api/tax-trace/route.ts` | Planned only |
-| live MCP calls from LLP runtime | Planned only |
+| live MCP calls from LaterLifePlan runtime | Planned only |
 | direct MCP-backed snapshot regeneration in CI | Planned only |
 | Scotland-aware runtime selection | Planned only |
 
@@ -66,7 +66,7 @@ The projection engine remains browser-safe:
 
 ### Snapshot generation
 
-The current generator does not execute `hmrc-tax-mcp` live from LLP code or CI.
+The current generator does not execute `hmrc-tax-mcp` live from LaterLifePlan code or CI.
 
 What it does today:
 
@@ -77,7 +77,7 @@ What it does today:
 What it does not do yet:
 
 - call MCP tools directly during generation
-- require MCP availability in the LLP CI job
+- require MCP availability in the LaterLifePlan CI job
 
 Direct MCP-backed regeneration remains a future hardening step.
 
@@ -102,7 +102,7 @@ The snapshot is used for:
 
 ## CI Contract
 
-The LLP CI job validates that:
+The LaterLifePlan CI job validates that:
 
 1. `npm run gen:tax-snapshot` reproduces `src/config/taxRuleSnapshot.ts`
 2. the committed snapshot has not drifted from the generator
