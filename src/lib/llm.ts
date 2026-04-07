@@ -2,7 +2,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { DefaultAzureCredential } from '@azure/identity';
 import { z } from 'zod';
 import type { OptimizationSummary, RuleCitation, HmrcChunk } from '@/lib/optimizerExplain';
-import { getBaselineWaterfallDescription, getStrategyDisplayLabel } from '@/lib/strategyDefinitions';
+import { getBaselineWaterfallDescription } from '@/lib/strategyDefinitions';
 import type { TaxJurisdiction } from '@/models/types';
 
 const LLM_PROVIDER_VALUES = ['azure-openai', 'anthropic'] as const;
@@ -136,8 +136,7 @@ function describeIsaMode(isaMode: OptimizationSummary['recommendedStrategy']['is
 }
 
 function describeStrategy(planSummary: PlanSummary, strategy: OptimizationSummary['recommendedStrategy']): string {
-  const label = getStrategyDisplayLabel(planSummary.householdType, strategy.label);
-  return `${label}. ${describeDcOrder(planSummary, strategy.dcOrder)} ${describeIsaMode(strategy.isaMode)}`;
+  return `${describeDcOrder(planSummary, strategy.dcOrder)} ${describeIsaMode(strategy.isaMode)}`;
 }
 
 function describeStrategyComparison(context: ExplanationContext): string {

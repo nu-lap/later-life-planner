@@ -84,7 +84,7 @@ describe('OptimizerPanel', () => {
     expect(screen.getByText('LLP baseline waterfall')).toBeInTheDocument();
     expect(screen.getByText('Couple-equal DC drawdown')).toBeInTheDocument();
     expect(screen.getByText('Proportional DC drawdown')).toBeInTheDocument();
-    expect(screen.getByText('Lisa-first DC drawdown')).toBeInTheDocument();
+    expect(screen.getByText('Partner 2-first DC drawdown')).toBeInTheDocument();
     expect(screen.getByText('ISA-preserve')).toBeInTheDocument();
   });
 
@@ -102,7 +102,7 @@ describe('OptimizerPanel', () => {
     expect(screen.getByText('Alternative DC drawdown')).toBeInTheDocument();
     expect(screen.getByText('ISA-preserve')).toBeInTheDocument();
     expect(screen.queryByText('Couple-equal DC drawdown')).not.toBeInTheDocument();
-    expect(screen.queryByText('Lisa-first DC drawdown')).not.toBeInTheDocument();
+    expect(screen.queryByText('Partner 2-first DC drawdown')).not.toBeInTheDocument();
   });
 
   test('requires consent before generating an explanation and sends a minimised payload', async () => {

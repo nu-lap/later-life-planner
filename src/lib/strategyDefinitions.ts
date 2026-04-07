@@ -18,7 +18,7 @@ export function getBaselineWaterfallDescription(mode: StrategyPlanMode): string 
 
 export function getStrategyDisplayLabel(mode: StrategyPlanMode, rawLabel: string): string {
   if (rawLabel.includes('Paul-DC-First')) {
-    return mode === 'single' ? 'Even DC drawdown' : 'Paul-first DC drawdown';
+    return mode === 'single' ? 'Even DC drawdown' : 'Partner 1-first DC drawdown';
   }
 
   switch (rawLabel) {
@@ -29,7 +29,7 @@ export function getStrategyDisplayLabel(mode: StrategyPlanMode, rawLabel: string
     case '3-Proportional':
       return 'Proportional DC drawdown';
     case '4-Lisa-first':
-      return mode === 'single' ? 'Alternative DC drawdown' : 'Lisa-first DC drawdown';
+      return mode === 'single' ? 'Alternative DC drawdown' : 'Partner 2-first DC drawdown';
     case '5-ISA-preserve':
       return 'ISA-preserve';
     default:
@@ -65,7 +65,7 @@ export function getStrategyDefinitions(
       applicableModes: ['single', 'couple'],
     },
     {
-      label: mode === 'single' ? 'Alternative DC drawdown' : `${otherPersonName}-first DC drawdown`,
+      label: mode === 'single' ? 'Alternative DC drawdown' : 'Partner 2-first DC drawdown',
       description: coupleMode
         ? `Draw from ${otherPersonName}’s pension before ${person1Name}’s pension.`
         : 'Use an alternative DC drawdown order to compare with the baseline waterfall.',
