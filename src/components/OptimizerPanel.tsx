@@ -587,11 +587,11 @@ export default function OptimizerPanel({ plannerState, result }: Props) {
                   Explain this recommendation
                 </h2>
                 <p className="mt-2 text-sm leading-6 text-slate-600">
-                  LaterLifePlan will send a minimised summary of your ages, household type, high-level asset totals,
-                  optimiser result, and HMRC rule provenance to {providerLabel} through the server-side
-                  explanation route. If you consent, the server will also retrieve matching HMRC guidance
-                  excerpts using the disclosed rule IDs, tax year, and jurisdiction. Names, addresses,
-                  account numbers, and full yearly plan data are not sent.
+                  LaterLifePlan will share a short summary of your ages, whether you are a single person or a
+                  couple, your main asset totals, the optimiser result, and the HMRC rule references used.
+                  If you agree, LaterLifePlan will also look up the matching HMRC guidance using those rule
+                  references, the tax year, and your country. It will not send names, addresses, account
+                  numbers, or the full year-by-year plan.
                 </p>
 
                 {isLoadingCachedExplanation ? (
