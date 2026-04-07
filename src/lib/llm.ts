@@ -148,7 +148,7 @@ function describeStrategyComparison(context: ExplanationContext): string {
     return "The recommendation matches LaterLifePlan's usual starting approach for this plan.";
   }
 
-  return `The app's usual starting approach is: ${getBaselineWaterfallDescription(planSummary.householdType)}`;
+  return getBaselineWaterfallDescription(planSummary.householdType);
 }
 
 function describeAssetOutcome(optimizationResult: OptimizationSummary): string {
