@@ -4,6 +4,7 @@ import { buildOptimizerExplainRequest, REQUIRED_EXPLAIN_CONSENT_SCOPES } from '@
 import type { PlannerState } from '@/models/types';
 
 const EXPLANATION_CACHE_PREFIX = 'llp.optimizer-explanation:';
+const EXPLANATION_CACHE_VERSION = '2';
 
 export class OptimizerExplainClientError extends Error {
   constructor(message: string) {
@@ -43,7 +44,7 @@ function getExplanationStorage(): Storage | null {
 }
 
 function getExplanationCacheKey(planRevision: string): string {
-  return `${EXPLANATION_CACHE_PREFIX}${planRevision}`;
+  return `${EXPLANATION_CACHE_PREFIX}v${EXPLANATION_CACHE_VERSION}:${planRevision}`;
 }
 
 function loadCachedExplanation(planRevision: string): string | null {

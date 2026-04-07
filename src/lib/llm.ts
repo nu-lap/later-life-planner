@@ -2,7 +2,11 @@ import Anthropic from '@anthropic-ai/sdk';
 import { DefaultAzureCredential } from '@azure/identity';
 import { z } from 'zod';
 import type { OptimizationSummary, RuleCitation, HmrcChunk } from '@/lib/optimizerExplain';
-import { getBaselineWaterfallDescription } from '@/lib/strategyDefinitions';
+import {
+  getBaselineWaterfallDescription,
+  getStrategyDefinitions,
+  getStrategyDisplayLabel,
+} from '@/lib/strategyDefinitions';
 import type { TaxJurisdiction } from '@/models/types';
 
 const LLM_PROVIDER_VALUES = ['azure-openai', 'anthropic'] as const;
@@ -59,6 +63,8 @@ Points to note
 - Use any supplied HMRC guidance and citations to ground the explanation. Prefer paraphrase; only quote short excerpts when useful.
 - When you reference HMRC guidance, name the HMRC manual reference and link when they are available.
 - Use plain English instead of internal labels or abbreviations.
+- When the prompt supplies a strategy meaning, restate it faithfully and do not reinterpret it into a different withdrawal order.
+- Do not describe an even-split strategy as one partner first and the other partner later.
 - Never mention raw strategy labels, field names, internal abbreviations, or system codes.
 - If you mention secure income, make clear that some of it may start later in retirement, for example State Pension.
 - If you mention spending, make clear that the figure shown is the first projected year's target unless you explicitly say otherwise.
@@ -110,23 +116,12 @@ function describeSpending(planSummary: PlanSummary): string {
   return `The spending figure is the first projected year's target, about ${formatMoney(planSummary.targetSpendingAnnual)}.`;
 }
 
-function describeDcOrder(planSummary: PlanSummary, dcOrder: OptimizationSummary['recommendedStrategy']['dcOrder']): string {
-  if (planSummary.householdType === 'single') {
-    return 'Use the defined contribution pension in the order that best fits the plan.';
-  }
-
-  switch (dcOrder) {
-    case 'paul-first':
-      return "Start taxable pension withdrawals from one partner before moving to the other partner's pension.";
-    case 'lisa-first':
-      return "Start taxable pension withdrawals from one partner's pension before moving to the other partner's pension.";
-    case 'equal':
-      return 'Split taxable pension withdrawals evenly across both partners.';
-    case 'proportional':
-      return 'Split taxable pension withdrawals across both partners in proportion to the pension pots available.';
-    default:
-      return 'Use the defined contribution pensions to help fund spending.';
-  }
+function getStrategyDefinitionText(planSummary: PlanSummary, label: string): string {
+  const strategyDefinitions = getStrategyDefinitions(planSummary.householdType, 'Partner 1', 'Partner 2');
+  return strategyDefinitions.find((definition) => definition.label === label)?.description
+    ?? (label === 'LLP baseline waterfall'
+      ? getBaselineWaterfallDescription(planSummary.householdType)
+      : 'Use the plan’s standard withdrawal order or the comparison strategy named above.');
 }
 
 function describeIsaMode(isaMode: OptimizationSummary['recommendedStrategy']['isaMode']): string {
@@ -135,20 +130,16 @@ function describeIsaMode(isaMode: OptimizationSummary['recommendedStrategy']['is
     : 'Keep ISA withdrawals back for later years unless they are needed sooner.';
 }
 
-function describeStrategy(planSummary: PlanSummary, strategy: OptimizationSummary['recommendedStrategy']): string {
-  return `${describeDcOrder(planSummary, strategy.dcOrder)} ${describeIsaMode(strategy.isaMode)}`;
-}
-
 function describeStrategyComparison(context: ExplanationContext): string {
   const { optimizationResult, planSummary } = context;
-  const matchesStandard = optimizationResult.recommendedStrategy.dcOrder === optimizationResult.baselineStrategy.dcOrder
-    && optimizationResult.recommendedStrategy.isaMode === optimizationResult.baselineStrategy.isaMode;
+  const recommendedLabel = getStrategyDisplayLabel(planSummary.householdType, optimizationResult.recommendedStrategy.label);
+  const baselineLabel = 'LLP baseline waterfall';
 
-  if (matchesStandard) {
-    return "The recommendation matches LaterLifePlan's usual starting approach for this plan.";
+  if (recommendedLabel === baselineLabel) {
+    return `The recommendation matches LaterLifePlan's usual starting approach for this plan.`;
   }
 
-  return getBaselineWaterfallDescription(planSummary.householdType);
+  return `${recommendedLabel} is being compared against ${baselineLabel}.`;
 }
 
 function describeAssetOutcome(optimizationResult: OptimizationSummary): string {
@@ -173,6 +164,19 @@ function describeTaxRuleCaveat(optimizationResult: OptimizationSummary): string 
   }
 
   return `The tax calculations use the confirmed HMRC rules referenced in this projection.${rangeText}`.trim();
+}
+
+function describeFirstYearTax(planSummary: PlanSummary, optimizationResult: OptimizationSummary): string {
+  const roundedFirstYearTax = Math.round(optimizationResult.firstYearTax);
+  const yearTax = formatMoney(roundedFirstYearTax);
+  const yearSpending = formatMoney(optimizationResult.firstYearSpending ?? planSummary.targetSpendingAnnual);
+  const yearNet = formatMoney(optimizationResult.firstYearNetIncome);
+
+  if (roundedFirstYearTax <= 0) {
+    return `The first projected year meets the spending target of ${yearSpending} with no tax due in that year. The net income for that year is ${yearNet}.`;
+  }
+
+  return `The first projected year targets ${yearSpending} of spending, with ${yearTax} of tax due and net income of ${yearNet}.`;
 }
 
 function buildCitationsSection(citations: RuleCitation[]): string[] {
@@ -203,7 +207,9 @@ function buildGuidanceSection(chunks: HmrcChunk[]): string[] {
 
 export function buildPrompt(context: ExplanationContext): string {
   const { planSummary, optimizationResult } = context;
-  const recommendation = describeStrategy(planSummary, optimizationResult.recommendedStrategy);
+  const recommendationLabel = getStrategyDisplayLabel(planSummary.householdType, optimizationResult.recommendedStrategy.label);
+  const recommendedStrategyDefinition = getStrategyDefinitionText(planSummary, recommendationLabel);
+  const baselineStrategyDefinition = getStrategyDefinitionText(planSummary, 'LLP baseline waterfall');
   const outcome = optimizationResult.lifetimeTaxSaving > 0
     ? `This is projected to save about ${formatMoney(optimizationResult.lifetimeTaxSaving)} in lifetime tax compared with the app's standard starting strategy.`
     : "This is not projected to produce a meaningful lifetime tax saving versus the app's standard starting strategy.";
@@ -221,14 +227,18 @@ export function buildPrompt(context: ExplanationContext): string {
     `- ISAs total about ${formatMoney(planSummary.isaTotal)}.`,
     `- General investment accounts total about ${formatMoney(planSummary.giaTotal)}.`,
     `- ${describeSpending(planSummary)}`,
+    `- ISA timing: ${describeIsaMode(optimizationResult.recommendedStrategy.isaMode)}`,
     '',
     'Recommendation:',
-    `- Recommended approach: ${recommendation}`,
+    `- Recommended approach: ${recommendationLabel}.`,
+    `- Strategy meaning: ${recommendedStrategyDefinition.replace(/\.$/, '')}.`,
+    `- Comparison strategy: ${baselineStrategyDefinition.replace(/\.$/, '')}.`,
     `- ${describeStrategyComparison(context)}`,
     '',
     'Likely outcome:',
     `- ${outcome}`,
     `- ${describeAssetOutcome(optimizationResult)}`,
+    `- ${describeFirstYearTax(planSummary, optimizationResult)}`,
     '',
     'Tax rule caveat:',
     `- ${describeTaxRuleCaveat(optimizationResult)}`,
@@ -237,10 +247,13 @@ export function buildPrompt(context: ExplanationContext): string {
     '- Start directly with the recommendation and why it matters.',
     '- Use plain English throughout. For example, say England, Wales or Northern Ireland rather than a code.',
     '- Do not say things like ISA mode, baseline, fallback version, payload, schema, technical guidance retrieval terms, or raw strategy labels.',
-    '- Treat required spending as a net cash target. Explain that tax can make gross withdrawals higher than the spendable amount.',
+    '- Treat required spending as a net cash target.',
+    '- Only mention gross-up if tax is actually due in the year you are describing. If first-year tax is zero, say that clearly.',
     "- If the recommendation matches the app's standard starting strategy, explain that plainly as the app's usual starting approach rather than calling it optimal by default.",
+    '- Restate the chosen strategy label and its plain-English meaning before explaining why it was chosen.',
     '- If you mention secure income, make clear that part of it may only arrive later in retirement, such as State Pension.',
     '- If you mention spending, make clear that the figure is for the first projected year.',
+    '- Use the provided strategy definitions rather than inventing your own summary of the withdrawal order.',
     '- Keep the answer concise, readable, and useful.',
     '',
     ...buildCitationsSection(context.mcpCitations ?? []),

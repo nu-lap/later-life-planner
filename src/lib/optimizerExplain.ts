@@ -28,6 +28,10 @@ export interface OptimizationSummary {
   lifetimeTaxSaving: number;
   assetDepletionAge: number | null;
   terminalAssets: number;
+  firstYearSpending: number;
+  firstYearNetIncome: number;
+  firstYearTax: number;
+  laterYearTaxApplies: boolean;
   ruleProvenance: RuleProvenance[];
 }
 
@@ -113,6 +117,10 @@ const optimizationSummarySchema = z.object({
   lifetimeTaxSaving: z.number().finite(),
   assetDepletionAge: z.number().int().min(0).max(150).nullable(),
   terminalAssets: z.number().finite(),
+  firstYearSpending: z.number().finite().min(0),
+  firstYearNetIncome: z.number().finite().min(0),
+  firstYearTax: z.number().finite().min(0),
+  laterYearTaxApplies: z.boolean(),
   ruleProvenance: z.array(ruleProvenanceSchema).min(1),
 });
 
@@ -217,12 +225,21 @@ function totalGia(plannerState: PlannerState): number {
 }
 
 export function buildOptimizationSummary(result: OptimizationResult): OptimizationSummary {
+  const firstYear = result.yearRecords[0]?.winner;
+  const firstYearSpending = result.yearRecords[0]?.spending ?? 0;
+  const laterYearTaxApplies = result.yearRecords.slice(1).some((record) => record.winner.totalTax > 0);
+  const roundMoney = (value: number): number => Math.round(value * 100) / 100;
+
   return {
     recommendedStrategy: { ...result.recommendedStrategy },
     baselineStrategy: { ...result.baselineStrategy },
     lifetimeTaxSaving: result.lifetimeTaxSaving,
     assetDepletionAge: result.assetDepletionAge,
     terminalAssets: result.terminalAssets,
+    firstYearSpending: roundMoney(firstYearSpending),
+    firstYearNetIncome: roundMoney(firstYear?.netIncome ?? 0),
+    firstYearTax: roundMoney(firstYear?.totalTax ?? 0),
+    laterYearTaxApplies,
     ruleProvenance: result.ruleProvenance.map((entry) => ({ ...entry })),
   };
 }

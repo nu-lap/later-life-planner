@@ -16,11 +16,15 @@ function sampleContext(): ExplanationContext {
       planRevision: 'sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
     },
     optimizationResult: {
-      recommendedStrategy: { dcOrder: 'paul-first', isaMode: 'now', label: '2-Paul-DC-First-ISA-Now' },
+      recommendedStrategy: { dcOrder: 'equal', isaMode: 'now', label: '2-Couple-equal' },
       baselineStrategy: { dcOrder: 'paul-first', isaMode: 'now', label: '1-LLP-Baseline' },
       lifetimeTaxSaving: 24219,
       assetDepletionAge: null,
       terminalAssets: 1913496,
+      firstYearSpending: 66891,
+      firstYearNetIncome: 66891,
+      firstYearTax: 0,
+      laterYearTaxApplies: true,
       ruleProvenance: [
         {
           rule_id: 'cgt_rates',
@@ -54,6 +58,10 @@ function singleSampleContext(): ExplanationContext {
       lifetimeTaxSaving: 0,
       assetDepletionAge: null,
       terminalAssets: 2100000,
+      firstYearSpending: 48457,
+      firstYearNetIncome: 48457,
+      firstYearTax: 0,
+      laterYearTaxApplies: false,
       ruleProvenance: [],
     },
   };
@@ -65,11 +73,16 @@ describe('buildPrompt', () => {
 
     expect(prompt).toContain('England, Wales or Northern Ireland');
     expect(prompt).toContain("first projected year's target");
-    expect(prompt).toContain("LaterLifePlan's usual starting approach");
+    expect(prompt).toContain('Couple-equal DC drawdown is being compared against LLP baseline waterfall.');
     expect(prompt).toMatch(/State Pension.*start from State Pension age/i);
     expect(prompt).toMatch(/starting strategy/i);
     expect(prompt).toContain('Use ISA withdrawals from the start of the plan where needed.');
     expect(prompt).toContain('Treat required spending as a net cash target.');
+    expect(prompt).toContain('Couple-equal DC drawdown');
+    expect(prompt).toMatch(/Split taxable pension withdrawals evenly/i);
+    expect(prompt).toContain('Comparison strategy: LaterLifePlan\'s standard order is DC pension within each person’s personal allowance plus 25% PCLS, then GIA within the CGT allowance, then ISA, then remaining GIA, then DC pension above the personal allowance.');
+    expect(prompt).toContain('Recommended approach: Couple-equal DC drawdown.');
+    expect(prompt).toContain('The first projected year meets the spending target of £66,891 with no tax due in that year.');
   });
 
 
