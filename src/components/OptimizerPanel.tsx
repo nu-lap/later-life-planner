@@ -280,6 +280,7 @@ export default function OptimizerPanel({ plannerState, result }: Props) {
   const [showAll, setShowAll] = useState(false);
   const [showStrategyComparison, setShowStrategyComparison] = useState(false);
   const [showStrategyGuide, setShowStrategyGuide] = useState(false);
+  const [showDrawdownBreakdown, setShowDrawdownBreakdown] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [hasConsented, setHasConsented] = useState(false);
   const [isExplaining, setIsExplaining] = useState(false);
@@ -359,6 +360,35 @@ export default function OptimizerPanel({ plannerState, result }: Props) {
               <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Overall pattern</p>
               <p className="mt-1 text-sm font-semibold text-slate-900">{overallPatternSummary}</p>
             </div>
+            <div className="mt-3 rounded-2xl border border-blue-100 bg-blue-50 p-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wide text-blue-700">Strategy guide</p>
+                  <p className="mt-1 text-xs text-blue-700">
+                    These labels describe the optimiser&apos;s comparison options. The first mention of LLP baseline waterfall appears in the overall pattern above.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowStrategyGuide((current) => !current)}
+                  className="rounded-full border border-blue-200 bg-white px-3 py-1 text-xs font-semibold text-blue-700 hover:bg-blue-50"
+                  aria-expanded={showStrategyGuide}
+                  aria-controls="strategy-guide-panel"
+                >
+                  {showStrategyGuide ? 'Hide strategy guide' : 'What do these strategies mean?'}
+                </button>
+              </div>
+              {showStrategyGuide ? (
+                <div id="strategy-guide-panel" className="mt-4 grid gap-3 sm:grid-cols-2">
+                  {strategyGuideEntries(person1Label, person2Label).map((entry) => (
+                    <div key={entry.label} className="rounded-xl border border-blue-100 bg-white p-3">
+                      <p className="text-sm font-semibold text-slate-900">{entry.label}</p>
+                      <p className="mt-1 text-xs leading-5 text-slate-600">{entry.description}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+            </div>
           </div>
           <div className="flex flex-col gap-2 sm:items-end">
             <button
@@ -401,92 +431,6 @@ export default function OptimizerPanel({ plannerState, result }: Props) {
           </div>
         </div>
 
-        <div className="mt-6">
-          <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <h4 className="text-sm font-black uppercase tracking-wide text-slate-700">
-                Year-by-year drawdown breakdown
-              </h4>
-              <p className="mt-1 text-xs text-slate-500">
-                Shows the actual withdrawals used year by year. This is the source of truth when the plan changes over time and the net spend target must still be met after tax.
-              </p>
-            </div>
-            <p className="text-xs text-slate-500">
-              Showing {shownYearCount} of {result.yearRecords.length} years
-            </p>
-          </div>
-          <div className="overflow-x-auto" data-testid="optimizer-drawdown-breakdown-table">
-            <table className="min-w-full text-xs">
-              <thead>
-                <tr className="border-b border-slate-100 text-left text-slate-500">
-                  <th rowSpan={2} className="sticky left-0 z-10 bg-white pb-2 pr-3 font-bold">Age</th>
-                  <th colSpan={4} className="pb-2 pr-3 text-center font-bold">{person1Label}</th>
-                  {isCouple ? <th colSpan={4} className="pb-2 pr-3 text-center font-bold">{person2Label}</th> : null}
-                  {isCouple ? <th colSpan={1} className="pb-2 pr-0 text-center font-bold">Joint</th> : null}
-                </tr>
-                <tr className="border-b border-slate-100 text-left text-slate-500">
-                  <th className="pb-2 pr-3 font-bold">Pension</th>
-                  <th className="pb-2 pr-3 font-bold">ISA</th>
-                  <th className="pb-2 pr-3 font-bold">GIA</th>
-                  <th className="pb-2 pr-3 font-bold">Cash</th>
-                  {isCouple ? <th className="pb-2 pr-3 font-bold">Pension</th> : null}
-                  {isCouple ? <th className="pb-2 pr-3 font-bold">ISA</th> : null}
-                  {isCouple ? <th className="pb-2 pr-3 font-bold">GIA</th> : null}
-                  {isCouple ? <th className="pb-2 pr-3 font-bold">Cash</th> : null}
-                  {isCouple ? <th className="pb-2 pr-0 font-bold">GIA</th> : null}
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((record) => (
-                  <tr key={`breakdown-${record.p1Age}-${record.yearIndex}`} className="border-b border-slate-50 align-top">
-                    <td className="sticky left-0 z-10 bg-white py-3 pr-3 text-slate-700">
-                      {record.p1Age}
-                      {record.p2Age !== null ? ` / ${record.p2Age}` : ''}
-                    </td>
-                    <td className="py-3 pr-3 text-slate-600">
-                      <PensionBreakdownCell breakdown={record.drawdownBreakdown.person1.pension} />
-                    </td>
-                    <td className="py-3 pr-3 text-slate-600">
-                      <TaxFreeBreakdownCell breakdown={record.drawdownBreakdown.person1.isa} />
-                    </td>
-                    <td className="py-3 pr-3 text-slate-600">
-                      <TaxableBreakdownCell breakdown={record.drawdownBreakdown.person1.gia} taxableLabel="Taxable gain" />
-                    </td>
-                    <td className="py-3 pr-3 text-slate-600">
-                      <TaxFreeBreakdownCell breakdown={record.drawdownBreakdown.person1.cash} />
-                    </td>
-                    {isCouple ? (
-                      <td className="py-3 pr-3 text-slate-600">
-                        <PensionBreakdownCell breakdown={record.drawdownBreakdown.person2?.pension} />
-                      </td>
-                    ) : null}
-                    {isCouple ? (
-                      <td className="py-3 pr-3 text-slate-600">
-                        <TaxFreeBreakdownCell breakdown={record.drawdownBreakdown.person2?.isa} />
-                      </td>
-                    ) : null}
-                    {isCouple ? (
-                      <td className="py-3 pr-3 text-slate-600">
-                        <TaxableBreakdownCell breakdown={record.drawdownBreakdown.person2?.gia} taxableLabel="Taxable gain" />
-                      </td>
-                    ) : null}
-                    {isCouple ? (
-                      <td className="py-3 pr-3 text-slate-600">
-                        <TaxFreeBreakdownCell breakdown={record.drawdownBreakdown.person2?.cash} />
-                      </td>
-                    ) : null}
-                    {isCouple ? (
-                      <td className="py-3 pr-0 text-slate-600">
-                        <TaxableBreakdownCell breakdown={record.drawdownBreakdown.joint?.gia} taxableLabel="Taxable gain" />
-                      </td>
-                    ) : null}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
         <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-4">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
@@ -500,15 +444,6 @@ export default function OptimizerPanel({ plannerState, result }: Props) {
             <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
-                onClick={() => setShowStrategyGuide((current) => !current)}
-                className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-50"
-                aria-expanded={showStrategyGuide}
-                aria-controls="strategy-guide-panel"
-              >
-                What do these strategies mean?
-              </button>
-              <button
-                type="button"
                 onClick={() => setShowStrategyComparison((current) => !current)}
                 className="text-sm font-semibold text-orange-600 hover:text-orange-700"
               >
@@ -516,23 +451,6 @@ export default function OptimizerPanel({ plannerState, result }: Props) {
               </button>
             </div>
           </div>
-
-          {showStrategyGuide ? (
-            <div id="strategy-guide-panel" className="mt-4 rounded-2xl border border-blue-100 bg-blue-50 p-4">
-              <p className="text-xs font-bold uppercase tracking-wide text-blue-700">Strategy guide</p>
-              <p className="mt-1 text-xs text-blue-700">
-                These labels describe the optimizer&apos;s comparison options. The year-by-year table below shows the actual outcome for each year.
-              </p>
-              <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                {strategyGuideEntries(person1Label, person2Label).map((entry) => (
-                  <div key={entry.label} className="rounded-xl border border-blue-100 bg-white p-3">
-                    <p className="text-sm font-semibold text-slate-900">{entry.label}</p>
-                    <p className="mt-1 text-xs leading-5 text-slate-600">{entry.description}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ) : null}
 
           {showStrategyComparison ? (
             <div className="mt-4 overflow-x-auto">
@@ -574,13 +492,113 @@ export default function OptimizerPanel({ plannerState, result }: Props) {
           ) : null}
         </div>
 
+        <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <h4 className="text-sm font-black uppercase tracking-wide text-slate-700">
+                Year-by-year drawdown breakdown
+              </h4>
+              <p className="mt-1 text-xs text-slate-500">
+                Shows the actual withdrawals used year by year. This is the source of truth when the plan changes over time and the net spend target must still be met after tax.
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-xs text-slate-500">
+                Showing {shownYearCount} of {result.yearRecords.length} years
+              </p>
+              <button
+                type="button"
+                onClick={() => setShowDrawdownBreakdown((current) => !current)}
+                className="text-sm font-semibold text-orange-600 hover:text-orange-700"
+                aria-expanded={showDrawdownBreakdown}
+                aria-controls="drawdown-breakdown-panel"
+              >
+                {showDrawdownBreakdown ? '▲ Hide breakdown' : '▼ Show breakdown'}
+              </button>
+            </div>
+          </div>
+
+          {showDrawdownBreakdown ? (
+            <div id="drawdown-breakdown-panel" className="mt-4 overflow-x-auto" data-testid="optimizer-drawdown-breakdown-table">
+              <table className="min-w-full text-xs">
+                <thead>
+                  <tr className="border-b border-slate-100 text-left text-slate-500">
+                    <th rowSpan={2} className="sticky left-0 z-10 bg-white pb-2 pr-3 font-bold">Age</th>
+                    <th colSpan={4} className="pb-2 pr-3 text-center font-bold">{person1Label}</th>
+                    {isCouple ? <th colSpan={4} className="pb-2 pr-3 text-center font-bold">{person2Label}</th> : null}
+                    {isCouple ? <th colSpan={1} className="pb-2 pr-0 text-center font-bold">Joint</th> : null}
+                  </tr>
+                  <tr className="border-b border-slate-100 text-left text-slate-500">
+                    <th className="pb-2 pr-3 font-bold">Pension</th>
+                    <th className="pb-2 pr-3 font-bold">ISA</th>
+                    <th className="pb-2 pr-3 font-bold">GIA</th>
+                    <th className="pb-2 pr-3 font-bold">Cash</th>
+                    {isCouple ? <th className="pb-2 pr-3 font-bold">Pension</th> : null}
+                    {isCouple ? <th className="pb-2 pr-3 font-bold">ISA</th> : null}
+                    {isCouple ? <th className="pb-2 pr-3 font-bold">GIA</th> : null}
+                    {isCouple ? <th className="pb-2 pr-3 font-bold">Cash</th> : null}
+                    {isCouple ? <th className="pb-2 pr-0 font-bold">GIA</th> : null}
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((record) => (
+                    <tr key={`breakdown-${record.p1Age}-${record.yearIndex}`} className="border-b border-slate-50 align-top">
+                      <td className="sticky left-0 z-10 bg-white py-3 pr-3 text-slate-700">
+                        {record.p1Age}
+                        {record.p2Age !== null ? ` / ${record.p2Age}` : ''}
+                      </td>
+                      <td className="py-3 pr-3 text-slate-600">
+                        <PensionBreakdownCell breakdown={record.drawdownBreakdown.person1.pension} />
+                      </td>
+                      <td className="py-3 pr-3 text-slate-600">
+                        <TaxFreeBreakdownCell breakdown={record.drawdownBreakdown.person1.isa} />
+                      </td>
+                      <td className="py-3 pr-3 text-slate-600">
+                        <TaxableBreakdownCell breakdown={record.drawdownBreakdown.person1.gia} taxableLabel="Taxable gain" />
+                      </td>
+                      <td className="py-3 pr-3 text-slate-600">
+                        <TaxFreeBreakdownCell breakdown={record.drawdownBreakdown.person1.cash} />
+                      </td>
+                      {isCouple ? (
+                        <td className="py-3 pr-3 text-slate-600">
+                          <PensionBreakdownCell breakdown={record.drawdownBreakdown.person2?.pension} />
+                        </td>
+                      ) : null}
+                      {isCouple ? (
+                        <td className="py-3 pr-3 text-slate-600">
+                          <TaxFreeBreakdownCell breakdown={record.drawdownBreakdown.person2?.isa} />
+                        </td>
+                      ) : null}
+                      {isCouple ? (
+                        <td className="py-3 pr-3 text-slate-600">
+                          <TaxableBreakdownCell breakdown={record.drawdownBreakdown.person2?.gia} taxableLabel="Taxable gain" />
+                        </td>
+                      ) : null}
+                      {isCouple ? (
+                        <td className="py-3 pr-3 text-slate-600">
+                          <TaxFreeBreakdownCell breakdown={record.drawdownBreakdown.person2?.cash} />
+                        </td>
+                      ) : null}
+                      {isCouple ? (
+                        <td className="py-3 pr-0 text-slate-600">
+                          <TaxableBreakdownCell breakdown={record.drawdownBreakdown.joint?.gia} taxableLabel="Taxable gain" />
+                        </td>
+                      ) : null}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : null}
+        </div>
+
         {result.yearRecords.length > 10 && (
           <button
             type="button"
             onClick={() => setShowAll((current) => !current)}
             className="mt-4 text-sm font-semibold text-orange-600 hover:text-orange-700"
           >
-            {showAll ? '▲ Show fewer years' : '▼ Show all optimizer years'}
+            {showAll ? '▲ Show fewer years' : '▼ Show all optimiser years'}
           </button>
         )}
       </div>
@@ -607,7 +625,7 @@ export default function OptimizerPanel({ plannerState, result }: Props) {
                 </h2>
                 <p className="mt-2 text-sm leading-6 text-slate-600">
                   LLP will send a minimised summary of your ages, household type, high-level asset totals,
-                  optimizer result, and HMRC rule provenance to {providerLabel} through the server-side
+                  optimiser result, and HMRC rule provenance to {providerLabel} through the server-side
                   explanation route. If you consent, the server will also retrieve matching HMRC guidance
                   excerpts using the disclosed rule IDs, tax year, and jurisdiction. Names, addresses,
                   account numbers, and full yearly plan data are not sent.
@@ -647,7 +665,7 @@ export default function OptimizerPanel({ plannerState, result }: Props) {
                         disabled={isExplaining || isLoadingCachedExplanation}
                       />
                       <span>
-                        I consent to LLP sending this minimised optimizer summary and retrieving matched HMRC guidance for explanation generation.
+                        I consent to LLP sending this minimised optimiser summary and retrieving matched HMRC guidance for explanation generation.
                       </span>
                     </label>
                   </>
