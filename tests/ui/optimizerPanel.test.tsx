@@ -4,7 +4,6 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import OptimizerPanel from '@/components/OptimizerPanel';
 import { optimizeWithdrawals } from '@/financialEngine/withdrawalOptimizer';
-import { getStrategyDisplayLabel } from '@/lib/strategyDefinitions';
 import { dcOnlyState, paulAndLisaState } from '../fixtures/states';
 
 afterEach(() => {
@@ -14,7 +13,7 @@ afterEach(() => {
 });
 
 describe('OptimizerPanel', () => {
-  test('renders optimizer summary cards and collapsed controls', () => {
+  test('renders optimizer summary cards and expanded strategy defaults', () => {
     const plannerState = paulAndLisaState();
     const result = optimizeWithdrawals(plannerState);
 
@@ -22,13 +21,17 @@ describe('OptimizerPanel', () => {
 
     expect(screen.getByText('Withdrawal plan optimisation')).toBeInTheDocument();
     expect(screen.queryByText('Recommended')).not.toBeInTheDocument();
+    expect(screen.getByText('Overall pattern')).toBeInTheDocument();
+    expect(screen.getByText(/Required spending is treated as a net cash target\./)).toBeInTheDocument();
     expect(screen.getByText('Tax impact vs standard approach')).toBeInTheDocument();
     expect(screen.getByText('Plan durability vs standard approach')).toBeInTheDocument();
     expect(screen.getByText('End-of-plan assets vs standard approach')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Show strategy summary' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '▼ Show comparison' })).toBeInTheDocument();
+    expect(screen.getByText('Strategy guide')).toBeInTheDocument();
+    expect(screen.getByText('LLP baseline waterfall', { selector: '#strategy-guide-panel p.text-sm.font-semibold.text-slate-900' })).toBeInTheDocument();
+    expect(screen.getByText(/These are the strategy definitions for the best option shown in the comparison table below\./)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Show all strategy definitions' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '▲ Hide comparison' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '▼ Show breakdown' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '▼ Show all' })).toBeInTheDocument();
     expect(screen.queryByTestId('optimizer-drawdown-breakdown-table')).not.toBeInTheDocument();
   });
 
@@ -52,83 +55,57 @@ describe('OptimizerPanel', () => {
     expect(screen.getAllByText('Tax due').length).toBeGreaterThan(0);
   });
 
-  test('keeps the strategy comparison collapsed by default and expands on demand', async () => {
+  test('shows the first five comparison years by default', () => {
     const plannerState = paulAndLisaState();
     const result = optimizeWithdrawals(plannerState);
 
     render(<OptimizerPanel plannerState={plannerState} result={result} />);
 
-    expect(screen.queryByText('Runner-up')).not.toBeInTheDocument();
-    expect(screen.getAllByText('▼ Show all').length).toBeGreaterThan(0);
-
-    await userEvent.click(screen.getByRole('button', { name: '▼ Show comparison' }));
-
-    expect(screen.getAllByText('Runner-up').length).toBeGreaterThan(0);
+    expect(screen.getByRole('button', { name: '▲ Hide comparison' })).toBeInTheDocument();
+    expect(screen.getAllByText('Runner-up').length).toBeGreaterThanOrEqual(5);
     expect(screen.getAllByText('Required net income').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Shortfall').length).toBeGreaterThan(0);
+    expect(screen.getByText(/Showing 5 of \d+ years\./)).toBeInTheDocument();
   });
 
-  test('shows the winning strategies from the first five years in the strategy guide', async () => {
+  test('shows best-option strategy definitions by default and expands to the full list on demand', async () => {
     const plannerState = paulAndLisaState();
     const result = optimizeWithdrawals(plannerState);
 
     render(<OptimizerPanel plannerState={plannerState} result={result} />);
 
-    await userEvent.click(screen.getByRole('button', { name: 'Show strategy summary' }));
+    expect(screen.getByText('LLP baseline waterfall', { selector: '#strategy-guide-panel p.text-sm.font-semibold.text-slate-900' })).toBeInTheDocument();
+    expect(screen.queryByText('Couple-equal DC drawdown', { selector: '#strategy-guide-panel p.text-sm.font-semibold.text-slate-900' })).not.toBeInTheDocument();
+    expect(screen.queryByText('Proportional DC drawdown', { selector: '#strategy-guide-panel p.text-sm.font-semibold.text-slate-900' })).not.toBeInTheDocument();
+    expect(screen.queryByText('Partner 2-first DC drawdown', { selector: '#strategy-guide-panel p.text-sm.font-semibold.text-slate-900' })).not.toBeInTheDocument();
+    expect(screen.queryByText('ISA-preserve', { selector: '#strategy-guide-panel p.text-sm.font-semibold.text-slate-900' })).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Show all strategy definitions' }));
 
     expect(screen.getByText('Strategy guide')).toBeInTheDocument();
-    expect(screen.getByText(/These are the winning strategies from the first 5 years/i)).toBeInTheDocument();
-
-    const firstFiveRecords = result.yearRecords.slice(0, 5);
-
-    // One card per year: verify each "Year {ageLabel}" heading is rendered
-    for (const record of firstFiveRecords) {
-      const ageLabel = record.p2Age !== null
-        ? `${record.p1Age} / ${record.p2Age}`
-        : `${record.p1Age}`;
-      expect(screen.getByText(`Year ${ageLabel}`)).toBeInTheDocument();
-    }
-
-    // Confirm the guide shows exactly the first-five years and no more
-    expect(screen.getAllByText(/^Year \d/).length).toBe(firstFiveRecords.length);
-
-    // Each year's winning strategy label is also displayed
-    const expectedLabels = firstFiveRecords.map((record) =>
-      getStrategyDisplayLabel(plannerState.mode, record.winner.strategy.label),
-    );
-    for (const label of expectedLabels) {
-      expect(screen.getAllByText(label).length).toBeGreaterThan(0);
-    }
+    expect(screen.getByText(/These are the strategy definitions for the best option shown in the comparison table below\./i)).toBeInTheDocument();
+    expect(screen.getByText('LLP baseline waterfall', { selector: '#strategy-guide-panel p.text-sm.font-semibold.text-slate-900' })).toBeInTheDocument();
+    expect(screen.getByText('Couple-equal DC drawdown', { selector: '#strategy-guide-panel p.text-sm.font-semibold.text-slate-900' })).toBeInTheDocument();
+    expect(screen.getByText('Proportional DC drawdown', { selector: '#strategy-guide-panel p.text-sm.font-semibold.text-slate-900' })).toBeInTheDocument();
+    expect(screen.getByText('Partner 2-first DC drawdown', { selector: '#strategy-guide-panel p.text-sm.font-semibold.text-slate-900' })).toBeInTheDocument();
+    expect(screen.getByText('ISA-preserve', { selector: '#strategy-guide-panel p.text-sm.font-semibold.text-slate-900' })).toBeInTheDocument();
   });
 
-  test('shows single-person winning strategies in the strategy guide', async () => {
+  test('shows single-person strategy definitions with single-mode labels', async () => {
     const plannerState = dcOnlyState(65, 250_000);
     const result = optimizeWithdrawals(plannerState);
 
     render(<OptimizerPanel plannerState={plannerState} result={result} />);
 
-    await userEvent.click(screen.getByRole('button', { name: 'Show strategy summary' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Show all strategy definitions' }));
 
-    const firstFiveRecords = result.yearRecords.slice(0, 5);
-
-    // One card per year: verify each "Year {ageLabel}" heading is rendered
-    for (const record of firstFiveRecords) {
-      const ageLabel = record.p2Age !== null
-        ? `${record.p1Age} / ${record.p2Age}`
-        : `${record.p1Age}`;
-      expect(screen.getByText(`Year ${ageLabel}`)).toBeInTheDocument();
-    }
-
-    // Confirm the guide shows exactly the first-five years and no more
-    expect(screen.getAllByText(/^Year \d/).length).toBe(firstFiveRecords.length);
-
-    // Each year's winning strategy label is also displayed
-    const expectedLabels = firstFiveRecords.map((record) =>
-      getStrategyDisplayLabel(plannerState.mode, record.winner.strategy.label),
-    );
-    for (const label of expectedLabels) {
-      expect(screen.getAllByText(label).length).toBeGreaterThan(0);
-    }
+    expect(screen.getByText('LLP baseline waterfall', { selector: '#strategy-guide-panel p.text-sm.font-semibold.text-slate-900' })).toBeInTheDocument();
+    expect(screen.getByText('Even DC drawdown', { selector: '#strategy-guide-panel p.text-sm.font-semibold.text-slate-900' })).toBeInTheDocument();
+    expect(screen.getByText('Proportional DC drawdown', { selector: '#strategy-guide-panel p.text-sm.font-semibold.text-slate-900' })).toBeInTheDocument();
+    expect(screen.getByText('Alternative DC drawdown', { selector: '#strategy-guide-panel p.text-sm.font-semibold.text-slate-900' })).toBeInTheDocument();
+    expect(screen.getByText('ISA-preserve', { selector: '#strategy-guide-panel p.text-sm.font-semibold.text-slate-900' })).toBeInTheDocument();
+    expect(screen.queryByText('Couple-equal DC drawdown', { selector: '#strategy-guide-panel p.text-sm.font-semibold.text-slate-900' })).not.toBeInTheDocument();
+    expect(screen.queryByText('Partner 2-first DC drawdown', { selector: '#strategy-guide-panel p.text-sm.font-semibold.text-slate-900' })).not.toBeInTheDocument();
   });
 
   test('requires consent before generating an explanation and sends a minimised payload', async () => {
