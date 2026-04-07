@@ -208,8 +208,6 @@ function buildOptimizerViewProjections(
     }
 
     const winner = record.winner;
-    const totalP1Tax = winner.drawdowns.p1Dc > 0 ? record.drawdownBreakdown.person1.pension?.taxDue ?? 0 : 0;
-    const totalP2Tax = winner.drawdowns.p2Dc > 0 ? record.drawdownBreakdown.person2?.pension?.taxDue ?? 0 : 0;
 
     return {
       ...baseRow,
@@ -226,11 +224,13 @@ function buildOptimizerViewProjections(
       cashDrawdown: winner.drawdowns.p1Cash + winner.drawdowns.p2Cash,
       dcDrawdown: winner.drawdowns.p1Dc + winner.drawdowns.p2Dc,
       dcTaxFreeDrawdown: winner.drawdowns.p1DcTaxFree + winner.drawdowns.p2DcTaxFree,
-      p1CgtPaid: winner.drawdowns.p1CapitalGain,
-      p2CgtPaid: winner.drawdowns.p2CapitalGain,
+      p1CapitalGain: winner.drawdowns.p1CapitalGain,
+      p2CapitalGain: winner.drawdowns.p2CapitalGain,
+      p1CgtPaid: winner.p1CgtPaid,
+      p2CgtPaid: winner.p2CgtPaid,
       totalCgtPaid: winner.cgtPaid,
-      p1IncomeTax: totalP1Tax,
-      p2IncomeTax: totalP2Tax,
+      p1IncomeTax: winner.p1IncomeTax,
+      p2IncomeTax: winner.p2IncomeTax,
       incomeTaxPaid: winner.incomeTax,
       totalIncome: winner.totalIncome,
       totalTaxPaid: winner.totalTax,

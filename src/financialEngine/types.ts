@@ -65,6 +65,10 @@ export interface WaterfallResult {
   totalTax: number;
   incomeTax: number;
   cgtPaid: number;
+  p1IncomeTax: number;
+  p2IncomeTax: number;
+  p1CgtPaid: number;
+  p2CgtPaid: number;
   feasible: boolean;
   gap: number;
   spendingTarget: number;

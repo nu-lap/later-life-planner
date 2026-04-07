@@ -172,11 +172,14 @@ function buildOverallPatternSummary(result: OptimizationResult): string {
   return `Starts with ${firstYearLabel}. The withdrawals vary by year, with ${dominantLabel} used most often overall.`;
 }
 
-function strategyGuideEntries(): Array<{ label: string; description: string }> {
+function strategyGuideEntries(
+  person1Name: string,
+  person2Name: string,
+): Array<{ label: string; description: string }> {
   return [
     {
       label: 'LLP baseline waterfall',
-      description: 'The app’s usual starting approach. Draw from Paul’s pension first, use ISA withdrawals from the start, then move through the remaining buckets in the default order.',
+      description: `The app’s usual starting approach. Draw from ${person1Name}’s pension first, use ISA withdrawals from the start, then move through the remaining buckets in the default order.`,
     },
     {
       label: 'Couple-equal DC drawdown',
@@ -184,11 +187,11 @@ function strategyGuideEntries(): Array<{ label: string; description: string }> {
     },
     {
       label: 'Proportional DC drawdown',
-      description: 'Split pension withdrawals in proportion to each partner’s pension pot size.',
+      description: `Split pension withdrawals in proportion to each partner’s pension pot size.`,
     },
     {
-      label: 'Lisa-first DC drawdown',
-      description: 'Draw from Lisa’s pension before Paul’s pension.',
+      label: `${person2Name}-first DC drawdown`,
+      description: `Draw from ${person2Name}’s pension before ${person1Name}’s pension.`,
     },
     {
       label: 'ISA-preserve',
@@ -521,7 +524,7 @@ export default function OptimizerPanel({ plannerState, result }: Props) {
                 These labels describe the optimizer&apos;s comparison options. The year-by-year table below shows the actual outcome for each year.
               </p>
               <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                {strategyGuideEntries().map((entry) => (
+                {strategyGuideEntries(person1Label, person2Label).map((entry) => (
                   <div key={entry.label} className="rounded-xl border border-blue-100 bg-white p-3">
                     <p className="text-sm font-semibold text-slate-900">{entry.label}</p>
                     <p className="mt-1 text-xs leading-5 text-slate-600">{entry.description}</p>
