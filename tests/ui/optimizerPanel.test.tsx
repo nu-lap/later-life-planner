@@ -79,6 +79,7 @@ describe('OptimizerPanel', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Show strategy definitions' }));
 
     expect(screen.getByText('Strategy guide')).toBeInTheDocument();
+    expect(screen.getByText(/The app's standard order is the LLP baseline waterfall/i)).toBeInTheDocument();
     expect(screen.getByText('LLP baseline waterfall')).toBeInTheDocument();
     expect(screen.getByText('Couple-equal DC drawdown')).toBeInTheDocument();
     expect(screen.getByText('Proportional DC drawdown')).toBeInTheDocument();

@@ -175,11 +175,15 @@ function buildOverallPatternSummary(result: OptimizationResult): string {
 function strategyGuideEntries(
   person1Name: string,
   person2Name: string,
+  isCouple: boolean,
 ): Array<{ label: string; description: string }> {
+  const baselineDescription = isCouple
+    ? `App's standard order: DC pension within each person's personal allowance plus 25% PCLS, then GIA within the CGT allowance, then ISA, then remaining GIA, then DC pension above the personal allowance.`
+    : `App's standard order: DC pension within the personal allowance plus 25% PCLS, then GIA within the CGT allowance, then ISA, then remaining GIA, then DC pension above the personal allowance.`;
   return [
     {
       label: 'LLP baseline waterfall',
-      description: `The app’s usual starting approach. Draw from ${person1Name}’s pension first, use ISA withdrawals from the start, then move through the remaining buckets in the default order.`,
+      description: baselineDescription,
     },
     {
       label: 'Couple-equal DC drawdown',
@@ -348,7 +352,7 @@ export default function OptimizerPanel({ plannerState, result }: Props) {
     <>
       <div className="game-card">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div className="w-full min-w-0">
+          <div className="flex-1 min-w-0">
             <h3 className="section-heading mb-1">Withdrawal plan optimisation</h3>
             <p className="text-xs text-slate-500">
               Compare LLP&apos;s standard withdrawal order with other deterministic options.
@@ -365,7 +369,7 @@ export default function OptimizerPanel({ plannerState, result }: Props) {
                 <div>
                   <p className="text-xs font-bold uppercase tracking-wide text-blue-700">Strategy guide</p>
                   <p className="mt-1 text-xs text-blue-700">
-                    These are the shorthand labels used in the comparison table. LLP baseline waterfall starts with Paul&apos;s pension and ISA, then follows the app&apos;s usual drawdown order. Use the button to show strategy definitions.
+                    These are the named strategies the optimiser compares. The app&apos;s standard order is the LLP baseline waterfall; use the button to show strategy definitions.
                   </p>
                 </div>
                 <button
@@ -380,7 +384,7 @@ export default function OptimizerPanel({ plannerState, result }: Props) {
               </div>
               {showStrategyGuide ? (
                 <div id="strategy-guide-panel" className="mt-4 grid gap-3 sm:grid-cols-2">
-                  {strategyGuideEntries(person1Label, person2Label).map((entry) => (
+                  {strategyGuideEntries(person1Label, person2Label, isCouple).map((entry) => (
                     <div key={entry.label} className="rounded-xl border border-blue-100 bg-white p-3">
                       <p className="text-sm font-semibold text-slate-900">{entry.label}</p>
                       <p className="mt-1 text-xs leading-5 text-slate-600">{entry.description}</p>
@@ -502,14 +506,14 @@ export default function OptimizerPanel({ plannerState, result }: Props) {
                 Shows the actual withdrawals used year by year. This is the source of truth when the plan changes over time and the net spend target must still be met after tax.
               </p>
             </div>
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-col items-start gap-1 text-left sm:items-end sm:text-right">
               <p className="text-xs text-slate-500">
                 Showing {shownYearCount} of {result.yearRecords.length} years
               </p>
               <button
                 type="button"
                 onClick={() => setShowDrawdownBreakdown((current) => !current)}
-                className="self-start text-sm font-semibold text-orange-600 hover:text-orange-700 sm:self-auto"
+                className="text-sm font-semibold text-orange-600 hover:text-orange-700"
                 aria-expanded={showDrawdownBreakdown}
                 aria-controls="drawdown-breakdown-panel"
               >
