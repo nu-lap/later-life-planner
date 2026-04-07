@@ -422,7 +422,6 @@ export default function Step4Dashboard({ onBack }: Props) {
     person2,
     lifeStages,
     rlssStandard,
-    spendingCategories,
     fiAge,
     goalRegistry,
     setGoalRegistry,
