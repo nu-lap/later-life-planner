@@ -586,11 +586,10 @@ export default function OptimizerPanel({ plannerState, result }: Props) {
                   Explain this recommendation
                 </h2>
                 <p className="mt-2 text-sm leading-6 text-slate-600">
-                  LaterLifePlan will send a minimised summary of your ages, household type, high-level asset totals,
-                  optimiser result, and HMRC rule provenance to {providerLabel} through the server-side
-                  explanation route. If you consent, the server will also retrieve matching HMRC guidance
-                  excerpts using the disclosed rule IDs, tax year, and jurisdiction. Names, addresses,
-                  account numbers, and full yearly plan data are not sent.
+                  LaterLifePlan will send a short summary of your plan details to generate this explanation.
+                  If you agree, it will also look up the matching HMRC guidance using the rule IDs, tax year,
+                  and jurisdiction in your plan. It will not send names, addresses, account numbers, or the
+                  full year-by-year plan.
                 </p>
 
                 {isLoadingCachedExplanation ? (
@@ -614,7 +613,7 @@ export default function OptimizerPanel({ plannerState, result }: Props) {
                         <li>Guaranteed income total and DC, ISA, and GIA balances</li>
                         <li>Recommended strategy, baseline comparison, tax saving, and terminal assets</li>
                         <li>HMRC rule IDs, versions, and tax years used to build the recommendation</li>
-                        <li>Matched HMRC guidance excerpts filtered by those rule IDs, tax year, and jurisdiction</li>
+                        <li>Matched HMRC guidance for those rule IDs, tax year, and jurisdiction</li>
                       </ul>
                     </div>
 
