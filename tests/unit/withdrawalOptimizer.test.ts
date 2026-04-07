@@ -84,6 +84,15 @@ describe('optimizeWithdrawals', () => {
     expect(firstYear.drawdowns.p1DcTaxFree).toBeCloseTo(firstYear.drawdowns.p1Dc * 0.25, 2);
   });
 
+  test('grosses up taxable withdrawals so net income meets the required spending target', () => {
+    const result = optimizeWithdrawals(withSpending(dcOnlyState(60, 100_000), 20_000));
+    const firstYear = result.yearRecords[0].winner;
+
+    expect(firstYear.feasible).toBe(true);
+    expect(firstYear.totalIncome).toBeGreaterThan(firstYear.spendingTarget);
+    expect(Math.abs(firstYear.netIncome - firstYear.spendingTarget)).toBeLessThan(1);
+  });
+
   test('harvests joint GIA within the annual exempt amount before touching ISA', () => {
     const base = bareCoupleState(60, 60);
     const state = withSpending({

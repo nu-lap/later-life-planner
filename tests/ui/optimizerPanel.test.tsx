@@ -22,9 +22,11 @@ describe('OptimizerPanel', () => {
     expect(screen.getByText('Withdrawal plan optimisation')).toBeInTheDocument();
     expect(screen.queryByText('Recommended')).not.toBeInTheDocument();
     expect(screen.getByText('Overall pattern')).toBeInTheDocument();
+    expect(screen.getByText(/Required spending is treated as a net cash target\./)).toBeInTheDocument();
     expect(screen.getByText('Tax impact vs standard approach')).toBeInTheDocument();
     expect(screen.getByText('Plan durability vs standard approach')).toBeInTheDocument();
     expect(screen.getByText('End-of-plan assets vs standard approach')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'What do these strategies mean?' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '▼ Show comparison' })).toBeInTheDocument();
   });
 
@@ -56,6 +58,26 @@ describe('OptimizerPanel', () => {
 
     expect(screen.getAllByText('Runner-up').length).toBeGreaterThan(0);
     expect(screen.getAllByText('LLP baseline waterfall').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Required net income').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Shortfall').length).toBeGreaterThan(0);
+  });
+
+  test('reveals a compact strategy guide on demand', async () => {
+    const plannerState = paulAndLisaState();
+    const result = optimizeWithdrawals(plannerState);
+
+    render(<OptimizerPanel plannerState={plannerState} result={result} />);
+
+    expect(screen.queryByText('Strategy guide')).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'What do these strategies mean?' }));
+
+    expect(screen.getByText('Strategy guide')).toBeInTheDocument();
+    expect(screen.getByText('LLP baseline waterfall')).toBeInTheDocument();
+    expect(screen.getByText('Couple-equal DC drawdown')).toBeInTheDocument();
+    expect(screen.getByText('Proportional DC drawdown')).toBeInTheDocument();
+    expect(screen.getByText('Lisa-first DC drawdown')).toBeInTheDocument();
+    expect(screen.getByText('ISA-preserve')).toBeInTheDocument();
   });
 
   test('requires consent before generating an explanation and sends a minimised payload', async () => {

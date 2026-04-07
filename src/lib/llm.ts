@@ -61,6 +61,7 @@ Points to note
 - Never mention raw strategy labels, field names, internal abbreviations, or system codes.
 - If you mention secure income, make clear that some of it may start later in retirement, for example State Pension.
 - If you mention spending, make clear that the figure shown is the first projected year's target unless you explicitly say otherwise.
+- Treat required spending as a net cash target. If tax applies, explain that gross withdrawals may need to be higher to leave the same spendable amount.
 - If the recommended strategy matches the app's standard starting strategy, say that plainly as the app's usual starting approach.
 - Do not mention internal system terms or missing internal inputs.
 - Do not ask follow-up questions.`;
@@ -238,6 +239,7 @@ export function buildPrompt(context: ExplanationContext): string {
     '- Start directly with the recommendation and why it matters.',
     '- Use plain English throughout. For example, say England, Wales or Northern Ireland rather than a code.',
     '- Do not say things like ISA mode, baseline, fallback version, payload, schema, technical guidance retrieval terms, or raw strategy labels.',
+    '- Treat required spending as a net cash target. Explain that tax can make gross withdrawals higher than the spendable amount.',
     "- If the recommendation matches the app's standard starting strategy, explain that plainly as the app's usual starting approach rather than calling it optimal by default.",
     '- If you mention secure income, make clear that part of it may only arrive later in retirement, such as State Pension.',
     '- If you mention spending, make clear that the figure is for the first projected year.',
