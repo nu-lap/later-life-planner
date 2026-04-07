@@ -66,10 +66,28 @@ Layer 4: Goal orch.     — LLM maps preferences → optimizer config (later)
 Phase 1 (Optimizer Core)    → Phase 2 (UI Panel)
 Phase 1                     → Phase 3 (Explain Route) → Phase 4 (RAG)
 Phase 1                     → Phase 5 (Year-by-Year Drawdown Breakdown)
-Phase 3                     → Phase 7 (Goal Orchestration)
-Phase 6 (Audit Route)       — unblocked; deliver any time
-Phase 8 (Scotland)          — unblocked; deliver in parallel
+Phase 5                     → Phase 6 (Dashboard UI Cleanup)
+Phase 7 (Audit Route)       — unblocked; deliver any time
+Phase 3                     → Phase 8 (Goal Orchestration)
+Phase 9 (Scotland)          — unblocked; deliver in parallel
 ```
+
+---
+
+## Phase Checklist
+
+- [x] Phase 1 — Optimizer Core Port
+- [x] Phase 2 — Optimizer UI Panel
+- [x] Phase 3 — Explanation API Route
+- [x] Phase 4 — Cosmos RAG Retrieval
+- [x] Phase 5 — Year-by-Year Drawdown Breakdown
+- [ ] Phase 6 — Dashboard UI Cleanup
+- [ ] Phase 7 — Audit/Trace Route
+- [ ] Phase 8 — Goal Orchestration
+- [ ] Phase 9 — Scotland Jurisdiction
+
+---
+
 
 ---
 
@@ -598,7 +616,7 @@ Rules:
   - `taxableAmount`
   - `taxDue` on the taxable amount
 - For GIA withdrawals, show the gross disposal amount and the tax due attributable to
-the taxable gain realised that year
+  the taxable gain realised that year
 - For ISA and cash withdrawals, show gross amount only (no tax field)
 - For couples, keep person-level ownership explicit; do not collapse into a household total
 
@@ -618,7 +636,7 @@ Implementation requirements:
   - 25% `pcls`
   - 75% `taxableAmount`
 - Surface the tax due attributable to each taxable withdrawal source, rather than only
-a year-level total tax number
+  a year-level total tax number
 - Keep the breakdown as deterministic engine output, not presentation logic
 
 ### 5.3 Add a yearly breakdown panel or table
@@ -665,14 +683,113 @@ the breakdown in a readable year-by-year table without changing the optimizer de
 
 ---
 
-## Phase 6 — Audit/Trace Route
+## Phase 6 — Dashboard UI Cleanup
+
+**Goal:** Rework the Step 4 dashboard so the optimizer output reads as one coherent
+planner experience rather than a stack of overlapping cards, charts, strategies, and
+tables. Phase 5 made the year-by-year breakdown authoritative, so the dashboard now
+needs a deliberate information hierarchy.
+
+**Depends on:** Phase 5 complete.
+
+### 6.1 Review dashboard information architecture end-to-end
+
+Files:
+- `src/components/steps/Step4Dashboard.tsx`
+- `src/components/OptimizerPanel.tsx`
+- any extracted dashboard summary components
+
+Perform a whole-dashboard audit of:
+- KPI cards
+- charts
+- simplified withdrawal summary cards
+- optimizer summary cards
+- year-by-year optimizer tables
+- year-by-year projection table
+
+Cleanup rules:
+- each major fact should have one clear home
+- the page should not show the same conclusion twice with different labels
+- the page should not show two strategy summaries that can appear to disagree
+- if a widget is descriptive only, it must not compete with the optimizer recommendation for attention
+
+### 6.2 Remove the fixed `Recommended` lozenge from the optimizer header
+
+Current issue:
+- a fixed `Recommended <strategy>` badge implies one static strategy governs the whole plan
+- after Phase 5, the actual source of truth is the year-by-year drawdown breakdown
+- this top-right lozenge now overstates simplicity and can conflict with what the yearly table shows
+
+Required change:
+- remove the fixed `Recommended` lozenge from the permanent UI design
+- replace it with one of:
+  - a plain-English `Overall pattern` summary
+  - a `Starting approach` summary if it only describes the first projected year
+  - no header badge at all if the yearly breakdown is the clearer representation
+- if the plan varies materially by year, the UI must say that explicitly rather than pretending there is one fixed strategy
+
+### 6.3 Resolve duplication and conflict across the dashboard
+
+Critical findings from the current dashboard review:
+- `Simplified tax-efficient withdrawal strategy` and `AI optimizer preview` both communicate withdrawal guidance, but not in the same form
+- top-level KPI cards, optimizer KPI cards, and lower projection tables repeat asset and depletion concepts in different words
+- the dashboard currently mixes static summary advice with year-by-year operational detail without a clear hierarchy
+- some sections explain the plan, while others restate the same outcome numerically, creating visual noise rather than clarity
+
+Required cleanup:
+- define one canonical withdrawal guidance section
+- decide whether the simplified strategy card remains educational only, or is absorbed into the optimizer panel
+- remove duplicate asset depletion / horizon-survival messaging
+- remove duplicate tax-summary messaging where the optimizer already covers it
+- make it clear which elements are household-level summary and which are year-level detail
+
+### 6.4 Make the yearly breakdown readable and scannable
+
+Critical findings from the current dashboard review:
+- the Phase 5 table is accurate but visually overwhelming at full horizon length
+- the table occupies a large vertical span and creates long stretches of sparse white space
+- the dense multi-column layout makes it hard to identify the important years or compare the two people quickly
+
+Required cleanup:
+- use names where available, not `Person 1` / `Person 2`
+- add stronger grouping for each person's buckets
+- keep `Year` / age context sticky or visually anchored
+- use progressive disclosure for long horizons: first N years, expand, or grouped periods
+- consider collapsing zero-value cells or whole empty sections when they do not help interpretation
+- ensure desktop and mobile layouts remain readable without forcing the user through a wall of tiny numbers
+
+### 6.5 Tighten plain-English labels and user meaning
+
+Critical findings from the current dashboard review:
+- some labels still describe internal model structure rather than user decisions
+- users need to understand whether a number is:
+  - a first-year value
+  - a lifetime value
+  - an end-of-horizon value
+  - a per-year operational withdrawal amount
+
+Required cleanup:
+- distinguish clearly between first-year, yearly, and lifetime metrics
+- prefer plain-English labels over internal optimizer terminology
+- ensure every summary card answers a distinct user question
+- remove labels that are accurate but not decision-useful
+
+**Acceptance criteria for Phase 6:** The Step 4 dashboard has a clear top-to-bottom
+information hierarchy, no fixed `Recommended` lozenge, no conflicting withdrawal
+strategy summaries, and no obvious duplicate asset/tax/depletion messaging. The
+optimizer section uses plain-English summaries and a readable year-by-year breakdown
+that supports both single and couple plans without overwhelming the page.
+
+---
+
+## Phase 7 — Audit/Trace Route
 
 **Goal:** Developer and auditor tool to inspect exact rule execution for a given
 projection year.
 
 **Unblocked — no dependencies. Deliver any time.**
 
-### 6.1 `GET /api/tax-trace`
+### 7.1 `GET /api/tax-trace`
 
 File: `src/app/api/tax-trace/route.ts`
 
@@ -682,19 +799,19 @@ File: `src/app/api/tax-trace/route.ts`
 - Returns structured trace (step-by-step evaluation)
 - Not user-facing in MVP — for developer and audit use
 
-**Acceptance criteria for Phase 6:** Route returns a valid trace for
+**Acceptance criteria for Phase 7:** Route returns a valid trace for
 `income_tax_bands` with `{ taxable_income: 35000 }` and `tax_year: "2025-26"`.
 
 ---
 
-## Phase 7 — Goal Orchestration
+## Phase 8 — Goal Orchestration
 
 **Goal:** Allow users to express goal priorities in natural language or structured UI;
 an LLM maps these into a `WaterfallConfig` override for the optimizer.
 
 **Depends on:** Phase 3 complete. Deliver after optimizer output contracts are stable.
 
-### 7.1 Goal registry types
+### 8.1 Goal registry types
 
 Add to `src/models/types.ts`:
 
@@ -743,25 +860,25 @@ export interface OptimizerPolicyOverride {
 
 Default priority stack matches `docs/optimizer-architecture-reconciled.md` §Canonical Layer Model.
 
-### 7.2 Goal preference UI
+### 8.2 Goal preference UI
 
 - Add goal priority panel (Step 5 or dedicated Goals step)
 - Drag-and-drop reordering or ranked sliders
 - Store `GoalRegistry` in `PlannerState`
 
-### 7.3 `POST /api/goal-orchestrate`
+### 8.3 `POST /api/goal-orchestrate`
 
 File: `src/app/api/goal-orchestrate/route.ts`
 
 - Accepts: `{ planSummary, goalRegistry, naturalLanguageInput? }`
 - Uses `llm.ts` wrapper to map inputs → `OptimizerPolicyOverride`
-- Returns structured policy override — not prose. Phase 6 is explicitly designed to
+- Returns structured policy override — not prose. Phase 8 is explicitly designed to
   evolve **beyond** the 5-strategy waterfall family: `OptimizerPolicyOverride` expresses
   constraint thresholds (care reserve, bequest floor, spending floor) that the optimizer
   enforces as objective constraints, not just ordering preferences.
 - Downstream: `optimizeWithdrawals(state, { policyOverride })`
 
-**Acceptance criteria for Phase 7:** Given `goalRegistry` with `bequest` at
+**Acceptance criteria for Phase 8:** Given `goalRegistry` with `bequest` at
 priority 1 and a target value, the orchestrator returns an `OptimizerPolicyOverride`
 with `bequestTarget` set and `isaMode: 'defer'`. The optimizer respects the bequest
 floor as a constraint — a solution that violates it is rejected as infeasible even if
@@ -769,13 +886,13 @@ it produces lower lifetime tax.
 
 ---
 
-## Phase 8 — Scotland Jurisdiction
+## Phase 9 — Scotland Jurisdiction
 
 **Goal:** Support Scottish taxpayers correctly through the optimizer and projection engine.
 
 **Unblocked — deliver in parallel with any phase.**
 
-### 8.1 Capture `taxJurisdiction` in plan model
+### 9.1 Capture `taxJurisdiction` in plan model
 
 Add to `src/models/types.ts`:
 
@@ -786,20 +903,20 @@ export type TaxJurisdiction = 'rUK' | 'scotland';
 Add to `PersonalDetails` or top-level `PlannerState`. Capture in Step 1 UI (radio select,
 default `'rUK'`).
 
-### 8.2 Extend tax snapshot for Scotland
+### 9.2 Extend tax snapshot for Scotland
 
 - Update `scripts/gen-tax-snapshot.ts` to emit Scotland bands (6 bands: nil, starter,
   basic, intermediate, higher, advanced, top)
 - Update `src/config/taxRuleSnapshot.ts` to include Scotland entries
 - Update `getSnapshotForYear(year, jurisdiction?)` signature
 
-### 8.3 Pass jurisdiction through engine
+### 9.3 Pass jurisdiction through engine
 
 - Update `optimizeWithdrawals(state)` — reads `state.taxJurisdiction`
 - Update `calculateProjections(state)` — use jurisdiction-aware snapshot lookup
 - Scotland savings and dividend allowances are UK-wide — no change needed there
 
-**Acceptance criteria for Phase 8:** Scottish taxpayer at £35,000 income produces
+**Acceptance criteria for Phase 9:** Scottish taxpayer at £35,000 income produces
 £4,532.82 income tax (6-band Scottish calculation) matching `hmrc-tax-mcp` output.
 
 ---

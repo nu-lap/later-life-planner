@@ -112,6 +112,58 @@ function TaxFreeBreakdownCell({ breakdown }: { breakdown?: TaxFreeWithdrawalBrea
   return <BreakdownField label="Gross" value={breakdown.grossAmount} />;
 }
 
+function formatSignedCurrency(value: number): string {
+  if (value === 0) return formatCurrency(0, true);
+  return `${value > 0 ? '+' : '-'}${formatCurrency(Math.abs(value), true)}`;
+}
+
+function formatDurabilityHeadline(current: number | null, baseline: number | null): string {
+  if (current === baseline) return 'No change';
+  if (current === null) return 'Lasts to horizon';
+  if (baseline === null) return 'Earlier depletion';
+  const delta = current - baseline;
+  return delta > 0 ? `+${delta} years` : `${delta} years`;
+}
+
+function formatDurabilityDetail(current: number | null, baseline: number | null): string {
+  if (current === null && baseline === null) {
+    return 'Both approaches last to the end of the plan.';
+  }
+  if (current === null && baseline !== null) {
+    return `Standard approach depletes at age ${baseline}.`;
+  }
+  if (current !== null && baseline === null) {
+    return `This option depletes at age ${current}; the standard approach lasts to horizon.`;
+  }
+  if (current === baseline && current !== null) {
+    return `Both approaches deplete at age ${current}.`;
+  }
+  if (current !== null && baseline !== null && current > baseline) {
+    return `Extends plan durability from age ${baseline} to age ${current}.`;
+  }
+  if (current !== null && baseline !== null) {
+    return `Shortens plan durability from age ${baseline} to age ${current}.`;
+  }
+  return 'Compares how long each approach keeps assets available.';
+}
+
+function buildOverallPatternSummary(result: OptimizationResult): string {
+  const winnerLabels = result.yearRecords.map((record) => describeStrategyLabel(record.winner.strategy.label));
+  const uniqueLabels = [...new Set(winnerLabels)];
+  const dominantLabel = describeStrategyLabel(result.recommendedStrategy.label);
+  const firstYearLabel = winnerLabels[0] ?? dominantLabel;
+
+  if (uniqueLabels.length <= 1) {
+    return `${dominantLabel} is used throughout the plan.`;
+  }
+
+  if (firstYearLabel === dominantLabel) {
+    return `Starts with ${firstYearLabel}. The withdrawals vary by year, but this remains the most common pattern overall.`;
+  }
+
+  return `Starts with ${firstYearLabel}. The withdrawals vary by year, with ${dominantLabel} used most often overall.`;
+}
+
 const KNOWN_PROVIDER_LABELS: Record<string, string> = {
   'azure-openai': 'Azure OpenAI',
   anthropic: 'Anthropic',
@@ -190,6 +242,7 @@ function formatExplanationBlocks(text: string): ExplanationBlock[] {
 
 export default function OptimizerPanel({ plannerState, result }: Props) {
   const [showAll, setShowAll] = useState(false);
+  const [showStrategyComparison, setShowStrategyComparison] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [hasConsented, setHasConsented] = useState(false);
   const [isExplaining, setIsExplaining] = useState(false);
@@ -200,14 +253,14 @@ export default function OptimizerPanel({ plannerState, result }: Props) {
     () => (showAll ? result.yearRecords : result.yearRecords.slice(0, 10)),
     [result.yearRecords, showAll],
   );
-  const recommended = describeStrategyLabel(result.recommendedStrategy.label);
-  const depletionLabel = result.assetDepletionAge === null
-    ? 'Assets last to horizon'
-    : `Age ${result.assetDepletionAge}`;
   const isCouple = plannerState.mode === 'couple';
   const person1Label = plannerState.person1.name || (isCouple ? 'Partner 1' : 'You');
   const person2Label = plannerState.person2.name || 'Partner 2';
   const providerLabel = getProviderLabel();
+  const baselineTerminalAssets = result.baselineProjections.at(-1)?.totalAssets ?? 0;
+  const terminalAssetDelta = result.terminalAssets - baselineTerminalAssets;
+  const overallPatternSummary = useMemo(() => buildOverallPatternSummary(result), [result]);
+  const shownYearCount = rows.length;
   const hasExplanation = Boolean(explanation && explanation.trim().length > 0);
   const explanationBlocks = useMemo(
     () => (hasExplanation ? formatExplanationBlocks(explanation!) : []),
@@ -256,18 +309,18 @@ export default function OptimizerPanel({ plannerState, result }: Props) {
   return (
     <>
       <div className="game-card">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <h3 className="section-heading mb-1">AI optimizer preview</h3>
+            <h3 className="section-heading mb-1">Withdrawal plan optimisation</h3>
             <p className="text-xs text-slate-500">
-              Deterministic strategy search over the existing waterfall order. No LLM in the hot path.
+              Compares the app&apos;s standard withdrawal order with other deterministic options.
             </p>
+            <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Overall pattern</p>
+              <p className="mt-1 text-sm font-semibold text-slate-900">{overallPatternSummary}</p>
+            </div>
           </div>
           <div className="flex flex-col gap-2 sm:items-end">
-            <div className="rounded-2xl bg-slate-900 px-4 py-3 text-white">
-              <p className="text-xs uppercase tracking-wide text-slate-300">Recommended</p>
-              <p className="text-lg font-black">{recommended}</p>
-            </div>
             <button
               type="button"
               onClick={() => void openDialog()}
@@ -280,101 +333,73 @@ export default function OptimizerPanel({ plannerState, result }: Props) {
 
         <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
           <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
-            <p className="text-xs font-bold text-emerald-700">Lifetime tax saving</p>
+            <p className="text-xs font-bold text-emerald-700">Tax impact vs standard approach</p>
             <p className="mt-1 text-2xl font-black text-emerald-900">
               {formatCurrency(result.lifetimeTaxSaving, true)}
             </p>
             <p className="mt-1 text-xs text-emerald-700">
-              vs {describeStrategyLabel(result.baselineStrategy.label)}
+              Optimized tax: {formatCurrency(result.lifetimeTaxPaid, true)} · standard: {formatCurrency(result.baselineLifetimeTaxPaid, true)}
             </p>
           </div>
           <div className="rounded-2xl border border-sky-100 bg-sky-50 p-4">
-            <p className="text-xs font-bold text-sky-700">Asset depletion age</p>
-            <p className="mt-1 text-2xl font-black text-sky-900">{depletionLabel}</p>
+            <p className="text-xs font-bold text-sky-700">Plan durability vs standard approach</p>
+            <p className="mt-1 text-2xl font-black text-sky-900">
+              {formatDurabilityHeadline(result.assetDepletionAge, result.baselineAssetDepletionAge)}
+            </p>
             <p className="mt-1 text-xs text-sky-700">
-              Baseline: {result.baselineAssetDepletionAge === null
-                ? 'lasts to horizon'
-                : `age ${result.baselineAssetDepletionAge}`}
+              {formatDurabilityDetail(result.assetDepletionAge, result.baselineAssetDepletionAge)}
             </p>
           </div>
           <div className="rounded-2xl border border-violet-100 bg-violet-50 p-4">
-            <p className="text-xs font-bold text-violet-700">Terminal assets</p>
+            <p className="text-xs font-bold text-violet-700">End-of-plan assets vs standard approach</p>
             <p className="mt-1 text-2xl font-black text-violet-900">
-              {formatCurrency(result.terminalAssets, true)}
+              {formatSignedCurrency(terminalAssetDelta)}
             </p>
             <p className="mt-1 text-xs text-violet-700">
-              Optimized tax: {formatCurrency(result.lifetimeTaxPaid, true)}
+              Optimized: {formatCurrency(result.terminalAssets, true)} · standard: {formatCurrency(baselineTerminalAssets, true)}
             </p>
           </div>
         </div>
 
-        <div className="mt-5 overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-slate-100 text-left text-slate-500">
-                <th className="pb-2 pr-3 font-bold">Age</th>
-                <th className="pb-2 pr-3 font-bold">Best</th>
-                <th className="pb-2 pr-3 font-bold">Runner-up</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((record) => {
-                const [best, runnerUp] = record.topStrategies;
-                return (
-                  <tr key={record.p1Age} className="border-b border-slate-50 align-top">
-                    <td className="py-3 pr-3 text-slate-700">
-                      {record.p1Age}
-                      {record.p2Age !== null ? ` / ${record.p2Age}` : ''}
-                    </td>
-                    <td className="py-3 pr-3">
-                      <StrategyRow label="Best" result={best ?? record.winner} accent="emerald" />
-                    </td>
-                    <td className="py-3 pr-0">
-                      {runnerUp ? (
-                        <StrategyRow label="Runner-up" result={runnerUp} accent="amber" />
-                      ) : (
-                        <div className="rounded-2xl border border-slate-100 bg-slate-50 p-3 text-xs text-slate-500">
-                          No alternative strategy for this year.
-                        </div>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-
         <div className="mt-6">
-          <div className="mb-3">
+          <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+            <div>
             <h4 className="text-sm font-black uppercase tracking-wide text-slate-700">
               Year-by-year drawdown breakdown
             </h4>
             <p className="mt-1 text-xs text-slate-500">
-              Shows what each person draws from pension, ISA, GIA, and cash each year, including
-              tax-free pension cash, taxable pension withdrawals, and tax due on taxable withdrawals.
+                Shows the actual withdrawals used year by year. This is the source of truth when the plan changes over time.
+            </p>
+            </div>
+            <p className="text-xs text-slate-500">
+              Showing {shownYearCount} of {result.yearRecords.length} years
             </p>
           </div>
           <div className="overflow-x-auto" data-testid="optimizer-drawdown-breakdown-table">
             <table className="min-w-full text-xs">
               <thead>
                 <tr className="border-b border-slate-100 text-left text-slate-500">
-                  <th className="pb-2 pr-3 font-bold">Year</th>
-                  <th className="pb-2 pr-3 font-bold">{person1Label} pension</th>
-                  <th className="pb-2 pr-3 font-bold">{person1Label} ISA</th>
-                  <th className="pb-2 pr-3 font-bold">{person1Label} GIA</th>
-                  <th className="pb-2 pr-3 font-bold">{person1Label} cash</th>
-                  {isCouple ? <th className="pb-2 pr-3 font-bold">{person2Label} pension</th> : null}
-                  {isCouple ? <th className="pb-2 pr-3 font-bold">{person2Label} ISA</th> : null}
-                  {isCouple ? <th className="pb-2 pr-3 font-bold">{person2Label} GIA</th> : null}
-                  {isCouple ? <th className="pb-2 pr-3 font-bold">{person2Label} cash</th> : null}
-                  {isCouple ? <th className="pb-2 pr-0 font-bold">Joint GIA</th> : null}
+                  <th rowSpan={2} className="sticky left-0 z-10 bg-white pb-2 pr-3 font-bold">Age</th>
+                  <th colSpan={4} className="pb-2 pr-3 text-center font-bold">{person1Label}</th>
+                  {isCouple ? <th colSpan={4} className="pb-2 pr-3 text-center font-bold">{person2Label}</th> : null}
+                  {isCouple ? <th colSpan={1} className="pb-2 pr-0 text-center font-bold">Joint</th> : null}
+                </tr>
+                <tr className="border-b border-slate-100 text-left text-slate-500">
+                  <th className="pb-2 pr-3 font-bold">Pension</th>
+                  <th className="pb-2 pr-3 font-bold">ISA</th>
+                  <th className="pb-2 pr-3 font-bold">GIA</th>
+                  <th className="pb-2 pr-3 font-bold">Cash</th>
+                  {isCouple ? <th className="pb-2 pr-3 font-bold">Pension</th> : null}
+                  {isCouple ? <th className="pb-2 pr-3 font-bold">ISA</th> : null}
+                  {isCouple ? <th className="pb-2 pr-3 font-bold">GIA</th> : null}
+                  {isCouple ? <th className="pb-2 pr-3 font-bold">Cash</th> : null}
+                  {isCouple ? <th className="pb-2 pr-0 font-bold">GIA</th> : null}
                 </tr>
               </thead>
               <tbody>
                 {rows.map((record) => (
                   <tr key={`breakdown-${record.p1Age}-${record.yearIndex}`} className="border-b border-slate-50 align-top">
-                    <td className="py-3 pr-3 text-slate-700">
+                    <td className="sticky left-0 z-10 bg-white py-3 pr-3 text-slate-700">
                       {record.p1Age}
                       {record.p2Age !== null ? ` / ${record.p2Age}` : ''}
                     </td>
@@ -420,6 +445,65 @@ export default function OptimizerPanel({ plannerState, result }: Props) {
               </tbody>
             </table>
           </div>
+        </div>
+
+        <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h4 className="text-sm font-black uppercase tracking-wide text-slate-700">
+                Strategy comparison by year
+              </h4>
+              <p className="mt-1 text-xs text-slate-500">
+                Secondary detail showing the best and runner-up options for each year.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowStrategyComparison((current) => !current)}
+              className="text-sm font-semibold text-orange-600 hover:text-orange-700"
+            >
+              {showStrategyComparison ? '▲ Hide comparison' : '▼ Show comparison'}
+            </button>
+          </div>
+
+          {showStrategyComparison ? (
+            <div className="mt-4 overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-slate-100 text-left text-slate-500">
+                    <th className="pb-2 pr-3 font-bold">Age</th>
+                    <th className="pb-2 pr-3 font-bold">Best</th>
+                    <th className="pb-2 pr-0 font-bold">Runner-up</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((record) => {
+                    const [best, runnerUp] = record.topStrategies;
+                    return (
+                      <tr key={record.p1Age} className="border-b border-slate-50 align-top">
+                        <td className="py-3 pr-3 text-slate-700">
+                          {record.p1Age}
+                          {record.p2Age !== null ? ` / ${record.p2Age}` : ''}
+                        </td>
+                        <td className="py-3 pr-3">
+                          <StrategyRow label="Best" result={best ?? record.winner} accent="emerald" />
+                        </td>
+                        <td className="py-3 pr-0">
+                          {runnerUp ? (
+                            <StrategyRow label="Runner-up" result={runnerUp} accent="amber" />
+                          ) : (
+                            <div className="rounded-2xl border border-slate-100 bg-white p-3 text-xs text-slate-500">
+                              No alternative strategy for this year.
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          ) : null}
         </div>
 
         {result.yearRecords.length > 10 && (
