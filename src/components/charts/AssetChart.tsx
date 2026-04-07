@@ -21,11 +21,16 @@ function formatY(v: number) {
   return `£${v}`;
 }
 
+function formatTooltipAge(label: string | number, p2Age?: number | null): string {
+  return `Age ${label}${p2Age != null ? ` / ${p2Age}` : ''}`;
+}
+
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (!active || !payload?.length) return null;
+  const p2 = payload[0]?.payload?.p2Age;
   return (
     <div className="bg-white border border-slate-200 rounded-xl shadow-lg p-4 text-sm min-w-[180px]">
-      <p className="font-bold text-slate-800 mb-2">Age {label}</p>
+      <p className="font-bold text-slate-800 mb-2">{formatTooltipAge(label, p2)}</p>
       {payload.map((p: any) => (
         <div key={p.dataKey} className="flex items-center justify-between gap-4 mb-1">
           <span className="flex items-center gap-1.5">
@@ -44,6 +49,7 @@ export default function AssetChart({ projections }: Props) {
     .filter((_, i) => i % 2 === 0 || projections.length <= 20)
     .map(p => ({
       age:              p.p1Age,
+      p2Age:            p.p2Age,
       isaBalance:       Math.round(p.p1IsaBalance  + p.p2IsaBalance),
       giaBalance:       Math.round(p.p1GiaValue    + p.p2GiaValue    + p.jointGiaValue),
       cashBalance:      Math.round(p.p1CashBalance + p.p2CashBalance),
@@ -103,3 +109,5 @@ export default function AssetChart({ projections }: Props) {
     </ResponsiveContainer>
   );
 }
+
+export { formatTooltipAge };
