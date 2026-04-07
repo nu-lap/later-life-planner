@@ -19,14 +19,14 @@ describe('OptimizerPanel', () => {
 
     render(<OptimizerPanel plannerState={plannerState} result={result} />);
 
-    expect(screen.getByText('AI optimizer preview')).toBeInTheDocument();
-    expect(screen.getByText('Recommended')).toBeInTheDocument();
-    expect(screen.getByText('Lifetime tax saving')).toBeInTheDocument();
-    expect(screen.getByText('Asset depletion age')).toBeInTheDocument();
-    expect(screen.getAllByText('LLP baseline waterfall').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('Runner-up').length).toBeGreaterThan(0);
+    expect(screen.getByText('Withdrawal plan optimisation')).toBeInTheDocument();
+    expect(screen.queryByText('Recommended')).not.toBeInTheDocument();
+    expect(screen.getByText('Overall pattern')).toBeInTheDocument();
+    expect(screen.getByText('Tax impact vs standard approach')).toBeInTheDocument();
+    expect(screen.getByText('Plan durability vs standard approach')).toBeInTheDocument();
+    expect(screen.getByText('End-of-plan assets vs standard approach')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '▼ Show comparison' })).toBeInTheDocument();
   });
-
 
   test('renders the year-by-year drawdown breakdown table', () => {
     const plannerState = paulAndLisaState();
@@ -36,11 +36,26 @@ describe('OptimizerPanel', () => {
 
     expect(screen.getByText('Year-by-year drawdown breakdown')).toBeInTheDocument();
     expect(screen.getByTestId('optimizer-drawdown-breakdown-table')).toBeInTheDocument();
-    expect(screen.getByText('Paul pension')).toBeInTheDocument();
-    expect(screen.getByText('Lisa pension')).toBeInTheDocument();
-    expect(screen.getByText('Joint GIA')).toBeInTheDocument();
+    expect(screen.getByText('Paul')).toBeInTheDocument();
+    expect(screen.getByText('Lisa')).toBeInTheDocument();
+    expect(screen.getByText('Joint')).toBeInTheDocument();
+    expect(screen.getAllByText('Pension').length).toBeGreaterThan(0);
     expect(screen.getAllByText('PCLS').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Tax due').length).toBeGreaterThan(0);
+  });
+
+  test('keeps the strategy comparison collapsed by default and expands on demand', async () => {
+    const plannerState = paulAndLisaState();
+    const result = optimizeWithdrawals(plannerState);
+
+    render(<OptimizerPanel plannerState={plannerState} result={result} />);
+
+    expect(screen.queryByText('Runner-up')).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: '▼ Show comparison' }));
+
+    expect(screen.getAllByText('Runner-up').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('LLP baseline waterfall').length).toBeGreaterThan(0);
   });
 
   test('requires consent before generating an explanation and sends a minimised payload', async () => {

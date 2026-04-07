@@ -384,11 +384,13 @@ export default function Step4Dashboard({ onBack }: Props) {
         <AssetChart projections={displayProjections} />
       </div>
 
-      {/* Tax strategy */}
-      <TaxOverview projections={displayProjections} />
-
       {optimizerEnabled && optimizerResult && (
         <OptimizerPanel plannerState={deferredState} result={optimizerResult} />
+      )}
+
+      {/* Tax strategy */}
+      {!optimizerEnabled && (
+        <TaxOverview projections={displayProjections} />
       )}
 
       {/* Projection table */}
