@@ -13,7 +13,7 @@ afterEach(() => {
 });
 
 describe('OptimizerPanel', () => {
-  test('renders optimizer summary cards and table', () => {
+  test('renders optimizer summary cards and collapsed controls', () => {
     const plannerState = paulAndLisaState();
     const result = optimizeWithdrawals(plannerState);
 
@@ -28,13 +28,19 @@ describe('OptimizerPanel', () => {
     expect(screen.getByText('End-of-plan assets vs standard approach')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'What do these strategies mean?' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '▼ Show comparison' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '▼ Show breakdown' })).toBeInTheDocument();
+    expect(screen.queryByTestId('optimizer-drawdown-breakdown-table')).not.toBeInTheDocument();
   });
 
-  test('renders the year-by-year drawdown breakdown table', () => {
+  test('renders the year-by-year drawdown breakdown table', async () => {
     const plannerState = paulAndLisaState();
     const result = optimizeWithdrawals(plannerState);
 
     render(<OptimizerPanel plannerState={plannerState} result={result} />);
+
+    expect(screen.getByRole('button', { name: '▼ Show breakdown' })).toBeInTheDocument();
+    expect(screen.queryByTestId('optimizer-drawdown-breakdown-table')).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: '▼ Show breakdown' }));
 
     expect(screen.getByText('Year-by-year drawdown breakdown')).toBeInTheDocument();
     expect(screen.getByTestId('optimizer-drawdown-breakdown-table')).toBeInTheDocument();
@@ -68,7 +74,7 @@ describe('OptimizerPanel', () => {
 
     render(<OptimizerPanel plannerState={plannerState} result={result} />);
 
-    expect(screen.queryByText('Strategy guide')).not.toBeInTheDocument();
+    expect(screen.queryByText('LLP baseline waterfall')).not.toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('button', { name: 'What do these strategies mean?' }));
 
