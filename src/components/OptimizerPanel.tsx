@@ -11,7 +11,7 @@ import type {
   WaterfallResult,
 } from '@/financialEngine/types';
 import { explainOptimizerResult, getCachedOptimizerExplanation } from '@/lib/optimizerExplainClient';
-import { getStrategyDisplayLabel } from '@/lib/strategyDefinitions';
+import { getStrategyDefinitions, getStrategyDisplayLabel } from '@/lib/strategyDefinitions';
 import type { PlannerState } from '@/models/types';
 
 interface Props {
@@ -157,6 +157,23 @@ function formatDurabilityDetail(current: number | null, baseline: number | null)
   return 'Compares how long each approach keeps assets available.';
 }
 
+function buildOverallPatternSummary(result: OptimizationResult, mode: PlannerState['mode']): string {
+  const winnerLabels = result.yearRecords.map((record) => getStrategyDisplayLabel(mode, record.winner.strategy.label));
+  const uniqueLabels = [...new Set(winnerLabels)];
+  const dominantLabel = getStrategyDisplayLabel(mode, result.recommendedStrategy.label);
+  const firstYearLabel = winnerLabels[0] ?? dominantLabel;
+
+  if (uniqueLabels.length <= 1) {
+    return `${dominantLabel} is used throughout the plan.`;
+  }
+
+  if (firstYearLabel === dominantLabel) {
+    return `Starts with ${firstYearLabel}. The withdrawals vary by year, but this remains the most common pattern overall.`;
+  }
+
+  return `Starts with ${firstYearLabel}. The withdrawals vary by year, with ${dominantLabel} used most often overall.`;
+}
+
 const KNOWN_PROVIDER_LABELS: Record<string, string> = {
   'azure-openai': 'Azure OpenAI',
   anthropic: 'Anthropic',
@@ -235,8 +252,8 @@ function formatExplanationBlocks(text: string): ExplanationBlock[] {
 
 export default function OptimizerPanel({ plannerState, result }: Props) {
   const [showAll, setShowAll] = useState(false);
-  const [showStrategyComparison, setShowStrategyComparison] = useState(false);
-  const [showStrategyGuide, setShowStrategyGuide] = useState(false);
+  const [showStrategyComparison, setShowStrategyComparison] = useState(true);
+  const [showAllStrategyDefinitions, setShowAllStrategyDefinitions] = useState(false);
   const [showDrawdownBreakdown, setShowDrawdownBreakdown] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [hasConsented, setHasConsented] = useState(false);
@@ -254,16 +271,20 @@ export default function OptimizerPanel({ plannerState, result }: Props) {
   const providerLabel = getProviderLabel();
   const baselineTerminalAssets = result.baselineProjections.at(-1)?.totalAssets ?? 0;
   const terminalAssetDelta = result.terminalAssets - baselineTerminalAssets;
-  const strategyGuideEntries = useMemo(
-    () => result.yearRecords.slice(0, 5).map((record) => ({
-      ageLabel: record.p2Age !== null ? `${record.p1Age} / ${record.p2Age}` : `${record.p1Age}`,
-      strategyLabel: getStrategyDisplayLabel(plannerState.mode, record.winner.strategy.label),
-      netIncome: record.winner.netIncome,
-      tax: record.winner.totalTax,
-      gap: record.winner.gap,
-    })),
-    [plannerState.mode, result.yearRecords],
+  const overallPatternSummary = useMemo(() => buildOverallPatternSummary(result, plannerState.mode), [plannerState.mode, result]);
+  const allStrategyGuideEntries = useMemo(
+    () => getStrategyDefinitions(plannerState.mode, person1Label, isCouple ? person2Label : undefined),
+    [isCouple, person1Label, person2Label, plannerState.mode],
   );
+  const strategyGuideEntries = useMemo(() => {
+    if (showAllStrategyDefinitions) {
+      return allStrategyGuideEntries;
+    }
+
+    const strategyLabels = new Set(rows.map((record) => getStrategyDisplayLabel(plannerState.mode, record.winner.strategy.label)));
+
+    return allStrategyGuideEntries.filter((entry) => strategyLabels.has(entry.label));
+  }, [allStrategyGuideEntries, plannerState.mode, rows, showAllStrategyDefinitions]);
   const shownYearCount = rows.length;
   const hasExplanation = Boolean(explanation && explanation.trim().length > 0);
   const explanationBlocks = useMemo(
@@ -319,6 +340,9 @@ export default function OptimizerPanel({ plannerState, result }: Props) {
             <p className="text-xs text-slate-500">
               Compare LaterLifePlan&apos;s standard withdrawal order with other deterministic options.
             </p>
+            <p className="mt-2 max-w-2xl text-xs leading-6 text-slate-500">
+              Required spending is treated as a net cash target. If withdrawals incur tax, the optimiser grosses them up so the year still delivers the required spendable income.
+            </p>
           </div>
           <div className="flex flex-col gap-2 sm:items-end">
             <button
@@ -332,36 +356,37 @@ export default function OptimizerPanel({ plannerState, result }: Props) {
         </div>
 
         <div className="mt-3 w-full rounded-2xl border border-slate-200 bg-slate-50 p-4">
+          <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Overall pattern</p>
+          <p className="mt-1 text-sm font-semibold text-slate-900">{overallPatternSummary}</p>
+        </div>
+
+        <div className="mt-3 w-full rounded-2xl border border-blue-100 bg-blue-50 p-4">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0 flex-1">
-              <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Strategy guide</p>
+              <p className="text-xs font-bold uppercase tracking-wide text-blue-700">Strategy guide</p>
               <p className="mt-1 text-xs leading-5 text-blue-700">
-                These are the winning strategies from the first 5 years shown in the comparison table.
+                These are the strategy definitions for the best option shown in the comparison table below.
+                Use the button to show the full list of strategy definitions.
               </p>
             </div>
             <button
               type="button"
-              onClick={() => setShowStrategyGuide((current) => !current)}
-              className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-              aria-expanded={showStrategyGuide}
+              onClick={() => setShowAllStrategyDefinitions((current) => !current)}
+              className="rounded-full border border-blue-200 bg-white px-3 py-1 text-xs font-semibold text-blue-700 hover:bg-blue-50"
+              aria-expanded={showAllStrategyDefinitions}
               aria-controls="strategy-guide-panel"
             >
-              {showStrategyGuide ? 'Hide strategy summary' : 'Show strategy summary'}
+              {showAllStrategyDefinitions ? 'Show best-option strategies' : 'Show all strategy definitions'}
             </button>
           </div>
-          {showStrategyGuide ? (
-            <div id="strategy-guide-panel" className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-              {strategyGuideEntries.map((entry) => (
-                <div key={entry.ageLabel} className="rounded-xl border border-slate-200 bg-white p-3">
-                  <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Year {entry.ageLabel}</p>
-                  <p className="mt-1 text-sm font-semibold text-slate-900">{entry.strategyLabel}</p>
-                  <p className="mt-1 text-xs leading-5 text-slate-600">
-                    Net income {formatCurrency(entry.netIncome, true)} · tax {formatCurrency(entry.tax, true)} · shortfall {formatCurrency(entry.gap, true)}
-                  </p>
-                </div>
-              ))}
-            </div>
-          ) : null}
+          <div id="strategy-guide-panel" className="mt-4 grid gap-3 sm:grid-cols-2">
+            {strategyGuideEntries.map((entry) => (
+              <div key={entry.label} className="rounded-xl border border-blue-100 bg-white p-3">
+                <p className="text-sm font-semibold text-slate-900">{entry.label}</p>
+                <p className="mt-1 text-xs leading-5 text-slate-600">{entry.description}</p>
+              </div>
+            ))}
+          </div>
         </div>
 
         <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -555,13 +580,13 @@ export default function OptimizerPanel({ plannerState, result }: Props) {
           ) : null}
         </div>
 
-        {result.yearRecords.length > 5 && (
+        {result.yearRecords.length > 10 && (
           <button
             type="button"
             onClick={() => setShowAll((current) => !current)}
             className="mt-4 text-sm font-semibold text-orange-600 hover:text-orange-700"
           >
-            {showAll ? '▲ Show fewer' : '▼ Show all'}
+            {showAll ? '▲ Show fewer years' : '▼ Show all optimiser years'}
           </button>
         )}
       </div>
@@ -587,11 +612,11 @@ export default function OptimizerPanel({ plannerState, result }: Props) {
                   Explain this recommendation
                 </h2>
                 <p className="mt-2 text-sm leading-6 text-slate-600">
-                  LaterLifePlan will share a short summary of your ages, whether you are a single person or a
-                  couple, your main asset totals, the optimiser result, and the HMRC rule references used.
-                  If you agree, LaterLifePlan will also look up the matching HMRC guidance using those rule
-                  references, the tax year, and your country. It will not send names, addresses, account
-                  numbers, or the full year-by-year plan.
+                  LLP will send a minimised summary of your ages, household type, high-level asset totals,
+                  optimiser result, and HMRC rule provenance to {providerLabel} through the server-side
+                  explanation route. If you consent, the server will also retrieve matching HMRC guidance
+                  excerpts using the disclosed rule IDs, tax year, and jurisdiction. Names, addresses,
+                  account numbers, and full yearly plan data are not sent.
                 </p>
 
                 {isLoadingCachedExplanation ? (
@@ -628,7 +653,7 @@ export default function OptimizerPanel({ plannerState, result }: Props) {
                         disabled={isExplaining || isLoadingCachedExplanation}
                       />
                       <span>
-                        I consent to LaterLifePlan sending this minimised optimiser summary and retrieving matched HMRC guidance for explanation generation.
+                        I consent to LLP sending this minimised optimiser summary and retrieving matched HMRC guidance for explanation generation.
                       </span>
                     </label>
                   </>
