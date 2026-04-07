@@ -348,24 +348,24 @@ export default function OptimizerPanel({ plannerState, result }: Props) {
     <>
       <div className="game-card">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div>
+          <div className="w-full min-w-0">
             <h3 className="section-heading mb-1">Withdrawal plan optimisation</h3>
             <p className="text-xs text-slate-500">
-              Compares the app&apos;s standard withdrawal order with other deterministic options.
+              Compare LLP&apos;s standard withdrawal order with other deterministic options.
             </p>
             <p className="mt-2 max-w-2xl text-xs leading-6 text-slate-500">
-              Required spending is treated as a net cash target. If withdrawals create tax, the optimiser grosses them up so the year still delivers the required spendable income.
+              Required spending is treated as a net cash target. If withdrawals incur tax, the optimiser grosses them up so the year still delivers the required spendable income.
             </p>
-            <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <div className="mt-3 w-full rounded-2xl border border-slate-200 bg-slate-50 p-4">
               <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Overall pattern</p>
               <p className="mt-1 text-sm font-semibold text-slate-900">{overallPatternSummary}</p>
             </div>
-            <div className="mt-3 rounded-2xl border border-blue-100 bg-blue-50 p-4">
+            <div className="mt-3 w-full rounded-2xl border border-blue-100 bg-blue-50 p-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
                   <p className="text-xs font-bold uppercase tracking-wide text-blue-700">Strategy guide</p>
                   <p className="mt-1 text-xs text-blue-700">
-                    These labels describe the optimiser&apos;s comparison options. The first mention of LLP baseline waterfall appears in the overall pattern above.
+                    These are the shorthand labels used in the comparison table. LLP baseline waterfall starts with Paul&apos;s pension and ISA, then follows the app&apos;s usual drawdown order. Use the button to show strategy definitions.
                   </p>
                 </div>
                 <button
@@ -375,7 +375,7 @@ export default function OptimizerPanel({ plannerState, result }: Props) {
                   aria-expanded={showStrategyGuide}
                   aria-controls="strategy-guide-panel"
                 >
-                  {showStrategyGuide ? 'Hide strategy guide' : 'What do these strategies mean?'}
+                  {showStrategyGuide ? 'Hide strategy definitions' : 'Show strategy definitions'}
                 </button>
               </div>
               {showStrategyGuide ? (
@@ -441,7 +441,7 @@ export default function OptimizerPanel({ plannerState, result }: Props) {
                 Secondary detail showing the best and runner-up options for each year. Showing {shownYearCount} of {result.yearRecords.length} years.
               </p>
             </div>
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2 sm:justify-end">
               <button
                 type="button"
                 onClick={() => setShowStrategyComparison((current) => !current)}
@@ -457,7 +457,7 @@ export default function OptimizerPanel({ plannerState, result }: Props) {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-slate-100 text-left text-slate-500">
-                    <th className="pb-2 pr-3 font-bold">Age</th>
+                    <th className="w-24 pb-2 pr-3 font-bold sm:w-32">Age</th>
                     <th className="pb-2 pr-3 font-bold">Best</th>
                     <th className="pb-2 pr-0 font-bold">Runner-up</th>
                   </tr>
@@ -467,7 +467,7 @@ export default function OptimizerPanel({ plannerState, result }: Props) {
                     const [best, runnerUp] = record.topStrategies;
                     return (
                       <tr key={record.p1Age} className="border-b border-slate-50 align-top">
-                        <td className="py-3 pr-3 text-slate-700">
+                        <td className="w-24 py-3 pr-3 text-slate-700 sm:w-32">
                           {record.p1Age}
                           {record.p2Age !== null ? ` / ${record.p2Age}` : ''}
                         </td>
@@ -502,14 +502,14 @@ export default function OptimizerPanel({ plannerState, result }: Props) {
                 Shows the actual withdrawals used year by year. This is the source of truth when the plan changes over time and the net spend target must still be met after tax.
               </p>
             </div>
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-xs text-slate-500">
                 Showing {shownYearCount} of {result.yearRecords.length} years
               </p>
               <button
                 type="button"
                 onClick={() => setShowDrawdownBreakdown((current) => !current)}
-                className="text-sm font-semibold text-orange-600 hover:text-orange-700"
+                className="self-start text-sm font-semibold text-orange-600 hover:text-orange-700 sm:self-auto"
                 aria-expanded={showDrawdownBreakdown}
                 aria-controls="drawdown-breakdown-panel"
               >
@@ -523,7 +523,7 @@ export default function OptimizerPanel({ plannerState, result }: Props) {
               <table className="min-w-full text-xs">
                 <thead>
                   <tr className="border-b border-slate-100 text-left text-slate-500">
-                    <th rowSpan={2} className="sticky left-0 z-10 bg-white pb-2 pr-3 font-bold">Age</th>
+                    <th rowSpan={2} className="sticky left-0 z-10 w-24 bg-white pb-2 pr-3 font-bold sm:w-32">Age</th>
                     <th colSpan={4} className="pb-2 pr-3 text-center font-bold">{person1Label}</th>
                     {isCouple ? <th colSpan={4} className="pb-2 pr-3 text-center font-bold">{person2Label}</th> : null}
                     {isCouple ? <th colSpan={1} className="pb-2 pr-0 text-center font-bold">Joint</th> : null}
@@ -543,7 +543,7 @@ export default function OptimizerPanel({ plannerState, result }: Props) {
                 <tbody>
                   {rows.map((record) => (
                     <tr key={`breakdown-${record.p1Age}-${record.yearIndex}`} className="border-b border-slate-50 align-top">
-                      <td className="sticky left-0 z-10 bg-white py-3 pr-3 text-slate-700">
+                      <td className="sticky left-0 z-10 w-24 bg-white py-3 pr-3 text-slate-700 sm:w-32">
                         {record.p1Age}
                         {record.p2Age !== null ? ` / ${record.p2Age}` : ''}
                       </td>

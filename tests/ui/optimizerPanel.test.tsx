@@ -26,7 +26,7 @@ describe('OptimizerPanel', () => {
     expect(screen.getByText('Tax impact vs standard approach')).toBeInTheDocument();
     expect(screen.getByText('Plan durability vs standard approach')).toBeInTheDocument();
     expect(screen.getByText('End-of-plan assets vs standard approach')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'What do these strategies mean?' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Show strategy definitions' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '▼ Show comparison' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '▼ Show breakdown' })).toBeInTheDocument();
     expect(screen.queryByTestId('optimizer-drawdown-breakdown-table')).not.toBeInTheDocument();
@@ -76,7 +76,7 @@ describe('OptimizerPanel', () => {
 
     expect(screen.queryByText('LLP baseline waterfall')).not.toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole('button', { name: 'What do these strategies mean?' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Show strategy definitions' }));
 
     expect(screen.getByText('Strategy guide')).toBeInTheDocument();
     expect(screen.getByText('LLP baseline waterfall')).toBeInTheDocument();
