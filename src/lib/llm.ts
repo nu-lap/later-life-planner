@@ -167,11 +167,12 @@ function describeTaxRuleCaveat(optimizationResult: OptimizationSummary): string 
 }
 
 function describeFirstYearTax(planSummary: PlanSummary, optimizationResult: OptimizationSummary): string {
-  const yearTax = formatMoney(optimizationResult.firstYearTax);
-  const yearSpending = formatMoney(optimizationResult.firstYearSpending || planSummary.targetSpendingAnnual);
+  const roundedFirstYearTax = Math.round(optimizationResult.firstYearTax);
+  const yearTax = formatMoney(roundedFirstYearTax);
+  const yearSpending = formatMoney(optimizationResult.firstYearSpending ?? planSummary.targetSpendingAnnual);
   const yearNet = formatMoney(optimizationResult.firstYearNetIncome);
 
-  if (optimizationResult.firstYearTax <= 0) {
+  if (roundedFirstYearTax <= 0) {
     return `The first projected year meets the spending target of ${yearSpending} with no tax due in that year. The net income for that year is ${yearNet}.`;
   }
 
@@ -231,7 +232,7 @@ export function buildPrompt(context: ExplanationContext): string {
     'Recommendation:',
     `- Recommended approach: ${recommendationLabel}.`,
     `- Strategy meaning: ${recommendedStrategyDefinition.replace(/\.$/, '')}.`,
-    `- Baseline definition: ${baselineStrategyDefinition.replace(/\.$/, '')}.`,
+    `- Comparison strategy: ${baselineStrategyDefinition.replace(/\.$/, '')}.`,
     `- ${describeStrategyComparison(context)}`,
     '',
     'Likely outcome:',

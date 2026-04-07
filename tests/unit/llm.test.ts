@@ -80,7 +80,7 @@ describe('buildPrompt', () => {
     expect(prompt).toContain('Treat required spending as a net cash target.');
     expect(prompt).toContain('Couple-equal DC drawdown');
     expect(prompt).toMatch(/Split taxable pension withdrawals evenly/i);
-    expect(prompt).toContain('Baseline definition: LaterLifePlan\'s standard order is DC pension within each person’s personal allowance plus 25% PCLS, then GIA within the CGT allowance, then ISA, then remaining GIA, then DC pension above the personal allowance.');
+    expect(prompt).toContain('Comparison strategy: LaterLifePlan\'s standard order is DC pension within each person’s personal allowance plus 25% PCLS, then GIA within the CGT allowance, then ISA, then remaining GIA, then DC pension above the personal allowance.');
     expect(prompt).toContain('Recommended approach: Couple-equal DC drawdown.');
     expect(prompt).toContain('The first projected year meets the spending target of £66,891 with no tax due in that year.');
   });
