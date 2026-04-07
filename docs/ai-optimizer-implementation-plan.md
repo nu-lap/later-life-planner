@@ -83,7 +83,7 @@ Phase 10 (Scotland)         — unblocked; deliver in parallel
 - [x] Phase 4 — Cosmos RAG Retrieval
 - [x] Phase 5 — Year-by-Year Drawdown Breakdown
 - [x] Phase 6 — Mode-Aware Strategy Definitions
-- [ ] Phase 7 — Dashboard UI Cleanup
+- [x] Phase 7 — Dashboard UI Cleanup
 - [ ] Phase 8 — Audit/Trace Route
 - [ ] Phase 9 — Goal Orchestration
 - [ ] Phase 10 — Scotland Jurisdiction
@@ -768,7 +768,7 @@ needs a deliberate information hierarchy.
 
 **Depends on:** Phase 5 complete.
 
-### 6.1 Review dashboard information architecture end-to-end
+### 7.1 Review dashboard information architecture end-to-end
 
 Files:
 - `src/components/steps/Step4Dashboard.tsx`
@@ -789,7 +789,7 @@ Cleanup rules:
 - the page should not show two strategy summaries that can appear to disagree
 - if a widget is descriptive only, it must not compete with the optimizer recommendation for attention
 
-### 6.2 Remove the fixed `Recommended` lozenge from the optimizer header
+### 7.2 Remove the fixed `Recommended` lozenge from the optimizer header
 
 Current issue:
 - a fixed `Recommended <strategy>` badge implies one static strategy governs the whole plan
@@ -804,7 +804,7 @@ Required change:
   - no header badge at all if the yearly breakdown is the clearer representation
 - if the plan varies materially by year, the UI must say that explicitly rather than pretending there is one fixed strategy
 
-### 6.3 Resolve duplication and conflict across the dashboard
+### 7.3 Resolve duplication and conflict across the dashboard
 
 Critical findings from the current dashboard review:
 - `Simplified tax-efficient withdrawal strategy` and `AI optimizer preview` both communicate withdrawal guidance, but not in the same form
@@ -819,7 +819,7 @@ Required cleanup:
 - remove duplicate tax-summary messaging where the optimizer already covers it
 - make it clear which elements are household-level summary and which are year-level detail
 
-### 6.4 Make the yearly breakdown readable and scannable
+### 7.4 Make the yearly breakdown readable and scannable
 
 Critical findings from the current dashboard review:
 - the Phase 5 table is accurate but visually overwhelming at full horizon length
@@ -834,7 +834,7 @@ Required cleanup:
 - consider collapsing zero-value cells or whole empty sections when they do not help interpretation
 - ensure desktop and mobile layouts remain readable without forcing the user through a wall of tiny numbers
 
-### 6.5 Tighten plain-English labels and user meaning
+### 7.5 Tighten plain-English labels and user meaning
 
 Critical findings from the current dashboard review:
 - some labels still describe internal model structure rather than user decisions
@@ -850,7 +850,7 @@ Required cleanup:
 - ensure every summary card answers a distinct user question
 - remove labels that are accurate but not decision-useful
 
-**Acceptance criteria for Phase 6:** The Step 4 dashboard has a clear top-to-bottom
+**Acceptance criteria for Phase 7:** The Step 4 dashboard has a clear top-to-bottom
 information hierarchy, no fixed `Recommended` lozenge, no conflicting withdrawal
 strategy summaries, and no obvious duplicate asset/tax/depletion messaging. The
 optimizer section uses plain-English summaries and a readable year-by-year breakdown
@@ -865,7 +865,7 @@ projection year.
 
 **Unblocked — no dependencies. Deliver any time.**
 
-### 7.1 `GET /api/tax-trace`
+### 8.1 `GET /api/tax-trace`
 
 File: `src/app/api/tax-trace/route.ts`
 
@@ -875,7 +875,7 @@ File: `src/app/api/tax-trace/route.ts`
 - Returns structured trace (step-by-step evaluation)
 - Not user-facing in MVP — for developer and audit use
 
-**Acceptance criteria for Phase 7:** Route returns a valid trace for
+**Acceptance criteria for Phase 8:** Route returns a valid trace for
 `income_tax_bands` with `{ taxable_income: 35000 }` and `tax_year: "2025-26"`.
 
 ---
@@ -887,7 +887,7 @@ an LLM maps these into a `WaterfallConfig` override for the optimizer.
 
 **Depends on:** Phase 3 complete. Deliver after optimizer output contracts are stable.
 
-### 8.1 Goal registry types
+### 9.1 Goal registry types
 
 Add to `src/models/types.ts`:
 
@@ -936,13 +936,13 @@ export interface OptimizerPolicyOverride {
 
 Default priority stack matches `docs/optimizer-architecture-reconciled.md` §Canonical Layer Model.
 
-### 8.2 Goal preference UI
+### 9.2 Goal preference UI
 
 - Add goal priority panel (Step 5 or dedicated Goals step)
 - Drag-and-drop reordering or ranked sliders
 - Store `GoalRegistry` in `PlannerState`
 
-### 8.3 `POST /api/goal-orchestrate`
+### 9.3 `POST /api/goal-orchestrate`
 
 File: `src/app/api/goal-orchestrate/route.ts`
 
@@ -954,7 +954,7 @@ File: `src/app/api/goal-orchestrate/route.ts`
   enforces as objective constraints, not just ordering preferences.
 - Downstream: `optimizeWithdrawals(state, { policyOverride })`
 
-**Acceptance criteria for Phase 8:** Given `goalRegistry` with `bequest` at
+**Acceptance criteria for Phase 9:** Given `goalRegistry` with `bequest` at
 priority 1 and a target value, the orchestrator returns an `OptimizerPolicyOverride`
 with `bequestTarget` set and `isaMode: 'defer'`. The optimizer respects the bequest
 floor as a constraint — a solution that violates it is rejected as infeasible even if
@@ -968,7 +968,7 @@ it produces lower lifetime tax.
 
 **Unblocked — deliver in parallel with any phase.**
 
-### 9.1 Capture `taxJurisdiction` in plan model
+### 10.1 Capture `taxJurisdiction` in plan model
 
 Add to `src/models/types.ts`:
 
@@ -979,20 +979,20 @@ export type TaxJurisdiction = 'rUK' | 'scotland';
 Add to `PersonalDetails` or top-level `PlannerState`. Capture in Step 1 UI (radio select,
 default `'rUK'`).
 
-### 9.2 Extend tax snapshot for Scotland
+### 10.2 Extend tax snapshot for Scotland
 
 - Update `scripts/gen-tax-snapshot.ts` to emit Scotland bands (6 bands: nil, starter,
   basic, intermediate, higher, advanced, top)
 - Update `src/config/taxRuleSnapshot.ts` to include Scotland entries
 - Update `getSnapshotForYear(year, jurisdiction?)` signature
 
-### 9.3 Pass jurisdiction through engine
+### 10.3 Pass jurisdiction through engine
 
 - Update `optimizeWithdrawals(state)` — reads `state.taxJurisdiction`
 - Update `calculateProjections(state)` — use jurisdiction-aware snapshot lookup
 - Scotland savings and dividend allowances are UK-wide — no change needed there
 
-**Acceptance criteria for Phase 9:** Scottish taxpayer at £35,000 income produces
+**Acceptance criteria for Phase 10:** Scottish taxpayer at £35,000 income produces
 £4,532.82 income tax (6-band Scottish calculation) matching `hmrc-tax-mcp` output.
 
 ---
