@@ -394,7 +394,9 @@ export default function Step4Dashboard({ onBack }: Props) {
       )}
 
       {/* Projection table */}
-      <ProjectionTable projections={displayProjections} lifeStages={lifeStages} />
+      {!optimizerEnabled && (
+        <ProjectionTable projections={displayProjections} lifeStages={lifeStages} />
+      )}
 
       {/* Actions */}
       <div className="flex flex-wrap gap-3 justify-between pt-2 no-print">
