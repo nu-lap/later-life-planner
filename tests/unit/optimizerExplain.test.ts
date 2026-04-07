@@ -8,12 +8,16 @@ import {
 } from '@/lib/optimizerExplain';
 
 describe('optimizer explain payload helpers', () => {
-  test('buildOptimizationSummary strips year-level detail from the optimizer result', () => {
+  test('buildOptimizationSummary strips year-level detail from the optimizer result while keeping the first-year summary', () => {
     const result = optimizeWithdrawals(paulAndLisaState());
     const summary = buildOptimizationSummary(result);
 
     expect(summary).not.toHaveProperty('yearRecords');
     expect(summary.recommendedStrategy).toEqual(result.recommendedStrategy);
+    expect(summary.firstYearSpending).toBeCloseTo(result.yearRecords[0]?.spending ?? 0, 2);
+    expect(summary.firstYearNetIncome).toBeCloseTo(result.yearRecords[0]?.winner.netIncome ?? 0, 2);
+    expect(summary.firstYearTax).toBeCloseTo(result.yearRecords[0]?.winner.totalTax ?? 0, 2);
+    expect(summary.laterYearTaxApplies).toBe(true);
     expect(summary.ruleProvenance).toEqual(result.ruleProvenance);
   });
 
@@ -36,6 +40,7 @@ describe('optimizer explain payload helpers', () => {
       jurisdiction: 'rUK',
     });
     expect(request.financialSummary.targetSpendingAnnual).toBeGreaterThan(0);
+    expect(request.optimizationResult.firstYearTax).toBe(0);
     expect(request.optimizationResult).not.toHaveProperty('yearRecords');
     expect(serialized).not.toContain(plannerState.person1.name);
     expect(serialized).not.toContain(plannerState.person2.name);

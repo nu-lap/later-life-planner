@@ -53,15 +53,15 @@ export function getStrategyDefinitions(
     {
       label: mode === 'single' ? 'Even DC drawdown' : 'Couple-equal DC drawdown',
       description: coupleMode
-        ? 'Split pension withdrawals evenly between both partners where possible.'
-        : 'Split pension withdrawals evenly across the available DC pots where possible.',
+        ? 'Split taxable pension withdrawals evenly between both partners where possible.'
+        : 'Split taxable pension withdrawals evenly across the available DC pots where possible.',
       applicableModes: ['single', 'couple'],
     },
     {
       label: 'Proportional DC drawdown',
       description: coupleMode
-        ? 'Split pension withdrawals in proportion to each partner’s pension pot size.'
-        : 'Split pension withdrawals across the available DC pots in proportion to the pot sizes.',
+        ? 'Split taxable pension withdrawals in proportion to each partner’s pension pot size.'
+        : 'Split taxable pension withdrawals across the available DC pots in proportion to the pot sizes.',
       applicableModes: ['single', 'couple'],
     },
     {
