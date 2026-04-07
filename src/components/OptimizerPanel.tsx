@@ -364,12 +364,12 @@ export default function OptimizerPanel({ plannerState, result }: Props) {
         <div className="mt-6">
           <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
             <div>
-            <h4 className="text-sm font-black uppercase tracking-wide text-slate-700">
-              Year-by-year drawdown breakdown
-            </h4>
-            <p className="mt-1 text-xs text-slate-500">
+              <h4 className="text-sm font-black uppercase tracking-wide text-slate-700">
+                Year-by-year drawdown breakdown
+              </h4>
+              <p className="mt-1 text-xs text-slate-500">
                 Shows the actual withdrawals used year by year. This is the source of truth when the plan changes over time.
-            </p>
+              </p>
             </div>
             <p className="text-xs text-slate-500">
               Showing {shownYearCount} of {result.yearRecords.length} years
@@ -454,7 +454,7 @@ export default function OptimizerPanel({ plannerState, result }: Props) {
                 Strategy comparison by year
               </h4>
               <p className="mt-1 text-xs text-slate-500">
-                Secondary detail showing the best and runner-up options for each year.
+                Secondary detail showing the best and runner-up options for each year. Showing {shownYearCount} of {result.yearRecords.length} years.
               </p>
             </div>
             <button

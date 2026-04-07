@@ -28,7 +28,6 @@ describe('OptimizerPanel', () => {
     expect(screen.getByRole('button', { name: '▼ Show comparison' })).toBeInTheDocument();
   });
 
-
   test('renders the year-by-year drawdown breakdown table', () => {
     const plannerState = paulAndLisaState();
     const result = optimizeWithdrawals(plannerState);
