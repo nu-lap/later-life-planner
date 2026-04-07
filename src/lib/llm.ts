@@ -2,12 +2,14 @@ import Anthropic from '@anthropic-ai/sdk';
 import { DefaultAzureCredential } from '@azure/identity';
 import { z } from 'zod';
 import type { OptimizationSummary, RuleCitation, HmrcChunk } from '@/lib/optimizerExplain';
+import type { GoalOrchestrateRequest } from '@/lib/goalOrchestration';
 import {
   getBaselineWaterfallDescription,
   getStrategyDefinitions,
   getStrategyDisplayLabel,
 } from '@/lib/strategyDefinitions';
 import type { TaxJurisdiction } from '@/models/types';
+import type { OptimizerPolicyOverride } from '@/financialEngine/types';
 
 const LLM_PROVIDER_VALUES = ['azure-openai', 'anthropic'] as const;
 const LLMProviderSchema = z.enum(LLM_PROVIDER_VALUES);
@@ -38,11 +40,96 @@ export interface ExplanationContext {
   ragChunks?: HmrcChunk[];
 }
 
+export interface GoalOrchestrationContext {
+  planSummary: GoalOrchestrateRequest['planSummary'];
+  goalRegistry: GoalOrchestrateRequest['goalRegistry'];
+  naturalLanguageInput?: string;
+}
+
 export class LlmConfigError extends Error {
   constructor(message: string) {
     super(message);
     this.name = 'LlmConfigError';
   }
+}
+
+function enabledGoalsByPriority(goalRegistry: GoalOrchestrateRequest['goalRegistry']) {
+  return goalRegistry
+    .filter((goal) => goal.enabled)
+    .slice()
+    .sort((left, right) => left.priority - right.priority);
+}
+
+export async function generateGoalPolicyOverride(
+  context: GoalOrchestrationContext,
+): Promise<OptimizerPolicyOverride> {
+  const enabledGoals = enabledGoalsByPriority(context.goalRegistry);
+  const policyOverride: OptimizerPolicyOverride = {
+    rationale: 'Derived from the user’s ranked retirement goals.',
+  };
+  const rationaleParts: string[] = [];
+
+  for (const goal of enabledGoals) {
+    switch (goal.id) {
+      case 'bequest':
+        if (goal.targetValue !== undefined) {
+          policyOverride.bequestTarget = Math.max(policyOverride.bequestTarget ?? 0, goal.targetValue);
+          policyOverride.isaMode = 'defer';
+          rationaleParts.push(`Protect at least ${formatMoney(goal.targetValue)} for bequests.`);
+        }
+        break;
+      case 'care_reserve':
+        if (goal.targetValue !== undefined) {
+          policyOverride.careReserveTarget = Math.max(policyOverride.careReserveTarget ?? 0, goal.targetValue);
+          rationaleParts.push(`Keep ${formatMoney(goal.targetValue)} available for later-life care.`);
+        }
+        break;
+      case 'spending_floor':
+      case 'longevity_protection':
+        if (goal.targetValue !== undefined) {
+          policyOverride.minAnnualIncome = Math.max(policyOverride.minAnnualIncome ?? 0, goal.targetValue);
+        } else {
+          policyOverride.minAnnualIncome = Math.max(
+            policyOverride.minAnnualIncome ?? 0,
+            context.planSummary.targetSpendingAnnual,
+          );
+        }
+        rationaleParts.push('Keep annual spending support above the requested floor.');
+        break;
+      case 'liquidity_preservation':
+        policyOverride.isaMode = policyOverride.isaMode ?? 'defer';
+        rationaleParts.push('Keep ISA balances available for later flexibility.');
+        break;
+      case 'survivorship':
+        if (context.planSummary.householdType === 'couple') {
+          policyOverride.dcOrder = 'equal';
+          rationaleParts.push('Split pension withdrawals more evenly across both partners.');
+        }
+        break;
+      case 'inflation_resilience':
+        policyOverride.inflationAdjustSpending = true;
+        rationaleParts.push('Keep the spending floor resilient to inflation over time.');
+        break;
+      case 'tax_efficiency':
+        rationaleParts.push('Prefer lower-tax withdrawal paths where the higher-priority constraints still hold.');
+        break;
+      case 'aspirational_spending':
+        rationaleParts.push('Leave room for discretionary spending if core goals are still met.');
+        break;
+    }
+  }
+
+  if (!policyOverride.minAnnualIncome && context.planSummary.targetSpendingAnnual > 0) {
+    policyOverride.minAnnualIncome = context.planSummary.targetSpendingAnnual;
+  }
+
+  const naturalLanguageInput = context.naturalLanguageInput?.trim();
+  policyOverride.rationale = [
+    rationaleParts.length > 0 ? rationaleParts.join(' ') : policyOverride.rationale,
+    naturalLanguageInput ? `User note: ${naturalLanguageInput}.` : '',
+  ].filter(Boolean).join(' ');
+
+  return policyOverride;
 }
 
 const SYSTEM_PROMPT = `You explain later-life withdrawal optimizer results in plain English for end users.

@@ -194,4 +194,51 @@ describe('optimizeWithdrawals', () => {
     expect((isaPreserve?.drawdowns.p1Dc ?? 0) + (isaPreserve?.drawdowns.p2Dc ?? 0))
       .toBeGreaterThan((baseline?.drawdowns.p1Dc ?? 0) + (baseline?.drawdowns.p2Dc ?? 0));
   });
+
+  test('treats a bequest floor as a feasibility constraint', () => {
+    const base = bareCoupleState(60, 60);
+    const state = withSpending({
+      ...base,
+      person1: {
+        ...base.person1,
+        incomeSources: {
+          ...base.person1.incomeSources,
+          dcPension: { enabled: true, totalValue: 60_000, growthRate: 0 },
+        },
+        assets: {
+          ...base.person1.assets,
+          isaInvestments: { enabled: true, totalValue: 20_000, growthRate: 0 },
+        },
+      },
+      person2: {
+        ...base.person2,
+        incomeSources: {
+          ...base.person2.incomeSources,
+          dcPension: { enabled: true, totalValue: 60_000, growthRate: 0 },
+        },
+        assets: {
+          ...base.person2.assets,
+          isaInvestments: { enabled: true, totalValue: 20_000, growthRate: 0 },
+        },
+      },
+      assumptions: { ...base.assumptions, investmentGrowth: 0 },
+    }, 40_000);
+
+    const result = optimizeWithdrawals(state, {
+      policyOverride: {
+        bequestTarget: 119_000,
+        rationale: 'Protect a minimum bequest floor.',
+      },
+    });
+    const firstYear = result.yearRecords[0];
+    const isaPreserve = firstYear.candidateResults.find((candidate) => candidate.strategy.label === '5-ISA-preserve');
+    const baseline = firstYear.candidateResults.find((candidate) => candidate.strategy.label === '1-LLP-Baseline');
+
+    expect(isaPreserve).toBeDefined();
+    expect(baseline).toBeDefined();
+    expect(isaPreserve?.terminalAssets).toBeLessThan(119_000);
+    expect(isaPreserve?.feasible).toBe(false);
+    expect(baseline?.terminalAssets).toBeGreaterThanOrEqual(119_000);
+    expect(baseline?.feasible).toBe(true);
+  });
 });

@@ -14,6 +14,7 @@ import {
   MAX_SUPPORTED_CURRENT_AGE,
   normalizePlanningBounds,
 } from '@/lib/planningBounds';
+import { buildDefaultGoalRegistry, normalizeGoalRegistry } from '@/lib/goalOrchestration';
 
 // ─── Re-export RLSS for components that import from here ─────────────────────
 export { RLSS as RLSS_STANDARDS };
@@ -218,6 +219,7 @@ export function createDefaultState(primaryAge: number = DEFAULT_ASSUMPTIONS.DEFA
       statePensionSoleIncomeExempt: true,
     },
     rlssStandard: 'minimum',
+    goalRegistry: buildDefaultGoalRegistry(),
     jointGia: { enabled: false, totalValue: 0, baseCost: 0, growthRate: DEFAULT_ASSUMPTIONS.INVESTMENT_GROWTH },
     careReserve: { enabled: false, amount: CARE_RESERVE.DEFAULT_AMOUNT },
   };
@@ -256,6 +258,7 @@ export function normalizePlannerState(state: PlannerState): PlannerState {
       ...state.assumptions,
       lifeExpectancy: normalized.lifeExpectancy,
     },
+    goalRegistry: normalizeGoalRegistry(state.goalRegistry),
   };
 }
 

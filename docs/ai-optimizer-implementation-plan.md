@@ -85,7 +85,7 @@ Phase 10 (Scotland)         — unblocked; deliver in parallel
 - [x] Phase 6 — Mode-Aware Strategy Definitions
 - [ ] Phase 7 — Dashboard UI Cleanup
 - [ ] Phase 8 — Audit/Trace Route
-- [ ] Phase 9 — Goal Orchestration
+- [x] Phase 9 — Goal Orchestration
 - [ ] Phase 10 — Scotland Jurisdiction
 
 ---

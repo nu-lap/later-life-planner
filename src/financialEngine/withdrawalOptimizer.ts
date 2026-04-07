@@ -8,6 +8,7 @@ import type {
   DCOrder,
   DrawdownBreakdown,
   OptimizationResult,
+  OptimizerPolicyOverride,
   RuleProvenance,
   TaxableWithdrawalBreakdown,
   TaxFreeWithdrawalBreakdown,
@@ -45,6 +46,11 @@ interface FixedIncomeContext {
 interface CandidateEvaluation {
   result: WaterfallResult;
   endBalances: OptimizerBalances;
+}
+
+interface OptimizerOptions {
+  baselineOnly?: boolean;
+  policyOverride?: OptimizerPolicyOverride;
 }
 
 export const OPTIMIZER_CANDIDATES: WaterfallConfig[] = [
@@ -268,6 +274,45 @@ function selectWinner(results: CandidateEvaluation[]): CandidateEvaluation {
   })[0];
 }
 
+function buildPolicyCandidate(policyOverride: OptimizerPolicyOverride): WaterfallConfig {
+  return {
+    label: 'goal-policy-override',
+    dcOrder: policyOverride.dcOrder ?? BASELINE_STRATEGY.dcOrder,
+    isaMode: policyOverride.isaMode ?? BASELINE_STRATEGY.isaMode,
+  };
+}
+
+function getCandidateStrategies(policyOverride?: OptimizerPolicyOverride): WaterfallConfig[] {
+  if (!policyOverride) {
+    return OPTIMIZER_CANDIDATES;
+  }
+
+  const filtered = OPTIMIZER_CANDIDATES.filter((candidate) => (
+    (policyOverride.dcOrder === undefined || candidate.dcOrder === policyOverride.dcOrder)
+    && (policyOverride.isaMode === undefined || candidate.isaMode === policyOverride.isaMode)
+  ));
+
+  if (filtered.length > 0) {
+    return filtered;
+  }
+
+  return [buildPolicyCandidate(policyOverride)];
+}
+
+function getSpendingTarget(row: YearlyProjection, policyOverride?: OptimizerPolicyOverride): number {
+  return Math.max(row.spending, policyOverride?.minAnnualIncome ?? 0);
+}
+
+function getCapitalFloor(state: PlannerState, policyOverride?: OptimizerPolicyOverride): number {
+  const bequestTarget = policyOverride?.bequestTarget ?? 0;
+  const careReserveTarget = Math.max(
+    policyOverride?.careReserveTarget ?? 0,
+    state.careReserve.enabled ? state.careReserve.amount : 0,
+  );
+
+  return Math.max(bequestTarget, careReserveTarget);
+}
+
 function recordRuleProvenance(
   provenance: Map<string, RuleProvenance>,
   calendarYear: number,
@@ -412,6 +457,7 @@ function simulateCandidatePass(
   balances: OptimizerBalances,
   strategy: WaterfallConfig,
   grossTarget: number,
+  policyOverride?: OptimizerPolicyOverride,
 ): CandidateEvaluation {
   const mode = state.mode;
   const working = cloneBalances(balances);
@@ -684,6 +730,11 @@ function simulateCandidatePass(
     + drawdowns.p2Dc + drawdowns.p2Isa + drawdowns.p2Gia + drawdowns.p2Cash + drawdowns.jointGia;
   const totalIncome = fixed.total + totalDrawn;
   const netIncome = totalIncome - totalTax;
+  const spendingTarget = getSpendingTarget(row, policyOverride);
+  const capitalFloor = getCapitalFloor(state, policyOverride);
+  const terminalAssets = Math.max(0, sumTerminalAssets(working));
+  const incomeGap = Math.max(0, spendingTarget - netIncome);
+  const capitalGap = Math.max(0, capitalFloor - terminalAssets);
 
   const breakdown = buildYearDrawdownBreakdown(mode, drawdowns, {
     p1PensionTaxDue,
@@ -706,15 +757,15 @@ function simulateCandidatePass(
       p2IncomeTax,
       p1CgtPaid,
       p2CgtPaid,
-      feasible: netIncome >= row.spending - FEASIBILITY_TOLERANCE_GBP,
-      gap: Math.max(0, row.spending - netIncome),
-      spendingTarget: row.spending,
+      feasible: incomeGap <= FEASIBILITY_TOLERANCE_GBP && capitalGap <= FEASIBILITY_TOLERANCE_GBP,
+      gap: Math.max(incomeGap, capitalGap),
+      spendingTarget,
       fixedIncome: fixed.total,
       totalIncome,
       netIncome,
       p1TaxableIncome,
       p2TaxableIncome,
-      terminalAssets: Math.max(0, sumTerminalAssets(working)),
+      terminalAssets,
       drawdowns,
       breakdown,
     },
@@ -727,21 +778,23 @@ function evaluateCandidate(
   row: YearlyProjection,
   balances: OptimizerBalances,
   strategy: WaterfallConfig,
+  policyOverride?: OptimizerPolicyOverride,
 ): CandidateEvaluation {
   // Treat required spending as a net cash target. Gross withdrawals are
   // iteratively increased until the after-tax result matches the target or
   // the candidate runs out of assets.
-  let grossTarget = row.spending;
-  let evaluation = simulateCandidatePass(state, row, balances, strategy, grossTarget);
+  const spendingTarget = getSpendingTarget(row, policyOverride);
+  let grossTarget = spendingTarget;
+  let evaluation = simulateCandidatePass(state, row, balances, strategy, grossTarget, policyOverride);
 
   for (let grossIter = 0; grossIter < 7; grossIter += 1) {
-    const newTarget = row.spending + evaluation.result.totalTax;
+    const newTarget = spendingTarget + evaluation.result.totalTax;
     if (Math.abs(newTarget - grossTarget) < FEASIBILITY_TOLERANCE_GBP) {
       break;
     }
 
     grossTarget = newTarget;
-    evaluation = simulateCandidatePass(state, row, balances, strategy, grossTarget);
+    evaluation = simulateCandidatePass(state, row, balances, strategy, grossTarget, policyOverride);
   }
 
   return evaluation;
@@ -774,6 +827,7 @@ function simulateStrategies(
   state: PlannerState,
   strategySelector: 'optimized' | 'baseline',
   precomputedProjections?: YearlyProjection[],
+  policyOverride?: OptimizerPolicyOverride,
 ): {
   yearRecords: YearRecord[];
   lifetimeTaxPaid: number;
@@ -788,17 +842,22 @@ function simulateStrategies(
   let balances = seedBalances(state, baseProjections);
   const provenance = new Map<string, RuleProvenance>();
   const yearRecords: YearRecord[] = [];
+  const strategies = strategySelector === 'optimized'
+    ? getCandidateStrategies(policyOverride)
+    : [BASELINE_STRATEGY];
 
   for (const row of postFiRows) {
     const calendarYear = CURRENT_TAX_YEAR_START + row.yearIndex;
     recordRuleProvenance(provenance, calendarYear);
     balances = applyGrowth(balances, growth);
+    const startingBalances = cloneBalances(balances);
 
-    const evaluated = OPTIMIZER_CANDIDATES.map((strategy) =>
-      evaluateCandidate(state, row, balances, strategy),
+    const evaluated = strategies.map((strategy) =>
+      evaluateCandidate(state, row, balances, strategy, strategySelector === 'optimized' ? policyOverride : undefined),
     );
+    const baselineResult = evaluateCandidate(state, row, startingBalances, BASELINE_STRATEGY).result;
     const winner = strategySelector === 'baseline'
-      ? evaluated.find((candidate) => candidate.result.strategy.label === BASELINE_STRATEGY.label) ?? evaluated[0]
+      ? evaluated[0]
       : selectWinner(evaluated);
     balances = winner.endBalances;
 
@@ -811,9 +870,7 @@ function simulateStrategies(
       winner: winner.result,
       topStrategies: selectTopStrategies(evaluated.map((candidate) => candidate.result)),
       candidateResults: evaluated.map((candidate) => candidate.result),
-      baseline:
-        evaluated.find((candidate) => candidate.result.strategy.label === BASELINE_STRATEGY.label)?.result
-        ?? evaluated[0].result,
+      baseline: baselineResult,
       terminalAssets: winner.result.terminalAssets,
       drawdownBreakdown: winner.result.breakdown,
     });
@@ -833,12 +890,17 @@ function simulateStrategies(
 
 export function optimizeWithdrawals(
   state: PlannerState,
-  options?: { baselineOnly?: boolean },
+  options?: OptimizerOptions,
 ): OptimizationResult {
   // Compute projections once and share between both simulation passes to avoid
   // duplicate calculateProjections() calls.
   const sharedProjections = calculateProjections(state);
-  const optimized = simulateStrategies(state, options?.baselineOnly ? 'baseline' : 'optimized', sharedProjections);
+  const optimized = simulateStrategies(
+    state,
+    options?.baselineOnly ? 'baseline' : 'optimized',
+    sharedProjections,
+    options?.policyOverride,
+  );
   const baseline = simulateStrategies(state, 'baseline', sharedProjections);
   const records = optimized.yearRecords;
   const recommendedStrategy = dominantStrategy(records);

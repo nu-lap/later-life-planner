@@ -5,6 +5,7 @@ import { persist } from 'zustand/middleware';
 import type {
   PlannerState, PlanningMode, LifeStage, GIAAsset, CareReserve,
   PersonIncomeSources, PersonAssets, Assumptions, AspirationTag, RlssStandard, PersistedPlannerState,
+  GoalRegistry,
 } from '@/models/types';
 import {
   createDefaultState, createMockDemoState, buildDefaultLifeStages,
@@ -48,6 +49,7 @@ type Actions = {
 
   applyRlssTemplate: (standard: RlssStandard) => void;
   setRlssStandard: (standard: RlssStandard | null) => void;
+  setGoalRegistry: (goalRegistry: GoalRegistry) => void;
 
   loadDemo: () => void;
   hydrateCanonicalPlan: (persistedState: Partial<PersistedPlannerState>) => void;
@@ -321,6 +323,7 @@ export const usePlannerStore = create<PlannerState & Actions>()(
         })),
 
       setRlssStandard: (rlssStandard) => set({ rlssStandard }),
+      setGoalRegistry: (goalRegistry) => set({ goalRegistry }),
 
       loadDemo: () => set(createMockDemoState()),
       hydrateCanonicalPlan: (persistedState) =>

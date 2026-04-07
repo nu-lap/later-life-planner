@@ -13,6 +13,7 @@ import { CGT, INCOME_TAX } from '@/config/financialConstants';
 import { optimizeWithdrawals } from '@/financialEngine/withdrawalOptimizer';
 import { RLSS_STANDARDS } from '@/lib/mockData';
 import type { YearlyProjection } from '@/lib/types';
+import type { GoalConfig, GoalId } from '@/models/types';
 import clsx from 'clsx';
 
 const ChartSkeleton = () => <div className="h-64 bg-slate-100 rounded-2xl animate-pulse" />;
@@ -20,6 +21,49 @@ const LifetimeChart = dynamic(() => import('@/components/charts/LifetimeChart'),
 const AssetChart    = dynamic(() => import('@/components/charts/AssetChart'),    { ssr: false, loading: ChartSkeleton });
 
 interface Props { onBack: () => void }
+
+const GOAL_COPY: Record<GoalId, { label: string; description: string; targetLabel?: string }> = {
+  longevity_protection: {
+    label: 'Longevity protection',
+    description: 'Keep enough income and assets in place so the plan is less likely to run short later in life.',
+    targetLabel: 'Minimum annual income',
+  },
+  spending_floor: {
+    label: 'Spending floor',
+    description: 'Protect a minimum level of yearly spending before other priorities.',
+    targetLabel: 'Minimum annual income',
+  },
+  aspirational_spending: {
+    label: 'Aspirational spending',
+    description: 'Leave room for discretionary spending once the core plan is secure.',
+  },
+  tax_efficiency: {
+    label: 'Tax efficiency',
+    description: 'Prefer lower-tax withdrawal paths when they do not break higher-priority goals.',
+  },
+  liquidity_preservation: {
+    label: 'Liquidity preservation',
+    description: 'Keep flexible wrappers such as ISAs available for later years where possible.',
+  },
+  survivorship: {
+    label: 'Survivorship',
+    description: 'Balance withdrawals across both partners where that supports a stronger survivor position.',
+  },
+  care_reserve: {
+    label: 'Care reserve',
+    description: 'Protect capital that should stay available for later-life care costs.',
+    targetLabel: 'Protected capital',
+  },
+  bequest: {
+    label: 'Bequest',
+    description: 'Protect a minimum estate value that should still remain at the end of the plan.',
+    targetLabel: 'Bequest floor',
+  },
+  inflation_resilience: {
+    label: 'Inflation resilience',
+    description: 'Keep the plan better able to absorb rising costs over time.',
+  },
+};
 
 // ─── Life stage timeline ───────────────────────────────────────────────────────
 
@@ -72,6 +116,131 @@ function StatCard({ icon, label, value, sub, accent = 'slate' }: {
       <p className="text-xs opacity-70 mb-1">{label}</p>
       <p className="text-2xl font-black leading-tight">{value}</p>
       {sub && <p className="text-xs opacity-60 mt-1">{sub}</p>}
+    </div>
+  );
+}
+
+function moveGoal(goalRegistry: GoalConfig[], index: number, direction: -1 | 1): GoalConfig[] {
+  const targetIndex = index + direction;
+  if (targetIndex < 0 || targetIndex >= goalRegistry.length) {
+    return goalRegistry;
+  }
+
+  const next = goalRegistry.slice();
+  const [moved] = next.splice(index, 1);
+  next.splice(targetIndex, 0, moved);
+
+  return next.map((goal, nextIndex) => ({
+    ...goal,
+    priority: nextIndex + 1,
+  }));
+}
+
+function GoalPriorityPanel({
+  goalRegistry,
+  onChange,
+}: {
+  goalRegistry: GoalConfig[];
+  onChange: (goalRegistry: GoalConfig[]) => void;
+}) {
+  const orderedGoals = [...goalRegistry].sort((left, right) => left.priority - right.priority);
+
+  return (
+    <div className="game-card">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h3 className="section-heading">Goal priorities</h3>
+          <p className="text-xs text-slate-500 mb-4">
+            Rank the retirement goals that should shape the optimizer. Higher goals are treated as harder constraints before lower-priority trade-offs.
+          </p>
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        {orderedGoals.map((goal, index) => {
+          const goalCopy = GOAL_COPY[goal.id];
+          const targetLabel = goalCopy.targetLabel;
+
+          return (
+            <div
+              key={goal.id}
+              className="rounded-2xl border border-slate-200 bg-slate-50 p-4"
+            >
+              <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-3">
+                    <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-sm font-black text-slate-700 shadow-sm">
+                      {index + 1}
+                    </span>
+                    <div>
+                      <p className="text-sm font-bold text-slate-900">{goalCopy.label}</p>
+                      <p className="text-xs text-slate-500">{goalCopy.description}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <label className="inline-flex items-center gap-2 text-xs font-semibold text-slate-600">
+                    <input
+                      checked={goal.enabled}
+                      className="rounded border-slate-300 text-orange-500 focus:ring-orange-500"
+                      onChange={(event) => {
+                        onChange(orderedGoals.map((entry) => (
+                          entry.id === goal.id ? { ...entry, enabled: event.target.checked } : entry
+                        )));
+                      }}
+                      type="checkbox"
+                    />
+                    Enabled
+                  </label>
+                  <button
+                    aria-label={`Move ${goalCopy.label} up`}
+                    className="btn-secondary text-xs"
+                    disabled={index === 0}
+                    onClick={() => onChange(moveGoal(orderedGoals, index, -1))}
+                    type="button"
+                  >
+                    ↑
+                  </button>
+                  <button
+                    aria-label={`Move ${goalCopy.label} down`}
+                    className="btn-secondary text-xs"
+                    disabled={index === orderedGoals.length - 1}
+                    onClick={() => onChange(moveGoal(orderedGoals, index, 1))}
+                    type="button"
+                  >
+                    ↓
+                  </button>
+                </div>
+              </div>
+
+              {targetLabel && (
+                <div className="mt-3 flex max-w-xs flex-col gap-1">
+                  <label className="text-xs font-semibold text-slate-600" htmlFor={`goal-target-${goal.id}`}>
+                    {targetLabel}
+                  </label>
+                  <input
+                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-200"
+                    id={`goal-target-${goal.id}`}
+                    inputMode="numeric"
+                    min={0}
+                    onChange={(event) => {
+                      const rawValue = event.target.value.trim();
+                      const nextTarget = rawValue === '' ? undefined : Math.max(0, Number(rawValue));
+                      onChange(orderedGoals.map((entry) => (
+                        entry.id === goal.id ? { ...entry, targetValue: nextTarget } : entry
+                      )));
+                    }}
+                    placeholder="0"
+                    type="number"
+                    value={goal.targetValue ?? ''}
+                  />
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -247,7 +416,17 @@ export default function Step4Dashboard({ onBack }: Props) {
   const state = usePlannerStore();
   const deferredState = useDeferredValue(state);
   const optimizerEnabled = process.env.NEXT_PUBLIC_OPTIMIZER_ENABLED === 'true';
-  const { mode, person1, person2, lifeStages, rlssStandard, spendingCategories, fiAge } = state;
+  const {
+    mode,
+    person1,
+    person2,
+    lifeStages,
+    rlssStandard,
+    spendingCategories,
+    fiAge,
+    goalRegistry,
+    setGoalRegistry,
+  } = state;
 
   const { projections, optimizerResult } = useMemo(() => {
     if (!optimizerEnabled) {
@@ -411,6 +590,13 @@ export default function Step4Dashboard({ onBack }: Props) {
           <p className="text-xs text-slate-400 mt-2 text-center">lifestyle &amp; family categories with budget set</p>
         </div>
       </div>
+
+      {optimizerEnabled && (
+        <GoalPriorityPanel
+          goalRegistry={goalRegistry}
+          onChange={setGoalRegistry}
+        />
+      )}
 
       {/* Charts */}
       <div className="game-card">
