@@ -627,7 +627,7 @@ export default function OptimizerPanel({ plannerState, result }: Props) {
                         disabled={isExplaining || isLoadingCachedExplanation}
                       />
                       <span>
-                        I consent to LLP sending this minimised optimiser summary and retrieving matched HMRC guidance for explanation generation.
+                        I consent to LaterLifePlan sending this minimised optimiser summary and retrieving matched HMRC guidance for explanation generation.
                       </span>
                     </label>
                   </>
