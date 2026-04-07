@@ -56,7 +56,7 @@ Layer 4: Goal orch.     — LLM maps preferences → optimizer config (later)
 | LLM provider (MVP) | Azure OpenAI `gpt-4.1-mini` | Higher-capacity Azure OpenAI model if quality or latency requires it |
 | LLM abstraction | `src/lib/llm.ts` — swap via `LLM_PROVIDER` env var | — |
 | Live MCP calls | Explanation and audit only — never in hot path | — |
-| LLP MCP server | Deferred — not an MVP requirement | — |
+| LaterLifePlan MCP server | Deferred — not an MVP requirement | — |
 
 ---
 
@@ -179,7 +179,7 @@ export function optimizeWithdrawals(
 ): OptimizationResult
 ```
 
-- Evaluates 5 candidates per year: LLP-Baseline, Couple-equal, Proportional, Lisa-first, ISA-preserve
+- Evaluates 5 candidates per year: LaterLifePlan-Baseline, Couple-equal, Proportional, Lisa-first, ISA-preserve
 - Returns the lowest-tax feasible strategy for each year
 - Records `ruleProvenance: RuleProvenance[]` from the snapshot for each rule consumed
 
@@ -221,7 +221,7 @@ File: `src/components/OptimizerPanel.tsx`
 
 Display:
 - Recommended strategy name (e.g. "Couple-equal DC drawdown")
-- Lifetime tax saving vs LLP-Baseline (£ nominal)
+- Lifetime tax saving vs LaterLifePlan-Baseline (£ nominal)
 - Projected asset depletion age (or "assets last to horizon")
 - Year-by-year comparison table: top 2 strategies, columns = age / tax / net income
 
@@ -373,7 +373,7 @@ citation for a test request.
 
 ### 3.4 Client-side consented explain workflow
 
-To preserve LLP's current browser-encryption model, keep optimizer computation
+To preserve LaterLifePlan's current browser-encryption model, keep optimizer computation
 and plan decryption in the browser. The explanation flow sends only a minimised,
 consented payload to the server.
 
@@ -393,7 +393,7 @@ High-level flow
    - Before submission, show a consent dialog listing exactly what will be sent.
    - The dialog must state:
      - which data categories leave the browser
-     - that LLP will use the payload only for explanation generation
+     - that LaterLifePlan will use the payload only for explanation generation
      - which **provider category** will process the explanation request (e.g. "a cloud AI service"); the exact provider is not disclosed client-side to prevent client-influenced routing
      - whether HMRC citations and RAG guidance may be fetched server-side
    - The user must explicitly approve the submission.
@@ -487,7 +487,7 @@ Trade-offs and notes
 - The trust model is: client computes, server explains, and the user consents to
   the disclosed payload.
 - This is materially simpler than introducing cryptographic proof machinery and is
-  aligned with LLP's existing encrypted-blob storage design.
+  aligned with LaterLifePlan's existing encrypted-blob storage design.
 
 ---
 
@@ -1003,7 +1003,7 @@ default `'rUK'`).
 |---|---|
 | Cosmos RAG retrieval quality insufficient | Upgrade to Azure AI Search S1 (semantic reranker) |
 | `gpt-4.1-mini` quality or throughput insufficient | Move to a larger Azure OpenAI deployment behind the same `llm.ts` abstraction |
-| External agent workflow (e.g. Copilot in VS Code) needs LLP tools | Consider LLP-owned MCP server surface |
+| External agent workflow (e.g. Copilot in VS Code) needs LaterLifePlan tools | Consider LaterLifePlan-owned MCP server surface |
 | Scotland support landed | Revisit jurisdiction model for Wales/NI (both use rUK rates currently) |
 | Pension IHT reform (April 2027) approaches | Add `pension_estate_inclusion_2027` rule to hmrc-tax-mcp; wire into optimizer IHT goal |
 

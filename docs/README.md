@@ -23,7 +23,7 @@ This index is the source of truth for documentation status and ownership.
 | `docs/persistence-security-review.md` | Security review baseline for persistence model | Engineering + Security | Active |
 | `docs/privacy-notice.md` | Production privacy notice text | Privacy Owner | Active |
 | `docs/privacy-notice-outline.md` | Drafting baseline for privacy notice updates | Privacy Owner | Active |
-| `docs/optimizer-architecture-reconciled.md` | Canonical LLP/HMRC MCP/RAG/LLM integration architecture | Engineering | Active |
+| `docs/optimizer-architecture-reconciled.md` | Canonical LaterLifePlan/HMRC MCP/RAG/LLM integration architecture | Engineering | Active |
 | `docs/ai-optimizer-implementation-plan.md` | Phased delivery plan for the AI-enabled drawdown optimizer | Engineering | Active |
 
 ## Active Operational Docs

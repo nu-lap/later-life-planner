@@ -587,7 +587,7 @@ export default function OptimizerPanel({ plannerState, result }: Props) {
                   Explain this recommendation
                 </h2>
                 <p className="mt-2 text-sm leading-6 text-slate-600">
-                  LLP will send a minimised summary of your ages, household type, high-level asset totals,
+                  LaterLifePlan will send a minimised summary of your ages, household type, high-level asset totals,
                   optimiser result, and HMRC rule provenance to {providerLabel} through the server-side
                   explanation route. If you consent, the server will also retrieve matching HMRC guidance
                   excerpts using the disclosed rule IDs, tax year, and jurisdiction. Names, addresses,
@@ -628,7 +628,7 @@ export default function OptimizerPanel({ plannerState, result }: Props) {
                         disabled={isExplaining || isLoadingCachedExplanation}
                       />
                       <span>
-                        I consent to LLP sending this minimised optimiser summary and retrieving matched HMRC guidance for explanation generation.
+                        I consent to LaterLifePlan sending this minimised optimiser summary and retrieving matched HMRC guidance for explanation generation.
                       </span>
                     </label>
                   </>
