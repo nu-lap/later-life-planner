@@ -1,5 +1,6 @@
 import { CURRENT_TAX_YEAR_START } from '@/config/financialConstants';
 import { getSnapshotForYear } from '@/config/taxRuleSnapshot';
+import { getStrategyDisplayLabel } from '@/lib/strategyDefinitions';
 import type { PlannerState, YearlyProjection } from '@/models/types';
 import { calculateProjections } from './projectionEngine';
 import { calcCGT, calcIncomeTax, drawFromGIA, isHigherRateTaxpayer } from './taxCalculations';
@@ -59,21 +60,8 @@ export const BASELINE_STRATEGY = OPTIMIZER_CANDIDATES[0];
 // £1 tolerance to absorb floating-point rounding in after-tax net income vs spending.
 const FEASIBILITY_TOLERANCE_GBP = 1;
 
-export function describeStrategyLabel(label: string): string {
-  switch (label) {
-    case '1-LLP-Baseline':
-      return 'LLP baseline waterfall';
-    case '2-Couple-equal':
-      return 'Couple-equal DC drawdown';
-    case '3-Proportional':
-      return 'Proportional DC drawdown';
-    case '4-Lisa-first':
-      return 'Lisa-first DC drawdown';
-    case '5-ISA-preserve':
-      return 'ISA-preserve';
-    default:
-      return label;
-  }
+export function describeStrategyLabel(label: string, mode: PlannerState['mode'] = 'couple'): string {
+  return getStrategyDisplayLabel(mode, label);
 }
 
 function cloneBalances(balances: OptimizerBalances): OptimizerBalances {

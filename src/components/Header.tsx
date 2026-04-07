@@ -43,10 +43,10 @@ export default function Header({
 	        <div className="max-w-5xl mx-auto px-4 py-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
 	          <div className="flex items-center gap-3 min-w-0">
 	            <div className="w-11 h-11 rounded-full bg-gradient-hero shadow-inner-soft flex items-center justify-center">
-	              <Image src="/images/victorylap_icon.svg" alt="LifePlan icon" width={40} height={40} className="rounded-[14px]" />
+	              <Image src="/images/victorylap_icon.svg" alt="LaterLifePlan icon" width={40} height={40} className="rounded-[14px]" />
 	            </div>
 	            <div className="min-w-0">
-	              <h1 className="text-lg font-black text-slate-900 leading-tight tracking-tight">LifePlan</h1>
+	              <h1 className="text-lg font-black text-slate-900 leading-tight tracking-tight">LaterLifePlan</h1>
 	              <p className="text-xs text-slate-400 leading-tight hidden sm:block">Design the life you want</p>
 	            </div>
 	          </div>
