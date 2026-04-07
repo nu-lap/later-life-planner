@@ -365,7 +365,7 @@ export default function OptimizerPanel({ plannerState, result }: Props) {
                 <div>
                   <p className="text-xs font-bold uppercase tracking-wide text-blue-700">Strategy guide</p>
                   <p className="mt-1 text-xs text-blue-700">
-                    These are the shorthand labels used in the comparison table. LLP baseline waterfall starts with Paul&apos;s pension and ISA, then follows the app&apos;s usual drawdown order. Use the button to show strategy definitions.
+                    These are the shorthand labels used in the comparison table. LLP baseline waterfall starts with {person1Label}&apos;s pension and ISA, then follows LLP&apos;s usual drawdown order. Use the button to show strategy definitions.
                   </p>
                 </div>
                 <button
