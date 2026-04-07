@@ -303,14 +303,12 @@ function getSpendingTarget(row: YearlyProjection, policyOverride?: OptimizerPoli
   return Math.max(row.spending, policyOverride?.minAnnualIncome ?? 0);
 }
 
-function getCapitalFloor(state: PlannerState, policyOverride?: OptimizerPolicyOverride): number {
-  const bequestTarget = policyOverride?.bequestTarget ?? 0;
-  const careReserveTarget = Math.max(
-    policyOverride?.careReserveTarget ?? 0,
-    state.careReserve.enabled ? state.careReserve.amount : 0,
-  );
-
-  return Math.max(bequestTarget, careReserveTarget);
+function getCapitalFloor(policyOverride?: OptimizerPolicyOverride): number {
+  // The care reserve is earmarked separately from spendable drawdown assets, so
+  // it must not also be enforced as part of the spendable terminal capital floor.
+  // Doing so would double-count the reserve and can incorrectly mark viable
+  // plans as infeasible.
+  return policyOverride?.bequestTarget ?? 0;
 }
 
 function recordRuleProvenance(
@@ -731,7 +729,7 @@ function simulateCandidatePass(
   const totalIncome = fixed.total + totalDrawn;
   const netIncome = totalIncome - totalTax;
   const spendingTarget = getSpendingTarget(row, policyOverride);
-  const capitalFloor = getCapitalFloor(state, policyOverride);
+  const capitalFloor = getCapitalFloor(policyOverride);
   const terminalAssets = Math.max(0, sumTerminalAssets(working));
   const incomeGap = Math.max(0, spendingTarget - netIncome);
   const capitalGap = Math.max(0, capitalFloor - terminalAssets);
@@ -855,7 +853,12 @@ function simulateStrategies(
     const evaluated = strategies.map((strategy) =>
       evaluateCandidate(state, row, balances, strategy, strategySelector === 'optimized' ? policyOverride : undefined),
     );
-    const baselineResult = evaluateCandidate(state, row, startingBalances, BASELINE_STRATEGY).result;
+    // Reuse the baseline candidate when it was already evaluated; only recompute
+    // it when candidate filtering excluded the baseline strategy.
+    const baselineStrategyIndex = strategies.indexOf(BASELINE_STRATEGY);
+    const baselineResult = baselineStrategyIndex >= 0
+      ? evaluated[baselineStrategyIndex].result
+      : evaluateCandidate(state, row, startingBalances, BASELINE_STRATEGY).result;
     const winner = strategySelector === 'baseline'
       ? evaluated[0]
       : selectWinner(evaluated);

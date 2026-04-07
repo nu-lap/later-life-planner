@@ -56,7 +56,16 @@ export async function POST(req: Request) {
       schemaVersion: request.schemaVersion,
       enabledGoalCount: request.goalRegistry.filter((goal) => goal.enabled).length,
       hasNaturalLanguageInput: Boolean(request.naturalLanguageInput?.trim()),
-      policyOverride,
+      // Log only structured numeric targets and mode selections; omit free-text
+      // rationale which may embed user-provided naturalLanguageInput.
+      policyOverrideTargets: {
+        minAnnualIncome: policyOverride.minAnnualIncome,
+        bequestTarget: policyOverride.bequestTarget,
+        careReserveTarget: policyOverride.careReserveTarget,
+        dcOrder: policyOverride.dcOrder,
+        isaMode: policyOverride.isaMode,
+        inflationAdjustSpending: policyOverride.inflationAdjustSpending,
+      },
     });
 
     return Response.json({ policyOverride }, {

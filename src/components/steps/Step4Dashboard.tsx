@@ -226,7 +226,10 @@ function GoalPriorityPanel({
                     min={0}
                     onChange={(event) => {
                       const rawValue = event.target.value.trim();
-                      const nextTarget = rawValue === '' ? undefined : Math.max(0, Number(rawValue));
+                      const parsedValue = rawValue === '' ? undefined : Number(rawValue);
+                      const nextTarget = parsedValue === undefined || !Number.isFinite(parsedValue)
+                        ? undefined
+                        : Math.max(0, parsedValue);
                       onChange(orderedGoals.map((entry) => (
                         entry.id === goal.id ? { ...entry, targetValue: nextTarget } : entry
                       )));
