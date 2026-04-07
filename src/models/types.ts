@@ -15,9 +15,29 @@ export type SpendingTier = 'essential' | 'moderate' | 'aspirational' | 'variable
 export type PlanningMode = 'single' | 'couple';
 export type RlssStandard = 'minimum' | 'moderate' | 'comfortable';
 export type TaxJurisdiction = 'rUK' | 'scotland';
+export type GoalId =
+  | 'longevity_protection'
+  | 'spending_floor'
+  | 'aspirational_spending'
+  | 'tax_efficiency'
+  | 'liquidity_preservation'
+  | 'survivorship'
+  | 'care_reserve'
+  | 'bequest'
+  | 'inflation_resilience';
 
 /** Who owns a shared asset. 'joint' splits CGT gains equally between both persons. */
 export type AssetOwner = 'p1' | 'p2' | 'joint';
+
+export interface GoalConfig {
+  id: GoalId;
+  priority: number;
+  userWeight?: number;
+  enabled: boolean;
+  targetValue?: number;
+}
+
+export type GoalRegistry = GoalConfig[];
 
 // ─── Life stages ──────────────────────────────────────────────────────────────
 
@@ -192,6 +212,7 @@ export interface PlannerState {
   spendingCategories: SpendingCategory[];
   assumptions: Assumptions;
   rlssStandard: RlssStandard | null;
+  goalRegistry: GoalRegistry;
   /**
    * Jointly-held GIA shared between both persons.
    * Capital gains are split 50/50 across both persons' CGT allowances.

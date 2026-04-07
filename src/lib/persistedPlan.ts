@@ -12,6 +12,7 @@ export const PERSISTED_PLANNER_KEYS = [
   'spendingCategories',
   'assumptions',
   'rlssStandard',
+  'goalRegistry',
   'jointGia',
   'careReserve',
 ] as const satisfies readonly (keyof PersistedPlannerState)[];

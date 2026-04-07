@@ -9,6 +9,16 @@ export interface WaterfallConfig {
   label: string;
 }
 
+export interface OptimizerPolicyOverride {
+  dcOrder?: DCOrder;
+  isaMode?: ISAMode;
+  minAnnualIncome?: number;
+  careReserveTarget?: number;
+  bequestTarget?: number;
+  inflationAdjustSpending?: boolean;
+  rationale: string;
+}
+
 export interface DrawdownBreakdown {
   p1Dc: number;
   p1Isa: number;
