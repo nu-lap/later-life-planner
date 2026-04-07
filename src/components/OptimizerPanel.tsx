@@ -205,6 +205,8 @@ export default function OptimizerPanel({ plannerState, result }: Props) {
     ? 'Assets last to horizon'
     : `Age ${result.assetDepletionAge}`;
   const isCouple = plannerState.mode === 'couple';
+  const person1Label = plannerState.person1.name || (isCouple ? 'Partner 1' : 'You');
+  const person2Label = plannerState.person2.name || 'Partner 2';
   const providerLabel = getProviderLabel();
   const hasExplanation = Boolean(explanation && explanation.trim().length > 0);
   const explanationBlocks = useMemo(
@@ -358,14 +360,14 @@ export default function OptimizerPanel({ plannerState, result }: Props) {
               <thead>
                 <tr className="border-b border-slate-100 text-left text-slate-500">
                   <th className="pb-2 pr-3 font-bold">Year</th>
-                  <th className="pb-2 pr-3 font-bold">Person 1 pension</th>
-                  <th className="pb-2 pr-3 font-bold">Person 1 ISA</th>
-                  <th className="pb-2 pr-3 font-bold">Person 1 GIA</th>
-                  <th className="pb-2 pr-3 font-bold">Person 1 cash</th>
-                  {isCouple ? <th className="pb-2 pr-3 font-bold">Person 2 pension</th> : null}
-                  {isCouple ? <th className="pb-2 pr-3 font-bold">Person 2 ISA</th> : null}
-                  {isCouple ? <th className="pb-2 pr-3 font-bold">Person 2 GIA</th> : null}
-                  {isCouple ? <th className="pb-2 pr-3 font-bold">Person 2 cash</th> : null}
+                  <th className="pb-2 pr-3 font-bold">{person1Label} pension</th>
+                  <th className="pb-2 pr-3 font-bold">{person1Label} ISA</th>
+                  <th className="pb-2 pr-3 font-bold">{person1Label} GIA</th>
+                  <th className="pb-2 pr-3 font-bold">{person1Label} cash</th>
+                  {isCouple ? <th className="pb-2 pr-3 font-bold">{person2Label} pension</th> : null}
+                  {isCouple ? <th className="pb-2 pr-3 font-bold">{person2Label} ISA</th> : null}
+                  {isCouple ? <th className="pb-2 pr-3 font-bold">{person2Label} GIA</th> : null}
+                  {isCouple ? <th className="pb-2 pr-3 font-bold">{person2Label} cash</th> : null}
                   {isCouple ? <th className="pb-2 pr-0 font-bold">Joint GIA</th> : null}
                 </tr>
               </thead>

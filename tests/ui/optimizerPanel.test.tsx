@@ -36,8 +36,8 @@ describe('OptimizerPanel', () => {
 
     expect(screen.getByText('Year-by-year drawdown breakdown')).toBeInTheDocument();
     expect(screen.getByTestId('optimizer-drawdown-breakdown-table')).toBeInTheDocument();
-    expect(screen.getByText('Person 1 pension')).toBeInTheDocument();
-    expect(screen.getByText('Person 2 pension')).toBeInTheDocument();
+    expect(screen.getByText('Paul pension')).toBeInTheDocument();
+    expect(screen.getByText('Lisa pension')).toBeInTheDocument();
     expect(screen.getByText('Joint GIA')).toBeInTheDocument();
     expect(screen.getAllByText('PCLS').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Tax due').length).toBeGreaterThan(0);
