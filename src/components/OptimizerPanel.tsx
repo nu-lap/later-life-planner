@@ -365,7 +365,7 @@ export default function OptimizerPanel({ plannerState, result }: Props) {
                 <div>
                   <p className="text-xs font-bold uppercase tracking-wide text-blue-700">Strategy guide</p>
                   <p className="mt-1 text-xs text-blue-700">
-                    These labels describe the optimizer&apos;s comparison options. The first mention of LLP baseline waterfall appears in the overall pattern above.
+                    These labels describe the optimiser&apos;s comparison options. The first mention of LLP baseline waterfall appears in the overall pattern above.
                   </p>
                 </div>
                 <button
@@ -598,7 +598,7 @@ export default function OptimizerPanel({ plannerState, result }: Props) {
             onClick={() => setShowAll((current) => !current)}
             className="mt-4 text-sm font-semibold text-orange-600 hover:text-orange-700"
           >
-            {showAll ? '▲ Show fewer years' : '▼ Show all optimizer years'}
+            {showAll ? '▲ Show fewer years' : '▼ Show all optimiser years'}
           </button>
         )}
       </div>
@@ -625,7 +625,7 @@ export default function OptimizerPanel({ plannerState, result }: Props) {
                 </h2>
                 <p className="mt-2 text-sm leading-6 text-slate-600">
                   LLP will send a minimised summary of your ages, household type, high-level asset totals,
-                  optimizer result, and HMRC rule provenance to {providerLabel} through the server-side
+                  optimiser result, and HMRC rule provenance to {providerLabel} through the server-side
                   explanation route. If you consent, the server will also retrieve matching HMRC guidance
                   excerpts using the disclosed rule IDs, tax year, and jurisdiction. Names, addresses,
                   account numbers, and full yearly plan data are not sent.
@@ -665,7 +665,7 @@ export default function OptimizerPanel({ plannerState, result }: Props) {
                         disabled={isExplaining || isLoadingCachedExplanation}
                       />
                       <span>
-                        I consent to LLP sending this minimised optimizer summary and retrieving matched HMRC guidance for explanation generation.
+                        I consent to LLP sending this minimised optimiser summary and retrieving matched HMRC guidance for explanation generation.
                       </span>
                     </label>
                   </>
