@@ -66,10 +66,11 @@ Layer 4: Goal orch.     — LLM maps preferences → optimizer config (later)
 Phase 1 (Optimizer Core)    → Phase 2 (UI Panel)
 Phase 1                     → Phase 3 (Explain Route) → Phase 4 (RAG)
 Phase 1                     → Phase 5 (Year-by-Year Drawdown Breakdown)
-Phase 5                     → Phase 6 (Dashboard UI Cleanup)
-Phase 7 (Audit Route)       — unblocked; deliver any time
-Phase 3                     → Phase 8 (Goal Orchestration)
-Phase 9 (Scotland)          — unblocked; deliver in parallel
+Phase 5                     → Phase 6 (Mode-Aware Strategy Definitions)
+Phase 6                     → Phase 7 (Dashboard UI Cleanup)
+Phase 8 (Audit Route)       — unblocked; deliver any time
+Phase 3                     → Phase 9 (Goal Orchestration)
+Phase 10 (Scotland)         — unblocked; deliver in parallel
 ```
 
 ---
@@ -81,10 +82,11 @@ Phase 9 (Scotland)          — unblocked; deliver in parallel
 - [x] Phase 3 — Explanation API Route
 - [x] Phase 4 — Cosmos RAG Retrieval
 - [x] Phase 5 — Year-by-Year Drawdown Breakdown
-- [ ] Phase 6 — Dashboard UI Cleanup
-- [ ] Phase 7 — Audit/Trace Route
-- [ ] Phase 8 — Goal Orchestration
-- [ ] Phase 9 — Scotland Jurisdiction
+- [ ] Phase 6 — Mode-Aware Strategy Definitions
+- [ ] Phase 7 — Dashboard UI Cleanup
+- [ ] Phase 8 — Audit/Trace Route
+- [ ] Phase 9 — Goal Orchestration
+- [ ] Phase 10 — Scotland Jurisdiction
 
 ---
 
@@ -683,7 +685,81 @@ the breakdown in a readable year-by-year table without changing the optimizer de
 
 ---
 
-## Phase 6 — Dashboard UI Cleanup
+## Phase 6 — Mode-Aware Strategy Definitions
+
+**Goal:** Make the withdrawal strategy names, descriptions, and AI-facing wording explicit for both
+single-person and couple plans, so the optimiser never leaks couple-specific language into a single
+plan or hides the real baseline waterfall order behind vague labels.
+
+**Depends on:** Phase 5 complete.
+
+### 6.1 Create a canonical strategy metadata layer
+
+Files:
+- `src/lib/strategyDefinitions.ts` or an equivalent shared helper
+- `src/components/OptimizerPanel.tsx`
+- `src/lib/llm.ts`
+- `src/lib/optimizerExplainClient.ts`
+
+Implementation requirements:
+- define a single source of truth for strategy labels and plain-English descriptions
+- make the strategy definitions depend on `plannerState.mode`
+- omit couple-only strategies from single-person plans
+- ensure the baseline waterfall description is correct for single and couple modes
+- keep the same strategy metadata available to:
+  - the strategy guide
+  - the strategy comparison table
+  - the overall pattern summary
+  - the explanation prompt sent to the AI route
+
+### 6.2 Make `LLP baseline waterfall` mode-aware
+
+Required wording:
+- single-person plan:
+  - `DC pension within personal allowance plus 25% PCLS, then GIA within CGT allowance, then ISA, then remaining GIA, then DC pension above personal allowance`
+- couple plan:
+  - the same baseline order, but expressed in a way that remains accurate when both partners and joint assets are present
+
+Rules:
+- do not describe the baseline as a vague "usual starting approach" without the real order
+- do not mention partner names in a single-person plan
+- do not leave the baseline label unexplained anywhere the user can see it
+
+### 6.3 Keep the AI explanation consistent with the UI
+
+Files:
+- `src/lib/llm.ts`
+- `src/lib/optimizerExplain.ts`
+- `src/lib/optimizerExplainClient.ts`
+- `src/app/api/optimizer-explain/route.ts`
+
+Implementation requirements:
+- pass the plan mode into the explanation prompt context
+- use single-person wording when the plan is single
+- use couple wording when the plan is a couple
+- do not leak `Person 1` / `Person 2` terminology into user-facing explanation text unless the plan really needs it
+- ensure the explanation route can still reuse the same mode-aware strategy definitions for citations and summaries
+
+### 6.4 Update tests for mode-aware strategy naming
+
+Files:
+- `tests/ui/optimizerPanel.test.tsx`
+- `tests/unit/llm.test.ts`
+- `tests/unit/optimizerExplain.test.ts`
+- `tests/unit/optimizerExplainRoute.test.ts`
+
+Coverage required:
+- single-person plan renders a correct baseline waterfall description
+- couple plan retains the couple-aware strategy guide wording
+- couple-only strategies are not shown in single plans
+- the AI prompt uses mode-aware strategy wording
+- the strategy guide and comparison table share the same labels
+
+**Acceptance criteria for Phase 6:** The optimiser strategy guide, comparison table, overall pattern summary, and explanation prompt all use the same mode-aware strategy metadata. Single-person plans show only single-person-relevant strategy wording. Couple plans show the couple-aware baseline order and strategy names without ambiguity.
+
+---
+
+## Phase 7 — Dashboard UI Cleanup
 
 **Goal:** Rework the Step 4 dashboard so the optimizer output reads as one coherent
 planner experience rather than a stack of overlapping cards, charts, strategies, and
@@ -782,7 +858,7 @@ that supports both single and couple plans without overwhelming the page.
 
 ---
 
-## Phase 7 — Audit/Trace Route
+## Phase 8 — Audit/Trace Route
 
 **Goal:** Developer and auditor tool to inspect exact rule execution for a given
 projection year.
@@ -804,7 +880,7 @@ File: `src/app/api/tax-trace/route.ts`
 
 ---
 
-## Phase 8 — Goal Orchestration
+## Phase 9 — Goal Orchestration
 
 **Goal:** Allow users to express goal priorities in natural language or structured UI;
 an LLM maps these into a `WaterfallConfig` override for the optimizer.
@@ -886,7 +962,7 @@ it produces lower lifetime tax.
 
 ---
 
-## Phase 9 — Scotland Jurisdiction
+## Phase 10 — Scotland Jurisdiction
 
 **Goal:** Support Scottish taxpayers correctly through the optimizer and projection engine.
 

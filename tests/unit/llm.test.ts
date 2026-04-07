@@ -35,6 +35,30 @@ function sampleContext(): ExplanationContext {
   };
 }
 
+function singleSampleContext(): ExplanationContext {
+  return {
+    planSummary: {
+      householdType: 'single',
+      ages: [65],
+      jurisdiction: 'rUK',
+      guaranteedIncomeAnnual: 12531,
+      dcTotal: 450000,
+      isaTotal: 110000,
+      giaTotal: 25000,
+      targetSpendingAnnual: 48457,
+      planRevision: 'sha256:abcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd',
+    },
+    optimizationResult: {
+      recommendedStrategy: { dcOrder: 'proportional', isaMode: 'now', label: '3-Proportional' },
+      baselineStrategy: { dcOrder: 'paul-first', isaMode: 'now', label: '1-LLP-Baseline' },
+      lifetimeTaxSaving: 0,
+      assetDepletionAge: null,
+      terminalAssets: 2100000,
+      ruleProvenance: [],
+    },
+  };
+}
+
 describe('buildPrompt', () => {
   test('uses plain-English wording for the optimizer explanation context', () => {
     const prompt = buildPrompt(sampleContext());
@@ -64,5 +88,13 @@ describe('buildPrompt', () => {
     expect(prompt).not.toContain('2-Paul-DC-First-ISA-Now');
     expect(prompt).not.toContain('1-LLP-Baseline');
     expect(prompt).not.toContain('rUK');
+  });
+
+  test('uses the single-person baseline description for single plans', () => {
+    const prompt = buildPrompt(singleSampleContext());
+
+    expect(prompt).toContain('One person aged 65 living in England, Wales or Northern Ireland');
+    expect(prompt).toContain('DC pension within the personal allowance plus 25% PCLS, then GIA within the CGT allowance, then ISA, then remaining GIA, then DC pension above the personal allowance.');
+    expect(prompt).not.toContain('each person’s personal allowance');
   });
 });

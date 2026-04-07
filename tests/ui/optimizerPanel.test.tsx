@@ -4,7 +4,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import OptimizerPanel from '@/components/OptimizerPanel';
 import { optimizeWithdrawals } from '@/financialEngine/withdrawalOptimizer';
-import { paulAndLisaState } from '../fixtures/states';
+import { dcOnlyState, paulAndLisaState } from '../fixtures/states';
 
 afterEach(() => {
   window.localStorage.clear();
@@ -79,12 +79,30 @@ describe('OptimizerPanel', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Show strategy definitions' }));
 
     expect(screen.getByText('Strategy guide')).toBeInTheDocument();
-    expect(screen.getByText(/The app's standard order is the LLP baseline waterfall/i)).toBeInTheDocument();
+    expect(screen.getByText(/These labels describe the optimiser's comparison options/i)).toBeInTheDocument();
+    expect(screen.getByText(/LLP baseline waterfall appears in the Overall pattern above/i)).toBeInTheDocument();
     expect(screen.getByText('LLP baseline waterfall')).toBeInTheDocument();
     expect(screen.getByText('Couple-equal DC drawdown')).toBeInTheDocument();
     expect(screen.getByText('Proportional DC drawdown')).toBeInTheDocument();
     expect(screen.getByText('Lisa-first DC drawdown')).toBeInTheDocument();
     expect(screen.getByText('ISA-preserve')).toBeInTheDocument();
+  });
+
+  test('shows single-person strategy definitions with single-mode labels', async () => {
+    const plannerState = dcOnlyState(65, 250_000);
+    const result = optimizeWithdrawals(plannerState);
+
+    render(<OptimizerPanel plannerState={plannerState} result={result} />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Show strategy definitions' }));
+
+    expect(screen.getByText('LLP baseline waterfall')).toBeInTheDocument();
+    expect(screen.getByText('Even DC drawdown')).toBeInTheDocument();
+    expect(screen.getByText('Proportional DC drawdown')).toBeInTheDocument();
+    expect(screen.getByText('Alternative DC drawdown')).toBeInTheDocument();
+    expect(screen.getByText('ISA-preserve')).toBeInTheDocument();
+    expect(screen.queryByText('Couple-equal DC drawdown')).not.toBeInTheDocument();
+    expect(screen.queryByText('Lisa-first DC drawdown')).not.toBeInTheDocument();
   });
 
   test('requires consent before generating an explanation and sends a minimised payload', async () => {

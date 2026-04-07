@@ -3,7 +3,6 @@
 import { useMemo, useState } from 'react';
 import clsx from 'clsx';
 import { formatCurrency } from '@/financialEngine/projectionEngine';
-import { describeStrategyLabel } from '@/financialEngine/withdrawalOptimizer';
 import type {
   OptimizationResult,
   PensionWithdrawalBreakdown,
@@ -12,6 +11,7 @@ import type {
   WaterfallResult,
 } from '@/financialEngine/types';
 import { explainOptimizerResult, getCachedOptimizerExplanation } from '@/lib/optimizerExplainClient';
+import { getStrategyDefinitions, getStrategyDisplayLabel } from '@/lib/strategyDefinitions';
 import type { PlannerState } from '@/models/types';
 
 interface Props {
@@ -23,10 +23,12 @@ function StrategyRow({
   label,
   result,
   accent,
+  mode,
 }: {
   label: string;
   result: WaterfallResult;
   accent: 'emerald' | 'amber';
+  mode: PlannerState['mode'];
 }) {
   const accents = {
     emerald: 'bg-emerald-50 border-emerald-100 text-emerald-900',
@@ -36,7 +38,7 @@ function StrategyRow({
   return (
     <div className={clsx('rounded-2xl border p-3', accents[accent])}>
       <p className="text-xs font-bold uppercase tracking-wide opacity-70">{label}</p>
-      <p className="mt-1 text-sm font-semibold">{describeStrategyLabel(result.strategy.label)}</p>
+      <p className="mt-1 text-sm font-semibold">{getStrategyDisplayLabel(mode, result.strategy.label)}</p>
       <div className="mt-2 grid grid-cols-2 gap-3 text-xs sm:grid-cols-4">
         <div>
           <p className="opacity-60">Required net income</p>
@@ -155,10 +157,10 @@ function formatDurabilityDetail(current: number | null, baseline: number | null)
   return 'Compares how long each approach keeps assets available.';
 }
 
-function buildOverallPatternSummary(result: OptimizationResult): string {
-  const winnerLabels = result.yearRecords.map((record) => describeStrategyLabel(record.winner.strategy.label));
+function buildOverallPatternSummary(result: OptimizationResult, mode: PlannerState['mode']): string {
+  const winnerLabels = result.yearRecords.map((record) => getStrategyDisplayLabel(mode, record.winner.strategy.label));
   const uniqueLabels = [...new Set(winnerLabels)];
-  const dominantLabel = describeStrategyLabel(result.recommendedStrategy.label);
+  const dominantLabel = getStrategyDisplayLabel(mode, result.recommendedStrategy.label);
   const firstYearLabel = winnerLabels[0] ?? dominantLabel;
 
   if (uniqueLabels.length <= 1) {
@@ -170,38 +172,6 @@ function buildOverallPatternSummary(result: OptimizationResult): string {
   }
 
   return `Starts with ${firstYearLabel}. The withdrawals vary by year, with ${dominantLabel} used most often overall.`;
-}
-
-function strategyGuideEntries(
-  person1Name: string,
-  person2Name: string,
-  isCouple: boolean,
-): Array<{ label: string; description: string }> {
-  const baselineDescription = isCouple
-    ? `App's standard order: DC pension within each person's personal allowance plus 25% PCLS, then GIA within the CGT allowance, then ISA, then remaining GIA, then DC pension above the personal allowance.`
-    : `App's standard order: DC pension within the personal allowance plus 25% PCLS, then GIA within the CGT allowance, then ISA, then remaining GIA, then DC pension above the personal allowance.`;
-  return [
-    {
-      label: 'LLP baseline waterfall',
-      description: baselineDescription,
-    },
-    {
-      label: 'Couple-equal DC drawdown',
-      description: 'Split pension withdrawals evenly between both partners where possible.',
-    },
-    {
-      label: 'Proportional DC drawdown',
-      description: `Split pension withdrawals in proportion to each partner’s pension pot size.`,
-    },
-    {
-      label: `${person2Name}-first DC drawdown`,
-      description: `Draw from ${person2Name}’s pension before ${person1Name}’s pension.`,
-    },
-    {
-      label: 'ISA-preserve',
-      description: 'Delay ISA withdrawals until later years and lean on pensions or cash first.',
-    },
-  ];
 }
 
 const KNOWN_PROVIDER_LABELS: Record<string, string> = {
@@ -301,7 +271,11 @@ export default function OptimizerPanel({ plannerState, result }: Props) {
   const providerLabel = getProviderLabel();
   const baselineTerminalAssets = result.baselineProjections.at(-1)?.totalAssets ?? 0;
   const terminalAssetDelta = result.terminalAssets - baselineTerminalAssets;
-  const overallPatternSummary = useMemo(() => buildOverallPatternSummary(result), [result]);
+  const overallPatternSummary = useMemo(() => buildOverallPatternSummary(result, plannerState.mode), [plannerState.mode, result]);
+  const strategyGuideEntries = useMemo(
+    () => getStrategyDefinitions(plannerState.mode, person1Label, isCouple ? person2Label : undefined),
+    [isCouple, person1Label, person2Label, plannerState.mode],
+  );
   const shownYearCount = rows.length;
   const hasExplanation = Boolean(explanation && explanation.trim().length > 0);
   const explanationBlocks = useMemo(
@@ -360,39 +334,6 @@ export default function OptimizerPanel({ plannerState, result }: Props) {
             <p className="mt-2 max-w-2xl text-xs leading-6 text-slate-500">
               Required spending is treated as a net cash target. If withdrawals incur tax, the optimiser grosses them up so the year still delivers the required spendable income.
             </p>
-            <div className="mt-3 w-full rounded-2xl border border-slate-200 bg-slate-50 p-4">
-              <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Overall pattern</p>
-              <p className="mt-1 text-sm font-semibold text-slate-900">{overallPatternSummary}</p>
-            </div>
-            <div className="mt-3 w-full rounded-2xl border border-blue-100 bg-blue-50 p-4">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-wide text-blue-700">Strategy guide</p>
-                  <p className="mt-1 text-xs text-blue-700">
-                    These are the named strategies the optimiser compares. The app&apos;s standard order is the LLP baseline waterfall; use the button to show strategy definitions.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setShowStrategyGuide((current) => !current)}
-                  className="rounded-full border border-blue-200 bg-white px-3 py-1 text-xs font-semibold text-blue-700 hover:bg-blue-50"
-                  aria-expanded={showStrategyGuide}
-                  aria-controls="strategy-guide-panel"
-                >
-                  {showStrategyGuide ? 'Hide strategy definitions' : 'Show strategy definitions'}
-                </button>
-              </div>
-              {showStrategyGuide ? (
-                <div id="strategy-guide-panel" className="mt-4 grid gap-3 sm:grid-cols-2">
-                  {strategyGuideEntries(person1Label, person2Label, isCouple).map((entry) => (
-                    <div key={entry.label} className="rounded-xl border border-blue-100 bg-white p-3">
-                      <p className="text-sm font-semibold text-slate-900">{entry.label}</p>
-                      <p className="mt-1 text-xs leading-5 text-slate-600">{entry.description}</p>
-                    </div>
-                  ))}
-                </div>
-              ) : null}
-            </div>
           </div>
           <div className="flex flex-col gap-2 sm:items-end">
             <button
@@ -403,6 +344,41 @@ export default function OptimizerPanel({ plannerState, result }: Props) {
               Explain this recommendation
             </button>
           </div>
+        </div>
+
+        <div className="mt-3 w-full rounded-2xl border border-slate-200 bg-slate-50 p-4">
+          <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Overall pattern</p>
+          <p className="mt-1 text-sm font-semibold text-slate-900">{overallPatternSummary}</p>
+        </div>
+
+        <div className="mt-3 w-full rounded-2xl border border-blue-100 bg-blue-50 p-4">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-bold uppercase tracking-wide text-blue-700">Strategy guide</p>
+              <p className="mt-1 text-xs leading-5 text-blue-700">
+                These labels describe the optimiser&apos;s comparison options. The first mention of LLP baseline waterfall appears in the Overall pattern above.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowStrategyGuide((current) => !current)}
+              className="rounded-full border border-blue-200 bg-white px-3 py-1 text-xs font-semibold text-blue-700 hover:bg-blue-50"
+              aria-expanded={showStrategyGuide}
+              aria-controls="strategy-guide-panel"
+            >
+              {showStrategyGuide ? 'Hide strategy definitions' : 'Show strategy definitions'}
+            </button>
+          </div>
+          {showStrategyGuide ? (
+            <div id="strategy-guide-panel" className="mt-4 grid gap-3 sm:grid-cols-2">
+              {strategyGuideEntries.map((entry) => (
+                <div key={entry.label} className="rounded-xl border border-blue-100 bg-white p-3">
+                  <p className="text-sm font-semibold text-slate-900">{entry.label}</p>
+                  <p className="mt-1 text-xs leading-5 text-slate-600">{entry.description}</p>
+                </div>
+              ))}
+            </div>
+          ) : null}
         </div>
 
         <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -476,11 +452,11 @@ export default function OptimizerPanel({ plannerState, result }: Props) {
                           {record.p2Age !== null ? ` / ${record.p2Age}` : ''}
                         </td>
                         <td className="py-3 pr-3">
-                          <StrategyRow label="Best" result={best ?? record.winner} accent="emerald" />
+                          <StrategyRow label="Best" result={best ?? record.winner} accent="emerald" mode={plannerState.mode} />
                         </td>
                         <td className="py-3 pr-0">
                           {runnerUp ? (
-                            <StrategyRow label="Runner-up" result={runnerUp} accent="amber" />
+                            <StrategyRow label="Runner-up" result={runnerUp} accent="amber" mode={plannerState.mode} />
                           ) : (
                             <div className="rounded-2xl border border-slate-100 bg-white p-3 text-xs text-slate-500">
                               No alternative strategy for this year.
@@ -506,7 +482,7 @@ export default function OptimizerPanel({ plannerState, result }: Props) {
                 Shows the actual withdrawals used year by year. This is the source of truth when the plan changes over time and the net spend target must still be met after tax.
               </p>
             </div>
-            <div className="flex flex-col items-start gap-1 text-left sm:items-end sm:text-right">
+            <div className="flex flex-col items-start gap-1 text-left sm:w-48 sm:items-end sm:text-right">
               <p className="text-xs text-slate-500">
                 Showing {shownYearCount} of {result.yearRecords.length} years
               </p>

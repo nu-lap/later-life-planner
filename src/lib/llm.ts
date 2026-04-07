@@ -2,6 +2,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { DefaultAzureCredential } from '@azure/identity';
 import { z } from 'zod';
 import type { OptimizationSummary, RuleCitation, HmrcChunk } from '@/lib/optimizerExplain';
+import { getBaselineWaterfallDescription, getStrategyDisplayLabel } from '@/lib/strategyDefinitions';
 import type { TaxJurisdiction } from '@/models/types';
 
 const LLM_PROVIDER_VALUES = ['azure-openai', 'anthropic'] as const;
@@ -111,7 +112,7 @@ function describeSpending(planSummary: PlanSummary): string {
 
 function describeDcOrder(planSummary: PlanSummary, dcOrder: OptimizationSummary['recommendedStrategy']['dcOrder']): string {
   if (planSummary.householdType === 'single') {
-    return 'Use the defined contribution pension to help fund spending.';
+    return 'Use the defined contribution pension in the order that best fits the plan.';
   }
 
   switch (dcOrder) {
@@ -135,7 +136,8 @@ function describeIsaMode(isaMode: OptimizationSummary['recommendedStrategy']['is
 }
 
 function describeStrategy(planSummary: PlanSummary, strategy: OptimizationSummary['recommendedStrategy']): string {
-  return `${describeDcOrder(planSummary, strategy.dcOrder)} ${describeIsaMode(strategy.isaMode)}`;
+  const label = getStrategyDisplayLabel(planSummary.householdType, strategy.label);
+  return `${label}. ${describeDcOrder(planSummary, strategy.dcOrder)} ${describeIsaMode(strategy.isaMode)}`;
 }
 
 function describeStrategyComparison(context: ExplanationContext): string {
@@ -147,10 +149,7 @@ function describeStrategyComparison(context: ExplanationContext): string {
     return "The recommendation matches the app's standard starting strategy for this plan.";
   }
 
-  return [
-    "The app's standard starting strategy would be:",
-    describeStrategy(planSummary, optimizationResult.baselineStrategy),
-  ].join(' ');
+  return `The app's usual starting approach is: ${getBaselineWaterfallDescription(planSummary.householdType)}`;
 }
 
 function describeAssetOutcome(optimizationResult: OptimizationSummary): string {
