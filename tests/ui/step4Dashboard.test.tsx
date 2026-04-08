@@ -59,6 +59,9 @@ describe('Step4Dashboard', () => {
     expect(screen.getByText(/Gross income at/)).toBeInTheDocument();
     expect(screen.getByText('Gross income vs required spending — optimiser view')).toBeInTheDocument();
     expect(screen.getByText('Goal priorities')).toBeInTheDocument();
+    expect(screen.queryByText('Optimiser is using these priorities')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Longevity protection amount')).toBeInTheDocument();
+    expect(screen.getByLabelText('Longevity protection slider')).toBeInTheDocument();
     expect(fetchMock).not.toHaveBeenCalled();
     await act(async () => {
       await vi.advanceTimersByTimeAsync(300);
@@ -79,6 +82,20 @@ describe('Step4Dashboard', () => {
       await vi.advanceTimersByTimeAsync(300);
     });
     expect(fetchMock).toHaveBeenCalled();
+  });
+
+  test('clamps goal target controls to the configured maximum', () => {
+    render(<Step4Dashboard onBack={vi.fn()} />);
+
+    const amountInput = screen.getByLabelText('Longevity protection amount') as HTMLInputElement;
+    const maxValue = Number(amountInput.max);
+
+    fireEvent.change(amountInput, { target: { value: '9999999', valueAsNumber: 9_999_999 } });
+
+    expect(setGoalRegistryMock).toHaveBeenCalledTimes(1);
+    const updatedRegistry = setGoalRegistryMock.mock.calls[0][0];
+    const longevityGoal = updatedRegistry.find((entry: { id: string }) => entry.id === 'longevity_protection');
+    expect(longevityGoal.targetValue).toBe(maxValue);
   });
 
   test('does not crash when goal orchestration request construction fails', async () => {

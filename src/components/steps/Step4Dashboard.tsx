@@ -9,7 +9,7 @@ import {
   calculateGamificationMetrics,
 } from '@/lib/calculations';
 import OptimizerPanel from '@/components/OptimizerPanel';
-import { CGT, INCOME_TAX } from '@/config/financialConstants';
+import { CARE_RESERVE, CGT, INCOME_TAX } from '@/config/financialConstants';
 import { optimizeWithdrawals } from '@/financialEngine/withdrawalOptimizer';
 import { RLSS_STANDARDS } from '@/lib/mockData';
 import {
@@ -29,6 +29,12 @@ const LifetimeChart = dynamic(() => import('@/components/charts/LifetimeChart'),
 const AssetChart    = dynamic(() => import('@/components/charts/AssetChart'),    { ssr: false, loading: ChartSkeleton });
 
 interface Props { onBack: () => void }
+
+interface GoalTargetControlConfig {
+  max: number;
+  step: number;
+  suggested?: number;
+}
 
 const GOAL_COPY: Record<GoalId, {
   label: string;
@@ -107,6 +113,18 @@ const GOAL_COPY: Record<GoalId, {
   },
 };
 
+function roundUp(value: number, step: number): number {
+  return Math.ceil(value / step) * step;
+}
+
+function clampGoalTargetValue(value: number | undefined, max: number): number | undefined {
+  if (value === undefined || !Number.isFinite(value)) {
+    return undefined;
+  }
+
+  return Math.min(max, Math.max(0, value));
+}
+
 // ─── Life stage timeline ───────────────────────────────────────────────────────
 
 
@@ -183,31 +201,23 @@ function GoalPriorityPanel({
   onChange,
   isApplying,
   policyRationale,
+  targetControlConfig,
 }: {
   goalRegistry: GoalConfig[];
   onChange: (goalRegistry: GoalConfig[]) => void;
   isApplying: boolean;
   policyRationale?: string | null;
+  targetControlConfig: Partial<Record<GoalId, GoalTargetControlConfig>>;
 }) {
   const orderedGoals = [...goalRegistry].sort((left, right) => left.priority - right.priority);
 
   return (
     <div className="game-card">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h3 className="section-heading">Goal priorities</h3>
-          <p className="text-xs text-slate-500 mb-4">
-            Rank the retirement goals that should shape the optimizer. Higher goals are treated as harder constraints before lower-priority trade-offs.
-          </p>
-        </div>
-        <div className="text-right">
-          <p className={clsx(
-            'inline-flex rounded-full px-3 py-1 text-xs font-semibold',
-            isApplying ? 'bg-orange-100 text-orange-700' : 'bg-emerald-100 text-emerald-700',
-          )}>
-            {isApplying ? 'Updating optimiser…' : 'Optimiser is using these priorities'}
-          </p>
-        </div>
+      <div>
+        <h3 className="section-heading">Goal priorities</h3>
+        <p className="text-xs text-slate-500 mb-4">
+          Rank the retirement goals that should shape the optimizer. Higher goals are treated as harder constraints before lower-priority trade-offs.
+        </p>
       </div>
 
       {policyRationale && (
@@ -221,6 +231,11 @@ function GoalPriorityPanel({
         {orderedGoals.map((goal, index) => {
           const goalCopy = GOAL_COPY[goal.id];
           const targetLabel = goalCopy.targetLabel;
+          const controlConfig = targetControlConfig[goal.id];
+          const clampedTargetValue = clampGoalTargetValue(goal.targetValue, controlConfig?.max ?? Number.MAX_SAFE_INTEGER);
+          const sliderProgress = controlConfig
+            ? Math.min(100, Math.max(0, ((clampedTargetValue ?? 0) / controlConfig.max) * 100))
+            : 0;
 
           return (
             <div
@@ -245,6 +260,7 @@ function GoalPriorityPanel({
                     <input
                       checked={goal.enabled}
                       className="rounded border-slate-300 text-orange-500 focus:ring-orange-500"
+                      disabled={isApplying}
                       onChange={(event) => {
                         onChange(orderedGoals.map((entry) => (
                           entry.id === goal.id ? { ...entry, enabled: event.target.checked } : entry
@@ -257,7 +273,7 @@ function GoalPriorityPanel({
                   <button
                     aria-label={`Move ${goalCopy.label} up`}
                     className="btn-secondary text-xs"
-                    disabled={index === 0}
+                    disabled={index === 0 || isApplying}
                     onClick={() => onChange(moveGoal(orderedGoals, index, -1))}
                     type="button"
                   >
@@ -266,7 +282,7 @@ function GoalPriorityPanel({
                   <button
                     aria-label={`Move ${goalCopy.label} down`}
                     className="btn-secondary text-xs"
-                    disabled={index === orderedGoals.length - 1}
+                    disabled={index === orderedGoals.length - 1 || isApplying}
                     onClick={() => onChange(moveGoal(orderedGoals, index, 1))}
                     type="button"
                   >
@@ -276,29 +292,74 @@ function GoalPriorityPanel({
               </div>
 
               {targetLabel && (
-                <div className="mt-3 flex max-w-xs flex-col gap-1">
-                  <label className="text-xs font-semibold text-slate-600" htmlFor={`goal-target-${goal.id}`}>
-                    {targetLabel}
-                  </label>
-                  <input
-                    className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-200"
-                    id={`goal-target-${goal.id}`}
-                    inputMode="numeric"
-                    min={0}
-                    onChange={(event) => {
-                      const rawValue = event.target.value.trim();
-                      const parsedValue = rawValue === '' ? undefined : Number(rawValue);
-                      const nextTarget = parsedValue === undefined || !Number.isFinite(parsedValue)
-                        ? undefined
-                        : Math.max(0, parsedValue);
-                      onChange(orderedGoals.map((entry) => (
-                        entry.id === goal.id ? { ...entry, targetValue: nextTarget } : entry
-                      )));
-                    }}
-                    placeholder="0"
-                    type="number"
-                    value={goal.targetValue ?? ''}
-                  />
+                <div className="mt-4 rounded-2xl border border-white/70 bg-white/70 p-4">
+                  <div className="mb-2 flex items-center justify-between gap-3">
+                    <div>
+                      <label className="text-xs font-semibold uppercase tracking-wide text-slate-600" htmlFor={`goal-target-${goal.id}`}>
+                        {targetLabel}
+                      </label>
+                      {controlConfig?.suggested !== undefined && (
+                        <p className="text-xs text-slate-400">Suggested starting point: {formatCurrency(controlConfig.suggested, true)}</p>
+                      )}
+                    </div>
+                    <span className="text-base font-black text-slate-800">{formatCurrency(clampedTargetValue ?? 0, true)}</span>
+                  </div>
+                  <div className="mb-3 max-w-xs">
+                    <div className="relative">
+                      <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">£</span>
+                      <input
+                        aria-label={`${goalCopy.label} amount`}
+                        className="w-full rounded-xl border border-slate-200 bg-white py-2 pl-7 pr-3 text-sm font-semibold text-slate-700 shadow-sm focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-200"
+                        disabled={isApplying}
+                        id={`goal-target-${goal.id}`}
+                        inputMode="numeric"
+                        max={controlConfig?.max}
+                        min={0}
+                        onChange={(event) => {
+                          const nextTarget = clampGoalTargetValue(event.target.valueAsNumber, controlConfig?.max ?? Number.MAX_SAFE_INTEGER);
+                          onChange(orderedGoals.map((entry) => (
+                            entry.id === goal.id ? { ...entry, targetValue: nextTarget } : entry
+                          )));
+                        }}
+                        placeholder="0"
+                        step={controlConfig?.step ?? 1000}
+                        type="number"
+                        value={clampedTargetValue ?? ''}
+                      />
+                    </div>
+                  </div>
+                  {controlConfig && (
+                    <>
+                      <input
+                        aria-label={`${goalCopy.label} slider`}
+                        className="w-full"
+                        disabled={isApplying}
+                        max={controlConfig.max}
+                        min={0}
+                        onChange={(event) => {
+                          const nextTarget = clampGoalTargetValue(event.target.valueAsNumber, controlConfig.max);
+                          onChange(orderedGoals.map((entry) => (
+                            entry.id === goal.id ? { ...entry, targetValue: nextTarget } : entry
+                          )));
+                        }}
+                        step={controlConfig.step}
+                        style={{
+                          background: `linear-gradient(to right, #f97316 ${sliderProgress}%, #e2e8f0 ${sliderProgress}%)`,
+                        }}
+                        type="range"
+                        value={clampedTargetValue ?? 0}
+                      />
+                      <div className="mt-1 flex justify-between text-xs text-slate-400">
+                        <span>£0</span>
+                        {controlConfig.suggested !== undefined ? (
+                          <span>{formatCurrency(controlConfig.suggested, true)} suggested</span>
+                        ) : (
+                          <span />
+                        )}
+                        <span>{formatCurrency(controlConfig.max, true)}</span>
+                      </div>
+                    </>
+                  )}
                 </div>
               )}
             </div>
@@ -586,6 +647,33 @@ export default function Step4Dashboard({ onBack }: Props) {
   const surplus       = depletionAge === null;
   const unrealisedGain  = getTotalUnrealisedGain(state);
   const gamification    = useMemo(() => calculateGamificationMetrics(state, projections), [state, projections]);
+  const goalTargetControlConfig = useMemo<Partial<Record<GoalId, GoalTargetControlConfig>>>(() => {
+    const annualTargetMax = roundUp(Math.max(annualSpend * 2, 100_000), 1_000);
+    const capitalTargetMax = roundUp(Math.max(firstYear?.totalAssets ?? 0, CARE_RESERVE.MAX_AMOUNT, 250_000), 5_000);
+
+    return {
+      longevity_protection: {
+        max: annualTargetMax,
+        step: 1_000,
+        suggested: roundUp(annualSpend, 1_000),
+      },
+      spending_floor: {
+        max: annualTargetMax,
+        step: 1_000,
+        suggested: roundUp(annualSpend, 1_000),
+      },
+      care_reserve: {
+        max: capitalTargetMax,
+        step: 5_000,
+        suggested: CARE_RESERVE.DEFAULT_AMOUNT,
+      },
+      bequest: {
+        max: capitalTargetMax,
+        step: 5_000,
+        suggested: roundUp((firstYear?.totalAssets ?? 0) * 0.25, 5_000),
+      },
+    };
+  }, [annualSpend, firstYear?.totalAssets]);
 
   const p1Name = person1.name || (mode === 'couple' ? 'Partner 1' : 'You');
   const p2Name = person2.name || 'Partner 2';
@@ -719,6 +807,7 @@ export default function Step4Dashboard({ onBack }: Props) {
           onChange={setGoalRegistry}
           isApplying={policyLoading}
           policyRationale={policyOverride?.rationale ?? null}
+          targetControlConfig={goalTargetControlConfig}
         />
       )}
 
