@@ -241,7 +241,9 @@ export function syncGoalTarget(
     return {
       ...goal,
       enabled: options.enabled ?? goal.enabled,
-      targetValue: options.targetValue,
+      ...(Object.prototype.hasOwnProperty.call(options, 'targetValue')
+        ? { targetValue: options.targetValue }
+        : {}),
     };
   });
 }
