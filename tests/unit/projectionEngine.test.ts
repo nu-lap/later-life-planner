@@ -15,7 +15,7 @@ import {
   calculateGamificationMetrics,
 } from '@/financialEngine/projectionEngine';
 import { createDefaultState, createMockDemoState } from '@/lib/mockData';
-import { bareState, dcOnlyState, isaOnlyState, paulAndLisaState } from '../fixtures/states';
+import { bareState, paulAndLisaState } from '../fixtures/states';
 import { withSpending } from '../fixtures/helpers';
 import type { PlannerState } from '@/models/types';
 
