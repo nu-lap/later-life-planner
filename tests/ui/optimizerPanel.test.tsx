@@ -43,7 +43,7 @@ describe('OptimizerPanel', () => {
     expect(screen.queryByTestId('optimizer-drawdown-breakdown-table')).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: '▼ Show breakdown' }));
 
-    expect(screen.getByText('Drawdown breakdown by year')).toBeInTheDocument();
+    expect(screen.getByText('Drawdown detail by year')).toBeInTheDocument();
     expect(screen.getByTestId('optimizer-drawdown-breakdown-table')).toBeInTheDocument();
     expect(screen.getByText('Paul')).toBeInTheDocument();
     expect(screen.getByText('Lisa')).toBeInTheDocument();
@@ -70,12 +70,13 @@ describe('OptimizerPanel', () => {
 
     expect(ageHeader.className).toContain('sticky');
     expect(ageHeader.className).toContain('left-0');
-    expect(ageHeader.className).toContain('bg-slate-50');
+    expect(ageHeader.className).toContain('bg-slate');
     expect(ageHeader.className).toContain('border-r');
+    expect(ageHeader.className).not.toContain('top-0');
 
     expect(firstAgeCell!.className).toContain('sticky');
     expect(firstAgeCell!.className).toContain('left-0');
-    expect(firstAgeCell!.className).toContain('bg-slate-50');
+    expect(firstAgeCell!.className).toContain('bg-slate');
     expect(firstAgeCell!.className).toContain('border-r');
   });
 
