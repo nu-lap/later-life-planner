@@ -122,6 +122,46 @@ describe('optimizeWithdrawals', () => {
     expect(firstYear.cgtPaid).toBe(0);
   });
 
+  test('uses spouse-aware ISA ordering for couple strategies', () => {
+    const base = bareCoupleState(60, 60);
+    const state = withSpending({
+      ...base,
+      person1: {
+        ...base.person1,
+        assets: {
+          ...base.person1.assets,
+          isaInvestments: { enabled: true, totalValue: 30_000, growthRate: 0 },
+        },
+      },
+      person2: {
+        ...base.person2,
+        assets: {
+          ...base.person2.assets,
+          isaInvestments: { enabled: true, totalValue: 90_000, growthRate: 0 },
+        },
+      },
+      assumptions: { ...base.assumptions, investmentGrowth: 0 },
+    }, 60_000);
+
+    const result = optimizeWithdrawals(state);
+    const baseline = candidateByLabel(result, 0, '1-LLP-Baseline');
+    const equal = candidateByLabel(result, 0, '2-Couple-equal');
+    const proportional = candidateByLabel(result, 0, '3-Proportional');
+    const lisaFirst = candidateByLabel(result, 0, '4-Lisa-first');
+
+    expect(equal?.drawdowns.p1Isa).toBeCloseTo(30_000, 2);
+    expect(equal?.drawdowns.p2Isa).toBeCloseTo(30_000, 2);
+
+    expect(baseline?.drawdowns.p1Isa).toBeCloseTo(30_000, 2);
+    expect(baseline?.drawdowns.p2Isa).toBeCloseTo(30_000, 2);
+
+    expect(proportional?.drawdowns.p1Isa).toBeCloseTo(15_000, 2);
+    expect(proportional?.drawdowns.p2Isa).toBeCloseTo(45_000, 2);
+
+    expect(lisaFirst?.drawdowns.p1Isa).toBeCloseTo(0, 2);
+    expect(lisaFirst?.drawdowns.p2Isa).toBeCloseTo(60_000, 2);
+  });
+
 
   test('captures pension UFPLS breakdown and attributable tax by year', () => {
     const result = optimizeWithdrawals(withSpending(dcOnlyState(60, 100_000), 20_000));
@@ -193,6 +233,9 @@ describe('optimizeWithdrawals', () => {
     expect((isaPreserve?.drawdowns.p1Isa ?? 0) + (isaPreserve?.drawdowns.p2Isa ?? 0)).toBe(0);
     expect((isaPreserve?.drawdowns.p1Dc ?? 0) + (isaPreserve?.drawdowns.p2Dc ?? 0))
       .toBeGreaterThan((baseline?.drawdowns.p1Dc ?? 0) + (baseline?.drawdowns.p2Dc ?? 0));
+    // isaMode:'defer' strategies are never taxDominated – deferring ISA is intentional
+    expect(isaPreserve?.taxDominated).toBe(false);
+    expect(baseline?.taxDominated ?? false).toBe(false);
   });
 
   test('treats a bequest floor as a feasibility constraint', () => {

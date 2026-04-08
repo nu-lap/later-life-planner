@@ -87,6 +87,7 @@ Phase 10 (Scotland)         — unblocked; deliver in parallel
 - [ ] Phase 8 — Audit/Trace Route
 - [x] Phase 9 — Goal Orchestration
 - [ ] Phase 10 — Scotland Jurisdiction
+- [ ] Phase 11 — Couple ISA Ordering and Tax-Dominance Follow-up
 
 ---
 
@@ -979,6 +980,8 @@ it produces lower lifetime tax.
 
 **Unblocked — deliver in parallel with any phase.**
 
+---
+
 ### 10.1 Capture `taxJurisdiction` in plan model
 
 Add to `src/models/types.ts`:
@@ -1005,6 +1008,95 @@ default `'rUK'`).
 
 **Acceptance criteria for Phase 10:** Scottish taxpayer at £35,000 income produces
 £4,532.82 income tax (6-band Scottish calculation) matching `hmrc-tax-mcp` output.
+
+---
+
+## Phase 11 — Couple ISA Ordering and Tax-Dominance Follow-up
+
+**Goal:** Fix the current couple-plan optimizer limitation where ISA drawdown always
+uses person 1's ISA first, and prevent tax-minimising strategies from leaving an
+available tax-free ISA bucket unused while incurring avoidable tax.
+
+**Depends on:** Phase 5 complete.
+
+### 11.1 Make ISA ordering strategy-aware
+
+Files:
+- `src/financialEngine/types.ts`
+- `src/financialEngine/withdrawalOptimizer.ts`
+
+Required changes:
+- add explicit `isaOrder` semantics to the optimizer strategy model
+- support at least:
+  - `p1-first`
+  - `p2-first`
+  - `equal`
+  - `proportional`
+- replace the current hard-coded `p1Isa` then `p2Isa` sequence with an allocation helper
+- keep single-person mode simple by ignoring `isaOrder` and continuing to use the single ISA bucket
+
+### 11.2 Make couple strategies actually differ in ISA behaviour
+
+Files:
+- `src/financialEngine/withdrawalOptimizer.ts`
+- `src/lib/strategyDefinitions.ts`
+
+Required changes:
+- extend the baseline strategy definitions so couple strategies carry ISA ordering as well as DC ordering
+- align the household semantics with the visible strategy labels:
+  - `LLP baseline waterfall` → equal ISA usage for couple plans, because the baseline is the household tax-minimising LaterLifePlan waterfall
+  - `Couple-equal` → equal ISA usage where ISA withdrawals are needed
+  - `Proportional` → ISA usage proportional to current ISA balances
+  - `Partner 2-first` / `Lisa-first` → partner 2 ISA first
+  - `ISA-preserve` → defer ISA usage, then use the configured ISA order once needed
+
+### 11.3 Add a tax-dominance rule for minimise-tax behaviour
+
+Files:
+- `src/financialEngine/withdrawalOptimizer.ts`
+
+Required changes:
+- for strategies with `isaMode === 'now'`, reject or heavily penalise candidate years that:
+  - still have usable ISA capacity available, and
+  - incur avoidable income tax or CGT that could have been avoided by using ISA instead
+- keep legitimate exceptions:
+  - DC pension withdrawals within the personal allowance
+  - GIA withdrawals within the CGT allowance
+  - strategies that explicitly defer ISA (`isaMode === 'defer'`)
+  - future higher-priority goal overrides that deliberately preserve ISA
+
+### 11.4 Update the yearly breakdown copy
+
+Files:
+- `src/components/OptimizerPanel.tsx`
+
+Required changes:
+- replace `PCLS` with `25% Tax Free` in the breakdown panel so the label is user-facing
+- simplify the `Year-by-year drawdown breakdown` title to a shorter plain-English heading
+
+### 11.5 Update tests and explanation wording
+
+Files:
+- `tests/unit/withdrawalOptimizer.test.ts`
+- `tests/ui/optimizerPanel.test.tsx`
+- `src/lib/llm.ts`
+- `src/lib/strategyDefinitions.ts`
+
+Coverage required:
+- couple plan with both ISAs enabled uses the configured spouse-aware ISA order
+- equal and proportional ISA strategies use both ISA buckets rather than always draining person 1 first
+- tax-dominance rule prevents avoidable tax while tax-free ISA remains available
+- breakdown UI uses `25% Tax Free` rather than `PCLS`
+- simplified breakdown heading renders correctly
+- strategy definitions and explanation wording stay aligned with the new ISA semantics
+
+**Acceptance criteria for Phase 11:** For a couple plan with both ISAs enabled,
+the optimizer can use either person's ISA according to the selected strategy,
+does not pay avoidable tax while an available ISA bucket remains under a
+tax-minimising strategy, and the breakdown UI uses plain-English labels for the
+pension tax-free component and yearly breakdown heading.
+**Future feature note:** This phase treats FI start as a household start for couple plans. Split retirement start ages should be added later as a separate app feature, not folded into this tax-minimisation fix.
+
 
 ---
 

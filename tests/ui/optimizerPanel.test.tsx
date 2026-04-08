@@ -43,13 +43,13 @@ describe('OptimizerPanel', () => {
     expect(screen.queryByTestId('optimizer-drawdown-breakdown-table')).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: '▼ Show breakdown' }));
 
-    expect(screen.getByText('Year-by-year drawdown breakdown')).toBeInTheDocument();
+    expect(screen.getByText('Drawdown breakdown by year')).toBeInTheDocument();
     expect(screen.getByTestId('optimizer-drawdown-breakdown-table')).toBeInTheDocument();
     expect(screen.getByText('Paul')).toBeInTheDocument();
     expect(screen.getByText('Lisa')).toBeInTheDocument();
     expect(screen.getByText('Joint')).toBeInTheDocument();
     expect(screen.getAllByText('Pension').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('PCLS').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('25% Tax Free').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Tax due').length).toBeGreaterThan(0);
   });
 

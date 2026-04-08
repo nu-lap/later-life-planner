@@ -87,7 +87,7 @@ function PensionBreakdownCell({ breakdown }: { breakdown?: PensionWithdrawalBrea
   return (
     <div className="space-y-1">
       <BreakdownField label="Gross" value={breakdown.grossAmount} />
-      <BreakdownField label="PCLS" value={breakdown.pcls} />
+      <BreakdownField label="25% Tax Free" value={breakdown.pcls} />
       <BreakdownField label="Taxable" value={breakdown.taxableAmount} />
       <BreakdownField label="Tax due" value={breakdown.taxDue} />
     </div>
@@ -458,7 +458,7 @@ export default function OptimizerPanel({ plannerState, result }: Props) {
           <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <h4 className="text-sm font-black uppercase tracking-wide text-slate-700">
-                Year-by-year drawdown breakdown
+                Drawdown breakdown by year
               </h4>
               <p className="mt-1 text-xs text-slate-500">
                 Shows the actual withdrawals used year by year. This is the source of truth when the plan changes over time and the net spend target must still be met after tax.

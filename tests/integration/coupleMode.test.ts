@@ -1,14 +1,13 @@
 /**
  * Integration tests — couple mode specific behaviour.
  * Tests per-person PA independence, joint GIA CGT splitting,
- * joint property rent de-duplication, and independent DC start ages.
+ * joint property rent de-duplication, and household FI start semantics.
  */
 
 import { describe, test, expect } from 'vitest';
 import { calculateProjections } from '@/financialEngine/projectionEngine';
-import { INCOME_TAX, CGT } from '@/config/financialConstants';
 import { bareState, bareCoupleState, paulAndLisaState } from '../fixtures/states';
-import { withSpending, cgtBetween, taxBetween, fiProjections } from '../fixtures/helpers';
+import { withSpending } from '../fixtures/helpers';
 import type { PlannerState } from '@/models/types';
 
 // ─── Personal allowance independence ─────────────────────────────────────────
@@ -40,11 +39,11 @@ describe('Per-person personal allowance independence', () => {
     expect(row.p2DcDrawdown).toBeGreaterThan(0);
   });
 
-  test('p2 DC not drawn before p2 reaches fiAge', () => {
-    const base = bareCoupleState(65, 60); // p1 65, p2 60
+  test('couple drawdown starts at the household FI age', () => {
+    const base = bareCoupleState(59, 60);
     const state: PlannerState = {
       ...withSpending(base, 40_000),
-      fiAge: 60, // FI age for p1 is 60; p2 age 60 = fiAge
+      fiAge: 60,
       person2: {
         ...base.person2,
         incomeSources: {
@@ -54,10 +53,10 @@ describe('Per-person personal allowance independence', () => {
       },
     };
     const projections = calculateProjections(state);
-    // p2 starts at age 60 which equals fiAge, so she draws from year 0
-    const firstRow = projections[0];
-    // p2 is already at fiAge, so draws are allowed
-    expect(firstRow.p2DcDrawdown).toBeGreaterThanOrEqual(0);
+    const preHouseholdFiRow = projections.find(p => p.p1Age === 59);
+    const householdFiRow = projections.find(p => p.p1Age === 60);
+    expect(preHouseholdFiRow?.p2DcDrawdown ?? 0).toBe(0);
+    expect((householdFiRow?.p1DcDrawdown ?? 0) + (householdFiRow?.p2DcDrawdown ?? 0)).toBeGreaterThan(0);
   });
 
   test('p1 and p2 income tax calculated independently (lower combined tax)', () => {
@@ -189,29 +188,8 @@ describe('Joint property — rent counted once', () => {
 
 // ─── Different DC start ages ──────────────────────────────────────────────────
 
-describe('Different FI / DC start ages in couple mode', () => {
-  test('p2 DC not drawn while p2Age < fiAge', () => {
-    // p1 age 65 (FI), p2 age 58 — p2 hasn't reached fiAge yet
-    const base = bareCoupleState(65, 58);
-    const state: PlannerState = {
-      ...withSpending(base, 30_000),
-      fiAge: 60, // FI at 60 — p2 is 58, below fiAge
-      person2: {
-        ...base.person2,
-        currentAge: 58,
-        incomeSources: {
-          ...base.person2.incomeSources,
-          dcPension: { enabled: true, totalValue: 400_000, growthRate: 0 },
-        },
-      },
-    };
-    const projections = calculateProjections(state);
-    // First two years: p2 age 58, 59 — below fiAge 60, p2 DC should be 0
-    const preFiP2 = projections.filter(p => (p.p2Age ?? 0) < state.fiAge);
-    preFiP2.forEach(p => expect(p.p2DcDrawdown).toBe(0));
-  });
-
-  test('p2 DC drawn once p2Age reaches fiAge', () => {
+describe('Household FI start in couple mode', () => {
+  test('person 2 can draw once the household reaches FI age even if person 2 is younger', () => {
     const base = bareCoupleState(65, 58);
     const state: PlannerState = {
       ...withSpending(base, 30_000),
@@ -232,15 +210,29 @@ describe('Different FI / DC start ages in couple mode', () => {
         },
       },
     };
+    const firstRow = calculateProjections(state)[0];
+    expect(firstRow.p2DcDrawdown).toBeGreaterThanOrEqual(0);
+    expect(firstRow.p1DcDrawdown + firstRow.p2DcDrawdown).toBeGreaterThan(0);
+  });
+
+  test('person 2 ISA is not drawn before the household reaches FI age', () => {
+    const base = bareCoupleState(59, 60);
+    const state: PlannerState = {
+      ...withSpending(base, 30_000),
+      fiAge: 60,
+      person2: {
+        ...base.person2,
+        assets: {
+          ...base.person2.assets,
+          isaInvestments: { enabled: true, totalValue: 40_000, growthRate: 0 },
+        },
+      },
+    };
     const projections = calculateProjections(state);
-    // Row where p2 is exactly at fiAge (60)
-    const atFiRow = projections.find(p => (p.p2Age ?? 0) === state.fiAge);
-    if (atFiRow) {
-      // At fiAge, drawdown is now allowed — either p2 DC or p1 DC handles any shortfall
-      // (p2 DC draw may be 0 if p1 covers spending, but total drawdown must cover gap)
-      const totalDc = atFiRow.p1DcDrawdown + atFiRow.p2DcDrawdown;
-      expect(totalDc).toBeGreaterThan(0);
-    }
+    const preHouseholdFiRow = projections.find(p => p.p1Age === 59);
+    const householdFiRow = projections.find(p => p.p1Age === 60);
+    expect(preHouseholdFiRow?.p2IsaDrawdown ?? 0).toBe(0);
+    expect(householdFiRow?.p2IsaDrawdown ?? 0).toBeGreaterThanOrEqual(0);
   });
 });
 
