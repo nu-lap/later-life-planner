@@ -1,6 +1,6 @@
 import React from 'react';
 import { afterEach, describe, expect, test, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import OptimizerPanel from '@/components/OptimizerPanel';
 import { optimizeWithdrawals } from '@/financialEngine/withdrawalOptimizer';
@@ -51,6 +51,32 @@ describe('OptimizerPanel', () => {
     expect(screen.getAllByText('Pension').length).toBeGreaterThan(0);
     expect(screen.getAllByText('25% Tax Free').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Tax due').length).toBeGreaterThan(0);
+  });
+
+  test('uses a shaded sticky age column in the drawdown breakdown table', async () => {
+    const plannerState = paulAndLisaState();
+    const result = optimizeWithdrawals(plannerState);
+
+    render(<OptimizerPanel plannerState={plannerState} result={result} />);
+
+    await userEvent.click(screen.getByRole('button', { name: '▼ Show breakdown' }));
+
+    const breakdownTable = screen.getByTestId('optimizer-drawdown-breakdown-table');
+    const ageHeader = within(breakdownTable).getByRole('columnheader', { name: 'Age' });
+    const firstAgeCell = breakdownTable.querySelector('tbody tr:first-child td:first-child');
+
+    expect(ageHeader).not.toBeNull();
+    expect(firstAgeCell).not.toBeNull();
+
+    expect(ageHeader.className).toContain('sticky');
+    expect(ageHeader.className).toContain('left-0');
+    expect(ageHeader.className).toContain('bg-slate-50');
+    expect(ageHeader.className).toContain('border-r');
+
+    expect(firstAgeCell!.className).toContain('sticky');
+    expect(firstAgeCell!.className).toContain('left-0');
+    expect(firstAgeCell!.className).toContain('bg-slate-50');
+    expect(firstAgeCell!.className).toContain('border-r');
   });
 
   test('shows the first five comparison years by default', () => {
