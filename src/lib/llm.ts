@@ -304,7 +304,7 @@ export function buildPrompt(context: ExplanationContext): string {
   return [
     'Write a plain-English explanation addressed directly to the user of a later-life withdrawal plan.',
     'Use the facts below. Do not mention internal labels, abbreviations, raw field names, or missing internal inputs.',
-    'Address the user as you and your. For couple plans, address them as you or both of you. Do not refer to the user as the couple, they, them, or their.',
+    'Address the user as you and your. For couple plans, address the household as you, your, or both of you. Do not refer to the user or the household as the couple, they, them, or their.',
     'The final answer must use exactly these headings: Recommendation, Why this fits, Points to note.',
     'Under each heading, use bullet points rather than dense prose.',
     '',
