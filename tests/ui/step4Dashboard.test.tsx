@@ -2,6 +2,7 @@ import React from 'react';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { paulAndLisaState } from '../fixtures/states';
+import { optimizeWithdrawals } from '@/financialEngine/withdrawalOptimizer';
 
 const setGoalRegistryMock = vi.fn();
 const setCareReserveMock = vi.fn();
@@ -22,7 +23,7 @@ vi.mock('next/dynamic', () => ({
   },
 }));
 
-import Step4Dashboard from '@/components/steps/Step4Dashboard';
+import Step4Dashboard, { buildOptimizerViewProjections } from '@/components/steps/Step4Dashboard';
 
 describe('Step4Dashboard', () => {
   beforeEach(() => {
@@ -217,5 +218,21 @@ describe('Step4Dashboard', () => {
 
     expect(fetchMock).not.toHaveBeenCalled();
     expect(screen.getByText('Goal priorities')).toBeInTheDocument();
+  });
+
+  test('maps optimiser ending balances into chart projections', () => {
+    const state = paulAndLisaState();
+    const optimizerResult = optimizeWithdrawals(state);
+
+    const chartRows = buildOptimizerViewProjections(optimizerResult.baselineProjections, optimizerResult);
+    const firstOptimizedRow = optimizerResult.yearRecords[0];
+    const firstChartRow = chartRows.find((row) => row.yearIndex === firstOptimizedRow.yearIndex);
+
+    expect(firstChartRow).toBeDefined();
+    expect(firstChartRow?.p1DcBalance).toBe(firstOptimizedRow.winner.endingBalances.p1DcBalance);
+    expect(firstChartRow?.p2DcBalance).toBe(firstOptimizedRow.winner.endingBalances.p2DcBalance);
+    expect(firstChartRow?.p1IsaBalance).toBe(firstOptimizedRow.winner.endingBalances.p1IsaBalance);
+    expect(firstChartRow?.p2IsaBalance).toBe(firstOptimizedRow.winner.endingBalances.p2IsaBalance);
+    expect(firstChartRow?.jointGiaValue).toBe(firstOptimizedRow.winner.endingBalances.jointGiaValue);
   });
 });
