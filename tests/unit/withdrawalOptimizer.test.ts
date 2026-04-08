@@ -233,7 +233,8 @@ describe('optimizeWithdrawals', () => {
     expect((isaPreserve?.drawdowns.p1Isa ?? 0) + (isaPreserve?.drawdowns.p2Isa ?? 0)).toBe(0);
     expect((isaPreserve?.drawdowns.p1Dc ?? 0) + (isaPreserve?.drawdowns.p2Dc ?? 0))
       .toBeGreaterThan((baseline?.drawdowns.p1Dc ?? 0) + (baseline?.drawdowns.p2Dc ?? 0));
-    expect(isaPreserve?.taxDominated).toBe(true);
+    // isaMode:'defer' strategies are never taxDominated – deferring ISA is intentional
+    expect(isaPreserve?.taxDominated).toBe(false);
     expect(baseline?.taxDominated ?? false).toBe(false);
   });
 

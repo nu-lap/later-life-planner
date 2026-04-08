@@ -258,7 +258,8 @@ function allocateIsaDrawdown(
   p1Available: number,
   p2Available: number,
 ): { p1: number; p2: number } {
-  if (remaining <= 0 || p2Available <= 0) {
+  if (remaining <= 0) return { p1: 0, p2: 0 };
+  if (p2Available <= 0) {
     return {
       p1: Math.min(p1Available, remaining),
       p2: 0,
