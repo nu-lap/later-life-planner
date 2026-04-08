@@ -1,6 +1,6 @@
 import React from 'react';
 import { afterEach, describe, expect, test, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import OptimizerPanel from '@/components/OptimizerPanel';
 import { optimizeWithdrawals } from '@/financialEngine/withdrawalOptimizer';
@@ -61,19 +61,22 @@ describe('OptimizerPanel', () => {
 
     await userEvent.click(screen.getByRole('button', { name: '▼ Show breakdown' }));
 
-    const ageHeader = screen.getAllByText('Age').at(-1)?.closest('th');
     const breakdownTable = screen.getByTestId('optimizer-drawdown-breakdown-table');
-    const firstAgeCell = breakdownTable.querySelector('tbody td.sticky.left-0');
+    const ageHeader = within(breakdownTable).getByRole('columnheader', { name: 'Age' });
+    const firstAgeCell = breakdownTable.querySelector('tbody tr:first-child td:first-child');
 
-    expect(ageHeader?.className).toContain('sticky');
-    expect(ageHeader?.className).toContain('left-0');
-    expect(ageHeader?.className).toContain('bg-slate-50');
-    expect(ageHeader?.className).toContain('border-r');
+    expect(ageHeader).not.toBeNull();
+    expect(firstAgeCell).not.toBeNull();
 
-    expect(firstAgeCell?.className).toContain('sticky');
-    expect(firstAgeCell?.className).toContain('left-0');
-    expect(firstAgeCell?.className).toContain('bg-slate-50');
-    expect(firstAgeCell?.className).toContain('border-r');
+    expect(ageHeader.className).toContain('sticky');
+    expect(ageHeader.className).toContain('left-0');
+    expect(ageHeader.className).toContain('bg-slate-50');
+    expect(ageHeader.className).toContain('border-r');
+
+    expect(firstAgeCell!.className).toContain('sticky');
+    expect(firstAgeCell!.className).toContain('left-0');
+    expect(firstAgeCell!.className).toContain('bg-slate-50');
+    expect(firstAgeCell!.className).toContain('border-r');
   });
 
   test('shows the first five comparison years by default', () => {
