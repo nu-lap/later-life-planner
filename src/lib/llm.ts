@@ -107,8 +107,8 @@ export async function generateGoalPolicyOverride(
         }
         break;
       case 'inflation_resilience':
-        policyOverride.inflationAdjustSpending = true;
-        rationaleParts.push('Keep the spending floor resilient to inflation over time.');
+        // Inflation-adjusted spending is not yet implemented in downstream optimizer/projection logic.
+        // Keep this goal as a no-op here until the engine can honor it without misleading users.
         break;
       case 'tax_efficiency':
         rationaleParts.push('Prefer lower-tax withdrawal paths where the higher-priority constraints still hold.');
