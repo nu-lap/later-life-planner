@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { CareReserve, GoalConfig, GoalId, GoalRegistry, PlannerState, TaxJurisdiction } from '@/models/types';
 import type { OptimizerPolicyOverride } from '@/financialEngine/types';
+import { CARE_RESERVE } from '@/config/financialConstants';
 
 export const DEFAULT_GOAL_ORCHESTRATION_SCHEMA_VERSION = '1';
 
@@ -273,7 +274,9 @@ export function syncCareReserveGoal(
   careReserve: CareReserve | undefined | null,
 ): GoalRegistry {
   const enabled = Boolean(careReserve?.enabled);
-  const targetValue = enabled ? Math.max(0, careReserve?.amount ?? 0) : undefined;
+  const targetValue = enabled
+    ? Math.min(CARE_RESERVE.MAX_AMOUNT, Math.max(0, careReserve?.amount ?? 0))
+    : undefined;
 
   return syncGoalTarget(goalRegistry, 'care_reserve', {
     enabled,

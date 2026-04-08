@@ -1,13 +1,15 @@
 import React from 'react';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { paulAndLisaState } from '../fixtures/states';
 
 const setGoalRegistryMock = vi.fn();
+const setCareReserveMock = vi.fn();
 const fetchMock = vi.fn();
 let plannerState = {
   ...paulAndLisaState(),
   setGoalRegistry: setGoalRegistryMock,
+  setCareReserve: setCareReserveMock,
 };
 
 vi.mock('@/store/plannerStore', () => ({
@@ -29,8 +31,10 @@ describe('Step4Dashboard', () => {
     plannerState = {
       ...paulAndLisaState(),
       setGoalRegistry: setGoalRegistryMock,
+      setCareReserve: setCareReserveMock,
     };
     setGoalRegistryMock.mockReset();
+    setCareReserveMock.mockReset();
     fetchMock.mockReset();
     fetchMock.mockResolvedValue({
       ok: true,
@@ -102,6 +106,46 @@ describe('Step4Dashboard', () => {
     const updatedRegistry = setGoalRegistryMock.mock.calls[0][0];
     const longevityGoal = updatedRegistry.find((entry: { id: string }) => entry.id === 'longevity_protection');
     expect(longevityGoal.targetValue).toBe(maxValue);
+  });
+
+  test('links the care reserve goal controls to the canonical care reserve state', () => {
+    plannerState = {
+      ...plannerState,
+      careReserve: { enabled: true, amount: 125_000 },
+    };
+
+    render(<Step4Dashboard onBack={vi.fn()} />);
+    setCareReserveMock.mockClear();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show all goals' }));
+
+    const amountInput = screen.getByLabelText('Care reserve amount') as HTMLInputElement;
+    expect(amountInput.value).toBe('125000');
+
+    fireEvent.change(amountInput, { target: { value: '240000', valueAsNumber: 240_000 } });
+
+    expect(setCareReserveMock).toHaveBeenCalledWith({
+      enabled: true,
+      amount: 240_000,
+    });
+  });
+
+  test('disabling care reserve in the goal panel updates the canonical care reserve state', () => {
+    plannerState = {
+      ...plannerState,
+      careReserve: { enabled: true, amount: 125_000 },
+    };
+
+    render(<Step4Dashboard onBack={vi.fn()} />);
+    setCareReserveMock.mockClear();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show all goals' }));
+    fireEvent.click(within(screen.getByTestId('goal-card-care_reserve')).getByRole('checkbox', { name: 'Enabled' }));
+
+    expect(setCareReserveMock).toHaveBeenCalledWith({
+      enabled: false,
+      amount: 125_000,
+    });
   });
 
   test('shows only enabled goals in the collapsed view by default', () => {
