@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { usePlannerStore } from '@/store/plannerStore';
 import { getStageTotals, getStageTotalSpending, formatCurrency } from '@/lib/calculations';
 import { RLSS_STANDARDS } from '@/lib/mockData';
+import { syncCareReserveGoal } from '@/lib/goalOrchestration';
 import { CARE_RESERVE } from '@/config/financialConstants';
 import type { SpendingTier, RlssStandard } from '@/models/types';
 import clsx from 'clsx';
@@ -27,7 +28,18 @@ const STAGE_COLORS = { 'go-go': '#f97316', 'slo-go': '#10b981', 'no-go': '#8b5cf
 
 export default function Step2SpendingGoals({ onNext, onBack }: Props) {
   const state = usePlannerStore();
-  const { mode, lifeStages, spendingCategories, updateSpendingAmount, rlssStandard, applyRlssTemplate, careReserve, setCareReserve } = state;
+  const {
+    mode,
+    lifeStages,
+    spendingCategories,
+    updateSpendingAmount,
+    rlssStandard,
+    applyRlssTemplate,
+    careReserve,
+    goalRegistry,
+    setCareReserve,
+    setGoalRegistry,
+  } = state;
 
   const [activeStageId, setActiveStageId] = useState(lifeStages[0]?.id ?? 'active');
   const [openTiers, setOpenTiers] = useState<Record<string, boolean>>({ essential: true, moderate: true, aspirational: false, variable: false });
@@ -49,6 +61,18 @@ export default function Step2SpendingGoals({ onNext, onBack }: Props) {
   else if (totalSpend >= min) { benchmarkLabel = 'Minimum–Moderate';     benchmarkColor = 'text-amber-600'; }
 
   const toggleTier = (tier: string) => setOpenTiers(p => ({ ...p, [tier]: !p[tier] }));
+  const careReserveProgress = ((careReserve?.amount ?? 0) / CARE_RESERVE.MAX_AMOUNT) * 100;
+
+  function updateCareReserve(nextReserve: Partial<typeof careReserve>) {
+    const merged = {
+      enabled: careReserve?.enabled ?? false,
+      amount: careReserve?.amount ?? 0,
+      ...nextReserve,
+    };
+
+    setCareReserve(merged);
+    setGoalRegistry(syncCareReserveGoal(goalRegistry, merged));
+  }
 
   return (
     <div className="space-y-5 pb-24">
@@ -292,7 +316,8 @@ export default function Step2SpendingGoals({ onNext, onBack }: Props) {
                 </div>
               </div>
               <button
-                onClick={() => setCareReserve({ enabled: !careReserve?.enabled })}
+                aria-label={careReserve?.enabled ? 'Disable care reserve' : 'Enable care reserve'}
+                onClick={() => updateCareReserve({ enabled: !careReserve?.enabled })}
                 className={clsx(
                   'flex-shrink-0 ml-4 w-12 h-6 rounded-full transition-colors relative',
                   careReserve?.enabled ? 'bg-teal-500' : 'bg-slate-200'
@@ -309,8 +334,29 @@ export default function Step2SpendingGoals({ onNext, onBack }: Props) {
               <div className="border-t border-teal-100 pt-4 space-y-4">
                 <div>
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-semibold text-slate-700">Reserve amount</span>
+                    <div>
+                      <span className="text-sm font-semibold text-slate-700">Reserve amount</span>
+                      <p className="text-xs text-slate-500">This also sets the Care reserve goal target used by the optimiser.</p>
+                    </div>
                     <span className="text-base font-black text-teal-700">{formatCurrency(careReserve.amount)}</span>
+                  </div>
+                  <div className="mb-3 flex max-w-xs flex-col gap-1">
+                    <label className="text-xs font-semibold uppercase tracking-wide text-teal-700" htmlFor="care-reserve-amount">
+                      Care reserve target
+                    </label>
+                    <div className="relative">
+                      <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">£</span>
+                      <input
+                        id="care-reserve-amount"
+                        type="number"
+                        min={0}
+                        max={CARE_RESERVE.MAX_AMOUNT}
+                        step={5000}
+                        value={careReserve.amount}
+                        onChange={(e) => updateCareReserve({ amount: parseInt(e.target.value || '0', 10) || 0 })}
+                        className="w-full rounded-xl border border-teal-200 bg-white py-2 pl-7 pr-3 text-sm font-semibold text-slate-700 shadow-sm focus:border-teal-400 focus:outline-none focus:ring-2 focus:ring-teal-200"
+                      />
+                    </div>
                   </div>
                   <input
                     type="range"
@@ -318,10 +364,10 @@ export default function Step2SpendingGoals({ onNext, onBack }: Props) {
                     max={CARE_RESERVE.MAX_AMOUNT}
                     step={5000}
                     value={careReserve.amount}
-                    onChange={(e) => setCareReserve({ amount: parseInt(e.target.value) })}
+                    onChange={(e) => updateCareReserve({ amount: parseInt(e.target.value, 10) })}
                     className="w-full"
                     style={{
-                      background: `linear-gradient(to right, #0d9488 ${(careReserve.amount / CARE_RESERVE.MAX_AMOUNT) * 100}%, #e2e8f0 ${(careReserve.amount / CARE_RESERVE.MAX_AMOUNT) * 100}%)`
+                      background: `linear-gradient(to right, #0d9488 ${careReserveProgress}%, #e2e8f0 ${careReserveProgress}%)`
                     }}
                   />
                   <div className="flex justify-between mt-1 text-xs text-slate-400">
@@ -330,10 +376,19 @@ export default function Step2SpendingGoals({ onNext, onBack }: Props) {
                     <span>{formatCurrency(CARE_RESERVE.MAX_AMOUNT, true)}</span>
                   </div>
                 </div>
-                <div className="rounded-xl bg-teal-50/80 border border-teal-100 p-3 text-xs text-teal-800 space-y-1">
-                  <p>✓ Grows with your portfolio — it stays invested.</p>
-                  <p>✓ Excluded from your spending projections — no false confidence in the numbers.</p>
-                  <p>✓ If care costs never arise, it remains part of your final estate.</p>
+                <div className="grid gap-2 sm:grid-cols-3">
+                  <div className="rounded-xl border border-teal-100 bg-white/70 p-3 text-xs text-teal-900">
+                    <p className="mb-1 font-bold">🏥 Care costs</p>
+                    <p>Keeps capital set aside for later-life care instead of treating it as normal spending money.</p>
+                  </div>
+                  <div className="rounded-xl border border-cyan-100 bg-white/70 p-3 text-xs text-cyan-900">
+                    <p className="mb-1 font-bold">📈 Still invested</p>
+                    <p>The reserve stays invested and can keep growing with the rest of the plan.</p>
+                  </div>
+                  <div className="rounded-xl border border-emerald-100 bg-white/70 p-3 text-xs text-emerald-900">
+                    <p className="mb-1 font-bold">🧾 Estate value</p>
+                    <p>If you never need care, the reserve still remains part of your final estate.</p>
+                  </div>
                 </div>
               </div>
             )}
