@@ -279,8 +279,11 @@ function GoalPriorityPanel({
           const controlConfig = targetControlConfig[goal.id];
           const isCareReserveGoal = goal.id === 'care_reserve';
           const effectiveEnabled = isCareReserveGoal ? careReserve.enabled : goal.enabled;
+          // Keep the rendered Care Reserve target bound to its stored amount even when disabled.
+          // This prevents the UI from showing a blank/undefined controlled value while the
+          // underlying canonical amount remains mutable elsewhere in state.
           const effectiveTargetValue = isCareReserveGoal
-            ? (careReserve.enabled ? careReserve.amount : undefined)
+            ? careReserve.amount
             : goal.targetValue;
           const clampedTargetValue = clampGoalTargetValue(effectiveTargetValue, controlConfig?.max ?? Number.MAX_SAFE_INTEGER);
           const sliderProgress = controlConfig
