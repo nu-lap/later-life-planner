@@ -22,6 +22,8 @@ import type { OptimizerPolicyOverride } from '@/financialEngine/types';
 import type { GoalConfig, GoalId } from '@/models/types';
 import clsx from 'clsx';
 
+const GOAL_ORCHESTRATION_DEBOUNCE_MS = 300;
+
 const ChartSkeleton = () => <div className="h-64 bg-slate-100 rounded-2xl animate-pulse" />;
 const LifetimeChart = dynamic(() => import('@/components/charts/LifetimeChart'), { ssr: false, loading: ChartSkeleton });
 const AssetChart    = dynamic(() => import('@/components/charts/AssetChart'),    { ssr: false, loading: ChartSkeleton });
@@ -499,34 +501,44 @@ export default function Step4Dashboard({ onBack }: Props) {
     }
 
     let cancelled = false;
-    setPolicyLoading(true);
+    let activeController: AbortController | null = null;
+    const timeoutId = window.setTimeout(() => {
+      if (cancelled) {
+        return;
+      }
 
-    const request = buildGoalOrchestrateRequest({
-      plannerState: deferredState,
-      goalRegistry,
-      requestId: `goal-ui:${globalThis.crypto?.randomUUID?.() ?? Date.now().toString()}`,
-      schemaVersion: DEFAULT_GOAL_ORCHESTRATION_SCHEMA_VERSION,
-    });
+      activeController = new AbortController();
+      setPolicyLoading(true);
 
-    orchestrateGoals(request)
-      .then((nextPolicyOverride) => {
-        if (!cancelled) {
-          setPolicyOverride(nextPolicyOverride);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setPolicyOverride(null);
-        }
-      })
-      .finally(() => {
-        if (!cancelled) {
-          setPolicyLoading(false);
-        }
+      const request = buildGoalOrchestrateRequest({
+        plannerState: deferredState,
+        goalRegistry,
+        requestId: `goal-ui:${globalThis.crypto?.randomUUID?.() ?? Date.now().toString()}`,
+        schemaVersion: DEFAULT_GOAL_ORCHESTRATION_SCHEMA_VERSION,
       });
+
+      orchestrateGoals(request, { signal: activeController.signal })
+        .then((nextPolicyOverride) => {
+          if (!cancelled) {
+            setPolicyOverride(nextPolicyOverride);
+          }
+        })
+        .catch(() => {
+          if (!cancelled) {
+            setPolicyOverride(null);
+          }
+        })
+        .finally(() => {
+          if (!cancelled) {
+            setPolicyLoading(false);
+          }
+        });
+    }, GOAL_ORCHESTRATION_DEBOUNCE_MS);
 
     return () => {
       cancelled = true;
+      window.clearTimeout(timeoutId);
+      activeController?.abort();
     };
   }, [deferredState, goalRegistry, optimizerEnabled]);
 

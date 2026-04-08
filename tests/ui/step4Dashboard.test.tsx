@@ -1,6 +1,6 @@
 import React from 'react';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { paulAndLisaState } from '../fixtures/states';
 
 const setGoalRegistryMock = vi.fn();
@@ -24,6 +24,7 @@ import Step4Dashboard from '@/components/steps/Step4Dashboard';
 
 describe('Step4Dashboard', () => {
   beforeEach(() => {
+    vi.useFakeTimers();
     vi.stubEnv('NEXT_PUBLIC_OPTIMIZER_ENABLED', 'true');
     setGoalRegistryMock.mockReset();
     fetchMock.mockReset();
@@ -40,6 +41,7 @@ describe('Step4Dashboard', () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.unstubAllEnvs();
     vi.unstubAllGlobals();
   });
@@ -53,7 +55,11 @@ describe('Step4Dashboard', () => {
     expect(screen.getByText(/Gross income at/)).toBeInTheDocument();
     expect(screen.getByText('Gross income vs required spending — optimiser view')).toBeInTheDocument();
     expect(screen.getByText('Goal priorities')).toBeInTheDocument();
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    expect(fetchMock).not.toHaveBeenCalled();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(300);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   test('reorders goal priorities through the dashboard goal panel', async () => {
@@ -65,6 +71,9 @@ describe('Step4Dashboard', () => {
     const updatedRegistry = setGoalRegistryMock.mock.calls[0][0];
     expect(updatedRegistry[0].id).toBe('spending_floor');
     expect(updatedRegistry[1].id).toBe('longevity_protection');
-    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(300);
+    });
+    expect(fetchMock).toHaveBeenCalled();
   });
 });

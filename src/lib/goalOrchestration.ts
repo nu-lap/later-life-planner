@@ -212,6 +212,7 @@ export function buildGoalOrchestrateRequest(
 
 export async function orchestrateGoals(
   request: GoalOrchestrateRequest,
+  options?: { signal?: AbortSignal },
 ): Promise<OptimizerPolicyOverride> {
   const response = await fetch('/api/goal-orchestrate', {
     method: 'POST',
@@ -219,6 +220,7 @@ export async function orchestrateGoals(
       'Content-Type': 'application/json',
     },
     body: JSON.stringify(request),
+    signal: options?.signal,
   });
 
   if (!response.ok) {
