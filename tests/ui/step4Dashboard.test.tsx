@@ -59,9 +59,10 @@ describe('Step4Dashboard', () => {
     expect(screen.getByText(/Gross income at/)).toBeInTheDocument();
     expect(screen.getByText('Gross income vs required spending — optimiser view')).toBeInTheDocument();
     expect(screen.getByText('Goal priorities')).toBeInTheDocument();
-    expect(screen.queryByText('Optimiser is using these priorities')).not.toBeInTheDocument();
-    expect(screen.getByLabelText('Longevity protection amount')).toBeInTheDocument();
-    expect(screen.getByLabelText('Longevity protection slider')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Show all goals' })).toBeInTheDocument();
+    expect(screen.getByTestId('goal-card-tax_efficiency')).toBeInTheDocument();
+    expect(screen.queryByTestId('goal-card-longevity_protection')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Longevity protection amount')).not.toBeInTheDocument();
     expect(fetchMock).not.toHaveBeenCalled();
     await act(async () => {
       await vi.advanceTimersByTimeAsync(300);
@@ -72,12 +73,15 @@ describe('Step4Dashboard', () => {
   test('reorders goal priorities through the dashboard goal panel', async () => {
     render(<Step4Dashboard onBack={vi.fn()} />);
 
+    setGoalRegistryMock.mockClear();
+    fireEvent.click(screen.getByRole('button', { name: 'Show all goals' }));
     fireEvent.click(screen.getByRole('button', { name: 'Move Longevity protection down' }));
 
     expect(setGoalRegistryMock).toHaveBeenCalledTimes(1);
     const updatedRegistry = setGoalRegistryMock.mock.calls[0][0];
-    expect(updatedRegistry[0].id).toBe('spending_floor');
-    expect(updatedRegistry[1].id).toBe('longevity_protection');
+    expect(updatedRegistry[0].id).toBe('tax_efficiency');
+    expect(updatedRegistry[1].id).toBe('spending_floor');
+    expect(updatedRegistry[2].id).toBe('longevity_protection');
     await act(async () => {
       await vi.advanceTimersByTimeAsync(300);
     });
@@ -87,6 +91,8 @@ describe('Step4Dashboard', () => {
   test('clamps goal target controls to the configured maximum', () => {
     render(<Step4Dashboard onBack={vi.fn()} />);
 
+    setGoalRegistryMock.mockClear();
+    fireEvent.click(screen.getByRole('button', { name: 'Show all goals' }));
     const amountInput = screen.getByLabelText('Longevity protection amount') as HTMLInputElement;
     const maxValue = Number(amountInput.max);
 
@@ -98,8 +104,18 @@ describe('Step4Dashboard', () => {
     expect(longevityGoal.targetValue).toBe(maxValue);
   });
 
+  test('shows only enabled goals in the collapsed view by default', () => {
+    render(<Step4Dashboard onBack={vi.fn()} />);
+
+    expect(screen.getByTestId('goal-card-tax_efficiency')).toBeInTheDocument();
+    expect(screen.queryByTestId('goal-card-longevity_protection')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('goal-card-bequest')).not.toBeInTheDocument();
+  });
+
   test('shows Unset label when goal target value is not set', () => {
     render(<Step4Dashboard onBack={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show all goals' }));
 
     expect(screen.getAllByText('Unset').length).toBeGreaterThan(0);
   });
@@ -118,6 +134,7 @@ describe('Step4Dashboard', () => {
     expect(setGoalRegistryMock).toHaveBeenCalledTimes(1);
     const normalizedRegistry = setGoalRegistryMock.mock.calls[0][0];
     const longevityGoal = normalizedRegistry.find((entry: { id: string }) => entry.id === 'longevity_protection');
+    fireEvent.click(screen.getByRole('button', { name: 'Show all goals' }));
     const amountInput = screen.getByLabelText('Longevity protection amount') as HTMLInputElement;
     expect(longevityGoal.targetValue).toBe(Number(amountInput.max));
   });

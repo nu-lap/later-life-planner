@@ -938,9 +938,20 @@ Default priority stack matches `docs/optimizer-architecture-reconciled.md` §Can
 
 ### 9.2 Goal preference UI
 
-- Add goal priority panel (Step 5 or dedicated Goals step)
-- Drag-and-drop reordering or ranked sliders
-- Store `GoalRegistry` in `PlannerState`
+- Add a collapsible goal priority panel (Step 5 or dedicated Goals step)
+  - Panel collapsed by default.
+  - Collapsed view shows **only enabled goals** in a compact list.
+  - Expanded view shows the full list of goals with toggles and controls.
+- Goals auto-sort by `enabled` state first (all enabled goals grouped at the top), then by `priority`.
+- Default selection: only the **`tax_efficiency`** goal is enabled for new plans; all other goals are present but disabled.
+- Care reserve control:
+  - Reuse the same control shape and limits as the existing Spending / Advanced Planning UI.
+  - Enforce a maximum care-reserve target of **£500,000** (hard cap in both UI and validation).
+- All goal targets with numeric thresholds should use the same control pattern:
+  - currency textbox with `£` prefix
+  - slider
+  - sensible maximum and step values derived from the plan, except `care_reserve` which stays capped at **£500,000**
+- Persist `GoalRegistry` in `PlannerState` so that goal choices and ordering survive reloads and device sync.
 
 ### 9.3 `POST /api/goal-orchestrate`
 
