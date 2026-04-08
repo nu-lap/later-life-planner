@@ -72,9 +72,9 @@ function formatBreakdownAmount(value?: number): string {
 
 function BreakdownField({ label, value }: { label: string; value?: number }) {
   return (
-    <div className="flex items-start justify-between gap-3">
-      <span className="text-slate-500">{label}</span>
-      <span className="text-right font-semibold text-slate-700">{formatBreakdownAmount(value)}</span>
+    <div className="flex flex-col gap-0.5">
+      <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{label}</span>
+      <span className="text-sm font-semibold text-slate-800">{formatBreakdownAmount(value)}</span>
     </div>
   );
 }
@@ -85,7 +85,7 @@ function PensionBreakdownCell({ breakdown }: { breakdown?: PensionWithdrawalBrea
   }
 
   return (
-    <div className="space-y-1">
+    <div className="space-y-2 rounded-xl border border-slate-100 bg-white/90 p-2 shadow-sm">
       <BreakdownField label="Gross" value={breakdown.grossAmount} />
       <BreakdownField label="25% Tax Free" value={breakdown.pcls} />
       <BreakdownField label="Taxable" value={breakdown.taxableAmount} />
@@ -106,7 +106,7 @@ function TaxableBreakdownCell({
   }
 
   return (
-    <div className="space-y-1">
+    <div className="space-y-2 rounded-xl border border-slate-100 bg-white/90 p-2 shadow-sm">
       <BreakdownField label="Gross" value={breakdown.grossAmount} />
       <BreakdownField label={taxableLabel} value={breakdown.taxableAmount} />
       <BreakdownField label="Tax due" value={breakdown.taxDue} />
@@ -119,7 +119,11 @@ function TaxFreeBreakdownCell({ breakdown }: { breakdown?: TaxFreeWithdrawalBrea
     return <span className="text-slate-400">—</span>;
   }
 
-  return <BreakdownField label="Gross" value={breakdown.grossAmount} />;
+  return (
+    <div className="rounded-xl border border-slate-100 bg-white/90 p-2 shadow-sm">
+      <BreakdownField label="Gross" value={breakdown.grossAmount} />
+    </div>
+  );
 }
 
 function formatSignedCurrency(value: number): string {
@@ -458,10 +462,10 @@ export default function OptimizerPanel({ plannerState, result }: Props) {
           <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <h4 className="text-sm font-black uppercase tracking-wide text-slate-700">
-                Drawdown breakdown by year
+                Drawdown detail by year
               </h4>
               <p className="mt-1 text-xs text-slate-500">
-                Shows the actual withdrawals used year by year. This is the source of truth when the plan changes over time and the net spend target must still be met after tax.
+                See where each year&rsquo;s spending comes from and what tax is due.
               </p>
             </div>
             <div className="flex flex-col items-start gap-1 text-left sm:w-48 sm:items-end sm:text-right">
@@ -481,68 +485,80 @@ export default function OptimizerPanel({ plannerState, result }: Props) {
           </div>
 
           {showDrawdownBreakdown ? (
-            <div id="drawdown-breakdown-panel" className="mt-4 overflow-x-auto" data-testid="optimizer-drawdown-breakdown-table">
+            <div id="drawdown-breakdown-panel" className="mt-4 max-h-[36rem] overflow-auto rounded-2xl border border-slate-200 bg-white shadow-sm" data-testid="optimizer-drawdown-breakdown-table">
               <table className="min-w-full text-xs">
                 <thead>
                   <tr className="border-b border-slate-100 text-left text-slate-500">
-                    <th rowSpan={2} className="sticky left-0 z-10 w-24 border-r border-slate-100 bg-slate-50 pb-2 pr-3 font-bold sm:w-32">Age</th>
-                    <th colSpan={4} className="pb-2 pr-3 text-center font-bold">{person1Label}</th>
-                    {isCouple ? <th colSpan={4} className="pb-2 pr-3 text-center font-bold">{person2Label}</th> : null}
-                    {isCouple ? <th colSpan={1} className="pb-2 pr-0 text-center font-bold">Joint</th> : null}
+                    <th scope="col" rowSpan={2} className="sticky left-0 z-20 w-24 border-r border-slate-200 bg-slate-100 px-3 py-3 font-bold shadow-[4px_0_12px_rgba(15,23,42,0.06)] sm:w-32">Age</th>
+                    <th scope="colgroup" colSpan={4} className="border-b border-sky-100 bg-sky-50 px-3 py-3 text-center font-bold text-sky-800">{person1Label}</th>
+                    {isCouple ? <th scope="colgroup" colSpan={4} className="border-b border-amber-100 bg-amber-50 px-3 py-3 text-center font-bold text-amber-800">{person2Label}</th> : null}
+                    {isCouple ? <th scope="colgroup" colSpan={1} className="border-b border-violet-100 bg-violet-50 px-3 py-3 text-center font-bold text-violet-800">Joint</th> : null}
                   </tr>
                   <tr className="border-b border-slate-100 text-left text-slate-500">
-                    <th className="pb-2 pr-3 font-bold">Pension</th>
-                    <th className="pb-2 pr-3 font-bold">ISA</th>
-                    <th className="pb-2 pr-3 font-bold">GIA</th>
-                    <th className="pb-2 pr-3 font-bold">Cash</th>
-                    {isCouple ? <th className="pb-2 pr-3 font-bold">Pension</th> : null}
-                    {isCouple ? <th className="pb-2 pr-3 font-bold">ISA</th> : null}
-                    {isCouple ? <th className="pb-2 pr-3 font-bold">GIA</th> : null}
-                    {isCouple ? <th className="pb-2 pr-3 font-bold">Cash</th> : null}
-                    {isCouple ? <th className="pb-2 pr-0 font-bold">GIA</th> : null}
+                    <th scope="col" className="border-b border-sky-100 bg-sky-50 px-3 py-2 font-bold text-sky-700">Pension</th>
+                    <th scope="col" className="border-b border-sky-100 bg-sky-50 px-3 py-2 font-bold text-sky-700">ISA</th>
+                    <th scope="col" className="border-b border-sky-100 bg-sky-50 px-3 py-2 font-bold text-sky-700">GIA</th>
+                    <th scope="col" className="border-b border-sky-100 bg-sky-50 px-3 py-2 font-bold text-sky-700">Cash</th>
+                    {isCouple ? <th scope="col" className="border-b border-amber-100 bg-amber-50 px-3 py-2 font-bold text-amber-700">Pension</th> : null}
+                    {isCouple ? <th scope="col" className="border-b border-amber-100 bg-amber-50 px-3 py-2 font-bold text-amber-700">ISA</th> : null}
+                    {isCouple ? <th scope="col" className="border-b border-amber-100 bg-amber-50 px-3 py-2 font-bold text-amber-700">GIA</th> : null}
+                    {isCouple ? <th scope="col" className="border-b border-amber-100 bg-amber-50 px-3 py-2 font-bold text-amber-700">Cash</th> : null}
+                    {isCouple ? <th scope="col" className="border-b border-violet-100 bg-violet-50 px-3 py-2 font-bold text-violet-700">GIA</th> : null}
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map((record) => (
-                    <tr key={`breakdown-${record.p1Age}-${record.yearIndex}`} className="border-b border-slate-50 align-top">
-                      <td className="sticky left-0 z-0 w-24 border-r border-slate-100 bg-slate-50 py-3 pr-3 text-slate-700 sm:w-32">
+                  {rows.map((record, index) => (
+                    <tr
+                      key={`breakdown-${record.p1Age}-${record.yearIndex}`}
+                      className={clsx(
+                        'border-b border-slate-100 align-top',
+                        index % 2 === 0 ? 'bg-white' : 'bg-slate-50/60',
+                      )}
+                    >
+                      <th
+                        scope="row"
+                        className={clsx(
+                          'sticky left-0 z-10 w-24 border-r border-slate-200 py-3 pr-3 text-sm font-semibold text-slate-700 shadow-[4px_0_12px_rgba(15,23,42,0.04)] sm:w-32',
+                          index % 2 === 0 ? 'bg-slate-50' : 'bg-slate-100/95',
+                        )}
+                      >
                         {record.p1Age}
                         {record.p2Age !== null ? ` / ${record.p2Age}` : ''}
-                      </td>
-                      <td className="py-3 pr-3 text-slate-600">
+                      </th>
+                      <td className="px-3 py-3 text-slate-600">
                         <PensionBreakdownCell breakdown={record.drawdownBreakdown.person1.pension} />
                       </td>
-                      <td className="py-3 pr-3 text-slate-600">
+                      <td className="px-3 py-3 text-slate-600">
                         <TaxFreeBreakdownCell breakdown={record.drawdownBreakdown.person1.isa} />
                       </td>
-                      <td className="py-3 pr-3 text-slate-600">
+                      <td className="px-3 py-3 text-slate-600">
                         <TaxableBreakdownCell breakdown={record.drawdownBreakdown.person1.gia} taxableLabel="Taxable gain" />
                       </td>
-                      <td className="py-3 pr-3 text-slate-600">
+                      <td className="px-3 py-3 text-slate-600">
                         <TaxFreeBreakdownCell breakdown={record.drawdownBreakdown.person1.cash} />
                       </td>
                       {isCouple ? (
-                        <td className="py-3 pr-3 text-slate-600">
+                        <td className="px-3 py-3 text-slate-600">
                           <PensionBreakdownCell breakdown={record.drawdownBreakdown.person2?.pension} />
                         </td>
                       ) : null}
                       {isCouple ? (
-                        <td className="py-3 pr-3 text-slate-600">
+                        <td className="px-3 py-3 text-slate-600">
                           <TaxFreeBreakdownCell breakdown={record.drawdownBreakdown.person2?.isa} />
                         </td>
                       ) : null}
                       {isCouple ? (
-                        <td className="py-3 pr-3 text-slate-600">
+                        <td className="px-3 py-3 text-slate-600">
                           <TaxableBreakdownCell breakdown={record.drawdownBreakdown.person2?.gia} taxableLabel="Taxable gain" />
                         </td>
                       ) : null}
                       {isCouple ? (
-                        <td className="py-3 pr-3 text-slate-600">
+                        <td className="px-3 py-3 text-slate-600">
                           <TaxFreeBreakdownCell breakdown={record.drawdownBreakdown.person2?.cash} />
                         </td>
                       ) : null}
                       {isCouple ? (
-                        <td className="py-3 pr-0 text-slate-600">
+                        <td className="px-3 py-3 text-slate-600">
                           <TaxableBreakdownCell breakdown={record.drawdownBreakdown.joint?.gia} taxableLabel="Taxable gain" />
                         </td>
                       ) : null}
