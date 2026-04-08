@@ -84,7 +84,7 @@ describe('buildPrompt', () => {
     expect(prompt).toContain('Recommended approach: Couple-equal DC drawdown.');
     expect(prompt).toContain('The first projected year meets the spending target of £66,891 with no tax due in that year.');
     expect(prompt).toContain('Address the user as you and your.');
-    expect(prompt).toContain('Do not refer to the user as the couple, they, them, or their.');
+    expect(prompt).toContain('Do not refer to the user or the household as the couple, they, them, or their.');
   });
 
 
