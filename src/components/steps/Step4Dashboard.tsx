@@ -220,7 +220,6 @@ function GoalPriorityPanel({
   careReserve,
   onCareReserveChange,
   isApplying,
-  policyRationale,
   targetControlConfig,
 }: {
   goalRegistry: GoalConfig[];
@@ -228,15 +227,17 @@ function GoalPriorityPanel({
   careReserve: CareReserve;
   onCareReserveChange: (updates: Partial<CareReserve>) => void;
   isApplying: boolean;
-  policyRationale?: string | null;
   targetControlConfig: Partial<Record<GoalId, GoalTargetControlConfig>>;
 }) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const isGoalEnabled = (goal: GoalConfig) => (
+    goal.id === 'care_reserve' ? careReserve.enabled : goal.enabled
+  );
   const orderedGoals = useMemo(
     () => sortGoalRegistry(goalRegistry),
     [goalRegistry],
   );
-  const enabledGoals = orderedGoals.filter((goal) => goal.enabled);
+  const enabledGoals = orderedGoals.filter((goal) => isGoalEnabled(goal));
   const visibleGoals = isExpanded ? orderedGoals : enabledGoals;
 
   return (
@@ -247,7 +248,7 @@ function GoalPriorityPanel({
           <p className="text-xs text-slate-500 mb-4">
             {isExpanded
               ? 'Rank the retirement goals that should shape the optimizer. Higher goals are treated as harder constraints before lower-priority trade-offs.'
-              : 'Showing only the goals currently selected for the optimizer.'}
+              : 'These are the goals currently shaping your withdrawal plan.'}
           </p>
         </div>
         <button
@@ -258,13 +259,6 @@ function GoalPriorityPanel({
           {isExpanded ? 'Show selected goals' : 'Show all goals'}
         </button>
       </div>
-
-      {policyRationale && (
-        <div className="mb-4 rounded-2xl border border-slate-200 bg-white px-4 py-3">
-          <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Current optimiser focus</p>
-          <p className="mt-1 text-sm text-slate-700">{policyRationale}</p>
-        </div>
-      )}
 
       {!isExpanded && enabledGoals.length === 0 && (
         <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
@@ -278,7 +272,7 @@ function GoalPriorityPanel({
           const targetLabel = goalCopy.targetLabel;
           const controlConfig = targetControlConfig[goal.id];
           const isCareReserveGoal = goal.id === 'care_reserve';
-          const effectiveEnabled = isCareReserveGoal ? careReserve.enabled : goal.enabled;
+          const effectiveEnabled = isGoalEnabled(goal);
           // Keep the rendered Care Reserve target bound to its stored amount even when disabled.
           // This prevents the UI from showing a blank/undefined controlled value while the
           // underlying canonical amount remains mutable elsewhere in state.
@@ -363,7 +357,18 @@ function GoalPriorityPanel({
                 )}
               </div>
 
-              {targetLabel && (isExpanded || effectiveEnabled) && (
+              {!isExpanded && targetLabel && effectiveEnabled && clampedTargetValue !== undefined && (
+                <div className="mt-4 rounded-2xl border border-white/70 bg-white/70 px-4 py-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">{targetLabel}</p>
+                    <span className="text-sm font-black text-slate-800">
+                      {formatCurrency(clampedTargetValue, true)}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {targetLabel && isExpanded && (
                 <div className="mt-4 rounded-2xl border border-white/70 bg-white/70 p-4">
                   <div className="mb-2 flex items-center justify-between gap-3">
                     <div>
@@ -942,7 +947,6 @@ export default function Step4Dashboard({ onBack }: Props) {
           careReserve={careReserve}
           onCareReserveChange={updateCareReserveFromGoalPanel}
           isApplying={policyLoading}
-          policyRationale={policyOverride?.rationale ?? null}
           targetControlConfig={goalTargetControlConfig}
         />
       )}

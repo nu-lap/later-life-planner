@@ -70,6 +70,7 @@ describe('Step4Dashboard', () => {
     expect(screen.getByText(/Protected capital set aside for later-life care/)).toBeInTheDocument();
     expect(screen.getByText('Gross income vs required spending — optimiser view')).toBeInTheDocument();
     expect(screen.getByText('Goal priorities')).toBeInTheDocument();
+    expect(screen.queryByText('Current optimiser focus')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Show all goals' })).toBeInTheDocument();
     expect(screen.getByTestId('goal-card-tax_efficiency')).toBeInTheDocument();
     expect(screen.queryByTestId('goal-card-longevity_protection')).not.toBeInTheDocument();
@@ -156,11 +157,20 @@ describe('Step4Dashboard', () => {
   });
 
   test('shows only enabled goals in the collapsed view by default', () => {
+    plannerState = {
+      ...plannerState,
+      careReserve: { enabled: true, amount: 115_000 },
+    };
+
     render(<Step4Dashboard onBack={vi.fn()} />);
 
     expect(screen.getByTestId('goal-card-tax_efficiency')).toBeInTheDocument();
+    expect(screen.getByTestId('goal-card-care_reserve')).toBeInTheDocument();
     expect(screen.queryByTestId('goal-card-longevity_protection')).not.toBeInTheDocument();
     expect(screen.queryByTestId('goal-card-bequest')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Care reserve amount')).not.toBeInTheDocument();
+    expect(screen.getByText('Protected capital')).toBeInTheDocument();
+    expect(screen.getByText('£115.0k')).toBeInTheDocument();
   });
 
   test('shows Unset label when goal target value is not set', () => {
