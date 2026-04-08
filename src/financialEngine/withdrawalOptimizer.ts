@@ -66,6 +66,7 @@ export const BASELINE_STRATEGY = OPTIMIZER_CANDIDATES[0];
 
 // £1 tolerance to absorb floating-point rounding in after-tax net income vs spending.
 const FEASIBILITY_TOLERANCE_GBP = 1;
+const GROSS_UP_MAX_ITERATIONS = 32;
 
 export function describeStrategyLabel(label: string, mode: PlannerState['mode'] = 'couple'): string {
   return getStrategyDisplayLabel(mode, label);
@@ -936,14 +937,31 @@ function evaluateCandidate(
   let grossTarget = spendingTarget;
   let evaluation = simulateCandidatePass(state, row, balances, strategy, grossTarget, policyOverride);
 
-  for (let grossIter = 0; grossIter < 7; grossIter += 1) {
-    const newTarget = spendingTarget + evaluation.result.totalTax;
-    if (Math.abs(newTarget - grossTarget) < FEASIBILITY_TOLERANCE_GBP) {
+  for (let grossIter = 0; grossIter < GROSS_UP_MAX_ITERATIONS; grossIter += 1) {
+    // Use income shortfall only — capital-floor/bequest gaps must not drive
+    // additional gross-up iterations (doing so would worsen terminal assets).
+    const incomeGap = Math.max(0, spendingTarget - evaluation.result.netIncome);
+    if (incomeGap <= FEASIBILITY_TOLERANCE_GBP) {
       break;
     }
 
+    const newTarget = spendingTarget + evaluation.result.totalTax;
+    if (newTarget - grossTarget <= FEASIBILITY_TOLERANCE_GBP) {
+      break;
+    }
+
+    const nextEvaluation = simulateCandidatePass(state, row, balances, strategy, newTarget, policyOverride);
+    const nextIncomeGap = Math.max(0, spendingTarget - nextEvaluation.result.netIncome);
+    const noMeaningfulIncomeIncrease =
+      nextEvaluation.result.totalIncome <= evaluation.result.totalIncome + FEASIBILITY_TOLERANCE_GBP;
+    const noMeaningfulGapImprovement = nextIncomeGap >= incomeGap - FEASIBILITY_TOLERANCE_GBP;
+
     grossTarget = newTarget;
-    evaluation = simulateCandidatePass(state, row, balances, strategy, grossTarget, policyOverride);
+    evaluation = nextEvaluation;
+
+    if (noMeaningfulIncomeIncrease && noMeaningfulGapImprovement) {
+      break;
+    }
   }
 
   return evaluation;

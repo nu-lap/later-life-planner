@@ -93,6 +93,24 @@ describe('optimizeWithdrawals', () => {
     expect(Math.abs(firstYear.netIncome - firstYear.spendingTarget)).toBeLessThan(1);
   });
 
+  test('continues grossing up late-year taxable withdrawals until the residual gap is within tolerance', () => {
+    const base = paulAndLisaState();
+    const result = optimizeWithdrawals({
+      ...base,
+      assumptions: {
+        ...base.assumptions,
+        lifeExpectancy: 100,
+      },
+    });
+    const lastYear = result.yearRecords.at(-1)?.winner;
+
+    expect(lastYear).toBeDefined();
+    expect(lastYear?.terminalAssets).toBeGreaterThan(0);
+    expect(lastYear?.feasible).toBe(true);
+    expect(lastYear?.gap).toBeLessThan(1);
+    expect(Math.abs((lastYear?.netIncome ?? 0) - (lastYear?.spendingTarget ?? 0))).toBeLessThan(1);
+  });
+
   test('harvests joint GIA within the annual exempt amount before touching ISA', () => {
     const base = bareCoupleState(60, 60);
     const state = withSpending({
