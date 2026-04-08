@@ -7,7 +7,7 @@
 import { describe, test, expect } from 'vitest';
 import { calculateProjections } from '@/financialEngine/projectionEngine';
 import { bareState, bareCoupleState, paulAndLisaState } from '../fixtures/states';
-import { withSpending, cgtBetween, taxBetween, fiProjections } from '../fixtures/helpers';
+import { withSpending } from '../fixtures/helpers';
 import type { PlannerState } from '@/models/types';
 
 // ─── Personal allowance independence ─────────────────────────────────────────
