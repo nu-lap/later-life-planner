@@ -71,8 +71,8 @@ describe('buildPrompt', () => {
   test('uses plain-English wording for the optimizer explanation context', () => {
     const prompt = buildPrompt(sampleContext());
 
-    expect(prompt).toContain('England, Wales or Northern Ireland');
-    expect(prompt).toContain("first projected year's target");
+    expect(prompt).toContain('You are a couple aged 56 and 57 living in England, Wales or Northern Ireland');
+    expect(prompt).toContain("Your first projected year's spending target");
     expect(prompt).toContain('Couple-equal DC drawdown is being compared against LLP baseline waterfall.');
     expect(prompt).toMatch(/State Pension.*start from State Pension age/i);
     expect(prompt).toMatch(/starting strategy/i);
@@ -83,6 +83,8 @@ describe('buildPrompt', () => {
     expect(prompt).toContain("Comparison strategy: LaterLifePlan's standard order is DC pension within each person's personal allowance plus 25% tax-free, then GIA within the CGT allowance, then ISA, then remaining GIA, then DC pension above the personal allowance. Once ISA withdrawals are needed in a couple plan, both ISAs are used evenly as household tax-free savings");
     expect(prompt).toContain('Recommended approach: Couple-equal DC drawdown.');
     expect(prompt).toContain('The first projected year meets the spending target of £66,891 with no tax due in that year.');
+    expect(prompt).toContain('Address the user as you and your.');
+    expect(prompt).toContain('Do not refer to the user as the couple, they, them, or their.');
   });
 
 
@@ -107,7 +109,7 @@ describe('buildPrompt', () => {
   test('uses the single-person baseline description for single plans', () => {
     const prompt = buildPrompt(singleSampleContext());
 
-    expect(prompt).toContain('One person aged 65 living in England, Wales or Northern Ireland');
+    expect(prompt).toContain('You are aged 65 and living in England, Wales or Northern Ireland');
     expect(prompt).toContain("LaterLifePlan's standard order is DC pension within the personal allowance plus 25% tax-free, then GIA within the CGT allowance, then ISA, then remaining GIA, then DC pension above the personal allowance.");
     expect(prompt).not.toContain('each person’s personal allowance');
   });

@@ -182,25 +182,25 @@ function describeJurisdiction(jurisdiction: TaxJurisdiction): string {
 
 function describeHousehold(planSummary: PlanSummary): string {
   if (planSummary.householdType === 'single') {
-    return `One person aged ${planSummary.ages[0]} living in ${describeJurisdiction(planSummary.jurisdiction)}`;
+    return `You are aged ${planSummary.ages[0]} and living in ${describeJurisdiction(planSummary.jurisdiction)}`;
   }
 
-  return `A couple aged ${planSummary.ages.join(' and ')} living in ${describeJurisdiction(planSummary.jurisdiction)}`;
+  return `You are a couple aged ${planSummary.ages.join(' and ')} living in ${describeJurisdiction(planSummary.jurisdiction)}`;
 }
 
 function describeSecureIncome(planSummary: PlanSummary): string {
   if (planSummary.guaranteedIncomeAnnual <= 0) {
-    return 'No secure pension or annuity income is included in this summary yet.';
+    return 'You do not yet have secure pension or annuity income included in this summary.';
   }
 
   return [
-    `Secure pension or annuity income is about ${formatMoney(planSummary.guaranteedIncomeAnnual)} a year when fully in payment.`,
-    'Some components, such as State Pension, may only start from State Pension age.',
+    `You have about ${formatMoney(planSummary.guaranteedIncomeAnnual)} a year of secure pension or annuity income when it is fully in payment.`,
+    'Some of this, such as State Pension, may only start from State Pension age.',
   ].join(' ');
 }
 
 function describeSpending(planSummary: PlanSummary): string {
-  return `The spending figure is the first projected year's target, about ${formatMoney(planSummary.targetSpendingAnnual)}.`;
+  return `Your first projected year's spending target is about ${formatMoney(planSummary.targetSpendingAnnual)}.`;
 }
 
 function getStrategyDefinitionText(planSummary: PlanSummary, label: string): string {
@@ -298,21 +298,22 @@ export function buildPrompt(context: ExplanationContext): string {
   const recommendedStrategyDefinition = getStrategyDefinitionText(planSummary, recommendationLabel);
   const baselineStrategyDefinition = getStrategyDefinitionText(planSummary, 'LLP baseline waterfall');
   const outcome = optimizationResult.lifetimeTaxSaving > 0
-    ? `This is projected to save about ${formatMoney(optimizationResult.lifetimeTaxSaving)} in lifetime tax compared with the app's standard starting strategy.`
-    : "This is not projected to produce a meaningful lifetime tax saving versus the app's standard starting strategy.";
+    ? `This is projected to save you about ${formatMoney(optimizationResult.lifetimeTaxSaving)} in lifetime tax compared with the app's standard starting strategy.`
+    : "This is not projected to produce a meaningful lifetime tax saving for you versus the app's standard starting strategy.";
 
   return [
-    'Write a plain-English explanation for an end user of a later-life withdrawal plan.',
+    'Write a plain-English explanation addressed directly to the user of a later-life withdrawal plan.',
     'Use the facts below. Do not mention internal labels, abbreviations, raw field names, or missing internal inputs.',
+    'Address the user as you and your. For couple plans, address them as you or both of you. Do not refer to the user as the couple, they, them, or their.',
     'The final answer must use exactly these headings: Recommendation, Why this fits, Points to note.',
     'Under each heading, use bullet points rather than dense prose.',
     '',
     'Starting point:',
-    `- Household: ${describeHousehold(planSummary)}.`,
+    `- ${describeHousehold(planSummary)}.`,
     `- ${describeSecureIncome(planSummary)}`,
-    `- Defined contribution pensions total about ${formatMoney(planSummary.dcTotal)}.`,
-    `- ISAs total about ${formatMoney(planSummary.isaTotal)}.`,
-    `- General investment accounts total about ${formatMoney(planSummary.giaTotal)}.`,
+    `- Your defined contribution pensions total about ${formatMoney(planSummary.dcTotal)}.`,
+    `- Your ISAs total about ${formatMoney(planSummary.isaTotal)}.`,
+    `- Your general investment accounts total about ${formatMoney(planSummary.giaTotal)}.`,
     `- ${describeSpending(planSummary)}`,
     `- ISA timing: ${describeIsaMode(optimizationResult.recommendedStrategy.isaMode)}`,
     '',
@@ -333,6 +334,7 @@ export function buildPrompt(context: ExplanationContext): string {
     'Writing requirements:',
     '- Start directly with the recommendation and why it matters.',
     '- Use plain English throughout. For example, say England, Wales or Northern Ireland rather than a code.',
+    '- Write to the user, not about the user. Prefer you and your throughout.',
     '- Do not say things like ISA mode, baseline, fallback version, payload, schema, technical guidance retrieval terms, or raw strategy labels.',
     '- Treat required spending as a net cash target.',
     '- Only mention gross-up if tax is actually due in the year you are describing. If first-year tax is zero, say that clearly.',
