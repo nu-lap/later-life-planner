@@ -118,7 +118,7 @@ function roundUp(value: number, step: number): number {
 }
 
 function clampGoalTargetValue(value: number | undefined, max: number): number | undefined {
-  if (value === undefined || !Number.isFinite(value)) {
+  if (value === undefined || Number.isNaN(value)) {
     return undefined;
   }
 
@@ -302,7 +302,11 @@ function GoalPriorityPanel({
                         <p className="text-xs text-slate-400">Suggested starting point: {formatCurrency(controlConfig.suggested, true)}</p>
                       )}
                     </div>
-                    <span className="text-base font-black text-slate-800">{formatCurrency(clampedTargetValue ?? 0, true)}</span>
+                    <span className="text-base font-black text-slate-800">
+                      {clampedTargetValue !== undefined
+                        ? formatCurrency(clampedTargetValue, true)
+                        : <span className="text-sm font-semibold italic text-slate-400">Unset</span>}
+                    </span>
                   </div>
                   <div className="mb-3 max-w-xs">
                     <div className="relative">
@@ -674,6 +678,24 @@ export default function Step4Dashboard({ onBack }: Props) {
       },
     };
   }, [annualSpend, firstYear?.totalAssets]);
+
+  // Normalize any goal target values that exceed the current control config maxima.
+  // This keeps the persisted registry in sync with the displayed (clamped) values so
+  // orchestration and optimizer requests always use the same bounds shown in the UI.
+  useEffect(() => {
+    const normalizedGoals = goalRegistry.map((goal) => {
+      const controlConfig = goalTargetControlConfig[goal.id];
+      if (!controlConfig || goal.targetValue === undefined) {
+        return goal;
+      }
+      const clamped = clampGoalTargetValue(goal.targetValue, controlConfig.max);
+      return clamped !== goal.targetValue ? { ...goal, targetValue: clamped } : goal;
+    });
+
+    if (normalizedGoals.some((g, i) => g !== goalRegistry[i])) {
+      setGoalRegistry(normalizedGoals);
+    }
+  }, [goalRegistry, goalTargetControlConfig, setGoalRegistry]);
 
   const p1Name = person1.name || (mode === 'couple' ? 'Partner 1' : 'You');
   const p2Name = person2.name || 'Partner 2';

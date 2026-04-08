@@ -98,6 +98,30 @@ describe('Step4Dashboard', () => {
     expect(longevityGoal.targetValue).toBe(maxValue);
   });
 
+  test('shows Unset label when goal target value is not set', () => {
+    render(<Step4Dashboard onBack={vi.fn()} />);
+
+    expect(screen.getAllByText('Unset').length).toBeGreaterThan(0);
+  });
+
+  test('normalizes out-of-range goal target values when rendered with an over-limit stored value', () => {
+    const goalRegistryWithOverLimit = plannerState.goalRegistry.map((goal: { id: string }) =>
+      goal.id === 'longevity_protection' ? { ...goal, targetValue: 9_999_999 } : goal
+    );
+    plannerState = {
+      ...plannerState,
+      goalRegistry: goalRegistryWithOverLimit,
+    };
+
+    render(<Step4Dashboard onBack={vi.fn()} />);
+
+    expect(setGoalRegistryMock).toHaveBeenCalledTimes(1);
+    const normalizedRegistry = setGoalRegistryMock.mock.calls[0][0];
+    const longevityGoal = normalizedRegistry.find((entry: { id: string }) => entry.id === 'longevity_protection');
+    const amountInput = screen.getByLabelText('Longevity protection amount') as HTMLInputElement;
+    expect(longevityGoal.targetValue).toBe(Number(amountInput.max));
+  });
+
   test('does not crash when goal orchestration request construction fails', async () => {
     plannerState = {
       ...plannerState,
