@@ -17,10 +17,11 @@ import {
   DEFAULT_GOAL_ORCHESTRATION_SCHEMA_VERSION,
   orchestrateGoals,
   sortGoalRegistry,
+  syncCareReserveGoal,
 } from '@/lib/goalOrchestration';
 import type { YearlyProjection } from '@/lib/types';
 import type { OptimizerPolicyOverride } from '@/financialEngine/types';
-import type { GoalConfig, GoalId } from '@/models/types';
+import type { CareReserve, GoalConfig, GoalId } from '@/models/types';
 import clsx from 'clsx';
 
 const GOAL_ORCHESTRATION_DEBOUNCE_MS = 300;
@@ -216,12 +217,16 @@ function canMoveGoal(orderedGoals: GoalConfig[], index: number, direction: -1 | 
 function GoalPriorityPanel({
   goalRegistry,
   onChange,
+  careReserve,
+  onCareReserveChange,
   isApplying,
   policyRationale,
   targetControlConfig,
 }: {
   goalRegistry: GoalConfig[];
   onChange: (goalRegistry: GoalConfig[]) => void;
+  careReserve: CareReserve;
+  onCareReserveChange: (updates: Partial<CareReserve>) => void;
   isApplying: boolean;
   policyRationale?: string | null;
   targetControlConfig: Partial<Record<GoalId, GoalTargetControlConfig>>;
@@ -272,12 +277,21 @@ function GoalPriorityPanel({
           const goalCopy = GOAL_COPY[goal.id];
           const targetLabel = goalCopy.targetLabel;
           const controlConfig = targetControlConfig[goal.id];
-          const clampedTargetValue = clampGoalTargetValue(goal.targetValue, controlConfig?.max ?? Number.MAX_SAFE_INTEGER);
+          const isCareReserveGoal = goal.id === 'care_reserve';
+          const effectiveEnabled = isCareReserveGoal ? careReserve.enabled : goal.enabled;
+          // Keep the rendered Care Reserve target bound to its stored amount even when disabled.
+          // This prevents the UI from showing a blank/undefined controlled value while the
+          // underlying canonical amount remains mutable elsewhere in state.
+          const effectiveTargetValue = isCareReserveGoal
+            ? careReserve.amount
+            : goal.targetValue;
+          const clampedTargetValue = clampGoalTargetValue(effectiveTargetValue, controlConfig?.max ?? Number.MAX_SAFE_INTEGER);
           const sliderProgress = controlConfig
             ? Math.min(100, Math.max(0, ((clampedTargetValue ?? 0) / controlConfig.max) * 100))
             : 0;
-          const moveUpAllowed = isExpanded && canMoveGoal(orderedGoals, orderedGoals.findIndex((entry) => entry.id === goal.id), -1);
-          const moveDownAllowed = isExpanded && canMoveGoal(orderedGoals, orderedGoals.findIndex((entry) => entry.id === goal.id), 1);
+          const currentIndex = orderedGoals.findIndex((entry) => entry.id === goal.id);
+          const moveUpAllowed = isExpanded && canMoveGoal(orderedGoals, currentIndex, -1);
+          const moveDownAllowed = isExpanded && canMoveGoal(orderedGoals, currentIndex, 1);
 
           return (
             <div
@@ -302,10 +316,15 @@ function GoalPriorityPanel({
                   <div className="flex flex-wrap items-center gap-2">
                     <label className="inline-flex items-center gap-2 text-xs font-semibold text-slate-600">
                       <input
-                        checked={goal.enabled}
+                        checked={effectiveEnabled}
                         className="rounded border-slate-300 text-orange-500 focus:ring-orange-500"
                         disabled={isApplying}
                         onChange={(event) => {
+                          if (isCareReserveGoal) {
+                            onCareReserveChange({ enabled: event.target.checked });
+                            return;
+                          }
+
                           onChange(updateOrderedGoals(orderedGoals, (entry) => (
                             entry.id === goal.id ? { ...entry, enabled: event.target.checked } : entry
                           )));
@@ -319,7 +338,6 @@ function GoalPriorityPanel({
                       className="btn-secondary text-xs"
                       disabled={!moveUpAllowed || isApplying}
                       onClick={() => {
-                        const currentIndex = orderedGoals.findIndex((entry) => entry.id === goal.id);
                         onChange(sortGoalRegistry(moveGoal(orderedGoals, currentIndex, -1)));
                       }}
                       type="button"
@@ -331,7 +349,6 @@ function GoalPriorityPanel({
                       className="btn-secondary text-xs"
                       disabled={!moveDownAllowed || isApplying}
                       onClick={() => {
-                        const currentIndex = orderedGoals.findIndex((entry) => entry.id === goal.id);
                         onChange(sortGoalRegistry(moveGoal(orderedGoals, currentIndex, 1)));
                       }}
                       type="button"
@@ -346,7 +363,7 @@ function GoalPriorityPanel({
                 )}
               </div>
 
-              {targetLabel && (isExpanded || goal.enabled) && (
+              {targetLabel && (isExpanded || effectiveEnabled) && (
                 <div className="mt-4 rounded-2xl border border-white/70 bg-white/70 p-4">
                   <div className="mb-2 flex items-center justify-between gap-3">
                     <div>
@@ -376,6 +393,10 @@ function GoalPriorityPanel({
                         min={0}
                         onChange={(event) => {
                           const nextTarget = clampGoalTargetValue(event.target.valueAsNumber, controlConfig?.max ?? Number.MAX_SAFE_INTEGER);
+                          if (isCareReserveGoal) {
+                            onCareReserveChange({ amount: nextTarget ?? 0 });
+                            return;
+                          }
                           onChange(updateOrderedGoals(orderedGoals, (entry) => (
                             entry.id === goal.id ? { ...entry, targetValue: nextTarget } : entry
                           )));
@@ -397,6 +418,10 @@ function GoalPriorityPanel({
                         min={0}
                         onChange={(event) => {
                           const nextTarget = clampGoalTargetValue(event.target.valueAsNumber, controlConfig.max);
+                          if (isCareReserveGoal) {
+                            onCareReserveChange({ amount: nextTarget ?? 0 });
+                            return;
+                          }
                           onChange(updateOrderedGoals(orderedGoals, (entry) => (
                             entry.id === goal.id ? { ...entry, targetValue: nextTarget } : entry
                           )));
@@ -609,9 +634,24 @@ export default function Step4Dashboard({ onBack }: Props) {
     fiAge,
     goalRegistry,
     setGoalRegistry,
+    careReserve,
+    setCareReserve,
   } = state;
   const [policyOverride, setPolicyOverride] = useState<OptimizerPolicyOverride | null>(null);
   const [policyLoading, setPolicyLoading] = useState(false);
+
+  useEffect(() => {
+    const syncedGoalRegistry = sortGoalRegistry(syncCareReserveGoal(goalRegistry, careReserve));
+
+    if (syncedGoalRegistry.some((goal, index) => (
+      goal.id !== goalRegistry[index]?.id
+      || goal.priority !== goalRegistry[index]?.priority
+      || goal.enabled !== goalRegistry[index]?.enabled
+      || goal.targetValue !== goalRegistry[index]?.targetValue
+    ))) {
+      setGoalRegistry(syncedGoalRegistry);
+    }
+  }, [careReserve, goalRegistry, setGoalRegistry]);
 
   useEffect(() => {
     if (!optimizerEnabled) {
@@ -757,6 +797,19 @@ export default function Step4Dashboard({ onBack }: Props) {
   const p1Name = person1.name || (mode === 'couple' ? 'Partner 1' : 'You');
   const p2Name = person2.name || 'Partner 2';
 
+  function updateCareReserveFromGoalPanel(nextReserve: Partial<CareReserve>) {
+    const merged = {
+      enabled: careReserve.enabled,
+      amount: careReserve.amount,
+      ...nextReserve,
+    };
+
+    setCareReserve({
+      enabled: merged.enabled,
+      amount: Math.min(CARE_RESERVE.MAX_AMOUNT, Math.max(0, merged.amount)),
+    });
+  }
+
   return (
     <div className="space-y-5 pb-16">
 
@@ -884,6 +937,8 @@ export default function Step4Dashboard({ onBack }: Props) {
         <GoalPriorityPanel
           goalRegistry={goalRegistry}
           onChange={setGoalRegistry}
+          careReserve={careReserve}
+          onCareReserveChange={updateCareReserveFromGoalPanel}
           isApplying={policyLoading}
           policyRationale={policyOverride?.rationale ?? null}
           targetControlConfig={goalTargetControlConfig}
