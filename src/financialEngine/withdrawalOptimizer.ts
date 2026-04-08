@@ -938,7 +938,10 @@ function evaluateCandidate(
   let evaluation = simulateCandidatePass(state, row, balances, strategy, grossTarget, policyOverride);
 
   for (let grossIter = 0; grossIter < GROSS_UP_MAX_ITERATIONS; grossIter += 1) {
-    if (evaluation.result.gap <= FEASIBILITY_TOLERANCE_GBP) {
+    // Use income shortfall only — capital-floor/bequest gaps must not drive
+    // additional gross-up iterations (doing so would worsen terminal assets).
+    const incomeGap = Math.max(0, spendingTarget - evaluation.result.netIncome);
+    if (incomeGap <= FEASIBILITY_TOLERANCE_GBP) {
       break;
     }
 
@@ -948,10 +951,10 @@ function evaluateCandidate(
     }
 
     const nextEvaluation = simulateCandidatePass(state, row, balances, strategy, newTarget, policyOverride);
+    const nextIncomeGap = Math.max(0, spendingTarget - nextEvaluation.result.netIncome);
     const noMeaningfulIncomeIncrease =
       nextEvaluation.result.totalIncome <= evaluation.result.totalIncome + FEASIBILITY_TOLERANCE_GBP;
-    const noMeaningfulGapImprovement =
-      nextEvaluation.result.gap >= evaluation.result.gap - FEASIBILITY_TOLERANCE_GBP;
+    const noMeaningfulGapImprovement = nextIncomeGap >= incomeGap - FEASIBILITY_TOLERANCE_GBP;
 
     grossTarget = newTarget;
     evaluation = nextEvaluation;
