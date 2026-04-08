@@ -879,7 +879,11 @@ function simulateCandidatePass(
       terminalAssets,
       drawdowns,
       breakdown,
-      taxDominated: withdrawalTax > FEASIBILITY_TOLERANCE_GBP
+      // Only treat withdrawal-driven tax as dominated when the strategy is
+      // intended to use ISA assets immediately. Deferred ISA strategies may
+      // intentionally leave ISA balances untouched for later years.
+      taxDominated: strategy.isaMode === 'now'
+        && withdrawalTax > FEASIBILITY_TOLERANCE_GBP
         && remainingIsaCapacity > FEASIBILITY_TOLERANCE_GBP,
     },
     endBalances: working,
