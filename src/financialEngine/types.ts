@@ -73,6 +73,21 @@ export interface YearDrawdownBreakdown {
   joint?: JointDrawdownBreakdown;
 }
 
+export interface OptimizerEndingBalances {
+  p1DcBalance: number;
+  p1IsaBalance: number;
+  p1GiaValue: number;
+  p1GiaBaseCost: number;
+  p1CashBalance: number;
+  p2DcBalance: number;
+  p2IsaBalance: number;
+  p2GiaValue: number;
+  p2GiaBaseCost: number;
+  p2CashBalance: number;
+  jointGiaValue: number;
+  jointGiaBaseCost: number;
+}
+
 export interface WaterfallResult {
   strategy: WaterfallConfig;
   totalTax: number;
@@ -93,6 +108,7 @@ export interface WaterfallResult {
   terminalAssets: number;
   drawdowns: DrawdownBreakdown;
   breakdown: YearDrawdownBreakdown;
+  endingBalances: OptimizerEndingBalances;
   taxDominated?: boolean;
 }
 

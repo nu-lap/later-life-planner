@@ -897,6 +897,20 @@ function simulateCandidatePass(
       terminalAssets,
       drawdowns,
       breakdown,
+      endingBalances: {
+        p1DcBalance: working.p1Dc,
+        p1IsaBalance: working.p1Isa,
+        p1GiaValue: working.p1GiaValue,
+        p1GiaBaseCost: working.p1GiaBaseCost,
+        p1CashBalance: working.p1Cash,
+        p2DcBalance: working.p2Dc,
+        p2IsaBalance: working.p2Isa,
+        p2GiaValue: working.p2GiaValue,
+        p2GiaBaseCost: working.p2GiaBaseCost,
+        p2CashBalance: working.p2Cash,
+        jointGiaValue: working.jointGiaValue,
+        jointGiaBaseCost: working.jointGiaBaseCost,
+      },
       // Only treat withdrawal-driven tax as dominated when the strategy is
       // intended to use ISA assets immediately. Deferred ISA strategies may
       // intentionally leave ISA balances untouched for later years.

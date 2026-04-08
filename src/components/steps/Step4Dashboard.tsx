@@ -580,12 +580,16 @@ function ProjectionTable({ projections, lifeStages }: {
   );
 }
 
-function buildOptimizerViewProjections(
+export function buildOptimizerViewProjections(
   displayRows: YearlyProjection[],
   optimizerResult: NonNullable<ReturnType<typeof optimizeWithdrawals> | null>,
 ): YearlyProjection[] {
-  return displayRows.map((baseRow, index) => {
-    const record = optimizerResult.yearRecords[index];
+  const recordsByYearIndex = new Map(
+    optimizerResult.yearRecords.map((record) => [record.yearIndex, record]),
+  );
+
+  return displayRows.map((baseRow) => {
+    const record = recordsByYearIndex.get(baseRow.yearIndex);
     if (!record) {
       return baseRow;
     }
@@ -619,6 +623,18 @@ function buildOptimizerViewProjections(
       totalTaxPaid: winner.totalTax,
       netIncome: winner.netIncome,
       gap: winner.gap,
+      p1DcBalance: winner.endingBalances.p1DcBalance,
+      p1IsaBalance: winner.endingBalances.p1IsaBalance,
+      p1GiaValue: winner.endingBalances.p1GiaValue,
+      p1GiaBaseCost: winner.endingBalances.p1GiaBaseCost,
+      p1CashBalance: winner.endingBalances.p1CashBalance,
+      p2DcBalance: winner.endingBalances.p2DcBalance,
+      p2IsaBalance: winner.endingBalances.p2IsaBalance,
+      p2GiaValue: winner.endingBalances.p2GiaValue,
+      p2GiaBaseCost: winner.endingBalances.p2GiaBaseCost,
+      p2CashBalance: winner.endingBalances.p2CashBalance,
+      jointGiaValue: winner.endingBalances.jointGiaValue,
+      jointGiaBaseCost: winner.endingBalances.jointGiaBaseCost,
       totalAssets: winner.terminalAssets,
     };
   });
