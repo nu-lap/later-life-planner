@@ -355,7 +355,9 @@ function buildPolicyCandidate(policyOverride: OptimizerPolicyOverride): Waterfal
     label: 'goal-policy-override',
     dcOrder: policyOverride.dcOrder ?? BASELINE_STRATEGY.dcOrder,
     isaMode: policyOverride.isaMode ?? BASELINE_STRATEGY.isaMode,
-    isaOrder: policyOverride.isaOrder ?? BASELINE_STRATEGY.isaOrder,
+    // Leave ISA ordering unset when the override does not specify it so
+    // downstream policy resolution can derive an order consistent with dcOrder.
+    ...(policyOverride.isaOrder !== undefined ? { isaOrder: policyOverride.isaOrder } : {}),
   };
 }
 
