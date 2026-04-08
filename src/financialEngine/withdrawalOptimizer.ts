@@ -7,6 +7,7 @@ import { calcCGT, calcIncomeTax, drawFromGIA, isHigherRateTaxpayer } from './tax
 import type {
   DCOrder,
   DrawdownBreakdown,
+  ISAOrder,
   OptimizationResult,
   OptimizerPolicyOverride,
   RuleProvenance,
@@ -54,11 +55,11 @@ interface OptimizerOptions {
 }
 
 export const OPTIMIZER_CANDIDATES: WaterfallConfig[] = [
-  { label: '1-LLP-Baseline', dcOrder: 'paul-first', isaMode: 'now' },
-  { label: '2-Couple-equal', dcOrder: 'equal', isaMode: 'now' },
-  { label: '3-Proportional', dcOrder: 'proportional', isaMode: 'now' },
-  { label: '4-Lisa-first', dcOrder: 'lisa-first', isaMode: 'now' },
-  { label: '5-ISA-preserve', dcOrder: 'equal', isaMode: 'defer' },
+  { label: '1-LLP-Baseline', dcOrder: 'paul-first', isaMode: 'now', isaOrder: 'equal' },
+  { label: '2-Couple-equal', dcOrder: 'equal', isaMode: 'now', isaOrder: 'equal' },
+  { label: '3-Proportional', dcOrder: 'proportional', isaMode: 'now', isaOrder: 'proportional' },
+  { label: '4-Lisa-first', dcOrder: 'lisa-first', isaMode: 'now', isaOrder: 'p2-first' },
+  { label: '5-ISA-preserve', dcOrder: 'equal', isaMode: 'defer', isaOrder: 'equal' },
 ];
 
 export const BASELINE_STRATEGY = OPTIMIZER_CANDIDATES[0];
@@ -251,9 +252,81 @@ function allocateDcAboveAllowance(
   return allocateDcWithinAllowance(order, remaining, p1Available, p2Available, p1Available, p2Available);
 }
 
+function allocateIsaDrawdown(
+  order: ISAOrder,
+  remaining: number,
+  p1Available: number,
+  p2Available: number,
+): { p1: number; p2: number } {
+  if (remaining <= 0 || p2Available <= 0) {
+    return {
+      p1: Math.min(p1Available, remaining),
+      p2: 0,
+    };
+  }
+
+  switch (order) {
+    case 'p2-first': {
+      const p2 = Math.min(p2Available, remaining);
+      const p1 = Math.min(p1Available, Math.max(0, remaining - p2));
+      return { p1, p2 };
+    }
+    case 'equal': {
+      let p1 = Math.min(p1Available, remaining / 2);
+      let p2 = Math.min(p2Available, remaining / 2);
+      let remainingBalance = remaining - p1 - p2;
+
+      if (remainingBalance > 0 && p1Available > p1) {
+        const extra = Math.min(p1Available - p1, remainingBalance);
+        p1 += extra;
+        remainingBalance -= extra;
+      }
+
+      if (remainingBalance > 0 && p2Available > p2) {
+        const extra = Math.min(p2Available - p2, remainingBalance);
+        p2 += extra;
+      }
+
+      return { p1, p2 };
+    }
+    case 'proportional': {
+      const totalAvailable = p1Available + p2Available;
+      if (totalAvailable <= 0) {
+        return { p1: 0, p2: 0 };
+      }
+
+      let p1 = Math.min(p1Available, remaining * (p1Available / totalAvailable));
+      let p2 = Math.min(p2Available, remaining * (p2Available / totalAvailable));
+      let remainingBalance = remaining - p1 - p2;
+
+      if (remainingBalance > 0 && p1Available > p1) {
+        const extra = Math.min(p1Available - p1, remainingBalance);
+        p1 += extra;
+        remainingBalance -= extra;
+      }
+
+      if (remainingBalance > 0 && p2Available > p2) {
+        const extra = Math.min(p2Available - p2, remainingBalance);
+        p2 += extra;
+      }
+
+      return { p1, p2 };
+    }
+    case 'p1-first':
+    default: {
+      const p1 = Math.min(p1Available, remaining);
+      const p2 = Math.min(p2Available, Math.max(0, remaining - p1));
+      return { p1, p2 };
+    }
+  }
+}
+
 function selectTopStrategies(results: WaterfallResult[]): WaterfallResult[] {
   return [...results]
     .sort((left, right) => {
+      if ((left.taxDominated ?? false) !== (right.taxDominated ?? false)) {
+        return left.taxDominated ? 1 : -1;
+      }
       if (left.feasible !== right.feasible) return left.feasible ? -1 : 1;
       if (left.totalTax !== right.totalTax) return left.totalTax - right.totalTax;
       return left.gap - right.gap;
@@ -266,6 +339,9 @@ function selectWinner(results: CandidateEvaluation[]): CandidateEvaluation {
   const pool = feasible.length > 0 ? feasible : results;
 
   return [...pool].sort((left, right) => {
+    if ((left.result.taxDominated ?? false) !== (right.result.taxDominated ?? false)) {
+      return left.result.taxDominated ? 1 : -1;
+    }
     if (left.result.feasible !== right.result.feasible) return left.result.feasible ? -1 : 1;
     if (left.result.totalTax !== right.result.totalTax) {
       return left.result.totalTax - right.result.totalTax;
@@ -279,6 +355,7 @@ function buildPolicyCandidate(policyOverride: OptimizerPolicyOverride): Waterfal
     label: 'goal-policy-override',
     dcOrder: policyOverride.dcOrder ?? BASELINE_STRATEGY.dcOrder,
     isaMode: policyOverride.isaMode ?? BASELINE_STRATEGY.isaMode,
+    isaOrder: policyOverride.isaOrder ?? BASELINE_STRATEGY.isaOrder,
   };
 }
 
@@ -290,6 +367,7 @@ function getCandidateStrategies(policyOverride?: OptimizerPolicyOverride): Water
   const filtered = OPTIMIZER_CANDIDATES.filter((candidate) => (
     (policyOverride.dcOrder === undefined || candidate.dcOrder === policyOverride.dcOrder)
     && (policyOverride.isaMode === undefined || candidate.isaMode === policyOverride.isaMode)
+    && (policyOverride.isaOrder === undefined || candidate.isaOrder === policyOverride.isaOrder)
   ));
 
   if (filtered.length > 0) {
@@ -309,6 +387,28 @@ function getCapitalFloor(policyOverride?: OptimizerPolicyOverride): number {
   // Doing so would double-count the reserve and can incorrectly mark viable
   // plans as infeasible.
   return policyOverride?.bequestTarget ?? 0;
+}
+
+function getEffectiveIsaOrder(strategy: WaterfallConfig, mode: PlannerState['mode']): ISAOrder {
+  if (mode !== 'couple') {
+    return 'p1-first';
+  }
+
+  if (strategy.isaOrder) {
+    return strategy.isaOrder;
+  }
+
+  switch (strategy.dcOrder) {
+    case 'lisa-first':
+      return 'p2-first';
+    case 'equal':
+      return 'equal';
+    case 'proportional':
+      return 'proportional';
+    case 'paul-first':
+    default:
+      return 'p1-first';
+  }
 }
 
 function recordRuleProvenance(
@@ -463,6 +563,7 @@ function simulateCandidatePass(
   const calendarYear = CURRENT_TAX_YEAR_START + row.yearIndex;
   const snapshot = getSnapshotForYear(calendarYear);
   const spExempt = state.assumptions.statePensionSoleIncomeExempt ?? true;
+  const isaOrder = getEffectiveIsaOrder(strategy, mode);
 
   const drawdowns: DrawdownBreakdown = {
     p1Dc: 0,
@@ -570,16 +671,20 @@ function simulateCandidatePass(
   }
 
   if (strategy.isaMode === 'now' && remaining > 0) {
-    const p1Isa = Math.min(working.p1Isa, remaining);
-    drawdowns.p1Isa += p1Isa;
-    working.p1Isa -= p1Isa;
-    remaining -= p1Isa;
+    const isaDrawdown = allocateIsaDrawdown(
+      isaOrder,
+      remaining,
+      working.p1Isa,
+      mode === 'couple' ? working.p2Isa : 0,
+    );
+    drawdowns.p1Isa += isaDrawdown.p1;
+    working.p1Isa -= isaDrawdown.p1;
+    remaining -= isaDrawdown.p1;
 
-    if (remaining > 0 && mode === 'couple') {
-      const p2Isa = Math.min(working.p2Isa, remaining);
-      drawdowns.p2Isa += p2Isa;
-      working.p2Isa -= p2Isa;
-      remaining -= p2Isa;
+    if (mode === 'couple') {
+      drawdowns.p2Isa += isaDrawdown.p2;
+      working.p2Isa -= isaDrawdown.p2;
+      remaining -= isaDrawdown.p2;
     }
   }
 
@@ -650,16 +755,20 @@ function simulateCandidatePass(
   }
 
   if (strategy.isaMode === 'defer' && remaining > 0) {
-    const p1Isa = Math.min(working.p1Isa, remaining);
-    drawdowns.p1Isa += p1Isa;
-    working.p1Isa -= p1Isa;
-    remaining -= p1Isa;
+    const isaDrawdown = allocateIsaDrawdown(
+      isaOrder,
+      remaining,
+      working.p1Isa,
+      mode === 'couple' ? working.p2Isa : 0,
+    );
+    drawdowns.p1Isa += isaDrawdown.p1;
+    working.p1Isa -= isaDrawdown.p1;
+    remaining -= isaDrawdown.p1;
 
-    if (remaining > 0 && mode === 'couple') {
-      const p2Isa = Math.min(working.p2Isa, remaining);
-      drawdowns.p2Isa += p2Isa;
-      working.p2Isa -= p2Isa;
-      remaining -= p2Isa;
+    if (mode === 'couple') {
+      drawdowns.p2Isa += isaDrawdown.p2;
+      working.p2Isa -= isaDrawdown.p2;
+      remaining -= isaDrawdown.p2;
     }
   }
 
@@ -724,6 +833,8 @@ function simulateCandidatePass(
   const incomeTax = p1IncomeTax + p2IncomeTax;
   const cgtPaid = p1CgtPaid + p2CgtPaid;
   const totalTax = incomeTax + cgtPaid;
+  const withdrawalTax = p1PensionTaxDue + p2PensionTaxDue + p1CgtPaid + p2CgtPaid;
+  const remainingIsaCapacity = working.p1Isa + (mode === 'couple' ? working.p2Isa : 0);
   const totalDrawn = drawdowns.p1Dc + drawdowns.p1Isa + drawdowns.p1Gia + drawdowns.p1Cash
     + drawdowns.p2Dc + drawdowns.p2Isa + drawdowns.p2Gia + drawdowns.p2Cash + drawdowns.jointGia;
   const totalIncome = fixed.total + totalDrawn;
@@ -766,6 +877,8 @@ function simulateCandidatePass(
       terminalAssets,
       drawdowns,
       breakdown,
+      taxDominated: withdrawalTax > FEASIBILITY_TOLERANCE_GBP
+        && remainingIsaCapacity > FEASIBILITY_TOLERANCE_GBP,
     },
     endBalances: working,
   };

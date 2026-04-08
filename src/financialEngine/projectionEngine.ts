@@ -148,9 +148,10 @@ export function calculateProjections(state: PlannerState): YearlyProjection[] {
   const projections: YearlyProjection[] = [];
 
   for (let y = 0; y <= maxYears; y++) {
-    const p1Age     = person1.currentAge + y;
-    const p2Age     = mode === 'couple' ? person2.currentAge + y : null;
+    const p1Age      = person1.currentAge + y;
+    const p2Age      = mode === 'couple' ? person2.currentAge + y : null;
     const inflFactor = Math.pow(1 + inflation / 100, y);
+    const householdFiStarted = p1Age >= fiAge;
 
     // Calendar year for this simulation iteration — used to look up the correct
     // HMRC tax rule snapshot (income tax bands, CGT rates, pension LSA).
@@ -259,7 +260,7 @@ export function calculateProjections(state: PlannerState): YearlyProjection[] {
         // Each UFPLS withdrawal is 75% taxable; drawing up to the headroom keeps
         // effective income tax at 0% and leaves the pension growing tax-free for longer.
         // Only draws what is actually needed to cover spending (remaining).
-        if (p1Dc > 0 && dc1.enabled && p1Age >= fiAge) {
+        if (p1Dc > 0 && dc1.enabled && householdFiStarted) {
           const p1Headroom = Math.max(0, yearSnapshot.incomeTaxBands.personalAllowance - p1TaxableFixed);
           const maxWithinAllowance = p1Headroom / (1 - yearUfplsFrac);
           const d = Math.min(maxWithinAllowance, p1Dc, remaining);
@@ -270,7 +271,7 @@ export function calculateProjections(state: PlannerState): YearlyProjection[] {
             p1DcTaxFree += tf; p1LifetimePcls += tf;
           }
         }
-        if (mode === 'couple' && remaining > 0 && p2Age !== null && p2Dc > 0 && dc2.enabled && p2Age >= fiAge) {
+        if (mode === 'couple' && remaining > 0 && p2Age !== null && p2Dc > 0 && dc2.enabled && householdFiStarted) {
           const p2Headroom = Math.max(0, yearSnapshot.incomeTaxBands.personalAllowance - p2TaxableFixed);
           const maxWithinAllowance = p2Headroom / (1 - yearUfplsFrac);
           const d = Math.min(maxWithinAllowance, p2Dc, remaining);
@@ -292,7 +293,7 @@ export function calculateProjections(state: PlannerState): YearlyProjection[] {
         // then joint GIA is capped by whichever person has less budget remaining.
         let p1CgBudget = CGT.ANNUAL_EXEMPT;
         let p2CgBudget = mode === 'couple' ? CGT.ANNUAL_EXEMPT : 0;
-        if (remaining > 0 && p1GiaV > 0 && p1Age >= fiAge) {
+        if (remaining > 0 && p1GiaV > 0 && householdFiStarted) {
           const gainFrac = p1GiaV > p1GiaBC ? (p1GiaV - p1GiaBC) / p1GiaV : 0;
           const maxForCgt = gainFrac > 0 ? p1CgBudget / gainFrac : p1GiaV;
           const d = Math.min(maxForCgt, p1GiaV, remaining);
@@ -304,7 +305,7 @@ export function calculateProjections(state: PlannerState): YearlyProjection[] {
             p1CgBudget -= r.capitalGain;
           }
         }
-        if (remaining > 0 && p2GiaV > 0 && p2Age !== null && p2Age >= fiAge) {
+        if (remaining > 0 && p2GiaV > 0 && p2Age !== null && householdFiStarted) {
           const gainFrac = p2GiaV > p2GiaBC ? (p2GiaV - p2GiaBC) / p2GiaV : 0;
           const maxForCgt = gainFrac > 0 ? p2CgBudget / gainFrac : p2GiaV;
           const d = Math.min(maxForCgt, p2GiaV, remaining);
@@ -316,7 +317,7 @@ export function calculateProjections(state: PlannerState): YearlyProjection[] {
             p2CgBudget -= r.capitalGain;
           }
         }
-        if (remaining > 0 && jointGiaV > 0 && p1Age >= fiAge) {
+        if (remaining > 0 && jointGiaV > 0 && householdFiStarted) {
           // Joint GIA gains split 50/50 — cap by whichever person has less CGT budget remaining,
           // so neither person exceeds their £3,000 annual exempt amount.
           const gainFrac = jointGiaV > jointGiaBC ? (jointGiaV - jointGiaBC) / jointGiaV : 0;
@@ -336,27 +337,27 @@ export function calculateProjections(state: PlannerState): YearlyProjection[] {
         // the tax wrapper for longer, but the annual CGT exempt should be used first
         // to step up GIA base cost. Any remaining gap after GIA and DC draws is
         // covered here.
-        if (remaining > 0 && p1Isa > 0 && p1Age >= fiAge) {
+        if (remaining > 0 && p1Isa > 0 && householdFiStarted) {
           const d = Math.min(p1Isa, remaining); p1IsaD = d; p1Isa -= d; remaining -= d;
         }
-        if (remaining > 0 && p2Isa > 0 && p2Age !== null && p2Age >= fiAge) {
+        if (remaining > 0 && p2Isa > 0 && p2Age !== null && householdFiStarted) {
           const d = Math.min(p2Isa, remaining); p2IsaD = d; p2Isa -= d; remaining -= d;
         }
 
         // ── Step 4: Remaining GIA (gains above CGT allowance, now taxable) ──
-        if (remaining > 0 && p1GiaV > 0 && p1Age >= fiAge) {
+        if (remaining > 0 && p1GiaV > 0 && householdFiStarted) {
           const r = drawFromGIA(p1GiaV, p1GiaBC, remaining);
           p1GiaD += r.drawn; p1GiaCG += r.capitalGain;
           p1GiaV = r.newValue; p1GiaBC = r.newBaseCost;
           remaining -= r.drawn;
         }
-        if (remaining > 0 && p2GiaV > 0 && p2Age !== null && p2Age >= fiAge) {
+        if (remaining > 0 && p2GiaV > 0 && p2Age !== null && householdFiStarted) {
           const r = drawFromGIA(p2GiaV, p2GiaBC, remaining);
           p2GiaD += r.drawn; p2GiaCG += r.capitalGain;
           p2GiaV = r.newValue; p2GiaBC = r.newBaseCost;
           remaining -= r.drawn;
         }
-        if (remaining > 0 && jointGiaV > 0 && p1Age >= fiAge) {
+        if (remaining > 0 && jointGiaV > 0 && householdFiStarted) {
           const r = drawFromGIA(jointGiaV, jointGiaBC, remaining);
           jointGiaD += r.drawn; jointGiaCG += r.capitalGain;
           jointGiaV = r.newValue; jointGiaBC = r.newBaseCost;
@@ -364,24 +365,24 @@ export function calculateProjections(state: PlannerState): YearlyProjection[] {
         }
 
         // ── Step 5: Cash ────────────────────────────────────────────────────
-        if (remaining > 0 && p1Cash > 0 && p1Age >= fiAge) {
+        if (remaining > 0 && p1Cash > 0 && householdFiStarted) {
           const d = Math.min(p1Cash, remaining); p1CashD = d; p1Cash -= d; remaining -= d;
         }
-        if (remaining > 0 && p2Cash > 0 && p2Age !== null && p2Age >= fiAge) {
+        if (remaining > 0 && p2Cash > 0 && p2Age !== null && householdFiStarted) {
           const d = Math.min(p2Cash, remaining); p2CashD = d; p2Cash -= d; remaining -= d;
         }
 
         // ── Step 6: DC pension — remaining gap (above personal allowance) ───
         // This portion is taxable at marginal rate (20%+). Only reached when all
         // other sources are exhausted or the gap exceeds the personal allowance.
-        if (remaining > 0 && p1Dc > 0 && dc1.enabled && p1Age >= fiAge) {
+        if (remaining > 0 && p1Dc > 0 && dc1.enabled && householdFiStarted) {
           const d = Math.min(p1Dc, remaining); p1DcD += d; p1Dc -= d; remaining -= d;
           const p1RemainingLsa = Math.max(0, yearPensionLsa - p1LifetimePcls);
           const tf = Math.min(d * yearUfplsFrac, p1RemainingLsa);
           p1DcTaxFree += tf; p1LifetimePcls += tf;
         }
         if (remaining > 0 && mode === 'couple' && p2Age !== null) {
-          if (p2Dc > 0 && dc2.enabled && p2Age >= fiAge) {
+          if (p2Dc > 0 && dc2.enabled && householdFiStarted) {
             const d = Math.min(p2Dc, remaining); p2DcD += d; p2Dc -= d; remaining -= d;
             const p2RemainingLsa = Math.max(0, yearPensionLsa - p2LifetimePcls);
             const tf = Math.min(d * yearUfplsFrac, p2RemainingLsa);
@@ -605,4 +606,3 @@ export function runSimulation(state: PlannerState): SimulationResult {
     sustainableRlssLevel: getSustainableRlssLevel(projections, state.mode, state.assumptions.inflation),
   };
 }
-

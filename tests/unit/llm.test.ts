@@ -79,8 +79,8 @@ describe('buildPrompt', () => {
     expect(prompt).toContain('Use ISA withdrawals from the start of the plan where needed.');
     expect(prompt).toContain('Treat required spending as a net cash target.');
     expect(prompt).toContain('Couple-equal DC drawdown');
-    expect(prompt).toMatch(/Split taxable pension withdrawals evenly/i);
-    expect(prompt).toContain('Comparison strategy: LaterLifePlan\'s standard order is DC pension within each person’s personal allowance plus 25% PCLS, then GIA within the CGT allowance, then ISA, then remaining GIA, then DC pension above the personal allowance.');
+    expect(prompt).toContain('Split taxable pension withdrawals evenly between both partners where possible, and split ISA withdrawals evenly when ISA money is needed.');
+    expect(prompt).toContain("Comparison strategy: LaterLifePlan's standard order is DC pension within each person's personal allowance plus 25% tax-free, then GIA within the CGT allowance, then ISA, then remaining GIA, then DC pension above the personal allowance. Once ISA withdrawals are needed in a couple plan, both ISAs are used evenly as household tax-free savings");
     expect(prompt).toContain('Recommended approach: Couple-equal DC drawdown.');
     expect(prompt).toContain('The first projected year meets the spending target of £66,891 with no tax due in that year.');
   });
@@ -108,7 +108,7 @@ describe('buildPrompt', () => {
     const prompt = buildPrompt(singleSampleContext());
 
     expect(prompt).toContain('One person aged 65 living in England, Wales or Northern Ireland');
-    expect(prompt).toContain("LaterLifePlan's standard order is DC pension within the personal allowance plus 25% PCLS, then GIA within the CGT allowance, then ISA, then remaining GIA, then DC pension above the personal allowance.");
+    expect(prompt).toContain("LaterLifePlan's standard order is DC pension within the personal allowance plus 25% tax-free, then GIA within the CGT allowance, then ISA, then remaining GIA, then DC pension above the personal allowance.");
     expect(prompt).not.toContain('each person’s personal allowance');
   });
 });

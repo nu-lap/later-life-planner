@@ -18,7 +18,8 @@
     "terminalAssets": 1359583.9078274535
   },
   "counts": {
-    "1-LLP-Baseline": 25,
+    "1-LLP-Baseline": 24,
+    "3-Proportional": 1,
     "2-Couple-equal": 11
   }
 }

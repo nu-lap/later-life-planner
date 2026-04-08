@@ -100,7 +100,7 @@ describe('calculateProjections — financial invariants', () => {
     });
   });
 
-  test('no drawdown before FI age (assets only grow)', () => {
+  test('no household drawdown before FI age (assets only grow)', () => {
     const state = paulAndLisaState(); // FI age 60, current age 56
     const projections = calculateProjections(state);
     const preFiRows = projections.filter(p => p.p1Age < state.fiAge);
@@ -108,6 +108,9 @@ describe('calculateProjections — financial invariants', () => {
       expect(p.p1DcDrawdown).toBe(0);
       expect(p.p1IsaDrawdown).toBe(0);
       expect(p.p1GiaDrawdown).toBe(0);
+      expect(p.p2DcDrawdown).toBe(0);
+      expect(p.p2IsaDrawdown).toBe(0);
+      expect(p.p2GiaDrawdown).toBe(0);
     });
   });
 });

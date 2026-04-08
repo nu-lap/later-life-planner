@@ -2,16 +2,19 @@ import type { TaxJurisdiction, YearlyProjection } from '@/models/types';
 
 export type DCOrder = 'paul-first' | 'equal' | 'proportional' | 'lisa-first';
 export type ISAMode = 'now' | 'defer';
+export type ISAOrder = 'p1-first' | 'p2-first' | 'equal' | 'proportional';
 
 export interface WaterfallConfig {
   dcOrder: DCOrder;
   isaMode: ISAMode;
+  isaOrder?: ISAOrder;
   label: string;
 }
 
 export interface OptimizerPolicyOverride {
   dcOrder?: DCOrder;
   isaMode?: ISAMode;
+  isaOrder?: ISAOrder;
   minAnnualIncome?: number;
   careReserveTarget?: number;
   bequestTarget?: number;
@@ -90,6 +93,7 @@ export interface WaterfallResult {
   terminalAssets: number;
   drawdowns: DrawdownBreakdown;
   breakdown: YearDrawdownBreakdown;
+  taxDominated?: boolean;
 }
 
 export interface RuleProvenance {
