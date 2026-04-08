@@ -274,8 +274,9 @@ export function syncCareReserveGoal(
   careReserve: CareReserve | undefined | null,
 ): GoalRegistry {
   const enabled = Boolean(careReserve?.enabled);
+  const safeAmount = Number.isFinite(careReserve?.amount) ? careReserve.amount : 0;
   const targetValue = enabled
-    ? Math.min(CARE_RESERVE.MAX_AMOUNT, Math.max(0, careReserve?.amount ?? 0))
+    ? Math.min(CARE_RESERVE.MAX_AMOUNT, Math.max(0, safeAmount))
     : undefined;
 
   return syncGoalTarget(goalRegistry, 'care_reserve', {
