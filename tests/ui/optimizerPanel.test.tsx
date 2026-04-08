@@ -63,7 +63,7 @@ describe('OptimizerPanel', () => {
 
     const breakdownTable = screen.getByTestId('optimizer-drawdown-breakdown-table');
     const ageHeader = within(breakdownTable).getByRole('columnheader', { name: 'Age' });
-    const firstAgeCell = breakdownTable.querySelector('tbody tr:first-child td:first-child');
+    const firstAgeCell = breakdownTable.querySelector('tbody tr:first-child th:first-child');
 
     expect(ageHeader).not.toBeNull();
     expect(firstAgeCell).not.toBeNull();

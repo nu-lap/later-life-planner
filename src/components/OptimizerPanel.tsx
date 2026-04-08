@@ -489,21 +489,21 @@ export default function OptimizerPanel({ plannerState, result }: Props) {
               <table className="min-w-full text-xs">
                 <thead>
                   <tr className="border-b border-slate-100 text-left text-slate-500">
-                    <th rowSpan={2} className="sticky left-0 z-20 w-24 border-r border-slate-200 bg-slate-100 px-3 py-3 font-bold shadow-[4px_0_12px_rgba(15,23,42,0.06)] sm:w-32">Age</th>
-                    <th colSpan={4} className="border-b border-sky-100 bg-sky-50 px-3 py-3 text-center font-bold text-sky-800">{person1Label}</th>
-                    {isCouple ? <th colSpan={4} className="border-b border-amber-100 bg-amber-50 px-3 py-3 text-center font-bold text-amber-800">{person2Label}</th> : null}
-                    {isCouple ? <th colSpan={1} className="border-b border-violet-100 bg-violet-50 px-3 py-3 text-center font-bold text-violet-800">Joint</th> : null}
+                    <th scope="col" rowSpan={2} className="sticky left-0 z-20 w-24 border-r border-slate-200 bg-slate-100 px-3 py-3 font-bold shadow-[4px_0_12px_rgba(15,23,42,0.06)] sm:w-32">Age</th>
+                    <th scope="colgroup" colSpan={4} className="border-b border-sky-100 bg-sky-50 px-3 py-3 text-center font-bold text-sky-800">{person1Label}</th>
+                    {isCouple ? <th scope="colgroup" colSpan={4} className="border-b border-amber-100 bg-amber-50 px-3 py-3 text-center font-bold text-amber-800">{person2Label}</th> : null}
+                    {isCouple ? <th scope="colgroup" colSpan={1} className="border-b border-violet-100 bg-violet-50 px-3 py-3 text-center font-bold text-violet-800">Joint</th> : null}
                   </tr>
                   <tr className="border-b border-slate-100 text-left text-slate-500">
-                    <th className="border-b border-sky-100 bg-sky-50 px-3 py-2 font-bold text-sky-700">Pension</th>
-                    <th className="border-b border-sky-100 bg-sky-50 px-3 py-2 font-bold text-sky-700">ISA</th>
-                    <th className="border-b border-sky-100 bg-sky-50 px-3 py-2 font-bold text-sky-700">GIA</th>
-                    <th className="border-b border-sky-100 bg-sky-50 px-3 py-2 font-bold text-sky-700">Cash</th>
-                    {isCouple ? <th className="border-b border-amber-100 bg-amber-50 px-3 py-2 font-bold text-amber-700">Pension</th> : null}
-                    {isCouple ? <th className="border-b border-amber-100 bg-amber-50 px-3 py-2 font-bold text-amber-700">ISA</th> : null}
-                    {isCouple ? <th className="border-b border-amber-100 bg-amber-50 px-3 py-2 font-bold text-amber-700">GIA</th> : null}
-                    {isCouple ? <th className="border-b border-amber-100 bg-amber-50 px-3 py-2 font-bold text-amber-700">Cash</th> : null}
-                    {isCouple ? <th className="border-b border-violet-100 bg-violet-50 px-3 py-2 font-bold text-violet-700">GIA</th> : null}
+                    <th scope="col" className="border-b border-sky-100 bg-sky-50 px-3 py-2 font-bold text-sky-700">Pension</th>
+                    <th scope="col" className="border-b border-sky-100 bg-sky-50 px-3 py-2 font-bold text-sky-700">ISA</th>
+                    <th scope="col" className="border-b border-sky-100 bg-sky-50 px-3 py-2 font-bold text-sky-700">GIA</th>
+                    <th scope="col" className="border-b border-sky-100 bg-sky-50 px-3 py-2 font-bold text-sky-700">Cash</th>
+                    {isCouple ? <th scope="col" className="border-b border-amber-100 bg-amber-50 px-3 py-2 font-bold text-amber-700">Pension</th> : null}
+                    {isCouple ? <th scope="col" className="border-b border-amber-100 bg-amber-50 px-3 py-2 font-bold text-amber-700">ISA</th> : null}
+                    {isCouple ? <th scope="col" className="border-b border-amber-100 bg-amber-50 px-3 py-2 font-bold text-amber-700">GIA</th> : null}
+                    {isCouple ? <th scope="col" className="border-b border-amber-100 bg-amber-50 px-3 py-2 font-bold text-amber-700">Cash</th> : null}
+                    {isCouple ? <th scope="col" className="border-b border-violet-100 bg-violet-50 px-3 py-2 font-bold text-violet-700">GIA</th> : null}
                   </tr>
                 </thead>
                 <tbody>
@@ -515,13 +515,16 @@ export default function OptimizerPanel({ plannerState, result }: Props) {
                         index % 2 === 0 ? 'bg-white' : 'bg-slate-50/60',
                       )}
                     >
-                      <td className={clsx(
-                        'sticky left-0 z-10 w-24 border-r border-slate-200 py-3 pr-3 text-sm font-semibold text-slate-700 shadow-[4px_0_12px_rgba(15,23,42,0.04)] sm:w-32',
-                        index % 2 === 0 ? 'bg-slate-50' : 'bg-slate-100/95',
-                      )}>
+                      <th
+                        scope="row"
+                        className={clsx(
+                          'sticky left-0 z-10 w-24 border-r border-slate-200 py-3 pr-3 text-sm font-semibold text-slate-700 shadow-[4px_0_12px_rgba(15,23,42,0.04)] sm:w-32',
+                          index % 2 === 0 ? 'bg-slate-50' : 'bg-slate-100/95',
+                        )}
+                      >
                         {record.p1Age}
                         {record.p2Age !== null ? ` / ${record.p2Age}` : ''}
-                      </td>
+                      </th>
                       <td className="px-3 py-3 text-slate-600">
                         <PensionBreakdownCell breakdown={record.drawdownBreakdown.person1.pension} />
                       </td>
