@@ -53,6 +53,29 @@ describe('OptimizerPanel', () => {
     expect(screen.getAllByText('Tax due').length).toBeGreaterThan(0);
   });
 
+  test('uses a shaded sticky age column in the drawdown breakdown table', async () => {
+    const plannerState = paulAndLisaState();
+    const result = optimizeWithdrawals(plannerState);
+
+    render(<OptimizerPanel plannerState={plannerState} result={result} />);
+
+    await userEvent.click(screen.getByRole('button', { name: '▼ Show breakdown' }));
+
+    const ageHeader = screen.getAllByText('Age').at(-1)?.closest('th');
+    const breakdownTable = screen.getByTestId('optimizer-drawdown-breakdown-table');
+    const firstAgeCell = breakdownTable.querySelector('tbody td.sticky.left-0');
+
+    expect(ageHeader?.className).toContain('sticky');
+    expect(ageHeader?.className).toContain('left-0');
+    expect(ageHeader?.className).toContain('bg-slate-50');
+    expect(ageHeader?.className).toContain('border-r');
+
+    expect(firstAgeCell?.className).toContain('sticky');
+    expect(firstAgeCell?.className).toContain('left-0');
+    expect(firstAgeCell?.className).toContain('bg-slate-50');
+    expect(firstAgeCell?.className).toContain('border-r');
+  });
+
   test('shows the first five comparison years by default', () => {
     const plannerState = paulAndLisaState();
     const result = optimizeWithdrawals(plannerState);

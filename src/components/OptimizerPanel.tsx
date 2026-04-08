@@ -485,7 +485,7 @@ export default function OptimizerPanel({ plannerState, result }: Props) {
               <table className="min-w-full text-xs">
                 <thead>
                   <tr className="border-b border-slate-100 text-left text-slate-500">
-                    <th rowSpan={2} className="sticky left-0 z-20 w-24 bg-white pb-2 pr-3 font-bold sm:w-32">Age</th>
+                    <th rowSpan={2} className="sticky left-0 z-10 w-24 border-r border-slate-100 bg-slate-50 pb-2 pr-3 font-bold sm:w-32">Age</th>
                     <th colSpan={4} className="pb-2 pr-3 text-center font-bold">{person1Label}</th>
                     {isCouple ? <th colSpan={4} className="pb-2 pr-3 text-center font-bold">{person2Label}</th> : null}
                     {isCouple ? <th colSpan={1} className="pb-2 pr-0 text-center font-bold">Joint</th> : null}
@@ -505,7 +505,7 @@ export default function OptimizerPanel({ plannerState, result }: Props) {
                 <tbody>
                   {rows.map((record) => (
                     <tr key={`breakdown-${record.p1Age}-${record.yearIndex}`} className="border-b border-slate-50 align-top">
-                      <td className="sticky left-0 z-0 w-24 bg-white py-3 pr-3 text-slate-700 sm:w-32">
+                      <td className="sticky left-0 z-0 w-24 border-r border-slate-100 bg-slate-50 py-3 pr-3 text-slate-700 sm:w-32">
                         {record.p1Age}
                         {record.p2Age !== null ? ` / ${record.p2Age}` : ''}
                       </td>
