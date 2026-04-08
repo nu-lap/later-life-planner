@@ -2,6 +2,7 @@ import React from 'react';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { createDefaultState } from '@/lib/mockData';
+import { CARE_RESERVE } from '@/config/financialConstants';
 
 const setCareReserveMock = vi.fn();
 const setGoalRegistryMock = vi.fn();
@@ -39,6 +40,25 @@ describe('Step2SpendingGoals', () => {
         id: 'care_reserve',
         enabled: true,
         targetValue: 75_000,
+      }),
+    ]));
+  });
+
+  test('clamps the care reserve amount to the supported maximum', () => {
+    render(<Step2SpendingGoals onBack={vi.fn()} onNext={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole('button', { name: /advanced planning/i }));
+    fireEvent.change(screen.getByLabelText('Care reserve target'), { target: { value: String(CARE_RESERVE.MAX_AMOUNT + 50_000) } });
+
+    expect(setCareReserveMock).toHaveBeenCalledWith(expect.objectContaining({
+      enabled: true,
+      amount: CARE_RESERVE.MAX_AMOUNT,
+    }));
+    expect(setGoalRegistryMock).toHaveBeenCalledWith(expect.arrayContaining([
+      expect.objectContaining({
+        id: 'care_reserve',
+        enabled: true,
+        targetValue: CARE_RESERVE.MAX_AMOUNT,
       }),
     ]));
   });

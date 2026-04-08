@@ -26,6 +26,14 @@ const STANDARD_CFG: Record<RlssStandard, { bg: string; ring: string; text: strin
 
 const STAGE_COLORS = { 'go-go': '#f97316', 'slo-go': '#10b981', 'no-go': '#8b5cf6' };
 
+function clampCareReserveAmount(value: number): number {
+  if (!Number.isFinite(value)) {
+    return 0;
+  }
+
+  return Math.min(CARE_RESERVE.MAX_AMOUNT, Math.max(0, value));
+}
+
 export default function Step2SpendingGoals({ onNext, onBack }: Props) {
   const state = usePlannerStore();
   const {
@@ -61,7 +69,10 @@ export default function Step2SpendingGoals({ onNext, onBack }: Props) {
   else if (totalSpend >= min) { benchmarkLabel = 'Minimum–Moderate';     benchmarkColor = 'text-amber-600'; }
 
   const toggleTier = (tier: string) => setOpenTiers(p => ({ ...p, [tier]: !p[tier] }));
-  const careReserveProgress = ((careReserve?.amount ?? 0) / CARE_RESERVE.MAX_AMOUNT) * 100;
+  const careReserveProgress = Math.min(
+    100,
+    Math.max(0, (clampCareReserveAmount(careReserve?.amount ?? 0) / CARE_RESERVE.MAX_AMOUNT) * 100),
+  );
 
   function updateCareReserve(nextReserve: Partial<typeof careReserve>) {
     const merged = {
@@ -69,9 +80,13 @@ export default function Step2SpendingGoals({ onNext, onBack }: Props) {
       amount: careReserve?.amount ?? 0,
       ...nextReserve,
     };
+    const clamped = {
+      ...merged,
+      amount: clampCareReserveAmount(merged.amount ?? 0),
+    };
 
-    setCareReserve(merged);
-    setGoalRegistry(syncCareReserveGoal(goalRegistry, merged));
+    setCareReserve(clamped);
+    setGoalRegistry(syncCareReserveGoal(goalRegistry, clamped));
   }
 
   return (
