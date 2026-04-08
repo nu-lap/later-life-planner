@@ -16,6 +16,7 @@ import {
   buildGoalOrchestrateRequest,
   DEFAULT_GOAL_ORCHESTRATION_SCHEMA_VERSION,
   orchestrateGoals,
+  sortGoalRegistry,
 } from '@/lib/goalOrchestration';
 import type { YearlyProjection } from '@/lib/types';
 import type { OptimizerPolicyOverride } from '@/financialEngine/types';
@@ -196,6 +197,22 @@ function moveGoal(goalRegistry: GoalConfig[], index: number, direction: -1 | 1):
   }));
 }
 
+function updateOrderedGoals(
+  orderedGoals: GoalConfig[],
+  updater: (goal: GoalConfig, index: number) => GoalConfig,
+): GoalConfig[] {
+  return sortGoalRegistry(orderedGoals.map(updater));
+}
+
+function canMoveGoal(orderedGoals: GoalConfig[], index: number, direction: -1 | 1): boolean {
+  const targetIndex = index + direction;
+  if (targetIndex < 0 || targetIndex >= orderedGoals.length) {
+    return false;
+  }
+
+  return orderedGoals[targetIndex].enabled === orderedGoals[index].enabled;
+}
+
 function GoalPriorityPanel({
   goalRegistry,
   onChange,
@@ -209,15 +226,32 @@ function GoalPriorityPanel({
   policyRationale?: string | null;
   targetControlConfig: Partial<Record<GoalId, GoalTargetControlConfig>>;
 }) {
-  const orderedGoals = [...goalRegistry].sort((left, right) => left.priority - right.priority);
+  const [isExpanded, setIsExpanded] = useState(false);
+  const orderedGoals = useMemo(
+    () => sortGoalRegistry(goalRegistry),
+    [goalRegistry],
+  );
+  const enabledGoals = orderedGoals.filter((goal) => goal.enabled);
+  const visibleGoals = isExpanded ? orderedGoals : enabledGoals;
 
   return (
     <div className="game-card">
-      <div>
-        <h3 className="section-heading">Goal priorities</h3>
-        <p className="text-xs text-slate-500 mb-4">
-          Rank the retirement goals that should shape the optimizer. Higher goals are treated as harder constraints before lower-priority trade-offs.
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h3 className="section-heading">Goal priorities</h3>
+          <p className="text-xs text-slate-500 mb-4">
+            {isExpanded
+              ? 'Rank the retirement goals that should shape the optimizer. Higher goals are treated as harder constraints before lower-priority trade-offs.'
+              : 'Showing only the goals currently selected for the optimizer.'}
+          </p>
+        </div>
+        <button
+          className="btn-secondary text-xs"
+          onClick={() => setIsExpanded((value) => !value)}
+          type="button"
+        >
+          {isExpanded ? 'Show selected goals' : 'Show all goals'}
+        </button>
       </div>
 
       {policyRationale && (
@@ -227,8 +261,14 @@ function GoalPriorityPanel({
         </div>
       )}
 
+      {!isExpanded && enabledGoals.length === 0 && (
+        <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+          No goals selected. Expand the panel to enable goals for the optimizer.
+        </div>
+      )}
+
       <div className="space-y-3">
-        {orderedGoals.map((goal, index) => {
+        {visibleGoals.map((goal, index) => {
           const goalCopy = GOAL_COPY[goal.id];
           const targetLabel = goalCopy.targetLabel;
           const controlConfig = targetControlConfig[goal.id];
@@ -236,11 +276,14 @@ function GoalPriorityPanel({
           const sliderProgress = controlConfig
             ? Math.min(100, Math.max(0, ((clampedTargetValue ?? 0) / controlConfig.max) * 100))
             : 0;
+          const moveUpAllowed = isExpanded && canMoveGoal(orderedGoals, orderedGoals.findIndex((entry) => entry.id === goal.id), -1);
+          const moveDownAllowed = isExpanded && canMoveGoal(orderedGoals, orderedGoals.findIndex((entry) => entry.id === goal.id), 1);
 
           return (
             <div
               key={goal.id}
               className={clsx('rounded-2xl border p-4', goalCopy.accent)}
+              data-testid={`goal-card-${goal.id}`}
             >
               <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                 <div className="min-w-0 flex-1">
@@ -255,43 +298,55 @@ function GoalPriorityPanel({
                   </div>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-2">
-                  <label className="inline-flex items-center gap-2 text-xs font-semibold text-slate-600">
-                    <input
-                      checked={goal.enabled}
-                      className="rounded border-slate-300 text-orange-500 focus:ring-orange-500"
-                      disabled={isApplying}
-                      onChange={(event) => {
-                        onChange(orderedGoals.map((entry) => (
-                          entry.id === goal.id ? { ...entry, enabled: event.target.checked } : entry
-                        )));
+                {isExpanded ? (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <label className="inline-flex items-center gap-2 text-xs font-semibold text-slate-600">
+                      <input
+                        checked={goal.enabled}
+                        className="rounded border-slate-300 text-orange-500 focus:ring-orange-500"
+                        disabled={isApplying}
+                        onChange={(event) => {
+                          onChange(updateOrderedGoals(orderedGoals, (entry) => (
+                            entry.id === goal.id ? { ...entry, enabled: event.target.checked } : entry
+                          )));
+                        }}
+                        type="checkbox"
+                      />
+                      Enabled
+                    </label>
+                    <button
+                      aria-label={`Move ${goalCopy.label} up`}
+                      className="btn-secondary text-xs"
+                      disabled={!moveUpAllowed || isApplying}
+                      onClick={() => {
+                        const currentIndex = orderedGoals.findIndex((entry) => entry.id === goal.id);
+                        onChange(sortGoalRegistry(moveGoal(orderedGoals, currentIndex, -1)));
                       }}
-                      type="checkbox"
-                    />
-                    Enabled
-                  </label>
-                  <button
-                    aria-label={`Move ${goalCopy.label} up`}
-                    className="btn-secondary text-xs"
-                    disabled={index === 0 || isApplying}
-                    onClick={() => onChange(moveGoal(orderedGoals, index, -1))}
-                    type="button"
-                  >
-                    ↑
-                  </button>
-                  <button
-                    aria-label={`Move ${goalCopy.label} down`}
-                    className="btn-secondary text-xs"
-                    disabled={index === orderedGoals.length - 1 || isApplying}
-                    onClick={() => onChange(moveGoal(orderedGoals, index, 1))}
-                    type="button"
-                  >
-                    ↓
-                  </button>
-                </div>
+                      type="button"
+                    >
+                      ↑
+                    </button>
+                    <button
+                      aria-label={`Move ${goalCopy.label} down`}
+                      className="btn-secondary text-xs"
+                      disabled={!moveDownAllowed || isApplying}
+                      onClick={() => {
+                        const currentIndex = orderedGoals.findIndex((entry) => entry.id === goal.id);
+                        onChange(sortGoalRegistry(moveGoal(orderedGoals, currentIndex, 1)));
+                      }}
+                      type="button"
+                    >
+                      ↓
+                    </button>
+                  </div>
+                ) : (
+                  <div className="inline-flex rounded-full bg-white/70 px-3 py-1 text-xs font-semibold text-slate-600">
+                    Selected
+                  </div>
+                )}
               </div>
 
-              {targetLabel && (
+              {targetLabel && (isExpanded || goal.enabled) && (
                 <div className="mt-4 rounded-2xl border border-white/70 bg-white/70 p-4">
                   <div className="mb-2 flex items-center justify-between gap-3">
                     <div>
@@ -321,7 +376,7 @@ function GoalPriorityPanel({
                         min={0}
                         onChange={(event) => {
                           const nextTarget = clampGoalTargetValue(event.target.valueAsNumber, controlConfig?.max ?? Number.MAX_SAFE_INTEGER);
-                          onChange(orderedGoals.map((entry) => (
+                          onChange(updateOrderedGoals(orderedGoals, (entry) => (
                             entry.id === goal.id ? { ...entry, targetValue: nextTarget } : entry
                           )));
                         }}
@@ -342,7 +397,7 @@ function GoalPriorityPanel({
                         min={0}
                         onChange={(event) => {
                           const nextTarget = clampGoalTargetValue(event.target.valueAsNumber, controlConfig.max);
-                          onChange(orderedGoals.map((entry) => (
+                          onChange(updateOrderedGoals(orderedGoals, (entry) => (
                             entry.id === goal.id ? { ...entry, targetValue: nextTarget } : entry
                           )));
                         }}
@@ -667,7 +722,7 @@ export default function Step4Dashboard({ onBack }: Props) {
         suggested: roundUp(annualSpend, 1_000),
       },
       care_reserve: {
-        max: capitalTargetMax,
+        max: CARE_RESERVE.MAX_AMOUNT,
         step: 5_000,
         suggested: CARE_RESERVE.DEFAULT_AMOUNT,
       },
@@ -692,8 +747,10 @@ export default function Step4Dashboard({ onBack }: Props) {
       return clamped !== goal.targetValue ? { ...goal, targetValue: clamped } : goal;
     });
 
-    if (normalizedGoals.some((g, i) => g !== goalRegistry[i])) {
-      setGoalRegistry(normalizedGoals);
+    const sortedGoals = sortGoalRegistry(normalizedGoals);
+
+    if (sortedGoals.some((g, i) => g !== goalRegistry[i])) {
+      setGoalRegistry(sortedGoals);
     }
   }, [goalRegistry, goalTargetControlConfig, setGoalRegistry]);
 

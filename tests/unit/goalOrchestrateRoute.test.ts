@@ -43,6 +43,7 @@ function makePayload() {
     if (goal.id === 'bequest') {
       return {
         ...goal,
+        enabled: true,
         priority: 1,
         targetValue: 250_000,
       };
@@ -50,6 +51,7 @@ function makePayload() {
 
     return {
       ...goal,
+      enabled: goal.id === 'tax_efficiency',
       priority: goal.priority + 1,
     };
   });

@@ -95,11 +95,27 @@ const DEFAULT_GOAL_STACK: GoalId[] = [
 ];
 
 export function buildDefaultGoalRegistry(): GoalRegistry {
-  return DEFAULT_GOAL_STACK.map((id, index) => ({
+  return sortGoalRegistry(DEFAULT_GOAL_STACK.map((id, index) => ({
     id,
     priority: index + 1,
-    enabled: true,
-  }));
+    enabled: id === 'tax_efficiency',
+  })));
+}
+
+export function sortGoalRegistry(goalRegistry: GoalRegistry): GoalRegistry {
+  return goalRegistry
+    .slice()
+    .sort((left, right) => {
+      if (left.enabled !== right.enabled) {
+        return left.enabled ? -1 : 1;
+      }
+
+      return left.priority - right.priority;
+    })
+    .map((goal, index) => ({
+      ...goal,
+      priority: index + 1,
+    }));
 }
 
 function totalGuaranteedIncome(plannerState: PlannerState): number {
@@ -178,16 +194,16 @@ export function normalizeGoalRegistry(goalRegistry: GoalRegistry | undefined | n
     return buildDefaultGoalRegistry();
   }
 
-  return goalRegistry
+  return sortGoalRegistry(goalRegistry
     .slice()
     .sort((left, right) => left.priority - right.priority)
-    .map((goal, index) => ({
+    .map((goal) => ({
       id: goal.id,
-      priority: index + 1,
+      priority: goal.priority,
       userWeight: goal.userWeight,
       enabled: goal.enabled,
       targetValue: goal.targetValue,
-    }));
+    })));
 }
 
 export interface BuildGoalOrchestrateRequestArgs {
