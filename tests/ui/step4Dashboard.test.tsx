@@ -1,10 +1,11 @@
 import React from 'react';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { paulAndLisaState } from '../fixtures/states';
 
 const setGoalRegistryMock = vi.fn();
-const plannerState = {
+const fetchMock = vi.fn();
+let plannerState = {
   ...paulAndLisaState(),
   setGoalRegistry: setGoalRegistryMock,
 };
@@ -23,15 +24,33 @@ import Step4Dashboard from '@/components/steps/Step4Dashboard';
 
 describe('Step4Dashboard', () => {
   beforeEach(() => {
+    vi.useFakeTimers();
     vi.stubEnv('NEXT_PUBLIC_OPTIMIZER_ENABLED', 'true');
+    plannerState = {
+      ...paulAndLisaState(),
+      setGoalRegistry: setGoalRegistryMock,
+    };
     setGoalRegistryMock.mockReset();
+    fetchMock.mockReset();
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        policyOverride: {
+          minAnnualIncome: 60_600,
+          rationale: 'Keep annual spending support above the requested floor.',
+        },
+      }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
   });
 
-  test('uses the optimizer panel as the canonical withdrawal guidance section when enabled', () => {
+  test('uses the optimizer panel as the canonical withdrawal guidance section when enabled', async () => {
     render(<Step4Dashboard onBack={vi.fn()} />);
 
     expect(screen.getByText('Withdrawal plan optimisation')).toBeInTheDocument();
@@ -40,9 +59,14 @@ describe('Step4Dashboard', () => {
     expect(screen.getByText(/Gross income at/)).toBeInTheDocument();
     expect(screen.getByText('Gross income vs required spending — optimiser view')).toBeInTheDocument();
     expect(screen.getByText('Goal priorities')).toBeInTheDocument();
+    expect(fetchMock).not.toHaveBeenCalled();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(300);
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
-  test('reorders goal priorities through the dashboard goal panel', () => {
+  test('reorders goal priorities through the dashboard goal panel', async () => {
     render(<Step4Dashboard onBack={vi.fn()} />);
 
     fireEvent.click(screen.getByRole('button', { name: 'Move Longevity protection down' }));
@@ -51,5 +75,28 @@ describe('Step4Dashboard', () => {
     const updatedRegistry = setGoalRegistryMock.mock.calls[0][0];
     expect(updatedRegistry[0].id).toBe('spending_floor');
     expect(updatedRegistry[1].id).toBe('longevity_protection');
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(300);
+    });
+    expect(fetchMock).toHaveBeenCalled();
+  });
+
+  test('does not crash when goal orchestration request construction fails', async () => {
+    plannerState = {
+      ...plannerState,
+      person1: {
+        ...plannerState.person1,
+        currentAge: 16,
+      },
+    };
+
+    render(<Step4Dashboard onBack={vi.fn()} />);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(300);
+    });
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(screen.getByText('Goal priorities')).toBeInTheDocument();
   });
 });

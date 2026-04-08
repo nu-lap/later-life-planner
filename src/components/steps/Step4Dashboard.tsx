@@ -1,6 +1,6 @@
 'use client';
 
-import { useDeferredValue, useMemo, useState } from 'react';
+import { useDeferredValue, useEffect, useMemo, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { usePlannerStore } from '@/store/plannerStore';
 import {
@@ -12,9 +12,17 @@ import OptimizerPanel from '@/components/OptimizerPanel';
 import { CGT, INCOME_TAX } from '@/config/financialConstants';
 import { optimizeWithdrawals } from '@/financialEngine/withdrawalOptimizer';
 import { RLSS_STANDARDS } from '@/lib/mockData';
+import {
+  buildGoalOrchestrateRequest,
+  DEFAULT_GOAL_ORCHESTRATION_SCHEMA_VERSION,
+  orchestrateGoals,
+} from '@/lib/goalOrchestration';
 import type { YearlyProjection } from '@/lib/types';
+import type { OptimizerPolicyOverride } from '@/financialEngine/types';
 import type { GoalConfig, GoalId } from '@/models/types';
 import clsx from 'clsx';
+
+const GOAL_ORCHESTRATION_DEBOUNCE_MS = 300;
 
 const ChartSkeleton = () => <div className="h-64 bg-slate-100 rounded-2xl animate-pulse" />;
 const LifetimeChart = dynamic(() => import('@/components/charts/LifetimeChart'), { ssr: false, loading: ChartSkeleton });
@@ -22,46 +30,80 @@ const AssetChart    = dynamic(() => import('@/components/charts/AssetChart'),   
 
 interface Props { onBack: () => void }
 
-const GOAL_COPY: Record<GoalId, { label: string; description: string; targetLabel?: string }> = {
+const GOAL_COPY: Record<GoalId, {
+  label: string;
+  description: string;
+  targetLabel?: string;
+  icon: string;
+  accent: string;
+  badge: string;
+}> = {
   longevity_protection: {
     label: 'Longevity protection',
     description: 'Keep enough income and assets in place so the plan is less likely to run short later in life.',
     targetLabel: 'Minimum annual income',
+    icon: '⏳',
+    accent: 'border-amber-100 bg-amber-50',
+    badge: 'bg-amber-100 text-amber-700',
   },
   spending_floor: {
     label: 'Spending floor',
     description: 'Protect a minimum level of yearly spending before other priorities.',
     targetLabel: 'Minimum annual income',
+    icon: '🧱',
+    accent: 'border-orange-100 bg-orange-50',
+    badge: 'bg-orange-100 text-orange-700',
   },
   aspirational_spending: {
     label: 'Aspirational spending',
     description: 'Leave room for discretionary spending once the core plan is secure.',
+    icon: '✨',
+    accent: 'border-violet-100 bg-violet-50',
+    badge: 'bg-violet-100 text-violet-700',
   },
   tax_efficiency: {
     label: 'Tax efficiency',
     description: 'Prefer lower-tax withdrawal paths when they do not break higher-priority goals.',
+    icon: '📉',
+    accent: 'border-emerald-100 bg-emerald-50',
+    badge: 'bg-emerald-100 text-emerald-700',
   },
   liquidity_preservation: {
     label: 'Liquidity preservation',
     description: 'Keep flexible wrappers such as ISAs available for later years where possible.',
+    icon: '💧',
+    accent: 'border-sky-100 bg-sky-50',
+    badge: 'bg-sky-100 text-sky-700',
   },
   survivorship: {
     label: 'Survivorship',
     description: 'Balance withdrawals across both partners where that supports a stronger survivor position.',
+    icon: '🤝',
+    accent: 'border-blue-100 bg-blue-50',
+    badge: 'bg-blue-100 text-blue-700',
   },
   care_reserve: {
     label: 'Care reserve',
     description: 'Protect capital that should stay available for later-life care costs.',
     targetLabel: 'Protected capital',
+    icon: '🛡️',
+    accent: 'border-teal-100 bg-teal-50',
+    badge: 'bg-teal-100 text-teal-700',
   },
   bequest: {
     label: 'Bequest',
     description: 'Protect a minimum estate value that should still remain at the end of the plan.',
     targetLabel: 'Bequest floor',
+    icon: '🎁',
+    accent: 'border-fuchsia-100 bg-fuchsia-50',
+    badge: 'bg-fuchsia-100 text-fuchsia-700',
   },
   inflation_resilience: {
     label: 'Inflation resilience',
     description: 'Keep the plan better able to absorb rising costs over time.',
+    icon: '📈',
+    accent: 'border-rose-100 bg-rose-50',
+    badge: 'bg-rose-100 text-rose-700',
   },
 };
 
@@ -139,9 +181,13 @@ function moveGoal(goalRegistry: GoalConfig[], index: number, direction: -1 | 1):
 function GoalPriorityPanel({
   goalRegistry,
   onChange,
+  isApplying,
+  policyRationale,
 }: {
   goalRegistry: GoalConfig[];
   onChange: (goalRegistry: GoalConfig[]) => void;
+  isApplying: boolean;
+  policyRationale?: string | null;
 }) {
   const orderedGoals = [...goalRegistry].sort((left, right) => left.priority - right.priority);
 
@@ -154,7 +200,22 @@ function GoalPriorityPanel({
             Rank the retirement goals that should shape the optimizer. Higher goals are treated as harder constraints before lower-priority trade-offs.
           </p>
         </div>
+        <div className="text-right">
+          <p className={clsx(
+            'inline-flex rounded-full px-3 py-1 text-xs font-semibold',
+            isApplying ? 'bg-orange-100 text-orange-700' : 'bg-emerald-100 text-emerald-700',
+          )}>
+            {isApplying ? 'Updating optimiser…' : 'Optimiser is using these priorities'}
+          </p>
+        </div>
       </div>
+
+      {policyRationale && (
+        <div className="mb-4 rounded-2xl border border-slate-200 bg-white px-4 py-3">
+          <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Current optimiser focus</p>
+          <p className="mt-1 text-sm text-slate-700">{policyRationale}</p>
+        </div>
+      )}
 
       <div className="space-y-3">
         {orderedGoals.map((goal, index) => {
@@ -164,16 +225,16 @@ function GoalPriorityPanel({
           return (
             <div
               key={goal.id}
-              className="rounded-2xl border border-slate-200 bg-slate-50 p-4"
+              className={clsx('rounded-2xl border p-4', goalCopy.accent)}
             >
               <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-3">
-                    <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-sm font-black text-slate-700 shadow-sm">
+                    <span className={clsx('flex h-8 min-w-8 items-center justify-center rounded-full text-sm font-black shadow-sm', goalCopy.badge)}>
                       {index + 1}
                     </span>
                     <div>
-                      <p className="text-sm font-bold text-slate-900">{goalCopy.label}</p>
+                      <p className="text-sm font-bold text-slate-900">{goalCopy.icon} {goalCopy.label}</p>
                       <p className="text-xs text-slate-500">{goalCopy.description}</p>
                     </div>
                   </div>
@@ -429,6 +490,63 @@ export default function Step4Dashboard({ onBack }: Props) {
     goalRegistry,
     setGoalRegistry,
   } = state;
+  const [policyOverride, setPolicyOverride] = useState<OptimizerPolicyOverride | null>(null);
+  const [policyLoading, setPolicyLoading] = useState(false);
+
+  useEffect(() => {
+    if (!optimizerEnabled) {
+      setPolicyOverride(null);
+      setPolicyLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    let activeController: AbortController | null = null;
+    const timeoutId = window.setTimeout(() => {
+      if (cancelled) {
+        return;
+      }
+
+      let request;
+      try {
+        request = buildGoalOrchestrateRequest({
+          plannerState: deferredState,
+          goalRegistry,
+          requestId: `goal-ui:${globalThis.crypto?.randomUUID?.() ?? Date.now().toString()}`,
+          schemaVersion: DEFAULT_GOAL_ORCHESTRATION_SCHEMA_VERSION,
+        });
+      } catch {
+        setPolicyOverride(null);
+        setPolicyLoading(false);
+        return;
+      }
+
+      activeController = new AbortController();
+      setPolicyLoading(true);
+      orchestrateGoals(request, { signal: activeController.signal })
+        .then((nextPolicyOverride) => {
+          if (!cancelled) {
+            setPolicyOverride(nextPolicyOverride);
+          }
+        })
+        .catch(() => {
+          if (!cancelled) {
+            setPolicyOverride(null);
+          }
+        })
+        .finally(() => {
+          if (!cancelled) {
+            setPolicyLoading(false);
+          }
+        });
+    }, GOAL_ORCHESTRATION_DEBOUNCE_MS);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeoutId);
+      activeController?.abort();
+    };
+  }, [deferredState, goalRegistry, optimizerEnabled]);
 
   const { projections, optimizerResult } = useMemo(() => {
     if (!optimizerEnabled) {
@@ -440,12 +558,14 @@ export default function Step4Dashboard({ onBack }: Props) {
 
     // Run the optimizer once; reuse its pre-computed projections so we avoid
     // a duplicate calculateProjections() call.
-    const result = optimizeWithdrawals(deferredState);
+    const result = optimizeWithdrawals(deferredState, {
+      policyOverride: policyOverride ?? undefined,
+    });
     return {
       projections: result.baselineProjections,
       optimizerResult: result,
     };
-  }, [deferredState, optimizerEnabled]);
+  }, [deferredState, optimizerEnabled, policyOverride]);
   // Income and spending only starts at FI age — filter for display, but keep full
   // projections for asset depletion checks (assets grow from current age).
   const displayProjections = useMemo(
@@ -597,6 +717,8 @@ export default function Step4Dashboard({ onBack }: Props) {
         <GoalPriorityPanel
           goalRegistry={goalRegistry}
           onChange={setGoalRegistry}
+          isApplying={policyLoading}
+          policyRationale={policyOverride?.rationale ?? null}
         />
       )}
 

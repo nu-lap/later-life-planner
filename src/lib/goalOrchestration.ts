@@ -1,5 +1,6 @@
 import { z } from 'zod';
-import type { GoalConfig, GoalId, GoalRegistry, PlannerState, TaxJurisdiction } from '@/models/types';
+import type { CareReserve, GoalConfig, GoalId, GoalRegistry, PlannerState, TaxJurisdiction } from '@/models/types';
+import type { OptimizerPolicyOverride } from '@/financialEngine/types';
 
 export const DEFAULT_GOAL_ORCHESTRATION_SCHEMA_VERSION = '1';
 
@@ -187,4 +188,77 @@ export function normalizeGoalRegistry(goalRegistry: GoalRegistry | undefined | n
       enabled: goal.enabled,
       targetValue: goal.targetValue,
     }));
+}
+
+export interface BuildGoalOrchestrateRequestArgs {
+  plannerState: PlannerState;
+  goalRegistry: GoalRegistry;
+  requestId: string;
+  naturalLanguageInput?: string;
+  schemaVersion?: string;
+}
+
+export function buildGoalOrchestrateRequest(
+  args: BuildGoalOrchestrateRequestArgs,
+): GoalOrchestrateRequest {
+  return GoalOrchestrateRequestSchema.parse({
+    requestId: args.requestId,
+    schemaVersion: args.schemaVersion ?? DEFAULT_GOAL_ORCHESTRATION_SCHEMA_VERSION,
+    planSummary: buildGoalPlanSummary(args.plannerState),
+    goalRegistry: normalizeGoalRegistry(args.goalRegistry),
+    naturalLanguageInput: args.naturalLanguageInput?.trim() || undefined,
+  });
+}
+
+export async function orchestrateGoals(
+  request: GoalOrchestrateRequest,
+  options?: { signal?: AbortSignal },
+): Promise<OptimizerPolicyOverride> {
+  const response = await fetch('/api/goal-orchestrate', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(request),
+    signal: options?.signal,
+  });
+
+  if (!response.ok) {
+    const detail = await response.json().catch(() => ({}));
+    throw new Error(typeof detail?.error === 'string' ? detail.error : 'Goal orchestration failed.');
+  }
+
+  const body = await response.json() as { policyOverride: OptimizerPolicyOverride };
+  return body.policyOverride;
+}
+
+export function syncGoalTarget(
+  goalRegistry: GoalRegistry,
+  goalId: GoalId,
+  options: { enabled?: boolean; targetValue?: number },
+): GoalRegistry {
+  return normalizeGoalRegistry(goalRegistry).map((goal) => {
+    if (goal.id !== goalId) return goal;
+
+    return {
+      ...goal,
+      enabled: options.enabled ?? goal.enabled,
+      ...(Object.prototype.hasOwnProperty.call(options, 'targetValue')
+        ? { targetValue: options.targetValue }
+        : {}),
+    };
+  });
+}
+
+export function syncCareReserveGoal(
+  goalRegistry: GoalRegistry,
+  careReserve: CareReserve | undefined | null,
+): GoalRegistry {
+  const enabled = Boolean(careReserve?.enabled);
+  const targetValue = enabled ? Math.max(0, careReserve?.amount ?? 0) : undefined;
+
+  return syncGoalTarget(goalRegistry, 'care_reserve', {
+    enabled,
+    targetValue,
+  });
 }
