@@ -865,10 +865,12 @@ export default function Step4Dashboard({ onBack }: Props) {
         <div className="rounded-2xl bg-teal-50 border border-teal-200 p-4 flex items-start gap-3">
           <span className="text-2xl flex-shrink-0">🛡️</span>
           <div>
-            <p className="font-black text-teal-800">Care Reserve — {formatCurrency(firstYear?.careReserveBalance ?? state.careReserve.amount, true)}</p>
+            <p className="font-black text-teal-800">Care Reserve at {fiAge} — {formatCurrency(firstYear?.careReserveBalance ?? state.careReserve.amount, true)}</p>
             <p className="text-sm text-teal-600 mt-0.5">
-              Earmarked for potential late-life care costs. Invested and growing, but excluded from your spending projections above.
-              If care costs never arise, this remains part of your estate.
+              Protected capital set aside for later-life care. It stays invested and is excluded from normal spending.
+            </p>
+            <p className="text-xs text-teal-500 mt-1">
+              Current target: {formatCurrency(state.careReserve.amount, true)} · If care costs never arise, it remains part of your estate.
             </p>
           </div>
         </div>

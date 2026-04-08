@@ -55,12 +55,19 @@ describe('Step4Dashboard', () => {
   });
 
   test('uses the optimizer panel as the canonical withdrawal guidance section when enabled', async () => {
+    plannerState = {
+      ...plannerState,
+      careReserve: { enabled: true, amount: 75_000 },
+    };
+
     render(<Step4Dashboard onBack={vi.fn()} />);
 
     expect(screen.getByText('Withdrawal plan optimisation')).toBeInTheDocument();
     expect(screen.queryByText('Simplified tax-efficient withdrawal strategy')).not.toBeInTheDocument();
     expect(screen.getByText('Required net spending')).toBeInTheDocument();
     expect(screen.getByText(/Gross income at/)).toBeInTheDocument();
+    expect(screen.getByText((content) => content.includes('Care Reserve at 60'))).toBeInTheDocument();
+    expect(screen.getByText(/Protected capital set aside for later-life care/)).toBeInTheDocument();
     expect(screen.getByText('Gross income vs required spending — optimiser view')).toBeInTheDocument();
     expect(screen.getByText('Goal priorities')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Show all goals' })).toBeInTheDocument();
