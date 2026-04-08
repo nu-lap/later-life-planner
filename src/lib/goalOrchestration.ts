@@ -112,10 +112,12 @@ export function sortGoalRegistry(goalRegistry: GoalRegistry): GoalRegistry {
 
       return left.priority - right.priority;
     })
-    .map((goal, index) => ({
-      ...goal,
-      priority: index + 1,
-    }));
+    .map((goal, index) => {
+      const newPriority = index + 1;
+      // Preserve the original object reference when the priority is already
+      // correct so callers can use reference equality to detect actual changes.
+      return goal.priority === newPriority ? goal : { ...goal, priority: newPriority };
+    });
 }
 
 function totalGuaranteedIncome(plannerState: PlannerState): number {
