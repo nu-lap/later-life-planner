@@ -507,16 +507,22 @@ export default function Step4Dashboard({ onBack }: Props) {
         return;
       }
 
+      let request;
+      try {
+        request = buildGoalOrchestrateRequest({
+          plannerState: deferredState,
+          goalRegistry,
+          requestId: `goal-ui:${globalThis.crypto?.randomUUID?.() ?? Date.now().toString()}`,
+          schemaVersion: DEFAULT_GOAL_ORCHESTRATION_SCHEMA_VERSION,
+        });
+      } catch {
+        setPolicyOverride(null);
+        setPolicyLoading(false);
+        return;
+      }
+
       activeController = new AbortController();
       setPolicyLoading(true);
-
-      const request = buildGoalOrchestrateRequest({
-        plannerState: deferredState,
-        goalRegistry,
-        requestId: `goal-ui:${globalThis.crypto?.randomUUID?.() ?? Date.now().toString()}`,
-        schemaVersion: DEFAULT_GOAL_ORCHESTRATION_SCHEMA_VERSION,
-      });
-
       orchestrateGoals(request, { signal: activeController.signal })
         .then((nextPolicyOverride) => {
           if (!cancelled) {

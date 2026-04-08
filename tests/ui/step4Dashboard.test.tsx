@@ -5,7 +5,7 @@ import { paulAndLisaState } from '../fixtures/states';
 
 const setGoalRegistryMock = vi.fn();
 const fetchMock = vi.fn();
-const plannerState = {
+let plannerState = {
   ...paulAndLisaState(),
   setGoalRegistry: setGoalRegistryMock,
 };
@@ -26,6 +26,10 @@ describe('Step4Dashboard', () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.stubEnv('NEXT_PUBLIC_OPTIMIZER_ENABLED', 'true');
+    plannerState = {
+      ...paulAndLisaState(),
+      setGoalRegistry: setGoalRegistryMock,
+    };
     setGoalRegistryMock.mockReset();
     fetchMock.mockReset();
     fetchMock.mockResolvedValue({
@@ -75,5 +79,24 @@ describe('Step4Dashboard', () => {
       await vi.advanceTimersByTimeAsync(300);
     });
     expect(fetchMock).toHaveBeenCalled();
+  });
+
+  test('does not crash when goal orchestration request construction fails', async () => {
+    plannerState = {
+      ...plannerState,
+      person1: {
+        ...plannerState.person1,
+        currentAge: 16,
+      },
+    };
+
+    render(<Step4Dashboard onBack={vi.fn()} />);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(300);
+    });
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(screen.getByText('Goal priorities')).toBeInTheDocument();
   });
 });
