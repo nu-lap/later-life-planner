@@ -990,7 +990,7 @@ export default function Step4Dashboard({ onBack }: Props) {
             <span className="ml-1 text-teal-600 font-semibold">Care Reserve shown separately — earmarked, not drawn for spending.</span>
           )}
         </p>
-        <AssetChart projections={displayProjections} />
+        <AssetChart projections={chartProjections} />
       </div>
 
       {optimizerEnabled && optimizerResult && (

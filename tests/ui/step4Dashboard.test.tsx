@@ -18,8 +18,11 @@ vi.mock('@/store/plannerStore', () => ({
 }));
 
 vi.mock('next/dynamic', () => ({
-  default: () => function MockDynamicComponent() {
-    return <div data-testid="mock-chart" />;
+  default: () => function MockDynamicComponent(props: any) {
+    if (props.mode !== undefined) {
+      return <div data-testid="mock-lifetime-chart" data-last-total-assets={props.projections?.at(-1)?.totalAssets} />;
+    }
+    return <div data-testid="mock-asset-chart" data-last-total-assets={props.projections?.at(-1)?.totalAssets} />;
   },
 }));
 
@@ -81,6 +84,22 @@ describe('Step4Dashboard', () => {
       await vi.advanceTimersByTimeAsync(300);
     });
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  test('feeds optimizer-adjusted projections into the asset chart when optimizer mode is enabled', () => {
+    const state = paulAndLisaState();
+    const optimizerResult = optimizeWithdrawals(state);
+    const expectedLastTotalAssets = buildOptimizerViewProjections(
+      optimizerResult.baselineProjections,
+      optimizerResult,
+    ).at(-1)?.totalAssets;
+
+    render(<Step4Dashboard onBack={vi.fn()} />);
+
+    expect(screen.getByTestId('mock-asset-chart')).toHaveAttribute(
+      'data-last-total-assets',
+      String(expectedLastTotalAssets),
+    );
   });
 
   test('reorders goal priorities through the dashboard goal panel', async () => {
