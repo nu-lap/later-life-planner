@@ -380,16 +380,33 @@ function getCandidateStrategies(policyOverride?: OptimizerPolicyOverride): Water
   return [buildPolicyCandidate(policyOverride)];
 }
 
-function getSpendingTarget(row: YearlyProjection, policyOverride?: OptimizerPolicyOverride): number {
-  return Math.max(row.spending, policyOverride?.minAnnualIncome ?? 0);
+function inflateGoalTarget(todayMoneyValue: number, annualInflationPct: number, yearIndex: number): number {
+  return todayMoneyValue * Math.pow(1 + annualInflationPct / 100, yearIndex);
 }
 
-function getCapitalFloor(policyOverride?: OptimizerPolicyOverride): number {
+function getSpendingTarget(
+  state: PlannerState,
+  row: YearlyProjection,
+  policyOverride?: OptimizerPolicyOverride,
+): number {
+  const inflatedFloor = policyOverride?.minAnnualIncome
+    ? inflateGoalTarget(policyOverride.minAnnualIncome, state.assumptions.inflation, row.yearIndex)
+    : 0;
+  return Math.max(row.spending, inflatedFloor);
+}
+
+function getCapitalFloor(
+  state: PlannerState,
+  row: YearlyProjection,
+  policyOverride?: OptimizerPolicyOverride,
+): number {
   // The care reserve is earmarked separately from spendable drawdown assets, so
   // it must not also be enforced as part of the spendable terminal capital floor.
   // Doing so would double-count the reserve and can incorrectly mark viable
   // plans as infeasible.
-  return policyOverride?.bequestTarget ?? 0;
+  return policyOverride?.bequestTarget
+    ? inflateGoalTarget(policyOverride.bequestTarget, state.assumptions.inflation, row.yearIndex)
+    : 0;
 }
 
 function getEffectiveIsaOrder(strategy: WaterfallConfig, mode: PlannerState['mode']): ISAOrder {
@@ -842,8 +859,8 @@ function simulateCandidatePass(
     + drawdowns.p2Dc + drawdowns.p2Isa + drawdowns.p2Gia + drawdowns.p2Cash + drawdowns.jointGia;
   const totalIncome = fixed.total + totalDrawn;
   const netIncome = totalIncome - totalTax;
-  const spendingTarget = getSpendingTarget(row, policyOverride);
-  const capitalFloor = getCapitalFloor(policyOverride);
+  const spendingTarget = getSpendingTarget(state, row, policyOverride);
+  const capitalFloor = getCapitalFloor(state, row, policyOverride);
   const terminalAssets = Math.max(0, sumTerminalAssets(working));
   const incomeGap = Math.max(0, spendingTarget - netIncome);
   const capitalGap = Math.max(0, capitalFloor - terminalAssets);
@@ -901,7 +918,7 @@ function evaluateCandidate(
   // Treat required spending as a net cash target. Gross withdrawals are
   // iteratively increased until the after-tax result matches the target or
   // the candidate runs out of assets.
-  const spendingTarget = getSpendingTarget(row, policyOverride);
+  const spendingTarget = getSpendingTarget(state, row, policyOverride);
   let grossTarget = spendingTarget;
   let evaluation = simulateCandidatePass(state, row, balances, strategy, grossTarget, policyOverride);
 

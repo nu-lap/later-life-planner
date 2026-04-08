@@ -194,6 +194,65 @@ describe('optimizeWithdrawals', () => {
     expect(jointGia?.taxDue).toBeCloseTo(firstYear.winner.cgtPaid, 2);
   });
 
+  test('inflates spending-floor targets from today money each year', () => {
+    const base = withSpending(dcOnlyState(60, 500_000, 60), 10_000);
+    const state = {
+      ...base,
+      assumptions: {
+        ...base.assumptions,
+        inflation: 10,
+        investmentGrowth: 0,
+      },
+      person1: {
+        ...base.person1,
+        incomeSources: {
+          ...base.person1.incomeSources,
+          dcPension: { ...base.person1.incomeSources.dcPension, growthRate: 0 },
+        },
+      },
+    };
+
+    const result = optimizeWithdrawals(state, {
+      policyOverride: {
+        rationale: 'Protect a minimum annual income floor in today money.',
+        minAnnualIncome: 20_000,
+      },
+    });
+
+    expect(result.yearRecords[0].winner.spendingTarget).toBeCloseTo(20_000, 2);
+    expect(result.yearRecords[1].winner.spendingTarget).toBeCloseTo(22_000, 2);
+  });
+
+  test('inflates bequest targets from today money each year', () => {
+    const base = withSpending(dcOnlyState(60, 105_000, 60), 0);
+    const state = {
+      ...base,
+      assumptions: {
+        ...base.assumptions,
+        inflation: 10,
+        investmentGrowth: 0,
+      },
+      person1: {
+        ...base.person1,
+        incomeSources: {
+          ...base.person1.incomeSources,
+          dcPension: { ...base.person1.incomeSources.dcPension, growthRate: 0 },
+        },
+      },
+    };
+
+    const result = optimizeWithdrawals(state, {
+      policyOverride: {
+        rationale: 'Protect a bequest target in today money.',
+        bequestTarget: 100_000,
+      },
+    });
+
+    expect(result.yearRecords[0].winner.feasible).toBe(true);
+    expect(result.yearRecords[1].winner.feasible).toBe(false);
+    expect(result.yearRecords[1].winner.gap).toBeGreaterThan(0);
+  });
+
   test('keeps ISA untouched for the ISA-preserve candidate until the last step', () => {
     const base = bareCoupleState(60, 60);
     const state = withSpending({
