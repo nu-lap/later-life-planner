@@ -98,18 +98,18 @@ jobs:
               { term: "unsafe", match: /\bunsafe\b/i, negations: [/\bnot unsafe\b/i] },
               {
                 term: "sql injection",
-                match: /\bsql injection\b/i,
-                negations: [/\bno sql injection\b/i]
+                match: /\bsql[-\s]+injection\b/i,
+                negations: [/\bno sql[-\s]+injection\b/i]
               },
               {
                 term: "command injection",
-                match: /\bcommand injection\b/i,
-                negations: [/\bno command injection\b/i]
+                match: /\bcommand[-\s]+injection\b/i,
+                negations: [/\bno command[-\s]+injection\b/i]
               },
               {
                 term: "prompt injection",
-                match: /\bprompt injection\b/i,
-                negations: [/\bno prompt injection\b/i]
+                match: /\bprompt[-\s]+injection\b/i,
+                negations: [/\bno prompt[-\s]+injection\b/i]
               },
               { term: "race", match: /\brace\b/i, negations: [/\bno race(?: conditions?)?\b/i] },
               {
