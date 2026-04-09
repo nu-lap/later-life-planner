@@ -71,6 +71,8 @@ Phase 6                     → Phase 7 (Dashboard UI Cleanup)
 Phase 8 (Audit Route)       — unblocked; deliver any time
 Phase 3                     → Phase 9 (Goal Orchestration)
 Phase 9                     → Phase 12 (Goal Priority Semantics Cleanup)
+Phase 3                     → Phase 13 (Explanation Timeline Facts)
+Phase 13                    → Phase 14 (Derived State Pension Age)
 Phase 10 (Scotland)         — unblocked; deliver in parallel
 ```
 
@@ -90,6 +92,8 @@ Phase 10 (Scotland)         — unblocked; deliver in parallel
 - [ ] Phase 10 — Scotland Jurisdiction
 - [ ] Phase 11 — Couple ISA Ordering and Tax-Dominance Follow-up
 - [ ] Phase 12 — Goal Priority Semantics Cleanup
+- [x] Phase 13 — Explanation Timeline Facts
+- [ ] Phase 14 — Derived State Pension Age
 
 ---
 
@@ -1228,6 +1232,99 @@ Required changes:
 income floor. Each enabled goal has a defensible optimizer effect, or is clearly
 labeled as not yet applied. A maintained goal-profile comparison matrix exists so
 future semantic drift is visible in CI.
+
+---
+
+## Phase 13 — Explanation Timeline Facts
+
+**Goal:** Give the optimizer explanation route exact plan and pension timeline
+facts so the AI can explain deterministic milestones directly instead of falling
+back to vague wording.
+
+**Depends on:** Phase 3 complete.
+
+### 13.1 Extend the minimized explanation payload
+
+Files:
+- `src/lib/optimizerExplain.ts`
+- `src/app/api/optimizer-explain/route.ts`
+
+Required changes:
+- add `timelineFacts` to the minimized explain payload
+- include at least:
+  - plan start ages
+  - State Pension start ages
+  - DB pension start ages
+  - annuity start ages
+- keep the payload free of names and other unnecessary PII
+
+### 13.2 Tighten the explanation prompt
+
+Files:
+- `src/lib/llm.ts`
+
+Required changes:
+- tell the model to use exact ages when exact timeline facts are provided
+- stop using vague wording such as:
+  - `may start later`
+  - `could arrive later in retirement`
+- prefer direct wording such as:
+  - `Your plan starts at age 60.`
+  - `Your State Pension is set to start at age 67.`
+
+### 13.3 Add tests
+
+Files:
+- `tests/unit/optimizerExplain.test.ts`
+- `tests/unit/optimizerExplainRoute.test.ts`
+- `tests/unit/llm.test.ts`
+
+Coverage required:
+- minimized explain request includes timeline facts
+- route passes timeline facts into the LLM context
+- prompt text contains direct timeline wording when exact ages are available
+
+**Acceptance criteria for Phase 13:** The optimizer explanation prompt receives
+exact plan-start and pension-start ages from the minimized payload, and the
+generated wording can say things like `Your plan starts at age 60` and `Your
+State Pension is set to start at age 67` instead of generic later-life phrasing.
+
+---
+
+## Phase 14 — Derived State Pension Age
+
+**Goal:** Remove user-entered State Pension start age as the default source of
+truth and derive it from official rules instead.
+
+**Future phase — not yet implemented.**
+
+**Depends on:** Phase 13 complete.
+
+### 14.1 Add a deterministic SPA rule source
+
+Required changes:
+- expose State Pension age rules through the rules layer rather than requiring
+  user entry
+- keep the rule source deterministic and versioned
+
+### 14.2 Derive SPA from date of birth
+
+Required changes:
+- collect enough birth-date data to derive State Pension age correctly
+- stop relying on current age alone for cohort-based eligibility
+- use user overrides only as an exception path, not the default
+
+### 14.3 Rewire projection and explanation timelines
+
+Required changes:
+- feed derived SPA into projection start logic and later-life income timing
+- feed derived SPA into explanation timeline facts
+- keep the UI clear about derived vs overridden values
+
+**Acceptance criteria for Phase 14:** LaterLifePlan can derive State Pension
+start age from rules-backed birth-date logic, uses that derived age in
+projections and explanations by default, and no longer depends on the user
+knowing their State Pension start age in order to get an accurate plan.
 
 
 ---

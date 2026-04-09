@@ -40,6 +40,9 @@ describe('optimizer explain payload helpers', () => {
       jurisdiction: 'rUK',
     });
     expect(request.financialSummary.targetSpendingAnnual).toBeGreaterThan(0);
+    expect(request.timelineFacts.planStartAges).toEqual([60, 60]);
+    expect(request.timelineFacts.statePensionStartAges).toEqual([67]);
+    expect(request.timelineFacts.dbPensionStartAges).toEqual([65]);
     expect(request.optimizationResult.firstYearTax).toBe(0);
     expect(request.optimizationResult).not.toHaveProperty('yearRecords');
     expect(serialized).not.toContain(plannerState.person1.name);

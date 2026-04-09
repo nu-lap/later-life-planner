@@ -73,6 +73,7 @@ function buildPlanSummary(request: ReturnType<typeof OptimizerExplainRequestSche
     giaTotal: request.financialSummary.giaTotal,
     targetSpendingAnnual: request.financialSummary.targetSpendingAnnual,
     planRevision: request.planRevision,
+    timelineFacts: request.timelineFacts,
   };
 }
 
