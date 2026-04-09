@@ -247,13 +247,13 @@ function StepSP({ draft, onChange, isPartner }: { draft: PersonDraft; onChange: 
             label="Weekly amount"
             hint={`Check your forecast at gov.uk/check-state-pension · Full amount is £${STATE_PENSION.FULL_NEW_WEEKLY.toFixed(2)}/week`}
           >
-            <CurrencyInput value={sp.weeklyAmount} onChange={(v) => upd({ weeklyAmount: v })} max={300} step={1} />
+            <CurrencyInput value={sp.weeklyAmount} onChange={(v) => upd({ weeklyAmount: v })} max={300} step={0.01} decimalScale={2} />
           </Field>
           <Field label="Expected start age">
             <AgeStepper value={sp.startAge} onChange={(v) => upd({ startAge: v })} min={66} max={75} />
           </Field>
           <div className="rounded-xl bg-sky-50 border border-sky-100 p-3 text-xs text-sky-700">
-            Annual value: <strong>£{(sp.weeklyAmount * 52).toLocaleString('en-GB')}</strong> · Increases with inflation each year
+            Annual value: <strong>£{(sp.weeklyAmount * 52).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong> · Increases with inflation each year
           </div>
           <button type="button" onClick={() => upd({ enabled: false })}
             className="text-xs text-slate-400 hover:text-slate-600 underline">

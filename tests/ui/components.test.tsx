@@ -116,6 +116,17 @@ describe('CurrencyInput', () => {
     fireEvent.change(input, { target: { value: '50' } });
     expect(onChange).toHaveBeenCalledWith(100);
   });
+
+  test('supports pence values when decimalScale is enabled', () => {
+    const onChange = vi.fn();
+    render(<CurrencyInput value={221.2} onChange={onChange} decimalScale={2} />);
+    const input = screen.getByRole('textbox');
+
+    expect(input).toHaveValue('221.20');
+
+    fireEvent.change(input, { target: { value: '221.25' } });
+    expect(onChange).toHaveBeenCalledWith(221.25);
+  });
 });
 
 // ─── ConfirmModal ─────────────────────────────────────────────────────────────
