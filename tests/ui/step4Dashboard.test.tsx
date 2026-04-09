@@ -128,7 +128,8 @@ describe('Step4Dashboard', () => {
     const amountInput = screen.getByLabelText('Longevity protection amount') as HTMLInputElement;
     const maxValue = Number(amountInput.max);
 
-    fireEvent.change(amountInput, { target: { value: '9999999', valueAsNumber: 9_999_999 } });
+    fireEvent.change(amountInput, { target: { value: '9999999' } });
+    fireEvent.blur(amountInput);
 
     expect(setGoalRegistryMock).toHaveBeenCalledTimes(1);
     const updatedRegistry = setGoalRegistryMock.mock.calls[0][0];
@@ -148,9 +149,11 @@ describe('Step4Dashboard', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Show all goals' }));
 
     const amountInput = screen.getByLabelText('Care reserve amount') as HTMLInputElement;
-    expect(amountInput.value).toBe('125000');
+    expect(amountInput.value).toBe('125,000');
 
-    fireEvent.change(amountInput, { target: { value: '240000', valueAsNumber: 240_000 } });
+    fireEvent.change(amountInput, { target: { value: '240000' } });
+    expect(setCareReserveMock).not.toHaveBeenCalled();
+    fireEvent.blur(amountInput);
 
     expect(setCareReserveMock).toHaveBeenCalledWith({
       enabled: true,
@@ -218,6 +221,25 @@ describe('Step4Dashboard', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Show all goals' }));
     const amountInput = screen.getByLabelText('Longevity protection amount') as HTMLInputElement;
     expect(longevityGoal.targetValue).toBe(Number(amountInput.max));
+  });
+
+  test('keeps goal target input focus while editing and formats the displayed amount with separators', () => {
+    render(<Step4Dashboard onBack={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show all goals' }));
+
+    const amountInput = screen.getByLabelText('Longevity protection amount') as HTMLInputElement;
+    fireEvent.change(amountInput, { target: { value: '1200' } });
+
+    expect(amountInput.value).toBe('1,200');
+    expect(setGoalRegistryMock).not.toHaveBeenCalled();
+
+    fireEvent.blur(amountInput);
+
+    expect(setGoalRegistryMock).toHaveBeenCalledTimes(1);
+    const updatedRegistry = setGoalRegistryMock.mock.calls[0][0];
+    const longevityGoal = updatedRegistry.find((entry: { id: string }) => entry.id === 'longevity_protection');
+    expect(longevityGoal.targetValue).toBe(1200);
   });
 
   test('does not crash when goal orchestration request construction fails', async () => {

@@ -73,6 +73,7 @@ Phase 3                     → Phase 9 (Goal Orchestration)
 Phase 9                     → Phase 12 (Goal Priority Semantics Cleanup)
 Phase 3                     → Phase 13 (Explanation Timeline Facts)
 Phase 13                    → Phase 14 (Derived State Pension Age)
+Phase 9 + Phase 13          → Phase 15 (Advanced Optimizer Feature Flag)
 Phase 10 (Scotland)         — unblocked; deliver in parallel
 ```
 
@@ -94,6 +95,7 @@ Phase 10 (Scotland)         — unblocked; deliver in parallel
 - [ ] Phase 12 — Goal Priority Semantics Cleanup
 - [x] Phase 13 — Explanation Timeline Facts
 - [ ] Phase 14 — Derived State Pension Age
+- [ ] Phase 15 — Advanced Optimizer Feature Flag
 
 ---
 
@@ -1325,6 +1327,78 @@ Required changes:
 start age from rules-backed birth-date logic, uses that derived age in
 projections and explanations by default, and no longer depends on the user
 knowing their State Pension start age in order to get an accurate plan.
+
+---
+
+## Phase 15 — Advanced Optimizer Feature Flag
+
+**Goal:** Keep advanced optimizer functionality visible in the UI, but make it
+non-functional behind a feature flag while the yearly drawdown breakdown
+remains available.
+
+**Future phase — not yet implemented.**
+
+**Depends on:** Phase 9 and Phase 13 complete.
+
+### 15.1 Define a single advanced optimizer feature flag
+
+Required changes:
+- add one flag for advanced optimizer functionality, for example
+  `NEXT_PUBLIC_ADVANCED_OPTIMIZER_ENABLED`
+- use that flag consistently across dashboard and optimizer surfaces
+
+The flag should control:
+- whether AI explainer actions are enabled
+- whether goal priorities can actively orchestrate optimizer policy
+- whether advanced strategy interactions are active
+
+The flag should not hide:
+- the optimized yearly drawdown breakdown
+- the underlying deterministic optimizer output needed to render that breakdown
+- the visible advanced optimizer panels and controls, if they are presented in a
+  disabled or preview state
+
+### 15.2 Gate advanced UI and API behavior
+
+Required changes:
+- keep AI explainer entry points visible but disabled when the flag is off
+- keep goal priorities UI visible but disabled when the flag is off
+- skip orchestration requests when the flag is off
+- keep advanced strategy UI visible if it helps users understand the upcoming
+  functionality, but disable any actions that would invoke advanced behavior
+- keep the core optimized summary and yearly breakdown available
+
+Recommended UX when the flag is off:
+- show disabled controls rather than removing them
+- add brief helper copy such as `Coming soon` or `Not enabled for this release`
+- ensure disabled controls do not submit requests or alter optimizer policy
+
+### 15.3 Preserve deterministic optimizer output
+
+Required changes:
+- continue to run the deterministic optimizer when the flag is off so the
+  yearly breakdown still renders
+- do not apply goal-policy overrides when the flag is off, even if goal controls
+  are visible
+- do not request explanation generation when the flag is off, even if the
+  explainer UI is visible
+
+### 15.4 Test coverage
+
+Coverage required:
+- advanced flag off still shows the yearly breakdown
+- advanced flag off shows AI explainer controls in a disabled state and sends no
+  explanation request
+- advanced flag off shows goal priorities in a disabled state and sends no
+  orchestration request
+- advanced flag on preserves current advanced behavior
+
+**Acceptance criteria for Phase 15:** With the advanced optimizer flag
+disabled, LaterLifePlan still shows the optimized yearly drawdown breakdown,
+while AI explanation, goal-priority orchestration, and other advanced optimizer
+controls remain visible but inactive. Those controls must not send requests or
+change optimizer policy until the flag is enabled. With the flag enabled,
+current advanced behavior remains available.
 
 
 ---
