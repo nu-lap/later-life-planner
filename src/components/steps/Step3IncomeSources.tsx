@@ -198,7 +198,7 @@ function IncomeSection({ currentAge, fiAge, lifeExpectancy, src, assets, set }: 
           enabled={src.statePension.enabled} onToggle={(v) => set('statePension', { enabled: v })}
         >
           <FieldRow label="Weekly amount" hint={<>Check your forecast at{' '}<a href="https://www.gov.uk/check-state-pension" target="_blank" rel="noopener noreferrer" className="text-orange-500 hover:underline">gov.uk/check-state-pension</a></>}>
-            <CurrencyInput value={src.statePension.weeklyAmount} onChange={(v) => set('statePension', { weeklyAmount: v })} max={300} step={1} />
+            <CurrencyInput value={src.statePension.weeklyAmount} onChange={(v) => set('statePension', { weeklyAmount: v })} max={300} step={0.01} decimalScale={2} />
           </FieldRow>
           <FieldRow
             label="Start age"
@@ -212,7 +212,7 @@ function IncomeSection({ currentAge, fiAge, lifeExpectancy, src, assets, set }: 
             />
           </FieldRow>
           <div className="py-2 text-xs text-sky-700 bg-sky-50 rounded-xl px-3">
-            Annual: <strong>£{(src.statePension.weeklyAmount * 52).toLocaleString('en-GB')}</strong> · Indexed to inflation
+            Annual: <strong>£{(src.statePension.weeklyAmount * 52).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong> · Indexed to inflation
           </div>
         </SourceCard>
       </PriorityGroup>
