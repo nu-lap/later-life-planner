@@ -64,6 +64,9 @@ export async function generateGoalPolicyOverride(
   context: GoalOrchestrationContext,
 ): Promise<OptimizerPolicyOverride> {
   const enabledGoals = enabledGoalsByPriority(context.goalRegistry);
+  const requiresIncomeFloor = enabledGoals.some((goal) =>
+    goal.id === 'spending_floor' || goal.id === 'longevity_protection',
+  );
   const policyOverride: OptimizerPolicyOverride = {
     rationale: 'Derived from the user’s ranked retirement goals.',
   };
@@ -119,7 +122,7 @@ export async function generateGoalPolicyOverride(
     }
   }
 
-  if (!policyOverride.minAnnualIncome && context.planSummary.targetSpendingAnnual > 0) {
+  if (requiresIncomeFloor && !policyOverride.minAnnualIncome && context.planSummary.targetSpendingAnnual > 0) {
     policyOverride.minAnnualIncome = context.planSummary.targetSpendingAnnual;
   }
 
