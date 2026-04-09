@@ -164,6 +164,9 @@ export function buildDefaultIncome(currentAge: number): PersonIncomeSources {
     dcPension:    {
       enabled: false, totalValue: 0,
       growthRate: DEFAULT_ASSUMPTIONS.INVESTMENT_GROWTH,
+      workplaceContributionPercent: 0,
+      workplaceSalary: 0,
+      sippContributionAnnualGross: 0,
     },
     partTimeWork: { enabled: false, annualIncome: 0, stopAge: 65 },
     otherIncome:  { enabled: false, annualAmount: 0, description: '', startAge: currentAge, stopAge: 0 },
@@ -235,17 +238,32 @@ export function normalizePlannerState(state: PlannerState): PlannerState {
     state.assumptions.lifeExpectancy,
   );
 
+  const normalizeDcPension = (source: PersonIncomeSources['dcPension']) => ({
+    ...source,
+    workplaceContributionPercent: source.workplaceContributionPercent ?? 0,
+    workplaceSalary: source.workplaceSalary ?? 0,
+    sippContributionAnnualGross: source.sippContributionAnnualGross ?? 0,
+  });
+
   return {
     ...state,
     person1: {
       ...state.person1,
       dateOfBirth: normalizedP1Dob || dobFromAge(normalized.currentAge),
       currentAge: normalized.currentAge,
+      incomeSources: {
+        ...state.person1.incomeSources,
+        dcPension: normalizeDcPension(state.person1.incomeSources.dcPension),
+      },
     },
     person2: {
       ...state.person2,
       dateOfBirth: normalizedP2Dob || dobFromAge(normalized.secondaryCurrentAge),
       currentAge: normalized.secondaryCurrentAge,
+      incomeSources: {
+        ...state.person2.incomeSources,
+        dcPension: normalizeDcPension(state.person2.incomeSources.dcPension),
+      },
     },
     fiAge: normalized.fiAge,
     lifeStages: buildDefaultLifeStages(normalized.fiAge, normalized.lifeExpectancy).map((nextStage) => {
@@ -281,7 +299,14 @@ export function createMockDemoState(): PlannerState {
         statePension: { enabled: true,  weeklyAmount: STATE_PENSION.FULL_NEW_WEEKLY, startAge: STATE_PENSION.DEFAULT_AGE },
         dbPension:    { enabled: false, annualIncome: 0, startAge: 65 },
         annuity:      { enabled: false, annualIncome: 0, startAge: 65 },
-        dcPension:    { enabled: true,  totalValue: 320000, growthRate: DEFAULT_ASSUMPTIONS.INVESTMENT_GROWTH },
+        dcPension:    {
+          enabled: true,
+          totalValue: 320000,
+          growthRate: DEFAULT_ASSUMPTIONS.INVESTMENT_GROWTH,
+          workplaceContributionPercent: 5,
+          workplaceSalary: 72000,
+          sippContributionAnnualGross: 0,
+        },
         partTimeWork: { enabled: true,  annualIncome: 22000, stopAge: 65 },
         otherIncome:  { enabled: false, annualAmount: 0, description: '', startAge: 57, stopAge: 0 },
       },
@@ -300,7 +325,14 @@ export function createMockDemoState(): PlannerState {
         statePension: { enabled: true,  weeklyAmount: 195.00, startAge: STATE_PENSION.DEFAULT_AGE },
         dbPension:    { enabled: true,  annualIncome: 8000,  startAge: 65 },
         annuity:      { enabled: false, annualIncome: 0,     startAge: 65 },
-        dcPension:    { enabled: true,  totalValue: 150000,  growthRate: DEFAULT_ASSUMPTIONS.INVESTMENT_GROWTH },
+        dcPension:    {
+          enabled: true,
+          totalValue: 150000,
+          growthRate: DEFAULT_ASSUMPTIONS.INVESTMENT_GROWTH,
+          workplaceContributionPercent: 4,
+          workplaceSalary: 48000,
+          sippContributionAnnualGross: 3600,
+        },
         partTimeWork: { enabled: true,  annualIncome: 18000, stopAge: 63 },
         otherIncome:  { enabled: false, annualAmount: 0,     description: '', startAge: 55, stopAge: 0 },
       },

@@ -87,6 +87,9 @@ export interface DCPensionSource {
   enabled: boolean;
   totalValue: number;
   growthRate: number;     // Annual % — user-adjustable, default from config
+  workplaceContributionPercent?: number;  // % of salary added each year until FI age
+  workplaceSalary?: number;               // Current salary in today's money
+  sippContributionAnnualGross?: number;   // Gross annual contribution in today's money
 }
 
 export interface DBPensionSource {
