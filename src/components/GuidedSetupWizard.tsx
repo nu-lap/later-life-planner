@@ -359,12 +359,15 @@ function StepDC({ draft, onChange, isPartner }: { draft: PersonDraft; onChange: 
   const remove = (i: number) => onChange({ ...draft, dcPensions: dcs.filter((_, idx) => idx !== i) });
   const upd = (i: number, p: Partial<DcEntry>) => onChange({ ...draft, dcPensions: dcs.map((e, idx) => idx === i ? { ...e, ...p } : e) });
   const updContribution = (p: Partial<DcContributionDraft>) => onChange({ ...draft, dcContribution: { ...contribution, ...p } });
+  const toggleDc = (v: boolean) => v
+    ? (dcs.length === 0 && add())
+    : onChange({ ...draft, dcPensions: [], dcContribution: { workplaceSalary: 0, workplaceContributionPercent: 0, sippContributionAnnualGross: 0 } });
   const total = dcs.reduce((s, e) => s + e.value, 0);
   const bottomRef = useScrollOnAdd(dcs.length);
   return (
     <div className="space-y-4">
       <p className="text-sm text-slate-500">Workplace pension, SIPP, or any personal pension pot.</p>
-      <YesNoToggle value={dcs.length > 0} onChange={(v) => v ? (dcs.length === 0 && add()) : onChange({ ...draft, dcPensions: [], dcContribution: { workplaceSalary: 0, workplaceContributionPercent: 0, sippContributionAnnualGross: 0 } })} yesLabel={isPartner ? 'Yes, they have one' : 'Yes, I have one'} noLabel="No" />
+      <YesNoToggle value={dcs.length > 0} onChange={toggleDc} yesLabel={isPartner ? 'Yes, they have one' : 'Yes, I have one'} noLabel="No" />
       {dcs.map((dc, i) => (
         <ItemCard key={i} title={`Pension pot ${i + 1}`} onRemove={dcs.length > 1 ? () => remove(i) : undefined}>
           <Field label="Current value">
