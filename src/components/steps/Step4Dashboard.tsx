@@ -463,7 +463,7 @@ function GoalPriorityPanel({
                             const nextTarget = parseGoalTargetDraft(targetDrafts[goal.id]);
                             const clampedNext = clampGoalTargetValue(nextTarget, controlConfig?.max ?? Number.MAX_SAFE_INTEGER);
                             if (clampedNext !== clampedTargetValue) {
-                              commitGoalTarget(goal, nextTarget);
+                              commitGoalTarget(goal, clampedNext);
                             }
                             setTargetDrafts((current) => {
                               const { [goal.id]: _ignored, ...rest } = current;
