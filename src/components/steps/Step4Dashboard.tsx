@@ -25,6 +25,9 @@ import type { CareReserve, GoalConfig, GoalId } from '@/models/types';
 import clsx from 'clsx';
 
 const GOAL_ORCHESTRATION_DEBOUNCE_MS = 300;
+const GOAL_TARGET_FORMATTER = new Intl.NumberFormat('en-GB', {
+  maximumFractionDigits: 0,
+});
 
 const ChartSkeleton = () => <div className="h-64 bg-slate-100 rounded-2xl animate-pulse" />;
 const LifetimeChart = dynamic(() => import('@/components/charts/LifetimeChart'), { ssr: false, loading: ChartSkeleton });
@@ -125,6 +128,41 @@ function clampGoalTargetValue(value: number | undefined, max: number): number | 
   }
 
   return Math.min(max, Math.max(0, value));
+}
+
+function parseGoalTargetDraft(value: string): number | undefined {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return undefined;
+  }
+
+  // Accept only whole-number input with an optional leading sign, while still
+  // tolerating grouping separators from formatted values. Reject decimals,
+  // scientific notation, and other unsupported characters instead of changing
+  // their meaning by stripping them out.
+  if (!/^[+-]?[\d,\s]+$/.test(trimmed)) {
+    return undefined;
+  }
+
+  const normalized = trimmed.replace(/[\s,]/g, '');
+  if (!/^[+-]?\d+$/.test(normalized)) {
+    return undefined;
+  }
+
+  const parsed = Number.parseInt(normalized, 10);
+  if (!Number.isFinite(parsed)) {
+    return undefined;
+  }
+
+  return Math.max(0, parsed);
+}
+
+function formatGoalTargetInput(value: number | undefined): string {
+  if (value === undefined || Number.isNaN(value)) {
+    return '';
+  }
+
+  return GOAL_TARGET_FORMATTER.format(value);
 }
 
 // ─── Life stage timeline ───────────────────────────────────────────────────────
@@ -230,6 +268,7 @@ function GoalPriorityPanel({
   targetControlConfig: Partial<Record<GoalId, GoalTargetControlConfig>>;
 }) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [targetDrafts, setTargetDrafts] = useState<Record<string, string>>({});
   const isGoalEnabled = (goal: GoalConfig) => (
     goal.id === 'care_reserve' ? careReserve.enabled : goal.enabled
   );
@@ -239,6 +278,19 @@ function GoalPriorityPanel({
   );
   const enabledGoals = orderedGoals.filter((goal) => isGoalEnabled(goal));
   const visibleGoals = isExpanded ? orderedGoals : enabledGoals;
+
+  const commitGoalTarget = (goal: GoalConfig, nextTarget: number | undefined) => {
+    const clampedTarget = clampGoalTargetValue(nextTarget, targetControlConfig[goal.id]?.max ?? Number.MAX_SAFE_INTEGER);
+
+    if (goal.id === 'care_reserve') {
+      onCareReserveChange({ amount: clampedTarget ?? 0 });
+      return;
+    }
+
+    onChange(updateOrderedGoals(orderedGoals, (entry) => (
+      entry.id === goal.id ? { ...entry, targetValue: clampedTarget } : entry
+    )));
+  };
 
   return (
     <div className="game-card">
@@ -280,6 +332,10 @@ function GoalPriorityPanel({
             ? careReserve.amount
             : goal.targetValue;
           const clampedTargetValue = clampGoalTargetValue(effectiveTargetValue, controlConfig?.max ?? Number.MAX_SAFE_INTEGER);
+          const draftValue = targetDrafts[goal.id];
+          const inputValue = draftValue !== undefined
+            ? formatGoalTargetInput(clampGoalTargetValue(parseGoalTargetDraft(draftValue), controlConfig?.max ?? Number.MAX_SAFE_INTEGER))
+            : formatGoalTargetInput(clampedTargetValue);
           const sliderProgress = controlConfig
             ? Math.min(100, Math.max(0, ((clampedTargetValue ?? 0) / controlConfig.max) * 100))
             : 0;
@@ -395,21 +451,35 @@ function GoalPriorityPanel({
                         id={`goal-target-${goal.id}`}
                         inputMode="numeric"
                         max={controlConfig?.max}
-                        min={0}
                         onChange={(event) => {
-                          const nextTarget = clampGoalTargetValue(event.target.valueAsNumber, controlConfig?.max ?? Number.MAX_SAFE_INTEGER);
-                          if (isCareReserveGoal) {
-                            onCareReserveChange({ amount: nextTarget ?? 0 });
-                            return;
+                          setTargetDrafts((current) => ({
+                            ...current,
+                            [goal.id]: event.target.value,
+                          }));
+                        }}
+                        onBlur={() => {
+                          const hasDraft = goal.id in targetDrafts;
+                          if (hasDraft) {
+                            const nextTarget = parseGoalTargetDraft(targetDrafts[goal.id]);
+                            const clampedNext = clampGoalTargetValue(nextTarget, controlConfig?.max ?? Number.MAX_SAFE_INTEGER);
+                            if (clampedNext !== clampedTargetValue) {
+                              commitGoalTarget(goal, clampedNext);
+                            }
+                            setTargetDrafts((current) => {
+                              const { [goal.id]: _ignored, ...rest } = current;
+                              return rest;
+                            });
                           }
-                          onChange(updateOrderedGoals(orderedGoals, (entry) => (
-                            entry.id === goal.id ? { ...entry, targetValue: nextTarget } : entry
-                          )));
+                        }}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter') {
+                            event.currentTarget.blur();
+                          }
                         }}
                         placeholder="0"
                         step={controlConfig?.step ?? 1000}
-                        type="number"
-                        value={clampedTargetValue ?? ''}
+                        type="text"
+                        value={inputValue}
                       />
                     </div>
                   </div>
@@ -423,13 +493,11 @@ function GoalPriorityPanel({
                         min={0}
                         onChange={(event) => {
                           const nextTarget = clampGoalTargetValue(event.target.valueAsNumber, controlConfig.max);
-                          if (isCareReserveGoal) {
-                            onCareReserveChange({ amount: nextTarget ?? 0 });
-                            return;
-                          }
-                          onChange(updateOrderedGoals(orderedGoals, (entry) => (
-                            entry.id === goal.id ? { ...entry, targetValue: nextTarget } : entry
-                          )));
+                          commitGoalTarget(goal, nextTarget);
+                          setTargetDrafts((current) => {
+                            const { [goal.id]: _ignored, ...rest } = current;
+                            return rest;
+                          });
                         }}
                         step={controlConfig.step}
                         style={{
