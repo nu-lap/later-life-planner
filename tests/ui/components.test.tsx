@@ -81,7 +81,9 @@ describe('CurrencyInput', () => {
     const onChange = vi.fn();
     render(<CurrencyInput value={0} onChange={onChange} />);
     const input = screen.getByRole('textbox');
+    fireEvent.focus(input);
     fireEvent.change(input, { target: { value: '5000' } });
+    fireEvent.blur(input);
     expect(onChange).toHaveBeenCalledWith(5000);
   });
 
@@ -89,7 +91,9 @@ describe('CurrencyInput', () => {
     const onChange = vi.fn();
     render(<CurrencyInput value={0} onChange={onChange} />);
     const input = screen.getByRole('textbox');
+    fireEvent.focus(input);
     fireEvent.change(input, { target: { value: '1,234' } });
+    fireEvent.blur(input);
     expect(onChange).toHaveBeenCalledWith(1234);
   });
 
@@ -97,7 +101,9 @@ describe('CurrencyInput', () => {
     const onChange = vi.fn();
     render(<CurrencyInput value={1000} onChange={onChange} />);
     const input = screen.getByRole('textbox');
+    fireEvent.focus(input);
     fireEvent.change(input, { target: { value: '' } });
+    fireEvent.blur(input);
     expect(onChange).toHaveBeenCalledWith(0);
   });
 
@@ -105,7 +111,9 @@ describe('CurrencyInput', () => {
     const onChange = vi.fn();
     render(<CurrencyInput value={0} onChange={onChange} max={10_000} />);
     const input = screen.getByRole('textbox');
+    fireEvent.focus(input);
     fireEvent.change(input, { target: { value: '50000' } });
+    fireEvent.blur(input);
     expect(onChange).toHaveBeenCalledWith(10_000);
   });
 
@@ -113,7 +121,9 @@ describe('CurrencyInput', () => {
     const onChange = vi.fn();
     render(<CurrencyInput value={0} onChange={onChange} min={100} />);
     const input = screen.getByRole('textbox');
+    fireEvent.focus(input);
     fireEvent.change(input, { target: { value: '50' } });
+    fireEvent.blur(input);
     expect(onChange).toHaveBeenCalledWith(100);
   });
 
@@ -124,8 +134,27 @@ describe('CurrencyInput', () => {
 
     expect(input).toHaveValue('221.20');
 
+    fireEvent.focus(input);
     fireEvent.change(input, { target: { value: '221.25' } });
+    fireEvent.blur(input);
     expect(onChange).toHaveBeenCalledWith(221.25);
+  });
+
+  test('keeps decimal draft text while typing instead of forcing trailing zeroes mid-entry', () => {
+    const onChange = vi.fn();
+    render(<CurrencyInput value={0} onChange={onChange} decimalScale={2} />);
+    const input = screen.getByRole('textbox');
+
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value: '1' } });
+    expect(input).toHaveValue('1');
+
+    fireEvent.change(input, { target: { value: '123.99' } });
+    expect(input).toHaveValue('123.99');
+    expect(onChange).not.toHaveBeenCalled();
+
+    fireEvent.blur(input);
+    expect(onChange).toHaveBeenCalledWith(123.99);
   });
 });
 
