@@ -131,13 +131,30 @@ function clampGoalTargetValue(value: number | undefined, max: number): number | 
 }
 
 function parseGoalTargetDraft(value: string): number | undefined {
-  const digitsOnly = value.replace(/[^\d]/g, '');
-  if (!digitsOnly) {
+  const trimmed = value.trim();
+  if (!trimmed) {
     return undefined;
   }
 
-  const parsed = Number(digitsOnly);
-  return Number.isFinite(parsed) ? parsed : undefined;
+  // Accept only whole-number input with an optional leading sign, while still
+  // tolerating grouping separators from formatted values. Reject decimals,
+  // scientific notation, and other unsupported characters instead of changing
+  // their meaning by stripping them out.
+  if (!/^[+-]?[\d,\s]+$/.test(trimmed)) {
+    return undefined;
+  }
+
+  const normalized = trimmed.replace(/[\s,]/g, '');
+  if (!/^[+-]?\d+$/.test(normalized)) {
+    return undefined;
+  }
+
+  const parsed = Number.parseInt(normalized, 10);
+  if (!Number.isFinite(parsed)) {
+    return undefined;
+  }
+
+  return Math.max(0, parsed);
 }
 
 function formatGoalTargetInput(value: number | undefined): string {
