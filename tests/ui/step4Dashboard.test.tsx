@@ -223,6 +223,39 @@ describe('Step4Dashboard', () => {
     expect(longevityGoal.targetValue).toBe(Number(amountInput.max));
   });
 
+  test('does not commit goal target on blur when no draft has been entered', () => {
+    render(<Step4Dashboard onBack={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show all goals' }));
+
+    const amountInput = screen.getByLabelText('Longevity protection amount') as HTMLInputElement;
+
+    // Blur without any prior change — no draft is present
+    fireEvent.blur(amountInput);
+
+    expect(setGoalRegistryMock).not.toHaveBeenCalled();
+  });
+
+  test('does not commit goal target on blur when the typed value matches the stored value', () => {
+    const goalRegistryWithTarget = plannerState.goalRegistry.map((goal: { id: string }) =>
+      goal.id === 'longevity_protection' ? { ...goal, targetValue: 1_200, enabled: true } : goal
+    );
+    plannerState = { ...plannerState, goalRegistry: goalRegistryWithTarget };
+
+    render(<Step4Dashboard onBack={vi.fn()} />);
+    setGoalRegistryMock.mockClear();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show all goals' }));
+
+    const amountInput = screen.getByLabelText('Longevity protection amount') as HTMLInputElement;
+
+    // Type the same value that is already stored
+    fireEvent.change(amountInput, { target: { value: '1200' } });
+    fireEvent.blur(amountInput);
+
+    expect(setGoalRegistryMock).not.toHaveBeenCalled();
+  });
+
   test('keeps goal target input focus while editing and formats the displayed amount with separators', () => {
     render(<Step4Dashboard onBack={vi.fn()} />);
 

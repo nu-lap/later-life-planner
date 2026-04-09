@@ -458,12 +458,18 @@ function GoalPriorityPanel({
                           }));
                         }}
                         onBlur={() => {
-                          const nextTarget = parseGoalTargetDraft(targetDrafts[goal.id] ?? inputValue);
-                          commitGoalTarget(goal, nextTarget);
-                          setTargetDrafts((current) => {
-                            const { [goal.id]: _ignored, ...rest } = current;
-                            return rest;
-                          });
+                          const hasDraft = goal.id in targetDrafts;
+                          if (hasDraft) {
+                            const nextTarget = parseGoalTargetDraft(targetDrafts[goal.id]);
+                            const clampedNext = clampGoalTargetValue(nextTarget, controlConfig?.max ?? Number.MAX_SAFE_INTEGER);
+                            if (clampedNext !== clampedTargetValue) {
+                              commitGoalTarget(goal, nextTarget);
+                            }
+                            setTargetDrafts((current) => {
+                              const { [goal.id]: _ignored, ...rest } = current;
+                              return rest;
+                            });
+                          }
                         }}
                         onKeyDown={(event) => {
                           if (event.key === 'Enter') {
