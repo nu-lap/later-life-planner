@@ -209,8 +209,10 @@ export function calculateProjections(state: PlannerState): YearlyProjection[] {
     if (careReserveBalance > 0) careReserveBalance *= (1 + investmentGrowth / 100);
 
     if (!householdFiStarted) {
-      p1Dc += getAnnualDcContribution(person1.incomeSources.dcPension, y, inflation);
-      if (mode === 'couple') {
+      if (person1.incomeSources.dcPension.enabled) {
+        p1Dc += getAnnualDcContribution(person1.incomeSources.dcPension, y, inflation);
+      }
+      if (mode === 'couple' && person2.incomeSources.dcPension.enabled) {
         p2Dc += getAnnualDcContribution(person2.incomeSources.dcPension, y, inflation);
       }
     }
