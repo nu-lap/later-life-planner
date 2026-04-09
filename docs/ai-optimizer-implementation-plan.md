@@ -70,6 +70,7 @@ Phase 5                     → Phase 6 (Mode-Aware Strategy Definitions)
 Phase 6                     → Phase 7 (Dashboard UI Cleanup)
 Phase 8 (Audit Route)       — unblocked; deliver any time
 Phase 3                     → Phase 9 (Goal Orchestration)
+Phase 9                     → Phase 12 (Goal Priority Semantics Cleanup)
 Phase 10 (Scotland)         — unblocked; deliver in parallel
 ```
 
@@ -88,6 +89,7 @@ Phase 10 (Scotland)         — unblocked; deliver in parallel
 - [x] Phase 9 — Goal Orchestration
 - [ ] Phase 10 — Scotland Jurisdiction
 - [ ] Phase 11 — Couple ISA Ordering and Tax-Dominance Follow-up
+- [ ] Phase 12 — Goal Priority Semantics Cleanup
 
 ---
 
@@ -1096,6 +1098,136 @@ does not pay avoidable tax while an available ISA bucket remains under a
 tax-minimising strategy, and the breakdown UI uses plain-English labels for the
 pension tax-free component and yearly breakdown heading.
 **Future feature note:** This phase treats FI start as a household start for couple plans. Split retirement start ages should be added later as a separate app feature, not folded into this tax-minimisation fix.
+
+---
+
+## Phase 12 — Goal Priority Semantics Cleanup
+
+**Goal:** Make each goal priority map to a credible optimizer behavior, remove
+hidden constraints, and stop no-op goals from looking active in the UI.
+
+**Depends on:** Phase 9 complete.
+
+### 12.1 Remove hidden fallback constraints
+
+Files:
+- `src/lib/llm.ts`
+
+Required changes:
+- keep `tax_efficiency` as a preference only
+- do not let `tax_efficiency` inject `minAnnualIncome`
+- only apply the fallback `minAnnualIncome = targetSpendingAnnual` behavior when
+  an enabled goal actually represents an income floor:
+  - `spending_floor`
+  - `longevity_protection`
+
+### 12.2 Classify goals by actual optimizer behavior
+
+Files:
+- `src/components/steps/Step4Dashboard.tsx`
+- `src/lib/goalOrchestration.ts`
+- `docs/ai-optimizer-implementation-plan.md`
+
+Required changes:
+- distinguish between:
+  - hard constraints
+  - strategy-shaping preferences
+  - goals that are not yet implemented downstream
+- do not present every enabled goal as if it has equal calculation impact
+
+Current comparison against the standard plan shows:
+- `tax_efficiency` — no direct calculation effect after the fallback-floor fix
+- `spending_floor` — strong hard constraint with large tax impact
+- `care_reserve` — currently no material downstream optimizer effect
+- `longevity_protection` — acts as a floor only when it exceeds actual planned spending
+- `bequest` — hard constraint plus ISA deferral side effect
+- `survivorship` — strategy-shaping DC order change
+- `liquidity_preservation` — hard ISA deferral side effect
+- `inflation_resilience` — currently a no-op
+- `aspirational_spending` — currently rationale only
+
+### 12.3 Fix current no-op or misleading goal mappings
+
+Files:
+- `src/lib/llm.ts`
+- `src/financialEngine/withdrawalOptimizer.ts`
+- `src/components/steps/Step4Dashboard.tsx`
+
+Required follow-up:
+- `care_reserve`
+  - wire `careReserveTarget` into optimizer feasibility or capital logic without
+    double-counting the reserve
+- `inflation_resilience`
+  - either implement a real optimizer effect or label it clearly as not yet
+    applied to calculations
+- `aspirational_spending`
+  - either map it to a measurable optimizer preference or move it out of the
+    active optimizer goal set until implemented
+
+### 12.4 Revisit expensive strategy-shaping rules
+
+Files:
+- `src/lib/llm.ts`
+- `src/financialEngine/withdrawalOptimizer.ts`
+
+Current single-goal comparison shows:
+- `liquidity_preservation`
+  - increases lifetime tax by about `£172k` vs standard because it forces
+    `isaMode = 'defer'`
+- `bequest`
+  - increases lifetime tax by about `£172k` and still reduces terminal assets
+    vs standard because it also forces `isaMode = 'defer'`
+- `survivorship`
+  - slightly increases tax by forcing `dcOrder = 'equal'`
+
+Required changes:
+- review whether `liquidity_preservation` should be a soft preference instead of
+  a hard ISA deferral rule
+- review whether `bequest` should always imply `isaMode = 'defer'`, or whether
+  that should be conditional on actual bequest risk
+- review whether `survivorship` needs explicit survivor-balance logic beyond
+  equal DC ordering
+
+### 12.5 Add a goal-profile regression matrix
+
+Files:
+- `tests/unit/goalOrchestration.test.ts` (new or expanded)
+- `tests/unit/withdrawalOptimizer.test.ts`
+- `tests/fixtures/` goal-profile snapshots
+
+Coverage required:
+- standard plan (no goals enabled)
+- `tax_efficiency`
+- `spending_floor`
+- `care_reserve`
+- `longevity_protection`
+- `bequest`
+- `survivorship`
+- `liquidity_preservation`
+- `inflation_resilience`
+- `aspirational_spending`
+
+For each profile capture at least:
+- recommended strategy
+- lifetime tax paid
+- terminal assets
+- asset depletion age
+- whether yearly spending targets were raised above actual planned spending
+
+### 12.6 Product/UI follow-up
+
+Files:
+- `src/components/steps/Step4Dashboard.tsx`
+
+Required changes:
+- label goals that currently act only as preferences
+- label goals that are not yet fully applied to calculations
+- avoid showing a no-op goal as if it materially changed the optimizer output
+
+**Acceptance criteria for Phase 12:** `tax_efficiency` no longer creates a hidden
+income floor. Each enabled goal has a defensible optimizer effect, or is clearly
+labeled as not yet applied. A maintained goal-profile comparison matrix exists so
+future semantic drift is visible in CI.
 
 
 ---

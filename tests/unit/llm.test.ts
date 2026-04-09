@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest';
-import { buildPrompt } from '@/lib/llm';
+import { buildPrompt, generateGoalPolicyOverride } from '@/lib/llm';
 import type { ExplanationContext } from '@/lib/llm';
+import type { GoalOrchestrationContext } from '@/lib/llm';
 
 function sampleContext(): ExplanationContext {
   return {
@@ -112,5 +113,45 @@ describe('buildPrompt', () => {
     expect(prompt).toContain('You are aged 65 and living in England, Wales or Northern Ireland');
     expect(prompt).toContain("LaterLifePlan's standard order is DC pension within the personal allowance plus 25% tax-free, then GIA within the CGT allowance, then ISA, then remaining GIA, then DC pension above the personal allowance.");
     expect(prompt).not.toContain('each person’s personal allowance');
+  });
+});
+
+describe('generateGoalPolicyOverride', () => {
+  function sampleGoalContext(enabledIds: string[]): GoalOrchestrationContext {
+    return {
+      planSummary: {
+        householdType: 'couple',
+        ages: [56, 57],
+        jurisdiction: 'rUK',
+        targetSpendingAnnual: 60600,
+        guaranteedIncomeAnnual: 24029,
+        dcTotal: 1200000,
+        isaTotal: 165000,
+        giaTotal: 20000,
+        careReserveAmount: 0,
+      },
+      goalRegistry: [
+        { id: 'tax_efficiency', priority: 1, enabled: enabledIds.includes('tax_efficiency') },
+        { id: 'spending_floor', priority: 2, enabled: enabledIds.includes('spending_floor'), targetValue: 70000 },
+        { id: 'longevity_protection', priority: 3, enabled: enabledIds.includes('longevity_protection'), targetValue: 40000 },
+      ],
+    };
+  }
+
+  test('does not add a spending floor when only tax efficiency is enabled', async () => {
+    const policyOverride = await generateGoalPolicyOverride(sampleGoalContext(['tax_efficiency']));
+
+    expect(policyOverride.minAnnualIncome).toBeUndefined();
+  });
+
+  test('keeps the fallback spending floor for income-floor goals without an explicit target', async () => {
+    const policyOverride = await generateGoalPolicyOverride({
+      ...sampleGoalContext(['spending_floor']),
+      goalRegistry: [
+        { id: 'spending_floor', priority: 1, enabled: true },
+      ],
+    });
+
+    expect(policyOverride.minAnnualIncome).toBe(60600);
   });
 });
