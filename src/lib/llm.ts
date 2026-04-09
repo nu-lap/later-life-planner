@@ -220,8 +220,8 @@ function describeTimelineFacts(planSummary: PlanSummary): string[] {
     const statePensionText = planSummary.householdType === 'single'
       ? `Your State Pension is set to start at ${formatAgeList(timelineFacts.statePensionStartAges)}.`
       : timelineFacts.statePensionStartAges.length === 1
-        ? `Both of your State Pensions are set to start at ${formatAgeList(timelineFacts.statePensionStartAges)}.`
-        : `Your State Pensions are set to start at ${formatAgeList(timelineFacts.statePensionStartAges)}.`;
+        ? `A State Pension in your plan is set to start at ${formatAgeList(timelineFacts.statePensionStartAges)}.`
+        : `State Pensions in your plan are set to start at ${formatAgeList(timelineFacts.statePensionStartAges)}.`;
     lines.push(statePensionText);
   }
 

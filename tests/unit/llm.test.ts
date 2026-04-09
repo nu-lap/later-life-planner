@@ -87,7 +87,7 @@ describe('buildPrompt', () => {
     expect(prompt).toContain('You are a couple aged 56 and 57 living in England, Wales or Northern Ireland');
     expect(prompt).toContain("Your first projected year's spending target");
     expect(prompt).toContain('Your plan starts at ages 60 and 61.');
-    expect(prompt).toContain('Both of your State Pensions are set to start at age 67.');
+    expect(prompt).toContain('A State Pension in your plan is set to start at age 67.');
     expect(prompt).toContain('A defined benefit pension in your plan starts at age 65.');
     expect(prompt).toContain('Couple-equal DC drawdown is being compared against LLP baseline waterfall.');
     expect(prompt).toMatch(/starting strategy/i);

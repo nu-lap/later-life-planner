@@ -189,6 +189,22 @@ export const OptimizerExplainRequestSchema = z.object({
       path: ['subject', 'ages'],
     });
   }
+
+  if (value.subject.householdType === 'single' && value.timelineFacts.planStartAges.length !== 1) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Single-household timeline facts must include exactly one plan start age.',
+      path: ['timelineFacts', 'planStartAges'],
+    });
+  }
+
+  if (value.subject.householdType === 'couple' && value.timelineFacts.planStartAges.length !== 2) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Couple timeline facts must include exactly two plan start ages.',
+      path: ['timelineFacts', 'planStartAges'],
+    });
+  }
 });
 
 function sumGuaranteedIncomeAnnual(plannerState: PlannerState): number {
@@ -249,9 +265,19 @@ function buildTimelineFacts(
   optimizationResult: OptimizationResult,
 ): TimelineFacts {
   const firstYear = optimizationResult.yearRecords[0];
-  const planStartAges = plannerState.mode === 'couple'
-    ? [firstYear?.p1Age ?? plannerState.fiAge, firstYear?.p2Age ?? null].filter((age): age is number => age !== null)
-    : [firstYear?.p1Age ?? plannerState.fiAge];
+  const planStartAges = (() => {
+    if (plannerState.mode !== 'couple') {
+      return [firstYear?.p1Age ?? plannerState.fiAge];
+    }
+
+    // Couple timelines must always include both household members' start ages.
+    // Failing fast here avoids emitting ambiguous facts that contradict the household type.
+    if (firstYear?.p1Age == null || firstYear.p2Age == null) {
+      throw new Error('Expected optimization result to include both p1Age and p2Age for couple timeline facts');
+    }
+
+    return [firstYear.p1Age, firstYear.p2Age];
+  })();
 
   const people = plannerState.mode === 'couple'
     ? [plannerState.person1, plannerState.person2]
