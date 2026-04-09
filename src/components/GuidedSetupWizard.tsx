@@ -364,7 +364,7 @@ function StepDC({ draft, onChange, isPartner }: { draft: PersonDraft; onChange: 
   return (
     <div className="space-y-4">
       <p className="text-sm text-slate-500">Workplace pension, SIPP, or any personal pension pot.</p>
-      <YesNoToggle value={dcs.length > 0} onChange={(v) => v ? (dcs.length === 0 && add()) : onChange({ ...draft, dcPensions: [] })} yesLabel={isPartner ? 'Yes, they have one' : 'Yes, I have one'} noLabel="No" />
+      <YesNoToggle value={dcs.length > 0} onChange={(v) => v ? (dcs.length === 0 && add()) : onChange({ ...draft, dcPensions: [], dcContribution: { workplaceSalary: 0, workplaceContributionPercent: 0, sippContributionAnnualGross: 0 } })} yesLabel={isPartner ? 'Yes, they have one' : 'Yes, I have one'} noLabel="No" />
       {dcs.map((dc, i) => (
         <ItemCard key={i} title={`Pension pot ${i + 1}`} onRemove={dcs.length > 1 ? () => remove(i) : undefined}>
           <Field label="Current value">
