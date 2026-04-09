@@ -96,7 +96,21 @@ jobs:
                 negations: [/\bno security issues?\b/i, /\bno known security\b/i]
               },
               { term: "unsafe", match: /\bunsafe\b/i, negations: [/\bnot unsafe\b/i] },
-              { term: "injection", match: /\binjection\b/i, negations: [/\bno injection\b/i] },
+              {
+                term: "sql injection",
+                match: /\bsql injection\b/i,
+                negations: [/\bno sql injection\b/i]
+              },
+              {
+                term: "command injection",
+                match: /\bcommand injection\b/i,
+                negations: [/\bno command injection\b/i]
+              },
+              {
+                term: "prompt injection",
+                match: /\bprompt injection\b/i,
+                negations: [/\bno prompt injection\b/i]
+              },
               { term: "race", match: /\brace\b/i, negations: [/\bno race(?: conditions?)?\b/i] },
               {
                 term: "critical",
@@ -388,7 +402,7 @@ jobs:
                 severity,
                 blockingTerms,
                 blocksBySeverity: severity ? blockingSeverities.has(severity) : false,
-                blocksByKeyword: blockingTerms.length > 0,
+                blocksByKeyword: item.kind === "comment" && blockingTerms.length > 0,
               };
             });
             const blockingItems = analyzedItems.filter(
