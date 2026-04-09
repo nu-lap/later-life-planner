@@ -25,6 +25,7 @@ Priority order:
 7. Phase 4: hardening, tests, and operational readiness
 8. Phase 5: tests and docs
 9. Phase 6: documentation consolidation and refresh
+10. Phase 7: pension contribution modelling
 
 ## Phase 0: Product and Consistency Cleanup
 
@@ -236,3 +237,29 @@ Implementation tasks:
 
 - Complete the "Outstanding Documentation Work" backlog items listed above.
 - After that docs backlog is complete, define and add the next product/engineering delivery phase to this checklist.
+
+## Phase 7: Pension Contribution Modelling
+
+Goal: expand asset capture so LaterLifePlan can model ongoing pension contributions
+between now and FI age for both workplace pensions and SIPPs.
+
+Implementation tasks:
+
+- [ ] Extend the pension asset model to support workplace pension contributions as a fixed percentage of salary per year.
+- [ ] Treat workplace pension contribution percentage as applying until FI age, then stopping automatically at FI age.
+- [ ] Assume salary rises with inflation each year when projecting workplace pension contributions.
+- [ ] Support workplace pension contribution inputs for both single and couple plans.
+- [ ] Add workplace pension contribution inputs to the Get Started wizard.
+- [ ] Add workplace pension contribution inputs to the `Income & Assets` flow inside the `DC / Personal Pension` panel.
+- [ ] Add SIPP contribution inputs as a fixed gross annual amount.
+- [ ] Treat the SIPP annual amount as rising with inflation each year until FI age.
+- [ ] Make clear in UI copy that the SIPP amount is gross of basic-rate tax relief.
+- [ ] Support SIPP contribution inputs for both single and couple plans.
+- [ ] Thread both contribution types into the projection engine so pre-FI pension balances reflect ongoing contributions.
+- [ ] Add validation and sensible bounds for percentage and annual-amount inputs.
+- [ ] Add tests covering:
+- [ ] single-plan workplace contribution projection
+- [ ] couple-plan workplace contribution projection
+- [ ] SIPP annual gross contribution uplift by inflation
+- [ ] contribution stop at FI age
+- [ ] parity between Get Started and `Income & Assets` entry points

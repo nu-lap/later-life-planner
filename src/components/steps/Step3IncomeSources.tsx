@@ -44,12 +44,22 @@ function AgeStepper({ value, onChange, min, max, label }: {
   );
 }
 
-function PctInput({ value, onChange, label }: { value: number; onChange: (v: number) => void; label?: string }) {
+function PctInput({
+  value,
+  onChange,
+  label,
+  max = 15,
+}: {
+  value: number;
+  onChange: (v: number) => void;
+  label?: string;
+  max?: number;
+}) {
   return (
     <div className="flex items-center gap-2">
       {label && <span className="text-sm text-slate-500">{label}</span>}
       <div className="relative">
-        <input type="number" min={0} max={15} step={0.5} value={value}
+        <input type="number" min={0} max={max} step={0.5} value={value}
           onChange={(e) => { const v = parseFloat(e.target.value); if (!isNaN(v)) onChange(v); }}
           className="w-20 input-base text-center py-1.5 text-sm pr-6" />
         <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm">%</span>
@@ -249,11 +259,43 @@ function IncomeSection({ currentAge, fiAge, lifeExpectancy, src, assets, set }: 
           <FieldRow label="Annual growth rate">
             <PctInput value={src.dcPension.growthRate} onChange={(v) => set('dcPension', { growthRate: v })} />
           </FieldRow>
+          <FieldRow
+            label="Workplace salary"
+            hint="Used only to project workplace pension contributions before your FI age."
+          >
+            <CurrencyInput
+              value={src.dcPension.workplaceSalary ?? 0}
+              onChange={(v) => set('dcPension', { workplaceSalary: v })}
+              max={500000}
+              step={1000}
+            />
+          </FieldRow>
+          <FieldRow
+            label="Workplace pension contribution"
+            hint="Fixed % of salary added each year until FI age. Salary is assumed to rise with inflation."
+          >
+            <PctInput
+              value={src.dcPension.workplaceContributionPercent ?? 0}
+              onChange={(v) => set('dcPension', { workplaceContributionPercent: v })}
+              max={50}
+            />
+          </FieldRow>
+          <FieldRow
+            label="SIPP contribution (gross / year)"
+            hint="Gross annual amount before basic-rate tax relief, increased with inflation until FI age."
+          >
+            <CurrencyInput
+              value={src.dcPension.sippContributionAnnualGross ?? 0}
+              onChange={(v) => set('dcPension', { sippContributionAnnualGross: v })}
+              max={200000}
+              step={500}
+            />
+          </FieldRow>
           <FieldRow label="Drawdown starts">
             <span className="text-sm font-bold text-orange-600">Age {fiAge} <span className="font-normal text-slate-400">(your financial independence age)</span></span>
           </FieldRow>
           <div className="py-2 text-xs text-slate-500 bg-slate-50 rounded-xl px-3">
-            Each withdrawal is 25% tax-free and 75% taxable income. The full pot stays invested until needed. Before State Pension starts, the taxable portion is often absorbed by the personal allowance — making early withdrawals highly tax-efficient.
+            Each withdrawal is 25% tax-free and 75% taxable income. The full pot stays invested until needed. Workplace and SIPP contributions are projected only until FI age.
           </div>
         </SourceCard>
 

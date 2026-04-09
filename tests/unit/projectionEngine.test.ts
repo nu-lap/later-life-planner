@@ -113,6 +113,79 @@ describe('calculateProjections — financial invariants', () => {
       expect(p.p2GiaDrawdown).toBe(0);
     });
   });
+
+  test('adds workplace and SIPP contributions before FI age and stops them at FI age', () => {
+    const base = withSpending(bareState(55), 0);
+    const state: PlannerState = {
+      ...base,
+      fiAge: 57,
+      person1: {
+        ...base.person1,
+        incomeSources: {
+          ...base.person1.incomeSources,
+          dcPension: {
+            enabled: true,
+            totalValue: 100_000,
+            growthRate: 0,
+            workplaceSalary: 50_000,
+            workplaceContributionPercent: 10,
+            sippContributionAnnualGross: 1_200,
+          },
+        },
+      },
+    };
+
+    const projections = calculateProjections(state);
+
+    expect(projections[0].p1DcBalance).toBeCloseTo(106_200, 2);
+    expect(projections[1].p1DcBalance).toBeCloseTo(112_555, 2);
+    expect(projections[2].p1DcBalance).toBeCloseTo(112_555, 2);
+  });
+
+  test('applies contribution modelling for both people in couple mode until household FI age', () => {
+    const base = withSpending(bareState(55), 0);
+    const state: PlannerState = {
+      ...base,
+      mode: 'couple',
+      fiAge: 56,
+      person1: {
+        ...base.person1,
+        incomeSources: {
+          ...base.person1.incomeSources,
+          dcPension: {
+            enabled: true,
+            totalValue: 80_000,
+            growthRate: 0,
+            workplaceSalary: 40_000,
+            workplaceContributionPercent: 5,
+            sippContributionAnnualGross: 2_400,
+          },
+        },
+      },
+      person2: {
+        ...base.person2,
+        currentAge: 54,
+        incomeSources: {
+          ...base.person2.incomeSources,
+          dcPension: {
+            enabled: true,
+            totalValue: 60_000,
+            growthRate: 0,
+            workplaceSalary: 30_000,
+            workplaceContributionPercent: 8,
+            sippContributionAnnualGross: 1_800,
+          },
+        },
+      },
+    };
+
+    const projections = calculateProjections(state);
+
+    expect(projections[0].p1DcBalance).toBeCloseTo(84_400, 2);
+    expect(projections[0].p2DcBalance).toBeCloseTo(64_200, 2);
+    expect(projections[1].p1DcBalance).toBeCloseTo(84_400, 2);
+    expect(projections[1].p2DcBalance).toBeCloseTo(64_200, 2);
+  });
 });
 
 // ─── formatCurrency ───────────────────────────────────────────────────────────

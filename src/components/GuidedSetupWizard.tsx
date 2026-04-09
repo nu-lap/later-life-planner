@@ -14,6 +14,11 @@ type DbEntry  = { annualIncome: number; startAge: number };
 type DcEntry  = { value: number; growthRate: number };
 type IsaEntry = { value: number; growthRate: number };
 type GiaEntry = { value: number; baseCost: number; growthRate: number };
+type DcContributionDraft = {
+  workplaceSalary: number;
+  workplaceContributionPercent: number;
+  sippContributionAnnualGross: number;
+};
 
 type PropertyDraft = {
   enabled: boolean;
@@ -30,6 +35,7 @@ type PersonDraft = {
   annuity:      { enabled: boolean; annualIncome: number; startAge: number };
   otherIncome:  { enabled: boolean; annualAmount: number; startAge: number };
   dcPensions:   DcEntry[];
+  dcContribution: DcContributionDraft;
   isas:         IsaEntry[];
   gias:         GiaEntry[];
   cashSavings:  number;
@@ -48,6 +54,7 @@ function emptyDraft(): PersonDraft {
     annuity:      { enabled: false, annualIncome: 0, startAge: 65 },
     otherIncome:  { enabled: false, annualAmount: 0, startAge: 65 },
     dcPensions:   [],
+    dcContribution: { workplaceSalary: 0, workplaceContributionPercent: 0, sippContributionAnnualGross: 0 },
     isas:         [],
     gias:         [],
     cashSavings:  0,
@@ -102,13 +109,23 @@ function AgeStepper({ value, onChange, min = 55, max = 85 }: {
   );
 }
 
-function GrowthStepper({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+function GrowthStepper({
+  value,
+  onChange,
+  max = 15,
+  step = 0.5,
+}: {
+  value: number;
+  onChange: (v: number) => void;
+  max?: number;
+  step?: number;
+}) {
   return (
     <div className="flex items-center gap-3">
-      <button type="button" onClick={() => onChange(Math.max(0, Math.round((value - 0.5) * 10) / 10))} disabled={value <= 0}
+      <button type="button" onClick={() => onChange(Math.max(0, Math.round((value - step) * 10) / 10))} disabled={value <= 0}
         className="w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 disabled:opacity-30 font-bold text-xl flex items-center justify-center transition-colors">−</button>
       <span className="w-14 text-center font-black text-slate-800 text-lg tabular-nums">{value}%</span>
-      <button type="button" onClick={() => onChange(Math.min(15, Math.round((value + 0.5) * 10) / 10))} disabled={value >= 15}
+      <button type="button" onClick={() => onChange(Math.min(max, Math.round((value + step) * 10) / 10))} disabled={value >= max}
         className="w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 disabled:opacity-30 font-bold text-xl flex items-center justify-center transition-colors">+</button>
     </div>
   );
@@ -337,15 +354,20 @@ function StepOther({ draft, onChange, isPartner }: { draft: PersonDraft; onChang
 
 function StepDC({ draft, onChange, isPartner }: { draft: PersonDraft; onChange: (d: PersonDraft) => void; isPartner?: boolean }) {
   const dcs = draft.dcPensions;
+  const contribution = draft.dcContribution;
   const add = () => onChange({ ...draft, dcPensions: [...dcs, { value: 0, growthRate: DEFAULT_ASSUMPTIONS.INVESTMENT_GROWTH }] });
   const remove = (i: number) => onChange({ ...draft, dcPensions: dcs.filter((_, idx) => idx !== i) });
   const upd = (i: number, p: Partial<DcEntry>) => onChange({ ...draft, dcPensions: dcs.map((e, idx) => idx === i ? { ...e, ...p } : e) });
+  const updContribution = (p: Partial<DcContributionDraft>) => onChange({ ...draft, dcContribution: { ...contribution, ...p } });
+  const toggleDc = (v: boolean) => v
+    ? (dcs.length === 0 && add())
+    : onChange({ ...draft, dcPensions: [], dcContribution: { workplaceSalary: 0, workplaceContributionPercent: 0, sippContributionAnnualGross: 0 } });
   const total = dcs.reduce((s, e) => s + e.value, 0);
   const bottomRef = useScrollOnAdd(dcs.length);
   return (
     <div className="space-y-4">
       <p className="text-sm text-slate-500">Workplace pension, SIPP, or any personal pension pot.</p>
-      <YesNoToggle value={dcs.length > 0} onChange={(v) => v ? (dcs.length === 0 && add()) : onChange({ ...draft, dcPensions: [] })} yesLabel={isPartner ? 'Yes, they have one' : 'Yes, I have one'} noLabel="No" />
+      <YesNoToggle value={dcs.length > 0} onChange={toggleDc} yesLabel={isPartner ? 'Yes, they have one' : 'Yes, I have one'} noLabel="No" />
       {dcs.map((dc, i) => (
         <ItemCard key={i} title={`Pension pot ${i + 1}`} onRemove={dcs.length > 1 ? () => remove(i) : undefined}>
           <Field label="Current value">
@@ -358,6 +380,17 @@ function StepDC({ draft, onChange, isPartner }: { draft: PersonDraft; onChange: 
       ))}
       {dcs.length > 0 && (
         <>
+          <ItemCard title="Ongoing pension contributions">
+            <Field label="Workplace salary" hint="Current salary in today's money. Used to project workplace pension contributions until FI age.">
+              <CurrencyInput value={contribution.workplaceSalary} onChange={(v) => updContribution({ workplaceSalary: v })} max={500000} step={1000} />
+            </Field>
+            <Field label="Workplace pension contribution" hint="Fixed % of salary added each year until FI age. Salary is assumed to rise with inflation.">
+              <GrowthStepper value={contribution.workplaceContributionPercent} onChange={(v) => updContribution({ workplaceContributionPercent: v })} max={50} />
+            </Field>
+            <Field label="SIPP contribution (gross / year)" hint="Gross annual amount before basic-rate tax relief, increased with inflation until FI age.">
+              <CurrencyInput value={contribution.sippContributionAnnualGross} onChange={(v) => updContribution({ sippContributionAnnualGross: v })} max={200000} step={500} />
+            </Field>
+          </ItemCard>
           <button onClick={add} className="w-full py-2.5 rounded-2xl border-2 border-dashed border-orange-200 text-orange-600 hover:bg-orange-50 text-sm font-semibold transition-all">
             + Add another pension pot
           </button>
@@ -563,7 +596,17 @@ function applyPersonDraft(
   setIncome('otherIncome', { enabled: draft.otherIncome.enabled, annualAmount: draft.otherIncome.annualAmount, startAge: draft.otherIncome.startAge, stopAge: 0, description: 'Other income' });
 
   const dcTotal = draft.dcPensions.reduce((s, e) => s + e.value, 0);
-  setIncome('dcPension', { enabled: dcTotal > 0, totalValue: dcTotal, growthRate: weightedAvgGrowth(draft.dcPensions) });
+  const hasFutureContribution = draft.dcContribution.workplaceSalary > 0
+    || draft.dcContribution.workplaceContributionPercent > 0
+    || draft.dcContribution.sippContributionAnnualGross > 0;
+  setIncome('dcPension', {
+    enabled: dcTotal > 0 || hasFutureContribution,
+    totalValue: dcTotal,
+    growthRate: weightedAvgGrowth(draft.dcPensions),
+    workplaceSalary: draft.dcContribution.workplaceSalary,
+    workplaceContributionPercent: draft.dcContribution.workplaceContributionPercent,
+    sippContributionAnnualGross: draft.dcContribution.sippContributionAnnualGross,
+  });
 
   const isaTotal = draft.isas.reduce((s, e) => s + e.value, 0);
   setAsset('isaInvestments', { enabled: isaTotal > 0, totalValue: isaTotal, growthRate: weightedAvgGrowth(draft.isas) });
@@ -611,7 +654,6 @@ export default function GuidedSetupWizard({ onDone }: Props) {
   const [p1, setP1]     = useState<PersonDraft>(emptyDraft);
   const [p2, setP2]     = useState<PersonDraft>(() => ({ ...emptyDraft(), property: { ...emptyDraft().property, owner: 'p2' } }));
   const [joint, setJoint] = useState<JointDraft>(emptyJoint);
-
   const current = steps[idx];
   const isLast  = idx === steps.length - 1;
   const meta    = STEP_META[current.stepId];

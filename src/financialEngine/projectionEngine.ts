@@ -99,6 +99,26 @@ function getStageForAge(stages: LifeStage[], age: number): LifeStage {
   );
 }
 
+function getAnnualDcContribution(
+  dcPension: PersonIncomeSources['dcPension'],
+  yearIndex: number,
+  inflationRate: number,
+): number {
+  const inflFactor = Math.pow(1 + inflationRate / 100, yearIndex);
+  const workplaceSalary = Math.max(0, dcPension.workplaceSalary ?? 0);
+  const workplaceContributionPercent = Math.max(0, dcPension.workplaceContributionPercent ?? 0);
+  const sippContributionAnnualGross = Math.max(0, dcPension.sippContributionAnnualGross ?? 0);
+
+  const workplaceContribution = workplaceSalary > 0 && workplaceContributionPercent > 0
+    ? workplaceSalary * inflFactor * (workplaceContributionPercent / 100)
+    : 0;
+  const sippContribution = sippContributionAnnualGross > 0
+    ? sippContributionAnnualGross * inflFactor
+    : 0;
+
+  return workplaceContribution + sippContribution;
+}
+
 // ─── Main projection loop ─────────────────────────────────────────────────────
 
 export function calculateProjections(state: PlannerState): YearlyProjection[] {
@@ -187,6 +207,15 @@ export function calculateProjections(state: PlannerState): YearlyProjection[] {
     if (jointGiaV        > 0) jointGiaV        *= (1 + jointGiaG);
     // Care reserve grows at the global investment growth rate (it's invested within the portfolio)
     if (careReserveBalance > 0) careReserveBalance *= (1 + investmentGrowth / 100);
+
+    if (!householdFiStarted) {
+      if (person1.incomeSources.dcPension.enabled) {
+        p1Dc += getAnnualDcContribution(person1.incomeSources.dcPension, y, inflation);
+      }
+      if (mode === 'couple' && person2.incomeSources.dcPension.enabled) {
+        p2Dc += getAnnualDcContribution(person2.incomeSources.dcPension, y, inflation);
+      }
+    }
 
     // ── DC pension source handles ─────────────────────────────────────────
     const dc1 = person1.incomeSources.dcPension;
