@@ -2,7 +2,7 @@ import { z } from 'zod';
 import type { OptimizationResult, RuleProvenance, WaterfallConfig } from '@/financialEngine/types';
 import type { PlannerState, TaxJurisdiction } from '@/models/types';
 
-export const DEFAULT_EXPLAIN_SCHEMA_VERSION = '1';
+export const DEFAULT_EXPLAIN_SCHEMA_VERSION = '2';
 
 export const CONSENT_SCOPE_VALUES = [
   'household-demographics',
@@ -35,6 +35,13 @@ export interface OptimizationSummary {
   ruleProvenance: RuleProvenance[];
 }
 
+export interface TimelineFacts {
+  planStartAges: number[];
+  statePensionStartAges: number[];
+  dbPensionStartAges: number[];
+  annuityStartAges: number[];
+}
+
 export interface OptimizerExplainRequest {
   requestId: string;
   planRevision: string;
@@ -55,6 +62,7 @@ export interface OptimizerExplainRequest {
     giaTotal: number;
     targetSpendingAnnual: number;
   };
+  timelineFacts: TimelineFacts;
   optimizationResult: OptimizationSummary;
 }
 
@@ -124,6 +132,13 @@ const optimizationSummarySchema = z.object({
   ruleProvenance: z.array(ruleProvenanceSchema).min(1),
 });
 
+const timelineFactsSchema = z.object({
+  planStartAges: z.array(z.number().int().min(18).max(120)).min(1).max(2),
+  statePensionStartAges: z.array(z.number().int().min(18).max(120)).max(2),
+  dbPensionStartAges: z.array(z.number().int().min(18).max(120)).max(2),
+  annuityStartAges: z.array(z.number().int().min(18).max(120)).max(2),
+});
+
 const consentSchema = z.object({
   grantedAt: z.string().datetime({ offset: true }),
   scope: z.array(z.enum(CONSENT_SCOPE_VALUES)).min(1),
@@ -146,6 +161,7 @@ export const OptimizerExplainRequestSchema = z.object({
     giaTotal: z.number().finite().min(0),
     targetSpendingAnnual: z.number().finite().min(0),
   }),
+  timelineFacts: timelineFactsSchema,
   optimizationResult: optimizationSummarySchema,
 }).superRefine((value, ctx) => {
   for (const scope of REQUIRED_EXPLAIN_CONSENT_SCOPES) {
@@ -171,6 +187,22 @@ export const OptimizerExplainRequestSchema = z.object({
       code: z.ZodIssueCode.custom,
       message: 'Couple requests must include exactly two ages.',
       path: ['subject', 'ages'],
+    });
+  }
+
+  if (value.subject.householdType === 'single' && value.timelineFacts.planStartAges.length !== 1) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Single-household timeline facts must include exactly one plan start age.',
+      path: ['timelineFacts', 'planStartAges'],
+    });
+  }
+
+  if (value.subject.householdType === 'couple' && value.timelineFacts.planStartAges.length !== 2) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Couple timeline facts must include exactly two plan start ages.',
+      path: ['timelineFacts', 'planStartAges'],
     });
   }
 });
@@ -224,6 +256,47 @@ function totalGia(plannerState: PlannerState): number {
   return personalGia + (plannerState.jointGia.enabled ? plannerState.jointGia.totalValue : 0);
 }
 
+function uniqSorted(values: Array<number | null | undefined>): number[] {
+  return [...new Set(values.filter((value): value is number => Number.isFinite(value)))].sort((left, right) => left - right);
+}
+
+function buildTimelineFacts(
+  plannerState: PlannerState,
+  optimizationResult: OptimizationResult,
+): TimelineFacts {
+  const firstYear = optimizationResult.yearRecords[0];
+  const planStartAges = (() => {
+    if (plannerState.mode !== 'couple') {
+      return [firstYear?.p1Age ?? plannerState.fiAge];
+    }
+
+    // Couple timelines must always include both household members' start ages.
+    // Failing fast here avoids emitting ambiguous facts that contradict the household type.
+    if (firstYear?.p1Age == null || firstYear.p2Age == null) {
+      throw new Error('Expected optimization result to include both p1Age and p2Age for couple timeline facts');
+    }
+
+    return [firstYear.p1Age, firstYear.p2Age];
+  })();
+
+  const people = plannerState.mode === 'couple'
+    ? [plannerState.person1, plannerState.person2]
+    : [plannerState.person1];
+
+  return {
+    planStartAges,
+    statePensionStartAges: uniqSorted(people.map((person) => (
+      person.incomeSources.statePension.enabled ? person.incomeSources.statePension.startAge : null
+    ))),
+    dbPensionStartAges: uniqSorted(people.map((person) => (
+      person.incomeSources.dbPension.enabled ? person.incomeSources.dbPension.startAge : null
+    ))),
+    annuityStartAges: uniqSorted(people.map((person) => (
+      person.incomeSources.annuity.enabled ? person.incomeSources.annuity.startAge : null
+    ))),
+  };
+}
+
 export function buildOptimizationSummary(result: OptimizationResult): OptimizationSummary {
   const firstYear = result.yearRecords[0]?.winner;
   const firstYearSpending = result.yearRecords[0]?.spending ?? 0;
@@ -272,6 +345,7 @@ export function buildOptimizerExplainRequest(
       giaTotal: totalGia(plannerState),
       targetSpendingAnnual: optimizationResult.yearRecords[0]?.spending ?? 0,
     },
+    timelineFacts: buildTimelineFacts(plannerState, optimizationResult),
     optimizationResult: buildOptimizationSummary(optimizationResult),
   };
 

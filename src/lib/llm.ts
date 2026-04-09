@@ -1,7 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { DefaultAzureCredential } from '@azure/identity';
 import { z } from 'zod';
-import type { OptimizationSummary, RuleCitation, HmrcChunk } from '@/lib/optimizerExplain';
+import type { OptimizationSummary, RuleCitation, HmrcChunk, TimelineFacts } from '@/lib/optimizerExplain';
 import type { GoalOrchestrateRequest } from '@/lib/goalOrchestration';
 import {
   getBaselineWaterfallDescription,
@@ -31,6 +31,7 @@ export interface PlanSummary {
   giaTotal: number;
   targetSpendingAnnual: number;
   planRevision: string;
+  timelineFacts: TimelineFacts;
 }
 
 export interface ExplanationContext {
@@ -156,7 +157,7 @@ Points to note
 - When the prompt supplies a strategy meaning, restate it faithfully and do not reinterpret it into a different withdrawal order.
 - Do not describe an even-split strategy as one partner first and the other partner later.
 - Never mention raw strategy labels, field names, internal abbreviations, or system codes.
-- If you mention secure income, make clear that some of it may start later in retirement, for example State Pension.
+- When exact start ages or timeline facts are supplied, state them directly. Do not replace exact facts with vague wording such as may, might, or later.
 - If you mention spending, make clear that the figure shown is the first projected year's target unless you explicitly say otherwise.
 - Treat required spending as a net cash target. If tax applies, explain that gross withdrawals may need to be higher to leave the same spendable amount.
 - If the recommended strategy matches the app's standard starting strategy, say that plainly as the app's usual starting approach.
@@ -196,14 +197,51 @@ function describeSecureIncome(planSummary: PlanSummary): string {
     return 'You do not yet have secure pension or annuity income included in this summary.';
   }
 
-  return [
-    `You have about ${formatMoney(planSummary.guaranteedIncomeAnnual)} a year of secure pension or annuity income when it is fully in payment.`,
-    'Some of this, such as State Pension, may only start from State Pension age.',
-  ].join(' ');
+  return `You have about ${formatMoney(planSummary.guaranteedIncomeAnnual)} a year of secure pension or annuity income when it is fully in payment.`;
 }
 
 function describeSpending(planSummary: PlanSummary): string {
   return `Your first projected year's spending target is about ${formatMoney(planSummary.targetSpendingAnnual)}.`;
+}
+
+function formatAgeList(ages: number[]): string {
+  if (ages.length === 0) return '';
+  if (ages.length === 1) return `age ${ages[0]}`;
+  if (ages.length === 2 && ages[0] === ages[1]) return `age ${ages[0]} for both of you`;
+  if (ages.length === 2) return `ages ${ages[0]} and ${ages[1]}`;
+  return `ages ${ages.join(', ')}`;
+}
+
+function describeTimelineFacts(planSummary: PlanSummary): string[] {
+  const { timelineFacts } = planSummary;
+  const lines = [`Your plan starts at ${formatAgeList(timelineFacts.planStartAges)}.`];
+
+  if (timelineFacts.statePensionStartAges.length > 0) {
+    const statePensionText = planSummary.householdType === 'single'
+      ? `Your State Pension is set to start at ${formatAgeList(timelineFacts.statePensionStartAges)}.`
+      : timelineFacts.statePensionStartAges.length === 1
+        ? `A State Pension in your plan is set to start at ${formatAgeList(timelineFacts.statePensionStartAges)}.`
+        : `State Pensions in your plan are set to start at ${formatAgeList(timelineFacts.statePensionStartAges)}.`;
+    lines.push(statePensionText);
+  }
+
+  if (timelineFacts.dbPensionStartAges.length > 0) {
+    lines.push(
+      timelineFacts.dbPensionStartAges.length === 1
+        ? `A defined benefit pension in your plan starts at ${formatAgeList(timelineFacts.dbPensionStartAges)}.`
+        : `Defined benefit pensions in your plan start at ${formatAgeList(timelineFacts.dbPensionStartAges)}.`,
+    );
+  }
+
+  if (timelineFacts.annuityStartAges.length > 0) {
+    lines.push(
+      timelineFacts.annuityStartAges.length === 1
+        ? `An annuity in your plan starts at ${formatAgeList(timelineFacts.annuityStartAges)}.`
+        : `Annuities in your plan start at ${formatAgeList(timelineFacts.annuityStartAges)}.`,
+    );
+  }
+
+  return lines;
 }
 
 function getStrategyDefinitionText(planSummary: PlanSummary, label: string): string {
@@ -314,6 +352,7 @@ export function buildPrompt(context: ExplanationContext): string {
     'Starting point:',
     `- ${describeHousehold(planSummary)}.`,
     `- ${describeSecureIncome(planSummary)}`,
+    ...describeTimelineFacts(planSummary).map((line) => `- ${line}`),
     `- Your defined contribution pensions total about ${formatMoney(planSummary.dcTotal)}.`,
     `- Your ISAs total about ${formatMoney(planSummary.isaTotal)}.`,
     `- Your general investment accounts total about ${formatMoney(planSummary.giaTotal)}.`,
@@ -343,7 +382,7 @@ export function buildPrompt(context: ExplanationContext): string {
     '- Only mention gross-up if tax is actually due in the year you are describing. If first-year tax is zero, say that clearly.',
     "- If the recommendation matches the app's standard starting strategy, explain that plainly as the app's usual starting approach rather than calling it optimal by default.",
     '- Restate the chosen strategy label and its plain-English meaning before explaining why it was chosen.',
-    '- If you mention secure income, make clear that part of it may only arrive later in retirement, such as State Pension.',
+    '- When exact plan start ages or pension start ages are provided, use those exact ages in the explanation.',
     '- If you mention spending, make clear that the figure is for the first projected year.',
     '- Use the provided strategy definitions rather than inventing your own summary of the withdrawal order.',
     '- Keep the answer concise, readable, and useful.',

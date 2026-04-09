@@ -171,6 +171,7 @@ describe('/api/optimizer-explain route', () => {
       expect(context.mcpCitations).toHaveLength(1);
       expect(context.ragChunks).toEqual([]);
       expect(context.planSummary.planRevision).toBe(payload.planRevision);
+      expect(context.planSummary.timelineFacts.planStartAges).toEqual(payload.timelineFacts.planStartAges);
       yield 'Tax saving ';
       yield 'comes from using pension withdrawals before ISA drawdown.';
     });

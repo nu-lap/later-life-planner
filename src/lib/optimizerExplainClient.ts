@@ -71,7 +71,7 @@ function persistExplanation(planRevision: string, text: string): void {
 }
 
 async function derivePlanRevision(
-  stablePayload: Pick<OptimizerExplainRequest, 'schemaVersion' | 'subject' | 'financialSummary' | 'optimizationResult'>,
+  stablePayload: Pick<OptimizerExplainRequest, 'schemaVersion' | 'subject' | 'financialSummary' | 'optimizationResult' | 'timelineFacts'>,
 ): Promise<string> {
   const canonical = JSON.stringify(stablePayload);
   return `sha256:${await sha256Hex(canonical)}`;
@@ -92,8 +92,8 @@ async function buildRequestWithDerivedRevision(
     grantedAt,
   });
 
-  const { schemaVersion, subject, financialSummary, optimizationResult } = tempRequest;
-  const planRevision = await derivePlanRevision({ schemaVersion, subject, financialSummary, optimizationResult });
+  const { schemaVersion, subject, financialSummary, optimizationResult, timelineFacts } = tempRequest;
+  const planRevision = await derivePlanRevision({ schemaVersion, subject, financialSummary, optimizationResult, timelineFacts });
 
   return { ...tempRequest, planRevision };
 }
