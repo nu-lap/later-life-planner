@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, type ChangeEvent } from 'react';
 
 interface CurrencyInputProps {
   value: number;
@@ -48,13 +48,14 @@ export default function CurrencyInput({
       const normalized = decimalScale > 0
         ? Number(parsed.toFixed(decimalScale))
         : parsed;
-      onChange(Math.min(max, Math.max(min, normalized)));
+      const clamped = Math.min(max, Math.max(min, normalized));
+      if (clamped !== value) onChange(clamped);
     } else if (raw === '') {
-      onChange(0);
+      if (value !== 0) onChange(0);
     }
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
     const raw = decimalScale > 0
       ? e.target.value.replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1')
       : e.target.value.replace(/[^0-9]/g, '');
