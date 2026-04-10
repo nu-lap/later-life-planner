@@ -5,7 +5,7 @@ import dynamic from 'next/dynamic';
 import { usePlannerStore } from '@/store/plannerStore';
 import {
   calculateProjections, getStageTotalSpending,
-  getAssetDepletionAge, formatCurrency, getTotalUnrealisedGain,
+  getAssetDepletionAge, formatCurrency,
   calculateGamificationMetrics,
 } from '@/lib/calculations';
 import OptimizerPanel from '@/components/OptimizerPanel';
@@ -39,6 +39,21 @@ interface GoalTargetControlConfig {
   max: number;
   step: number;
   suggested?: number;
+}
+
+function getProjectedUnrealisedGain(
+  projection?: Pick<
+    YearlyProjection,
+    'p1GiaValue' | 'p1GiaBaseCost' | 'p2GiaValue' | 'p2GiaBaseCost' | 'jointGiaValue' | 'jointGiaBaseCost'
+  >,
+): number {
+  if (!projection) return 0;
+
+  const p1Gain = Math.max(0, projection.p1GiaValue - projection.p1GiaBaseCost);
+  const p2Gain = Math.max(0, projection.p2GiaValue - projection.p2GiaBaseCost);
+  const jointGain = Math.max(0, projection.jointGiaValue - projection.jointGiaBaseCost);
+
+  return p1Gain + p2Gain + jointGain;
 }
 
 const GOAL_COPY: Record<GoalId, {
@@ -833,7 +848,7 @@ export default function Step4Dashboard({ onBack }: Props) {
   const annualSpend   = getStageTotalSpending(state, firstStageId);
   const lastPositive  = [...projections].reverse().find(p => p.totalAssets > 0);
   const surplus       = depletionAge === null;
-  const unrealisedGain  = getTotalUnrealisedGain(state);
+  const unrealisedGain  = useMemo(() => getProjectedUnrealisedGain(firstYear), [firstYear]);
   const gamification    = useMemo(() => calculateGamificationMetrics(state, projections), [state, projections]);
   const goalTargetControlConfig = useMemo<Partial<Record<GoalId, GoalTargetControlConfig>>>(() => {
     const annualTargetMax = roundUp(Math.max(annualSpend * 2, 100_000), 1_000);

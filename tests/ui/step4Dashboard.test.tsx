@@ -2,6 +2,7 @@ import React from 'react';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { paulAndLisaState } from '../fixtures/states';
+import { calculateProjections, formatCurrency } from '@/lib/calculations';
 import { optimizeWithdrawals } from '@/financialEngine/withdrawalOptimizer';
 
 const setGoalRegistryMock = vi.fn();
@@ -100,6 +101,26 @@ describe('Step4Dashboard', () => {
       'data-last-total-assets',
       String(expectedLastTotalAssets),
     );
+  });
+
+  test('shows unrealised gains from the projected FI-year balances, not the current-state balances', () => {
+    const state = paulAndLisaState();
+    plannerState = {
+      ...state,
+      setGoalRegistry: setGoalRegistryMock,
+      setCareReserve: setCareReserveMock,
+    };
+
+    const firstFiYear = calculateProjections(state).find((row) => row.p1Age >= state.fiAge);
+    const expectedGain = firstFiYear
+      ? Math.max(0, firstFiYear.p1GiaValue - firstFiYear.p1GiaBaseCost)
+        + Math.max(0, firstFiYear.p2GiaValue - firstFiYear.p2GiaBaseCost)
+        + Math.max(0, firstFiYear.jointGiaValue - firstFiYear.jointGiaBaseCost)
+      : 0;
+
+    render(<Step4Dashboard onBack={vi.fn()} />);
+
+    expect(screen.getByText(`${formatCurrency(expectedGain, true)} unrealised gain`)).toBeInTheDocument();
   });
 
   test('reorders goal priorities through the dashboard goal panel', async () => {

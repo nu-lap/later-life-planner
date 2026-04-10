@@ -33,7 +33,7 @@ type PersonDraft = {
   statePension: { enabled: boolean; weeklyAmount: number; startAge: number };
   dbPensions:   DbEntry[];
   annuity:      { enabled: boolean; annualIncome: number; startAge: number };
-  otherIncome:  { enabled: boolean; annualAmount: number; startAge: number };
+  otherIncome:  { enabled: boolean; annualAmount: number; startAge: number; stopAge: number };
   dcPensions:   DcEntry[];
   dcContribution: DcContributionDraft;
   isas:         IsaEntry[];
@@ -52,7 +52,7 @@ function emptyDraft(): PersonDraft {
     statePension: { enabled: true, weeklyAmount: STATE_PENSION.FULL_NEW_WEEKLY, startAge: STATE_PENSION.DEFAULT_AGE },
     dbPensions:   [],
     annuity:      { enabled: false, annualIncome: 0, startAge: 65 },
-    otherIncome:  { enabled: false, annualAmount: 0, startAge: 65 },
+    otherIncome:  { enabled: false, annualAmount: 0, startAge: 65, stopAge: 0 },
     dcPensions:   [],
     dcContribution: { workplaceSalary: 0, workplaceContributionPercent: 0, sippContributionAnnualGross: 0 },
     isas:         [],
@@ -329,7 +329,7 @@ function StepAnnuity({ draft, onChange, isPartner }: { draft: PersonDraft; onCha
   );
 }
 
-function StepOther({ draft, onChange, isPartner }: { draft: PersonDraft; onChange: (d: PersonDraft) => void; isPartner?: boolean }) {
+function StepOther({ draft, onChange, isPartner, lifeExpectancy }: { draft: PersonDraft; onChange: (d: PersonDraft) => void; isPartner?: boolean; lifeExpectancy: number }) {
   const o = draft.otherIncome;
   const upd = (p: Partial<typeof o>) => onChange({ ...draft, otherIncome: { ...o, ...p } });
   return (
@@ -342,8 +342,37 @@ function StepOther({ draft, onChange, isPartner }: { draft: PersonDraft; onChang
             <CurrencyInput value={o.annualAmount} onChange={(v) => upd({ annualAmount: v })} max={200000} step={500} />
           </Field>
           <Field label="Starts at age">
-            <AgeStepper value={o.startAge} onChange={(v) => upd({ startAge: v })} min={50} max={85} />
+            <AgeStepper
+              value={o.startAge}
+              onChange={(v) => {
+                const nextStartAge = v;
+                const updates: Partial<typeof o> = { startAge: nextStartAge };
+                if (o.stopAge > 0 && o.stopAge <= nextStartAge) {
+                  updates.stopAge = Math.min(nextStartAge + 1, lifeExpectancy);
+                }
+                upd(updates);
+              }}
+              min={50}
+              max={Math.max(50, lifeExpectancy - 1)}
+            />
           </Field>
+          {o.stopAge > 0 ? (
+            <Field label="Ends at age">
+              <AgeStepper
+                value={o.stopAge}
+                onChange={(v) => upd({ stopAge: v })}
+                min={o.startAge + 1}
+                max={lifeExpectancy}
+              />
+            </Field>
+          ) : null}
+          <button
+            type="button"
+            onClick={() => upd({ stopAge: o.stopAge > 0 ? 0 : Math.min(o.startAge + 5, lifeExpectancy) })}
+            className="text-xs text-orange-600 hover:text-orange-700 font-semibold underline"
+          >
+            {o.stopAge > 0 ? 'Set indefinite' : 'Set end age'}
+          </button>
         </>
       )}
     </div>
@@ -575,7 +604,7 @@ function weightedAvgGrowth(items: { value: number; growthRate: number }[]): numb
   return Math.round((items.reduce((s, e) => s + e.growthRate * e.value, 0) / total) * 10) / 10;
 }
 
-function applyPersonDraft(
+export function applyPersonDraft(
   draft: PersonDraft,
   owner: 'p1' | 'p2',
   setIncome: (k: string, u: Record<string, unknown>) => void,
@@ -593,7 +622,7 @@ function applyPersonDraft(
   setIncome('dbPension', { enabled: dbTotal > 0, annualIncome: dbTotal, startAge: dbStartAge });
 
   setIncome('annuity', { enabled: draft.annuity.enabled, annualIncome: draft.annuity.annualIncome, startAge: draft.annuity.startAge });
-  setIncome('otherIncome', { enabled: draft.otherIncome.enabled, annualAmount: draft.otherIncome.annualAmount, startAge: draft.otherIncome.startAge, stopAge: 0, description: 'Other income' });
+  setIncome('otherIncome', { enabled: draft.otherIncome.enabled, annualAmount: draft.otherIncome.annualAmount, startAge: draft.otherIncome.startAge, stopAge: draft.otherIncome.stopAge, description: 'Other income' });
 
   const dcTotal = draft.dcPensions.reduce((s, e) => s + e.value, 0);
   const hasFutureContribution = draft.dcContribution.workplaceSalary > 0
@@ -631,7 +660,7 @@ function applyPersonDraft(
 interface Props { onDone: () => void }
 
 export default function GuidedSetupWizard({ onDone }: Props) {
-  const { mode, person1, person2, setP1Income, setP1Asset, setP2Income, setP2Asset, setJointGia } = usePlannerStore();
+  const { mode, person1, person2, assumptions, setP1Income, setP1Asset, setP2Income, setP2Asset, setJointGia } = usePlannerStore();
 
   const p1Label = person1.name || 'You';
   const p2Label = person2.name || 'Partner';
@@ -708,7 +737,7 @@ export default function GuidedSetupWizard({ onDone }: Props) {
         case 'sp':       return <StepSP       draft={draft} onChange={setDraft} isPartner={isPartner} />;
         case 'db':       return <StepDB       draft={draft} onChange={setDraft} isPartner={isPartner} />;
         case 'annuity':  return <StepAnnuity  draft={draft} onChange={setDraft} isPartner={isPartner} />;
-        case 'other':    return <StepOther    draft={draft} onChange={setDraft} isPartner={isPartner} />;
+        case 'other':    return <StepOther    draft={draft} onChange={setDraft} isPartner={isPartner} lifeExpectancy={assumptions.lifeExpectancy} />;
         case 'dc':       return <StepDC       draft={draft} onChange={setDraft} isPartner={isPartner} />;
         case 'isa':      return <StepISA      draft={draft} onChange={setDraft} isPartner={isPartner} />;
         case 'gia':      return <StepGIA      draft={draft} onChange={setDraft} isPartner={isPartner} />;
