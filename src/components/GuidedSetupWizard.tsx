@@ -353,7 +353,7 @@ function StepOther({ draft, onChange, isPartner, lifeExpectancy }: { draft: Pers
                 upd(updates);
               }}
               min={50}
-              max={85}
+              max={Math.max(50, lifeExpectancy - 1)}
             />
           </Field>
           {o.stopAge > 0 ? (
