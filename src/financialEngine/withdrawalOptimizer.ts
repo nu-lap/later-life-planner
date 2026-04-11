@@ -55,8 +55,8 @@ interface OptimizerOptions {
 }
 
 export const OPTIMIZER_CANDIDATES: WaterfallConfig[] = [
-  { label: '1-LLP-Baseline', dcOrder: 'paul-first', isaMode: 'now', isaOrder: 'equal' },
-  { label: '2-Couple-equal', dcOrder: 'equal', isaMode: 'now', isaOrder: 'equal' },
+  { label: '1-LLP-Baseline', dcOrder: 'equal', isaMode: 'now', isaOrder: 'equal' },
+  { label: '2-Paul-first', dcOrder: 'paul-first', isaMode: 'now', isaOrder: 'p1-first' },
   { label: '3-Proportional', dcOrder: 'proportional', isaMode: 'now', isaOrder: 'proportional' },
   { label: '4-Lisa-first', dcOrder: 'lisa-first', isaMode: 'now', isaOrder: 'p2-first' },
   { label: '5-ISA-preserve', dcOrder: 'equal', isaMode: 'defer', isaOrder: 'equal' },

@@ -163,15 +163,17 @@ describe('optimizeWithdrawals', () => {
 
     const result = optimizeWithdrawals(state);
     const baseline = candidateByLabel(result, 0, '1-LLP-Baseline');
-    const equal = candidateByLabel(result, 0, '2-Couple-equal');
+    const paulFirst = candidateByLabel(result, 0, '2-Paul-first');
     const proportional = candidateByLabel(result, 0, '3-Proportional');
     const lisaFirst = candidateByLabel(result, 0, '4-Lisa-first');
 
-    expect(equal?.drawdowns.p1Isa).toBeCloseTo(30_000, 2);
-    expect(equal?.drawdowns.p2Isa).toBeCloseTo(30_000, 2);
-
+    // Baseline is now equal-split, so both ISA pots should be drawn evenly
     expect(baseline?.drawdowns.p1Isa).toBeCloseTo(30_000, 2);
     expect(baseline?.drawdowns.p2Isa).toBeCloseTo(30_000, 2);
+
+    // Paul-first draws p1 ISA exhausted first, then p2
+    expect(paulFirst?.drawdowns.p1Isa).toBeCloseTo(30_000, 2);
+    expect(paulFirst?.drawdowns.p2Isa).toBeCloseTo(30_000, 2);
 
     expect(proportional?.drawdowns.p1Isa).toBeCloseTo(15_000, 2);
     expect(proportional?.drawdowns.p2Isa).toBeCloseTo(45_000, 2);

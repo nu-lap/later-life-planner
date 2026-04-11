@@ -13,7 +13,7 @@ export function getBaselineWaterfallDescription(mode: StrategyPlanMode): string 
     return "LaterLifePlan's standard order is DC pension within the personal allowance plus 25% tax-free, then GIA within the CGT allowance, then ISA, then remaining GIA, then DC pension above the personal allowance.";
   }
 
-  return "LaterLifePlan's standard order is DC pension within each person's personal allowance plus 25% tax-free, then GIA within the CGT allowance, then ISA, then remaining GIA, then DC pension above the personal allowance. Once ISA withdrawals are needed in a couple plan, both ISAs are used evenly as household tax-free savings.";
+  return "LaterLifePlan's standard order is DC pension within each person's personal allowance plus 25% tax-free, then GIA within the CGT allowance, then ISA, then remaining GIA, then DC pension above the personal allowance split equally between both partners. Once ISA withdrawals are needed in a couple plan, both ISAs are used evenly as household tax-free savings.";
 }
 
 export function getStrategyDisplayLabel(mode: StrategyPlanMode, rawLabel: string): string {
@@ -24,8 +24,8 @@ export function getStrategyDisplayLabel(mode: StrategyPlanMode, rawLabel: string
   switch (rawLabel) {
     case '1-LLP-Baseline':
       return 'LLP baseline waterfall';
-    case '2-Couple-equal':
-      return mode === 'single' ? 'Even DC drawdown' : 'Couple-equal DC drawdown';
+    case '2-Paul-first':
+      return mode === 'single' ? 'Even DC drawdown' : 'Partner 1-first DC drawdown';
     case '3-Proportional':
       return 'Proportional DC drawdown';
     case '4-Lisa-first':
@@ -51,10 +51,10 @@ export function getStrategyDefinitions(
       applicableModes: ['single', 'couple'],
     },
     {
-      label: mode === 'single' ? 'Even DC drawdown' : 'Couple-equal DC drawdown',
+      label: mode === 'single' ? 'Even DC drawdown' : 'Partner 1-first DC drawdown',
       description: coupleMode
-        ? 'Split taxable pension withdrawals evenly between both partners where possible, and split ISA withdrawals evenly when ISA money is needed.'
-        : 'Split taxable pension withdrawals evenly across the available DC pots where possible.',
+        ? `Draw taxable pension withdrawals from ${person1Name}'s pension first, and use ${person1Name}'s ISA before ${otherPersonName}'s ISA once ISA withdrawals are needed.`
+        : 'Draw taxable pension withdrawals from the primary DC pot first.',
       applicableModes: ['single', 'couple'],
     },
     {
