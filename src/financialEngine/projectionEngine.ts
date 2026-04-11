@@ -402,20 +402,51 @@ export function calculateProjections(state: PlannerState): YearlyProjection[] {
         }
 
         // ── Step 6: DC pension — remaining gap (above personal allowance) ───
-        // This portion is taxable at marginal rate (20%+). Only reached when all
-        // other sources are exhausted or the gap exceeds the personal allowance.
-        if (remaining > 0 && p1Dc > 0 && dc1.enabled && householdFiStarted) {
-          const d = Math.min(p1Dc, remaining); p1DcD += d; p1Dc -= d; remaining -= d;
-          const p1RemainingLsa = Math.max(0, yearPensionLsa - p1LifetimePcls);
-          const tf = Math.min(d * yearUfplsFrac, p1RemainingLsa);
-          p1DcTaxFree += tf; p1LifetimePcls += tf;
-        }
-        if (remaining > 0 && mode === 'couple' && p2Age !== null) {
-          if (p2Dc > 0 && dc2.enabled && householdFiStarted) {
-            const d = Math.min(p2Dc, remaining); p2DcD += d; p2Dc -= d; remaining -= d;
-            const p2RemainingLsa = Math.max(0, yearPensionLsa - p2LifetimePcls);
-            const tf = Math.min(d * yearUfplsFrac, p2RemainingLsa);
-            p2DcTaxFree += tf; p2LifetimePcls += tf;
+        // For a couple where both have DC pension available, split equally to
+        // avoid concentrating above-allowance draws on one person and pushing
+        // them into higher-rate tax while the other's basic-rate band goes unused.
+        // Falls back to sequential (p1 first) when only one person has DC.
+        if (remaining > 0 && householdFiStarted) {
+          const p1Avail = (p1Dc > 0 && dc1.enabled) ? p1Dc : 0;
+          const p2Avail = (mode === 'couple' && p2Age !== null && p2Dc > 0 && dc2.enabled) ? p2Dc : 0;
+
+          if (mode === 'couple' && p2Age !== null && p1Avail > 0 && p2Avail > 0) {
+            // Equal split with spillover to the other if one pot is smaller
+            const half = remaining / 2;
+            const p1Draw = Math.min(p1Avail, half);
+            const p2Draw = Math.min(p2Avail, half);
+            const leftover = Math.max(0, remaining - p1Draw - p2Draw);
+            const p1Extra = leftover > 0 ? Math.min(p1Avail - p1Draw, leftover) : 0;
+            const p2Extra = leftover > 0 ? Math.min(p2Avail - p2Draw, leftover - p1Extra) : 0;
+            const p1Total = p1Draw + p1Extra;
+            const p2Total = p2Draw + p2Extra;
+
+            if (p1Total > 0) {
+              p1DcD += p1Total; p1Dc -= p1Total; remaining -= p1Total;
+              const p1RemLsa = Math.max(0, yearPensionLsa - p1LifetimePcls);
+              const tf = Math.min(p1Total * yearUfplsFrac, p1RemLsa);
+              p1DcTaxFree += tf; p1LifetimePcls += tf;
+            }
+            if (p2Total > 0) {
+              p2DcD += p2Total; p2Dc -= p2Total; remaining -= p2Total;
+              const p2RemLsa = Math.max(0, yearPensionLsa - p2LifetimePcls);
+              const tf = Math.min(p2Total * yearUfplsFrac, p2RemLsa);
+              p2DcTaxFree += tf; p2LifetimePcls += tf;
+            }
+          } else {
+            // Single person or only one of the couple has DC available — sequential
+            if (p1Avail > 0) {
+              const d = Math.min(p1Avail, remaining); p1DcD += d; p1Dc -= d; remaining -= d;
+              const p1RemLsa = Math.max(0, yearPensionLsa - p1LifetimePcls);
+              const tf = Math.min(d * yearUfplsFrac, p1RemLsa);
+              p1DcTaxFree += tf; p1LifetimePcls += tf;
+            }
+            if (remaining > 0 && p2Avail > 0) {
+              const d = Math.min(p2Avail, remaining); p2DcD += d; p2Dc -= d; remaining -= d;
+              const p2RemLsa = Math.max(0, yearPensionLsa - p2LifetimePcls);
+              const tf = Math.min(d * yearUfplsFrac, p2RemLsa);
+              p2DcTaxFree += tf; p2LifetimePcls += tf;
+            }
           }
         }
       } else {

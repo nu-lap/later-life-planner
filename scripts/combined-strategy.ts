@@ -398,8 +398,8 @@ function runWaterfall(
 // ─── Per-year optimizer ───────────────────────────────────────────────────────
 
 const CANDIDATES: WaterfallConfig[] = [
-  { label: '1-LLP-Baseline',  dcOrder: 'paul-first',   isaMode: 'now'   },
-  { label: '2-Couple-equal',  dcOrder: 'equal',         isaMode: 'now'   },
+  { label: '1-LLP-Baseline',  dcOrder: 'equal',         isaMode: 'now'   },
+  { label: '2-Paul-first',    dcOrder: 'paul-first',    isaMode: 'now'   },
   { label: '3-Proportional',  dcOrder: 'proportional',  isaMode: 'now'   },
   { label: '4-Lisa-first',    dcOrder: 'lisa-first',    isaMode: 'now'   },
   { label: '5-ISA-preserve',  dcOrder: 'equal',         isaMode: 'defer' },
@@ -615,8 +615,8 @@ console.log(`  Slo-Go (71-80) ${ci(optStage.sloGo)}    ${ci(baseStage.sloGo)}   
 console.log(`  No-Go (81-95) ${ci(optStage.noGo)}    ${ci(baseStage.noGo)}   ${ci(baseStage.noGo - optStage.noGo)}`);
 
 console.log('\n  Candidate key:');
-console.log('  1-LLP-Baseline   Paul fills PA from DC first, then Lisa (LLP waterfall)');
-console.log('  2-Couple-equal   Both draw equal gross DC within their respective PAs');
+console.log('  1-LLP-Baseline   Both draw equal gross DC above the personal allowance (LLP waterfall)');
+console.log('  2-Paul-first     Paul fills PA from DC first, then Lisa');
 console.log('  3-Proportional   DC draw split proportional to respective pot sizes');
 console.log('  4-Lisa-first     Lisa fills PA from DC first, then Paul');
 console.log('  5-ISA-preserve   Equal DC split; DC above PA instead of ISA (defer ISA wrapper)');
