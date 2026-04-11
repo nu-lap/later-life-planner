@@ -106,7 +106,7 @@ describe('OptimizerPanel', () => {
 
     expect(screen.getByText(/These are the strategy definitions for the best option shown in the comparison table below\./i)).toBeInTheDocument();
     expect(screen.getByText('LLP baseline waterfall', { selector: '#strategy-guide-panel p.text-sm.font-semibold.text-slate-900' })).toBeInTheDocument();
-    expect(screen.getByText('Couple-equal DC drawdown', { selector: '#strategy-guide-panel p.text-sm.font-semibold.text-slate-900' })).toBeInTheDocument();
+    expect(screen.getByText('Partner 1-first DC drawdown', { selector: '#strategy-guide-panel p.text-sm.font-semibold.text-slate-900' })).toBeInTheDocument();
     expect(screen.getByText('Proportional DC drawdown', { selector: '#strategy-guide-panel p.text-sm.font-semibold.text-slate-900' })).toBeInTheDocument();
     expect(screen.getByText('Partner 2-first DC drawdown', { selector: '#strategy-guide-panel p.text-sm.font-semibold.text-slate-900' })).toBeInTheDocument();
     expect(screen.getByText('ISA-preserve', { selector: '#strategy-guide-panel p.text-sm.font-semibold.text-slate-900' })).toBeInTheDocument();

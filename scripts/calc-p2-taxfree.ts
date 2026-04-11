@@ -1,5 +1,6 @@
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
+import { CURRENT_TAX_YEAR_START } from '../src/config/financialConstants';
 import { runSimulation } from '../src/financialEngine/projectionEngine';
 import { getSnapshotForYear } from '../src/config/taxRuleSnapshot';
 
@@ -16,8 +17,8 @@ let p2Accum = 0;
 let p1Accum = 0;
 
 for (const y of sim.projections) {
-  const calendarYear = (new Date().getFullYear()) + (y.yearIndex || 0); // fallback
-  // attempt to get the snapshot for the correct calendar year used by the engine
+  const calendarYear = CURRENT_TAX_YEAR_START + (y.yearIndex || 0);
+  // use the snapshot for the correct calendar year used by the engine
   const snapshot = getSnapshotForYear(calendarYear);
   const yearLsa = snapshot.pension.lsa;
   const ufplsFrac = snapshot.pension.ufplsTaxFreeFraction ?? 0.25;
@@ -41,7 +42,7 @@ console.log('Person1 total tax-free UFPLS taken:', Math.round(p1Accum * 100) / 1
 
 // Report remaining LSA per person using the last year snapshot pension.lsa
 const lastYear = sim.projections[sim.projections.length - 1];
-const lastSnapshot = getSnapshotForYear((new Date().getFullYear()) + (lastYear.yearIndex || 0));
+const lastSnapshot = getSnapshotForYear(CURRENT_TAX_YEAR_START + (lastYear.yearIndex || 0));
 const lastLsa = lastSnapshot.pension.lsa;
 console.log('LSA reference used in final year:', lastLsa);
 console.log('Person2 remaining LSA (approx):', Math.round(Math.max(0, lastLsa - p2Accum) * 100) / 100);
