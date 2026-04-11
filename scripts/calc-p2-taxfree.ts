@@ -18,7 +18,7 @@ let p1Accum = 0;
 for (const y of sim.projections) {
   const calendarYear = (new Date().getFullYear()) + (y.yearIndex || 0); // fallback
   // attempt to get the snapshot for the correct calendar year used by the engine
-  const snapshot = getSnapshotForYear((new Date().getFullYear()) + (y.yearIndex || 0));
+  const snapshot = getSnapshotForYear(calendarYear);
   const yearLsa = snapshot.pension.lsa;
   const ufplsFrac = snapshot.pension.ufplsTaxFreeFraction ?? 0.25;
 
