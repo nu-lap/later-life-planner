@@ -565,7 +565,7 @@ function TaxOverview({ projections }: { projections: YearlyProjection[] }) {
         A simplified guide to how income is structured each year to minimise tax. Required spending is a net cash target, so any tax on withdrawals means the plan must gross up income to leave the same spendable amount.
       </p>
       <p className="mb-4 text-xs font-semibold text-slate-700">
-        This is the same LaterLifePlan baseline waterfall shown in the <span className="font-black">Baseline waterfall by year</span> panel below.
+        This summary reflects the LaterLifePlan baseline withdrawal ordering used in the projection.
       </p>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
