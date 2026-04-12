@@ -38,12 +38,16 @@ if [ -f "$env_file" ]; then
   . "$env_file" || true
 fi
 
-# Run the non-interactive setup script if present. Don't fail the session if it errors.
+# Run the non-interactive setup script only when explicitly opted in.
+# This avoids surprising side effects (for example rewriting repo files or
+# changing tool configuration) on every shell startup.
 setup_script="$repo_root/scripts/setup-copilot-noninteractive.sh"
-if [ -x "$setup_script" ]; then
-  "$setup_script" || true
-elif [ -f "$setup_script" ]; then
-  bash "$setup_script" || true
+if [ "${COPILOT_RUN_NONINTERACTIVE_SETUP:-0}" = "1" ]; then
+  if [ -x "$setup_script" ]; then
+    "$setup_script" || true
+  elif [ -f "$setup_script" ]; then
+    bash "$setup_script" || true
+  fi
 fi
 
 # End of script
