@@ -125,7 +125,7 @@ describe('OptimizerPanel', () => {
     expect(screen.getByText('Proportional DC drawdown', { selector: '#strategy-guide-panel p.text-sm.font-semibold.text-slate-900' })).toBeInTheDocument();
     expect(screen.getByText('Alternative DC drawdown', { selector: '#strategy-guide-panel p.text-sm.font-semibold.text-slate-900' })).toBeInTheDocument();
     expect(screen.getByText('ISA-preserve', { selector: '#strategy-guide-panel p.text-sm.font-semibold.text-slate-900' })).toBeInTheDocument();
-    expect(screen.queryByText('Couple-equal DC drawdown', { selector: '#strategy-guide-panel p.text-sm.font-semibold.text-slate-900' })).not.toBeInTheDocument();
+    expect(screen.queryByText('Partner 1-first DC drawdown', { selector: '#strategy-guide-panel p.text-sm.font-semibold.text-slate-900' })).not.toBeInTheDocument();
     expect(screen.queryByText('Partner 2-first DC drawdown', { selector: '#strategy-guide-panel p.text-sm.font-semibold.text-slate-900' })).not.toBeInTheDocument();
   });
 
