@@ -468,31 +468,19 @@ describe('OptimizerPanel', () => {
 });
 
 describe('OptimizerPanel — Pro gating (proEnabled=false)', () => {
-  test('shows strategy comparison Pro overlay with updated headline and CTA', () => {
+  test('shows optimized summary cards and baseline first-5-year table without blur', () => {
     const plannerState = paulAndLisaState();
     const result = optimizeWithdrawals(plannerState);
 
     render(<OptimizerPanel plannerState={plannerState} result={result} proEnabled={false} />);
 
+    expect(screen.getByText('Tax impact vs standard approach')).toBeInTheDocument();
+    expect(screen.getByText('Plan durability vs standard approach')).toBeInTheDocument();
+    expect(screen.getByText('End-of-plan assets vs standard approach')).toBeInTheDocument();
     expect(screen.getByText('Explain this recommendation')).toBeInTheDocument();
-    expect(screen.getByText('Optimised strategy comparison')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Tell me more about Pro →' })).toBeInTheDocument();
-  });
-
-  test('clicking the Pro CTA calls onProCta, not the explain dialog', async () => {
-    const plannerState = paulAndLisaState();
-    const result = optimizeWithdrawals(plannerState);
-    const onProCta = vi.fn();
-    const fetchMock = vi.fn();
-    vi.stubGlobal('fetch', fetchMock);
-
-    render(<OptimizerPanel plannerState={plannerState} result={result} proEnabled={false} onProCta={onProCta} />);
-
-    await userEvent.click(screen.getByRole('button', { name: 'Tell me more about Pro →' }));
-
-    expect(onProCta).toHaveBeenCalledTimes(1);
-    expect(screen.queryByTestId('optimizer-explain-panel')).not.toBeInTheDocument();
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(screen.getByText('Baseline waterfall by year (first 5 years)')).toBeInTheDocument();
+    expect(screen.getAllByText('Upgrade to Pro to compare optimised alternatives.')).toHaveLength(5);
+    expect(screen.queryByText('Optimised strategy comparison')).not.toBeInTheDocument();
   });
 
   test('clicking Explain this recommendation in non-Pro mode triggers onProCta only', async () => {
@@ -507,7 +495,16 @@ describe('OptimizerPanel — Pro gating (proEnabled=false)', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Explain this recommendation' }));
 
     expect(onProCta).toHaveBeenCalledTimes(1);
-    expect(fetchMock).not.toHaveBeenCalled();
     expect(screen.queryByTestId('optimizer-explain-panel')).not.toBeInTheDocument();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  test('shows baseline drawdown breakdown table immediately for non-Pro', () => {
+    const plannerState = paulAndLisaState();
+    const result = optimizeWithdrawals(plannerState);
+
+    render(<OptimizerPanel plannerState={plannerState} result={result} proEnabled={false} />);
+    expect(screen.getByTestId('optimizer-drawdown-breakdown-table')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '▼ Show breakdown' })).not.toBeInTheDocument();
   });
 });
