@@ -3,7 +3,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type {
-  PlannerState, PlanningMode, LifeStage, GIAAsset, CareReserve,
+  PlannerState, PlanningMode, LifeStage, GIAAsset, CareReserve, PrimaryResidenceAsset,
   PersonIncomeSources, PersonAssets, Assumptions, AspirationTag, RlssStandard, PersistedPlannerState,
   GoalRegistry,
 } from '@/models/types';
@@ -40,6 +40,7 @@ type Actions = {
 
   setJointGia: (updates: Partial<GIAAsset>) => void;
   setCareReserve: (updates: Partial<CareReserve>) => void;
+  setPrimaryResidence: (updates: Partial<PrimaryResidenceAsset>) => void;
 
   setLifeVision: (vision: string) => void;
   toggleAspiration: (tag: AspirationTag) => void;
@@ -277,6 +278,9 @@ export const usePlannerStore = create<PlannerState & Actions>()(
 
       setCareReserve: (updates) =>
         set((s) => ({ careReserve: { ...s.careReserve, ...updates } })),
+
+      setPrimaryResidence: (updates) =>
+        set((s) => ({ primaryResidence: { ...s.primaryResidence, ...updates } })),
 
       setLifeVision: (lifeVision) => set({ lifeVision }),
       toggleAspiration: (tag) =>

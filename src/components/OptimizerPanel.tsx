@@ -13,10 +13,13 @@ import type {
 import { explainOptimizerResult, getCachedOptimizerExplanation } from '@/lib/optimizerExplainClient';
 import { getStrategyDefinitions, getStrategyDisplayLabel } from '@/lib/strategyDefinitions';
 import type { PlannerState } from '@/models/types';
+import ProUpgradeOverlay from '@/components/ProUpgradeOverlay';
+import ProInterestModal from '@/components/ProInterestModal';
 
 interface Props {
   plannerState: PlannerState;
   result: OptimizationResult;
+  proEnabled: boolean;
 }
 
 function StrategyRow({
@@ -237,7 +240,7 @@ function formatExplanationBlocks(text: string): ExplanationBlock[] {
   return blocks;
 }
 
-export default function OptimizerPanel({ plannerState, result }: Props) {
+export default function OptimizerPanel({ plannerState, result, proEnabled }: Props) {
   const [showAll, setShowAll] = useState(false);
   const [showStrategyComparison, setShowStrategyComparison] = useState(true);
   const [showAllStrategyDefinitions, setShowAllStrategyDefinitions] = useState(false);
@@ -248,6 +251,7 @@ export default function OptimizerPanel({ plannerState, result }: Props) {
   const [isLoadingCachedExplanation, setIsLoadingCachedExplanation] = useState(false);
   const [explanation, setExplanation] = useState<string | null>(null);
   const [explainError, setExplainError] = useState<string | null>(null);
+  const [proModalOpen, setProModalOpen] = useState(false);
   const rows = useMemo(
     () => (showAll ? result.yearRecords : result.yearRecords.slice(0, 5)),
     [result.yearRecords, showAll],
@@ -328,13 +332,29 @@ export default function OptimizerPanel({ plannerState, result }: Props) {
             </p>
           </div>
           <div className="flex flex-col gap-2 sm:items-end">
-            <button
-              type="button"
-              onClick={() => void openDialog()}
-              className="btn-secondary py-2 text-sm"
-            >
-              Explain this recommendation
-            </button>
+            {proEnabled ? (
+              <button
+                type="button"
+                onClick={() => void openDialog()}
+                className="btn-secondary py-2 text-sm"
+              >
+                Explain this recommendation
+              </button>
+            ) : (
+              <ProUpgradeOverlay
+                headline="AI tax explanation"
+                description="Understand exactly why this strategy saves you tax — powered by AI."
+                onCta={() => setProModalOpen(true)}
+              >
+                <button
+                  type="button"
+                  className="btn-secondary py-2 text-sm"
+                  tabIndex={-1}
+                >
+                  Explain this recommendation
+                </button>
+              </ProUpgradeOverlay>
+            )}
           </div>
         </div>
 
@@ -716,6 +736,7 @@ export default function OptimizerPanel({ plannerState, result }: Props) {
           </div>
         </div>
       ) : null}
+      <ProInterestModal open={proModalOpen} sourcePanel="optimizer-explain" onClose={() => setProModalOpen(false)} />
     </>
   );
 }
