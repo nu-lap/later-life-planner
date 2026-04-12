@@ -29,10 +29,6 @@ const state = JSON.parse(raw) as PlannerState;
 const result = optimizeWithdrawals(state);
 const records = result.yearRecords;
 
-function formatCurrency(n: number) {
-  return (Math.round(n * 100) / 100).toFixed(2);
-}
-
 const optimizedRows = records.map((r) => ({
   age: `${r.p1Age}${r.p2Age ? '/' + r.p2Age : ''}`,
   taxYear: r.taxYear,
