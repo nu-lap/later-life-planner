@@ -1330,75 +1330,96 @@ knowing their State Pension start age in order to get an accurate plan.
 
 ---
 
-## Phase 15 — Advanced Optimizer Feature Flag
+## Phase 15 — LaterLifePlan Pro Upgrade Gate (Option A+C Hybrid)
 
-**Goal:** Keep advanced optimizer functionality visible in the UI, but make it
-non-functional behind a feature flag while the yearly drawdown breakdown
-remains available.
+**Goal:** Present advanced features in a compelling, trust-respecting way that converts
+considered buyers (age 50–75) without hiding value behind a hard paywall. Show partial
+plan-anchored content, then capture interest before revealing pricing.
 
-**Future phase — not yet implemented.**
+**Status: ✅ Implemented.**
 
 **Depends on:** Phase 9 and Phase 13 complete.
 
-### 15.1 Define a single advanced optimizer feature flag
+### Strategy: Option A + C Hybrid
 
-Required changes:
-- add one flag for advanced optimizer functionality, for example
-  `NEXT_PUBLIC_ADVANCED_OPTIMIZER_ENABLED`
-- use that flag consistently across dashboard and optimizer surfaces
+**Option A — Blur overlay for AI explainer:**
+Show the "Explain this recommendation" button but lock it behind a frosted-glass
+`ProUpgradeOverlay`. The optimizer panel and all deterministic output (tax saving
+summary, strategy comparison, yearly breakdown) remains fully visible to all users.
+The overlay shows an "Unlock with Pro →" CTA that opens the interest capture modal.
 
-The flag should control:
-- whether AI explainer actions are enabled
-- whether goal priorities can actively orchestrate optimizer policy
-- whether advanced strategy interactions are active
+**Option C — Interest capture for Goal Priorities and IHT Planning:**
+Show blurred previews of goal-priority orchestration and the IHT estate breakdown.
+These are not disabled buttons — they are partial renderings of real plan data with
+a blur + overlay, anchoring the upgrade conversation in the user's own numbers.
+The CTA opens the Pro interest modal ("Tell me more about Pro") rather than a paywall.
 
-The flag should not hide:
-- the optimized yearly drawdown breakdown
-- the underlying deterministic optimizer output needed to render that breakdown
-- the visible advanced optimizer panels and controls, if they are presented in a
-  disabled or preview state
+**Upgrade headline:** *"Your plan is good. LaterLifePlan Pro makes it exceptional."*
 
-### 15.2 Gate advanced UI and API behavior
+**No exact £ predictions** in overlay copy or marketing text. Plan-anchored numbers
+appear only in the blurred background (unreadable by design), not in the overlay card
+or CTA text.
 
-Required changes:
-- keep AI explainer entry points visible but disabled when the flag is off
-- keep goal priorities UI visible but disabled when the flag is off
-- skip orchestration requests when the flag is off
-- keep advanced strategy UI visible if it helps users understand the upcoming
-  functionality, but disable any actions that would invoke advanced behavior
-- keep the core optimized summary and yearly breakdown available
+### 15.1 Feature flags
 
-Recommended UX when the flag is off:
-- show disabled controls rather than removing them
-- add brief helper copy such as `Coming soon` or `Not enabled for this release`
-- ensure disabled controls do not submit requests or alter optimizer policy
+- `NEXT_PUBLIC_PRO_ENABLED` — single flag gates all Pro UI (AI explainer, goal priorities,
+  IHT planning). Defaults to `false` in Dockerfile/CI; set via repo secret.
+- `NEXT_PUBLIC_OPTIMIZER_ENABLED` — gates whether the optimizer runs at all (pre-existing).
+  These remain separate: optimizer can be on with Pro off (shows locked preview).
+- `NEXT_PUBLIC_IHT_ADVANCED_ENABLED` — **removed** (was unused; IHT features gate on Pro).
 
-### 15.3 Preserve deterministic optimizer output
+### 15.2 AI Explainer (OptimizerPanel)
 
-Required changes:
-- continue to run the deterministic optimizer when the flag is off so the
-  yearly breakdown still renders
-- do not apply goal-policy overrides when the flag is off, even if goal controls
-  are visible
-- do not request explanation generation when the flag is off, even if the
-  explainer UI is visible
+When `proEnabled=false`:
+- Full optimizer panel renders with all deterministic metrics.
+- "Explain this recommendation" button is wrapped in `ProUpgradeOverlay`.
+- Clicking overlay CTA opens `ProInterestModal` with `sourcePanel="optimizer-explain"`.
+- No `/api/optimizer-explain` request is ever triggered.
 
-### 15.4 Test coverage
+When `proEnabled=true`:
+- Button is active; existing explain dialog flow runs normally.
 
-Coverage required:
-- advanced flag off still shows the yearly breakdown
-- advanced flag off shows AI explainer controls in a disabled state and sends no
-  explanation request
-- advanced flag off shows goal priorities in a disabled state and sends no
-  orchestration request
-- advanced flag on preserves current advanced behavior
+### 15.3 Goal-Priority Orchestration (Step4Dashboard)
 
-**Acceptance criteria for Phase 15:** With the advanced optimizer flag
-disabled, LaterLifePlan still shows the optimized yearly drawdown breakdown,
-while AI explanation, goal-priority orchestration, and other advanced optimizer
-controls remain visible but inactive. Those controls must not send requests or
-change optimizer policy until the flag is enabled. With the flag enabled,
-current advanced behavior remains available.
+When `proEnabled=false`:
+- `GoalPriorityPanel` renders inside `ProUpgradeOverlay` with inert callbacks.
+- `pointer-events-none` wrapper prevents user interaction.
+- Overlay CTA opens `ProInterestModal` with `sourcePanel="goal-priority"`.
+- `orchestrateGoals` effect bails early — no API calls.
+
+When `proEnabled=true`:
+- Panel is interactive; orchestration runs normally.
+
+### 15.4 IHT Estate Planning (Step4Dashboard)
+
+When `proEnabled=false`:
+- A blurred estate breakdown panel is shown (real data: residence, savings, pension pots).
+- Panel is wrapped in `ProUpgradeOverlay`.
+- Overlay copy describes the feature; no exact £ figures.
+- CTA opens `ProInterestModal` with `sourcePanel="iht-planning"`.
+
+When `proEnabled=true` (IHT-2/3/4 not yet built):
+- "Coming soon" notice is shown within the Pro plan description.
+
+### 15.5 ProInterestModal source tracking
+
+`proModalSource: string | null` replaces the boolean `proModalOpen` flag so the
+modal receives the correct `sourcePanel` (`"optimizer-explain"` | `"goal-priority"` |
+`"iht-planning"`) for analytics and follow-up targeting.
+
+### 15.6 Test coverage
+
+- `proEnabled=false` shows overlay and CTA for explain button; no explain API called.
+- `proEnabled=false` clicking locked button does not trigger explain dialog.
+- `proEnabled=false` clicking overlay CTA opens Pro interest modal.
+
+**Acceptance criteria for Phase 15:** With `NEXT_PUBLIC_PRO_ENABLED=false`, all three
+Pro surfaces (AI explainer, goal priorities, IHT planning) show blurred previews with
+interest-capture CTAs. No API requests are triggered. Deterministic optimizer output
+(yearly breakdown, strategy comparison, tax summary) remains fully visible. With
+`NEXT_PUBLIC_PRO_ENABLED=true`, AI explainer and goal-priority orchestration are fully
+active. IHT estate planning shows a "Coming soon" notice until IHT-2/3/4 are built
+(tracked as future phases).
 
 
 ---
