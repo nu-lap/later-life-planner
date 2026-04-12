@@ -93,8 +93,8 @@ describe('Step4Dashboard', () => {
 
     render(<Step4Dashboard onBack={vi.fn()} />);
 
-    const simplifiedHeading = screen.getByText('Simplified tax-efficient withdrawal strategy');
-    const optimizerHeading = screen.getByText('Withdrawal plan optimisation');
+    const simplifiedHeading = screen.getByRole('heading', { name: 'Simplified tax-efficient withdrawal strategy' });
+    const optimizerHeading = screen.getByRole('heading', { name: 'Withdrawal plan optimisation' });
     expect(simplifiedHeading).toBeInTheDocument();
     expect(optimizerHeading).toBeInTheDocument();
     expect(
