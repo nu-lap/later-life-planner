@@ -62,7 +62,9 @@ const comparisonRows = records.map((r) => ({
 // Read template workbook
 const wb = XLSX.readFile(templatePath, { cellDates: true });
 
-// Replace sheets while preserving other workbook parts (charts, styles)
+// Replace worksheet data in the template workbook. The `xlsx` library does
+// not reliably preserve embedded charts or most Excel styling/formatting
+// when writing files back out.
 const wsOpt = XLSX.utils.json_to_sheet(optimizedRows);
 const wsBase = XLSX.utils.json_to_sheet(baselineRows);
 const wsComp = XLSX.utils.json_to_sheet(comparisonRows);
