@@ -10,7 +10,7 @@ What was applied by scripts/setup-copilot-noninteractive.sh:
   - rebase.autoStash = true
   - advice.detachedHead = false
   - push.default = simple
-  - alias.pushf = "push ---force-with-lease"
+  - alias.pushf = "push --force-with-lease"
   - alias.prcreate = "!gh pr create --fill"
 - Disabled interactive prompts for GitHub CLI where supported: `gh config set prompt disabled`.
 
