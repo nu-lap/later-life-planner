@@ -1111,7 +1111,7 @@ export default function Step4Dashboard({ onBack }: Props) {
               </h3>
               <p className="text-sm text-slate-600">
                 Full estate modelling — home, savings, ISAs, and pension — is on its way as part of your Pro plan.
-                You'll be able to project your full inheritance tax position, model RNRB planning, and explore tax-efficient drawdown strategies to protect your estate.
+                You&apos;ll be able to project your full inheritance tax position, model RNRB planning, and explore tax-efficient drawdown strategies to protect your estate.
               </p>
             </div>
           </div>
