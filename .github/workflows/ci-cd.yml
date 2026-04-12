@@ -110,6 +110,7 @@ jobs:
             --build-arg NEXT_PUBLIC_TURNSTILE_SITE_KEY="${{ secrets.NEXT_PUBLIC_TURNSTILE_SITE_KEY }}" \
             --build-arg NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY="${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}" \
             --build-arg NEXT_PUBLIC_OPTIMIZER_ENABLED="${{ secrets.NEXT_PUBLIC_OPTIMIZER_ENABLED || 'true' }}" \
+            --build-arg NEXT_PUBLIC_PRO_ENABLED="${{ secrets.NEXT_PUBLIC_PRO_ENABLED || 'false' }}" \
             --build-arg NEXT_PUBLIC_IHT_ADVANCED_ENABLED="${{ secrets.NEXT_PUBLIC_IHT_ADVANCED_ENABLED || 'false' }}" \
             --build-arg NEXT_PUBLIC_CLERK_SIGN_IN_URL="/sign-in" \
             --build-arg NEXT_PUBLIC_CLERK_SIGN_UP_URL="/sign-up" \
@@ -221,6 +222,7 @@ jobs:
           BUILD_ARG_TURNSTILE_SITE_KEY: ${{ secrets.NEXT_PUBLIC_TURNSTILE_SITE_KEY }}
           BUILD_ARG_CLERK_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}
           BUILD_ARG_OPTIMIZER_ENABLED: ${{ secrets.NEXT_PUBLIC_OPTIMIZER_ENABLED || 'true' }}
+          BUILD_ARG_PRO_ENABLED: ${{ secrets.NEXT_PUBLIC_PRO_ENABLED || 'false' }}
           BUILD_ARG_IHT_ADVANCED_ENABLED: ${{ secrets.NEXT_PUBLIC_IHT_ADVANCED_ENABLED || 'false' }}
           BUILD_ARG_LLM_PROVIDER: "azure-openai"
         run: |
@@ -242,6 +244,7 @@ jobs:
             --build-arg "NEXT_PUBLIC_TURNSTILE_SITE_KEY=${BUILD_ARG_TURNSTILE_SITE_KEY}" \
             --build-arg "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=${BUILD_ARG_CLERK_PUBLISHABLE_KEY}" \
             --build-arg "NEXT_PUBLIC_OPTIMIZER_ENABLED=${BUILD_ARG_OPTIMIZER_ENABLED}" \
+            --build-arg "NEXT_PUBLIC_PRO_ENABLED=${BUILD_ARG_PRO_ENABLED}" \
             --build-arg "NEXT_PUBLIC_IHT_ADVANCED_ENABLED=${BUILD_ARG_IHT_ADVANCED_ENABLED}" \
             --build-arg "NEXT_PUBLIC_LLM_PROVIDER=${BUILD_ARG_LLM_PROVIDER}" \
             --build-arg "NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in" \
@@ -301,6 +304,7 @@ jobs:
               "CLERK_SECRET_KEY=secretref:clerk-secret-key" \
               "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}" \
               "NEXT_PUBLIC_OPTIMIZER_ENABLED=${{ secrets.NEXT_PUBLIC_OPTIMIZER_ENABLED || 'true' }}" \
+              "NEXT_PUBLIC_PRO_ENABLED=${{ secrets.NEXT_PUBLIC_PRO_ENABLED || 'false' }}" \
               "NEXT_PUBLIC_IHT_ADVANCED_ENABLED=${{ secrets.NEXT_PUBLIC_IHT_ADVANCED_ENABLED || 'false' }}" \
               "NEXT_PUBLIC_LLM_PROVIDER=azure-openai" \
               "LLM_PROVIDER=azure-openai" \
