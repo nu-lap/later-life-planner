@@ -23,8 +23,8 @@ function sampleContext(): ExplanationContext {
       },
     },
     optimizationResult: {
-      recommendedStrategy: { dcOrder: 'equal', isaMode: 'now', label: '2-Partner-1-first' },
-      baselineStrategy: { dcOrder: 'p1-first', isaMode: 'now', label: '1-LLP-Baseline' },
+      recommendedStrategy: { dcOrder: 'p1-first', isaMode: 'now', label: '2-Partner-1-first' },
+      baselineStrategy: { dcOrder: 'equal', isaMode: 'now', label: '1-LLP-Baseline' },
       lifetimeTaxSaving: 24219,
       assetDepletionAge: null,
       terminalAssets: 1913496,
