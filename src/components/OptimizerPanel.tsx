@@ -13,7 +13,6 @@ import type {
 import { explainOptimizerResult, getCachedOptimizerExplanation } from '@/lib/optimizerExplainClient';
 import { getStrategyDefinitions, getStrategyDisplayLabel } from '@/lib/strategyDefinitions';
 import type { PlannerState } from '@/models/types';
-import ProUpgradeOverlay from '@/components/ProUpgradeOverlay';
 
 interface Props {
   plannerState: PlannerState;
@@ -466,12 +465,6 @@ export default function OptimizerPanel({ plannerState, result, proEnabled, onPro
             </div>
           </>
         ) : (
-          <ProUpgradeOverlay
-            headline="Optimised strategy comparison"
-            description="See the best and runner-up withdrawal strategies for each year of your plan, with tax and net income detail."
-            ctaLabel="Tell me more about Pro →"
-            onCta={() => onProCta?.()}
-          >
             <div>
               <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
                 <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
@@ -505,23 +498,23 @@ export default function OptimizerPanel({ plannerState, result, proEnabled, onPro
 
               <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-4">
                 <h4 className="text-sm font-black uppercase tracking-wide text-slate-700">
-                  Strategy comparison by year
+                  Baseline waterfall by year (first 5 years)
                 </h4>
                 <p className="mt-1 text-xs text-slate-500">
-                  Best and runner-up options for each of your first 5 plan years.
+                  Non-Pro shows your LaterLifePlan baseline strategy for the first 5 years.
                 </p>
                 <div className="mt-4 overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b border-slate-100 text-left text-slate-500">
                         <th className="w-24 pb-2 pr-3 font-bold sm:w-32">Age</th>
-                        <th className="pb-2 pr-3 font-bold">Best</th>
-                        <th className="pb-2 pr-0 font-bold">Runner-up</th>
+                        <th className="pb-2 pr-3 font-bold">Baseline</th>
+                        <th className="pb-2 pr-0 font-bold">Alternative</th>
                       </tr>
                     </thead>
                     <tbody>
                       {rows.map((record) => {
-                        const [best, runnerUp] = record.topStrategies;
+                        const baseline = record.baseline;
                         return (
                           <tr key={record.p1Age} className="border-b border-slate-50 align-top">
                             <td className="w-24 py-3 pr-3 text-slate-700 sm:w-32">
@@ -529,16 +522,12 @@ export default function OptimizerPanel({ plannerState, result, proEnabled, onPro
                               {record.p2Age !== null ? ` / ${record.p2Age}` : ''}
                             </td>
                             <td className="py-3 pr-3">
-                              <StrategyRow label="Best" result={best ?? record.winner} accent="emerald" mode={plannerState.mode} />
+                              <StrategyRow label="Baseline" result={baseline} accent="emerald" mode={plannerState.mode} />
                             </td>
                             <td className="py-3 pr-0">
-                              {runnerUp ? (
-                                <StrategyRow label="Runner-up" result={runnerUp} accent="amber" mode={plannerState.mode} />
-                              ) : (
-                                <div className="rounded-2xl border border-slate-100 bg-white p-3 text-xs text-slate-500">
-                                  No alternative strategy for this year.
-                                </div>
-                              )}
+                              <div className="rounded-2xl border border-slate-100 bg-white p-3 text-xs text-slate-500">
+                                Upgrade to Pro to compare optimised alternatives.
+                              </div>
                             </td>
                           </tr>
                         );
@@ -548,7 +537,6 @@ export default function OptimizerPanel({ plannerState, result, proEnabled, onPro
                 </div>
               </div>
             </div>
-          </ProUpgradeOverlay>
         )}
 
         <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-4">
@@ -610,7 +598,6 @@ export default function OptimizerPanel({ plannerState, result, proEnabled, onPro
                       className={clsx(
                         'border-b border-slate-100 align-top',
                         index % 2 === 0 ? 'bg-white' : 'bg-slate-50/60',
-                        !proEnabled && index > 0 && 'blur-[2px] opacity-50 pointer-events-none select-none',
                       )}
                     >
                       <th
