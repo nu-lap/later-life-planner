@@ -1417,7 +1417,9 @@ modal receives the correct `sourcePanel` (`"optimizer-explain"` | `"goal-priorit
 Pro surfaces (AI explainer, goal priorities, IHT planning) show blurred previews with
 interest-capture CTAs. No API requests are triggered. Deterministic optimizer output
 (yearly breakdown, strategy comparison, tax summary) remains fully visible. With
-`NEXT_PUBLIC_PRO_ENABLED=true`, all Pro features are active.
+`NEXT_PUBLIC_PRO_ENABLED=true`, AI explainer and goal-priority orchestration are fully
+active. IHT estate planning shows a "Coming soon" notice until IHT-2/3/4 are built
+(tracked as future phases).
 
 
 ---
