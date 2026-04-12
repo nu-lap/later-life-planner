@@ -64,7 +64,7 @@ Recommended mapping:
   - `isaOrder: 'equal'`
 - `3-Proportional`
   - `isaOrder: 'proportional'`
-- `4-Lisa-first`
+- `4-Partner-2-first`
   - `isaOrder: 'p2-first'`
 - `5-ISA-preserve`
   - `isaOrder: 'equal'`

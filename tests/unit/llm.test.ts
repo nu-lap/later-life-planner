@@ -23,7 +23,7 @@ function sampleContext(): ExplanationContext {
       },
     },
     optimizationResult: {
-      recommendedStrategy: { dcOrder: 'proportional', isaMode: 'now', label: '3-Proportional' },
+      recommendedStrategy: { dcOrder: 'p1-first', isaMode: 'now', label: '2-Partner-1-first' },
       baselineStrategy: { dcOrder: 'equal', isaMode: 'now', label: '1-LLP-Baseline' },
       lifetimeTaxSaving: 24219,
       assetDepletionAge: null,
@@ -89,14 +89,14 @@ describe('buildPrompt', () => {
     expect(prompt).toContain('Your plan starts at ages 60 and 61.');
     expect(prompt).toContain('A State Pension in your plan is set to start at age 67.');
     expect(prompt).toContain('A defined benefit pension in your plan starts at age 65.');
-    expect(prompt).toContain('Proportional DC drawdown is being compared against LLP baseline waterfall.');
+    expect(prompt).toContain('Partner 1-first DC drawdown is being compared against LLP baseline waterfall.');
     expect(prompt).toMatch(/starting strategy/i);
     expect(prompt).toContain('Use ISA withdrawals from the start of the plan where needed.');
     expect(prompt).toContain('Treat required spending as a net cash target.');
-    expect(prompt).toContain('Proportional DC drawdown');
-    expect(prompt).toContain("Split taxable pension withdrawals in proportion to each partner\u2019s pension pot size, and split ISA withdrawals in proportion to the ISA balances.");
-    expect(prompt).toContain("Comparison strategy: LaterLifePlan's standard order is DC pension within each person's personal allowance plus 25% tax-free, then GIA within the CGT allowance, then ISA, then remaining GIA, then DC pension above the personal allowance split equally between both partners. Once ISA withdrawals are needed in a couple plan, both ISAs are used evenly as household tax-free savings");
-    expect(prompt).toContain('Recommended approach: Proportional DC drawdown.');
+    expect(prompt).toContain('Partner 1-first DC drawdown');
+    expect(prompt).toContain("Draw taxable pension withdrawals from Partner 1's pension first, and use Partner 1's ISA before Partner 2's ISA once ISA withdrawals are needed.");
+    expect(prompt).toContain("Comparison strategy: LaterLifePlan's standard order is DC pension within each person's personal allowance plus 25% tax-free, then GIA within the CGT allowance, then ISA, then remaining GIA, then DC pension above the personal allowance split equally between both partners. Once ISA withdrawals are needed in a couple plan, both ISAs are used evenly as household tax-free savings.");
+    expect(prompt).toContain('Recommended approach: Partner 1-first DC drawdown.');
     expect(prompt).toContain('The first projected year meets the spending target of £66,891 with no tax due in that year.');
     expect(prompt).toContain('Address the user as you and your.');
     expect(prompt).toContain('Do not refer to the user or the household as the couple, they, them, or their.');
@@ -116,8 +116,8 @@ describe('buildPrompt', () => {
   test('does not expose raw internal strategy codes in the explanation context', () => {
     const prompt = buildPrompt(sampleContext());
 
-    expect(prompt).not.toContain('paul-first');
-    expect(prompt).not.toContain('2-Paul-DC-First-ISA-Now');
+    expect(prompt).not.toContain('p1-first');
+    expect(prompt).not.toContain('2-Partner-1-DC-First-ISA-Now');
     expect(prompt).not.toContain('1-LLP-Baseline');
     expect(prompt).not.toContain('rUK');
   });

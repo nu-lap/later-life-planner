@@ -1,6 +1,6 @@
 import type { TaxJurisdiction, YearlyProjection } from '@/models/types';
 
-export type DCOrder = 'paul-first' | 'equal' | 'proportional' | 'lisa-first';
+export type DCOrder = 'p1-first' | 'equal' | 'proportional' | 'p2-first';
 export type ISAMode = 'now' | 'defer';
 export type ISAOrder = 'p1-first' | 'p2-first' | 'equal' | 'proportional';
 

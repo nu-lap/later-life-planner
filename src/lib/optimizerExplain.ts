@@ -101,7 +101,7 @@ export interface HmrcChunk {
   taxYear?: string;
 }
 
-const WATERFALL_DC_ORDER_VALUES = ['paul-first', 'equal', 'proportional', 'lisa-first'] as const;
+const WATERFALL_DC_ORDER_VALUES = ['p1-first', 'equal', 'proportional', 'p2-first'] as const;
 const WATERFALL_ISA_MODE_VALUES = ['now', 'defer'] as const;
 
 const waterfallConfigSchema = z.object({
