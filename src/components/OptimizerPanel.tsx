@@ -601,6 +601,7 @@ export default function OptimizerPanel({ plannerState, result, proEnabled, onPro
                       className={clsx(
                         'border-b border-slate-100 align-top',
                         index % 2 === 0 ? 'bg-white' : 'bg-slate-50/60',
+                        !proEnabled && index > 0 && 'blur-[2px] opacity-50 pointer-events-none select-none',
                       )}
                     >
                       <th

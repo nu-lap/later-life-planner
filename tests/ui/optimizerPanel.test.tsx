@@ -504,7 +504,16 @@ describe('OptimizerPanel — Pro gating (proEnabled=false)', () => {
     const result = optimizeWithdrawals(plannerState);
 
     render(<OptimizerPanel plannerState={plannerState} result={result} proEnabled={false} />);
-    expect(screen.getByTestId('optimizer-drawdown-breakdown-table')).toBeInTheDocument();
+    const table = screen.getByTestId('optimizer-drawdown-breakdown-table');
+    expect(table).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '▼ Show breakdown' })).not.toBeInTheDocument();
+
+    const bodyRows = table.querySelectorAll('tbody tr');
+    expect(bodyRows.length).toBe(5);
+    expect(bodyRows[0]?.className).not.toContain('blur-[2px]');
+    expect(bodyRows[1]?.className).toContain('blur-[2px]');
+    expect(bodyRows[2]?.className).toContain('blur-[2px]');
+    expect(bodyRows[3]?.className).toContain('blur-[2px]');
+    expect(bodyRows[4]?.className).toContain('blur-[2px]');
   });
 });
