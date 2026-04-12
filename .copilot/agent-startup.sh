@@ -37,4 +37,4 @@ elif [ -f "$setup_script" ]; then
 fi
 
 # End of script
-exit 0
+return 0 2>/dev/null || exit 0
