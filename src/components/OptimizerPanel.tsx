@@ -503,6 +503,9 @@ export default function OptimizerPanel({ plannerState, result, proEnabled, onPro
                 <p className="mt-1 text-xs text-slate-500">
                   Non-Pro shows your LaterLifePlan baseline strategy for the first 5 years.
                 </p>
+                <p className="mt-1 text-xs font-semibold text-slate-700">
+                  Same strategy as the <span className="font-black">Simplified tax-efficient withdrawal strategy</span> panel above.
+                </p>
                 <div className="mt-4 overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
