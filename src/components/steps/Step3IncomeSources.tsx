@@ -183,7 +183,7 @@ function IncomeSection({ currentAge, fiAge, lifeExpectancy, src, assets, set }: 
         </SourceCard>
 
         <SourceCard icon="📜" title="Annuity"
-          desc="Purchased annuity — guaranteed income for life (fixed-term annuities coming soon)"
+          desc="Purchased annuity — inflation-linked guaranteed income for life (level/fixed annuity coming soon)"
           enabled={annuity.enabled} onToggle={(v) => set('annuity', { enabled: v })}
         >
           <FieldRow label="Annual income">
@@ -193,7 +193,7 @@ function IncomeSection({ currentAge, fiAge, lifeExpectancy, src, assets, set }: 
             <AgeStepper value={annuity.startAge} onChange={(v) => set('annuity', { startAge: v })} min={55} max={85} />
           </FieldRow>
           <div className="py-2 text-xs text-sky-700 bg-sky-50 rounded-xl px-3">
-            Annuity income is taxable — modelled alongside DB pension and State Pension.
+            Annuity income is taxable and modelled as inflation-linked alongside DB pension and State Pension. Level (fixed) annuity support is coming soon.
           </div>
         </SourceCard>
 
