@@ -56,9 +56,9 @@ interface OptimizerOptions {
 
 export const OPTIMIZER_CANDIDATES: WaterfallConfig[] = [
   { label: '1-LLP-Baseline', dcOrder: 'equal', isaMode: 'now', isaOrder: 'equal' },
-  { label: '2-Paul-first', dcOrder: 'paul-first', isaMode: 'now', isaOrder: 'p1-first' },
+  { label: '2-Partner-1-first', dcOrder: 'p1-first', isaMode: 'now', isaOrder: 'p1-first' },
   { label: '3-Proportional', dcOrder: 'proportional', isaMode: 'now', isaOrder: 'proportional' },
-  { label: '4-Lisa-first', dcOrder: 'lisa-first', isaMode: 'now', isaOrder: 'p2-first' },
+  { label: '4-Partner-2-first', dcOrder: 'p2-first', isaMode: 'now', isaOrder: 'p2-first' },
   { label: '5-ISA-preserve', dcOrder: 'equal', isaMode: 'defer', isaOrder: 'equal' },
 ];
 
@@ -205,11 +205,11 @@ function allocateDcWithinAllowance(
   if (remaining <= 0) return { p1, p2 };
 
   switch (order) {
-    case 'paul-first':
+    case 'p1-first':
       p1 = Math.min(p1Cap, p1Available, remaining);
       p2 = Math.min(p2Cap, p2Available, Math.max(0, remaining - p1));
       return { p1, p2 };
-    case 'lisa-first':
+    case 'p2-first':
       p2 = Math.min(p2Cap, p2Available, remaining);
       p1 = Math.min(p1Cap, p1Available, Math.max(0, remaining - p2));
       return { p1, p2 };
@@ -420,13 +420,13 @@ function getEffectiveIsaOrder(strategy: WaterfallConfig, mode: PlannerState['mod
   }
 
   switch (strategy.dcOrder) {
-    case 'lisa-first':
+    case 'p2-first':
       return 'p2-first';
     case 'equal':
       return 'equal';
     case 'proportional':
       return 'proportional';
-    case 'paul-first':
+    case 'p1-first':
     default:
       return 'p1-first';
   }

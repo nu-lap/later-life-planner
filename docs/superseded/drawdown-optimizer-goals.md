@@ -314,7 +314,7 @@ Goals are registered, not hardcoded. Each goal has:
 
 ### 2. Parameterised withdrawal policy
 The optimizer searches over policy parameters, not individual year-by-year draws. Policy parameters include:
-- DC split mode per life stage (paul-first / equal / proportional / lisa-first)
+- DC split mode per life stage (p1-first / equal / proportional / p2-first)
 - GIA harvest target (opportunistic / proactive / none)
 - ISA timing (now / defer)
 - Care reserve protection level

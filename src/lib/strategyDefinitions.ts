@@ -17,18 +17,14 @@ export function getBaselineWaterfallDescription(mode: StrategyPlanMode): string 
 }
 
 export function getStrategyDisplayLabel(mode: StrategyPlanMode, rawLabel: string): string {
-  if (rawLabel.includes('Paul-DC-First')) {
-    return mode === 'single' ? 'Even DC drawdown' : 'Partner 1-first DC drawdown';
-  }
-
   switch (rawLabel) {
     case '1-LLP-Baseline':
       return 'LLP baseline waterfall';
-    case '2-Paul-first':
+    case '2-Partner-1-first':
       return mode === 'single' ? 'Even DC drawdown' : 'Partner 1-first DC drawdown';
     case '3-Proportional':
       return 'Proportional DC drawdown';
-    case '4-Lisa-first':
+    case '4-Partner-2-first':
       return mode === 'single' ? 'Alternative DC drawdown' : 'Partner 2-first DC drawdown';
     case '5-ISA-preserve':
       return 'ISA-preserve';

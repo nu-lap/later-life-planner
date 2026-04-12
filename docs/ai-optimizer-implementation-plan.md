@@ -115,7 +115,7 @@ deterministic, browser-safe function. Replace all hardcoded HMRC constants with
 File: `src/financialEngine/types.ts` (new)
 
 ```typescript
-export type DCOrder = 'paul-first' | 'equal' | 'proportional' | 'lisa-first';
+export type DCOrder = 'p1-first' | 'equal' | 'proportional' | 'p2-first';
 export type ISAMode = 'now' | 'defer';
 
 export interface WaterfallConfig {
@@ -188,7 +188,7 @@ export function optimizeWithdrawals(
 ): OptimizationResult
 ```
 
-- Evaluates 5 candidates per year: LaterLifePlan-Baseline, Couple-equal, Proportional, Lisa-first, ISA-preserve
+- Evaluates 5 candidates per year: LaterLifePlan-Baseline, Couple-equal, Proportional, Partner-2-first, ISA-preserve
 - Returns the lowest-tax feasible strategy for each year
 - Records `ruleProvenance: RuleProvenance[]` from the snapshot for each rule consumed
 
@@ -200,7 +200,7 @@ Coverage required:
 - Waterfall ordering (UFPLS within PA before GIA, GIA before ISA)
 - CGT harvest up to exempt amount per person
 - UFPLS 25%/75% split and LSA tracking
-- Couple-equal vs lisa-first tax comparison
+- Couple-equal vs partner-2-first tax comparison
 - ISA-preserve candidate defers ISA correctly
 - Output matches known values from `scripts/combined-strategy.ts` runs
 
@@ -1055,7 +1055,7 @@ Required changes:
   - `LLP baseline waterfall` → equal ISA usage for couple plans, because the baseline is the household tax-minimising LaterLifePlan waterfall
   - `Couple-equal` → equal ISA usage where ISA withdrawals are needed
   - `Proportional` → ISA usage proportional to current ISA balances
-  - `Partner 2-first` / `Lisa-first` → partner 2 ISA first
+  - `Partner 2-first` / `Partner-2-first` → partner 2 ISA first
   - `ISA-preserve` → defer ISA usage, then use the configured ISA order once needed
 
 ### 11.3 Add a tax-dominance rule for minimise-tax behaviour

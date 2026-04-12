@@ -23,8 +23,8 @@ function sampleContext(): ExplanationContext {
       },
     },
     optimizationResult: {
-      recommendedStrategy: { dcOrder: 'equal', isaMode: 'now', label: '2-Paul-first' },
-      baselineStrategy: { dcOrder: 'paul-first', isaMode: 'now', label: '1-LLP-Baseline' },
+      recommendedStrategy: { dcOrder: 'equal', isaMode: 'now', label: '2-Partner-1-first' },
+      baselineStrategy: { dcOrder: 'p1-first', isaMode: 'now', label: '1-LLP-Baseline' },
       lifetimeTaxSaving: 24219,
       assetDepletionAge: null,
       terminalAssets: 1913496,
@@ -116,8 +116,8 @@ describe('buildPrompt', () => {
   test('does not expose raw internal strategy codes in the explanation context', () => {
     const prompt = buildPrompt(sampleContext());
 
-    expect(prompt).not.toContain('paul-first');
-    expect(prompt).not.toContain('2-Paul-DC-First-ISA-Now');
+    expect(prompt).not.toContain('p1-first');
+    expect(prompt).not.toContain('2-Partner-1-DC-First-ISA-Now');
     expect(prompt).not.toContain('1-LLP-Baseline');
     expect(prompt).not.toContain('rUK');
   });

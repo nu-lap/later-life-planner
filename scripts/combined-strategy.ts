@@ -19,7 +19,7 @@
  *   1. LLP-Baseline    Paul fills PA from DC first, then Lisa
  *   2. Couple-equal    Both draw equal gross DC within their PA
  *   3. Proportional    DC draw split proportional to respective pot sizes
- *   4. Lisa-first      Lisa fills PA from DC first, then Paul
+ *   4. Partner-2-first      Partner 2 fills PA from DC first, then Partner 1
  *   5. ISA-preserve    Equal DC, but defer ISA → use DC above PA instead
  *
  * HMRC values in this proof-of-concept script were previously verified against
@@ -177,7 +177,7 @@ function dcToFillPA(fixedIncome: number): number {
 
 // ─── Waterfall function ───────────────────────────────────────────────────────
 
-type DCOrder  = 'paul-first' | 'equal' | 'proportional' | 'lisa-first';
+type DCOrder  = 'p1-first' | 'equal' | 'proportional' | 'p2-first';
 type ISAMode  = 'now' | 'defer';
 
 interface WaterfallConfig {
@@ -227,14 +227,14 @@ function runWaterfall(
   // ── Step 1: DC within Personal Allowance ──────────────────────────────────
   if (remaining > 0 && (bal.paulDC > 0 || bal.lisaDC > 0)) {
     switch (cfg.dcOrder) {
-      case 'paul-first': {
+      case 'p1-first': {
         paulDC = Math.min(paulPADC, bal.paulDC, remaining);
         remaining -= paulDC;
         lisaDC = Math.min(lisaPADC, bal.lisaDC, remaining);
         remaining -= lisaDC;
         break;
       }
-      case 'lisa-first': {
+      case 'p2-first': {
         lisaDC = Math.min(lisaPADC, bal.lisaDC, remaining);
         remaining -= lisaDC;
         paulDC = Math.min(paulPADC, bal.paulDC, remaining);
@@ -312,12 +312,12 @@ function runWaterfall(
     const paulDCAvail = Math.max(0, bal.paulDC - paulDC);
     const lisaDCAvail = Math.max(0, bal.lisaDC - lisaDC);
     switch (cfg.dcOrder) {
-      case 'paul-first': {
+      case 'p1-first': {
         paulDCAbove = Math.min(paulDCAvail, remaining);  remaining -= paulDCAbove;
         lisaDCAbove = Math.min(lisaDCAvail, remaining);  remaining -= lisaDCAbove;
         break;
       }
-      case 'lisa-first': {
+      case 'p2-first': {
         lisaDCAbove = Math.min(lisaDCAvail, remaining);  remaining -= lisaDCAbove;
         paulDCAbove = Math.min(paulDCAvail, remaining);  remaining -= paulDCAbove;
         break;
@@ -399,9 +399,9 @@ function runWaterfall(
 
 const CANDIDATES: WaterfallConfig[] = [
   { label: '1-LLP-Baseline',  dcOrder: 'equal',         isaMode: 'now'   },
-  { label: '2-Paul-first',    dcOrder: 'paul-first',    isaMode: 'now'   },
+  { label: '2-Partner-1-first',    dcOrder: 'p1-first',    isaMode: 'now'   },
   { label: '3-Proportional',  dcOrder: 'proportional',  isaMode: 'now'   },
-  { label: '4-Lisa-first',    dcOrder: 'lisa-first',    isaMode: 'now'   },
+  { label: '4-Partner-2-first',    dcOrder: 'p2-first',    isaMode: 'now'   },
   { label: '5-ISA-preserve',  dcOrder: 'equal',         isaMode: 'defer' },
 ];
 
@@ -616,9 +616,9 @@ console.log(`  No-Go (81-95) ${ci(optStage.noGo)}    ${ci(baseStage.noGo)}   ${c
 
 console.log('\n  Candidate key:');
 console.log('  1-LLP-Baseline   Both draw equal gross DC above the personal allowance (LLP waterfall)');
-console.log('  2-Paul-first     Paul fills PA from DC first, then Lisa');
+console.log('  2-Partner-1-first     Partner 1 fills PA from DC first, then Partner 2');
 console.log('  3-Proportional   DC draw split proportional to respective pot sizes');
-console.log('  4-Lisa-first     Lisa fills PA from DC first, then Paul');
+console.log('  4-Partner-2-first     Partner 2 fills PA from DC first, then Partner 1');
 console.log('  5-ISA-preserve   Equal DC split; DC above PA instead of ISA (defer ISA wrapper)');
 
 console.log('\n  HMRC citations:');

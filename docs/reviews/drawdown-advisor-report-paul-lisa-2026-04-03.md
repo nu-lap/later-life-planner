@@ -130,7 +130,7 @@ From **April 2027**, uncrystallised pension funds (your DC pots) will be **broug
 | LaterLifePlan-Baseline | 24 | Paul fills PA from DC first, then Lisa (LaterLifePlan waterfall default) |
 | Couple-equal | 10 | Both draw equal gross DC within their respective PAs |
 | Proportional | 1 | DC draw split proportional to respective pot sizes |
-| Lisa-first | 0 | Lisa fills PA from DC first, then Paul |
+| Partner-2-first | 0 | Partner 2 fills PA from DC first, then Partner 1 |
 | ISA-preserve | 0 | Equal DC split; DC above PA instead of ISA |
 
 ### Tax by life stage
