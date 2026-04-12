@@ -1181,6 +1181,11 @@ export default function Step4Dashboard({ onBack }: Props) {
         <AssetChart projections={chartProjections} />
       </div>
 
+      {/* In non-Pro optimizer mode, keep the simplified baseline withdrawal guide visible above optimizer details */}
+      {optimizerEnabled && !proEnabled && (
+        <TaxOverview projections={displayProjections} />
+      )}
+
       {optimizerEnabled && optimizerResult && (
         <OptimizerPanel plannerState={deferredState} result={optimizerResult} proEnabled={proEnabled} onProCta={() => setProModalSource('optimizer-explain')} />
       )}
