@@ -14,12 +14,12 @@ import { explainOptimizerResult, getCachedOptimizerExplanation } from '@/lib/opt
 import { getStrategyDefinitions, getStrategyDisplayLabel } from '@/lib/strategyDefinitions';
 import type { PlannerState } from '@/models/types';
 import ProUpgradeOverlay from '@/components/ProUpgradeOverlay';
-import ProInterestModal from '@/components/ProInterestModal';
 
 interface Props {
   plannerState: PlannerState;
   result: OptimizationResult;
   proEnabled: boolean;
+  onProCta?: () => void;
 }
 
 function StrategyRow({
@@ -240,7 +240,7 @@ function formatExplanationBlocks(text: string): ExplanationBlock[] {
   return blocks;
 }
 
-export default function OptimizerPanel({ plannerState, result, proEnabled }: Props) {
+export default function OptimizerPanel({ plannerState, result, proEnabled, onProCta }: Props) {
   const [showAll, setShowAll] = useState(false);
   const [showStrategyComparison, setShowStrategyComparison] = useState(true);
   const [showAllStrategyDefinitions, setShowAllStrategyDefinitions] = useState(false);
@@ -251,10 +251,9 @@ export default function OptimizerPanel({ plannerState, result, proEnabled }: Pro
   const [isLoadingCachedExplanation, setIsLoadingCachedExplanation] = useState(false);
   const [explanation, setExplanation] = useState<string | null>(null);
   const [explainError, setExplainError] = useState<string | null>(null);
-  const [proModalOpen, setProModalOpen] = useState(false);
   const rows = useMemo(
-    () => (showAll ? result.yearRecords : result.yearRecords.slice(0, 5)),
-    [result.yearRecords, showAll],
+    () => (proEnabled && showAll ? result.yearRecords : result.yearRecords.slice(0, 5)),
+    [result.yearRecords, showAll, proEnabled],
   );
   const isCouple = plannerState.mode === 'couple';
   const person1Label = plannerState.person1.name || (isCouple ? 'Partner 1' : 'You');
@@ -332,32 +331,17 @@ export default function OptimizerPanel({ plannerState, result, proEnabled }: Pro
             </p>
           </div>
           <div className="flex flex-col gap-2 sm:items-end">
-            {proEnabled ? (
-              <button
-                type="button"
-                onClick={() => void openDialog()}
-                className="btn-secondary py-2 text-sm"
-              >
-                Explain this recommendation
-              </button>
-            ) : (
-              <ProUpgradeOverlay
-                headline="AI tax explanation"
-                description="Understand exactly why this strategy saves you tax — powered by AI."
-                onCta={() => setProModalOpen(true)}
-              >
-                <button
-                  type="button"
-                  className="btn-secondary py-2 text-sm"
-                  tabIndex={-1}
-                >
-                  Explain this recommendation
-                </button>
-              </ProUpgradeOverlay>
-            )}
+            <button
+              type="button"
+              onClick={proEnabled ? () => void openDialog() : () => onProCta?.()}
+              className="btn-secondary py-2 text-sm"
+            >
+              Explain this recommendation
+            </button>
           </div>
         </div>
 
+        {proEnabled && (
         <div className="mt-3 w-full rounded-2xl border border-blue-100 bg-blue-50 p-4">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0 flex-1">
@@ -386,97 +370,186 @@ export default function OptimizerPanel({ plannerState, result, proEnabled }: Pro
             ))}
           </div>
         </div>
+        )}
 
-        <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
-            <p className="text-xs font-bold text-emerald-700">Tax impact vs standard approach</p>
-            <p className="mt-1 text-2xl font-black text-emerald-900">
-              {formatCurrency(result.lifetimeTaxSaving, true)}
-            </p>
-            <p className="mt-1 text-xs text-emerald-700">
-              Optimized tax: {formatCurrency(result.lifetimeTaxPaid, true)} · standard: {formatCurrency(result.baselineLifetimeTaxPaid, true)}
-            </p>
-          </div>
-          <div className="rounded-2xl border border-sky-100 bg-sky-50 p-4">
-            <p className="text-xs font-bold text-sky-700">Plan durability vs standard approach</p>
-            <p className="mt-1 text-2xl font-black text-sky-900">
-              {formatDurabilityHeadline(result.assetDepletionAge, result.baselineAssetDepletionAge)}
-            </p>
-            <p className="mt-1 text-xs text-sky-700">
-              {formatDurabilityDetail(result.assetDepletionAge, result.baselineAssetDepletionAge)}
-            </p>
-          </div>
-          <div className="rounded-2xl border border-violet-100 bg-violet-50 p-4">
-            <p className="text-xs font-bold text-violet-700">End-of-plan assets vs standard approach</p>
-            <p className="mt-1 text-2xl font-black text-violet-900">
-              {formatSignedCurrency(terminalAssetDelta)}
-            </p>
-            <p className="mt-1 text-xs text-violet-700">
-              Optimized: {formatCurrency(result.terminalAssets, true)} · standard: {formatCurrency(baselineTerminalAssets, true)}
-            </p>
-          </div>
-        </div>
-
-        <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h4 className="text-sm font-black uppercase tracking-wide text-slate-700">
-                Strategy comparison by year
-              </h4>
-              <p className="mt-1 text-xs text-slate-500">
-                Secondary detail showing the best and runner-up options for each year. Showing {shownYearCount} of {result.yearRecords.length} years.
-              </p>
+        {proEnabled ? (
+          <>
+            <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
+                <p className="text-xs font-bold text-emerald-700">Tax impact vs standard approach</p>
+                <p className="mt-1 text-2xl font-black text-emerald-900">
+                  {formatCurrency(result.lifetimeTaxSaving, true)}
+                </p>
+                <p className="mt-1 text-xs text-emerald-700">
+                  Optimized tax: {formatCurrency(result.lifetimeTaxPaid, true)} · standard: {formatCurrency(result.baselineLifetimeTaxPaid, true)}
+                </p>
+              </div>
+              <div className="rounded-2xl border border-sky-100 bg-sky-50 p-4">
+                <p className="text-xs font-bold text-sky-700">Plan durability vs standard approach</p>
+                <p className="mt-1 text-2xl font-black text-sky-900">
+                  {formatDurabilityHeadline(result.assetDepletionAge, result.baselineAssetDepletionAge)}
+                </p>
+                <p className="mt-1 text-xs text-sky-700">
+                  {formatDurabilityDetail(result.assetDepletionAge, result.baselineAssetDepletionAge)}
+                </p>
+              </div>
+              <div className="rounded-2xl border border-violet-100 bg-violet-50 p-4">
+                <p className="text-xs font-bold text-violet-700">End-of-plan assets vs standard approach</p>
+                <p className="mt-1 text-2xl font-black text-violet-900">
+                  {formatSignedCurrency(terminalAssetDelta)}
+                </p>
+                <p className="mt-1 text-xs text-violet-700">
+                  Optimized: {formatCurrency(result.terminalAssets, true)} · standard: {formatCurrency(baselineTerminalAssets, true)}
+                </p>
+              </div>
             </div>
-            <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-              <button
-                type="button"
-                onClick={() => setShowStrategyComparison((current) => !current)}
-                className="text-sm font-semibold text-orange-600 hover:text-orange-700"
-              >
-                {showStrategyComparison ? '▲ Hide comparison' : '▼ Show comparison'}
-              </button>
-            </div>
-          </div>
 
-          {showStrategyComparison ? (
-            <div className="mt-4 overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-slate-100 text-left text-slate-500">
-                    <th className="w-24 pb-2 pr-3 font-bold sm:w-32">Age</th>
-                    <th className="pb-2 pr-3 font-bold">Best</th>
-                    <th className="pb-2 pr-0 font-bold">Runner-up</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((record) => {
-                    const [best, runnerUp] = record.topStrategies;
-                    return (
-                      <tr key={record.p1Age} className="border-b border-slate-50 align-top">
-                        <td className="w-24 py-3 pr-3 text-slate-700 sm:w-32">
-                          {record.p1Age}
-                          {record.p2Age !== null ? ` / ${record.p2Age}` : ''}
-                        </td>
-                        <td className="py-3 pr-3">
-                          <StrategyRow label="Best" result={best ?? record.winner} accent="emerald" mode={plannerState.mode} />
-                        </td>
-                        <td className="py-3 pr-0">
-                          {runnerUp ? (
-                            <StrategyRow label="Runner-up" result={runnerUp} accent="amber" mode={plannerState.mode} />
-                          ) : (
-                            <div className="rounded-2xl border border-slate-100 bg-white p-3 text-xs text-slate-500">
-                              No alternative strategy for this year.
-                            </div>
-                          )}
-                        </td>
+            <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h4 className="text-sm font-black uppercase tracking-wide text-slate-700">
+                    Strategy comparison by year
+                  </h4>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Secondary detail showing the best and runner-up options for each year. Showing {shownYearCount} of {result.yearRecords.length} years.
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setShowStrategyComparison((current) => !current)}
+                    className="text-sm font-semibold text-orange-600 hover:text-orange-700"
+                  >
+                    {showStrategyComparison ? '▲ Hide comparison' : '▼ Show comparison'}
+                  </button>
+                </div>
+              </div>
+
+              {showStrategyComparison ? (
+                <div className="mt-4 overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-slate-100 text-left text-slate-500">
+                        <th className="w-24 pb-2 pr-3 font-bold sm:w-32">Age</th>
+                        <th className="pb-2 pr-3 font-bold">Best</th>
+                        <th className="pb-2 pr-0 font-bold">Runner-up</th>
                       </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                    </thead>
+                    <tbody>
+                      {rows.map((record) => {
+                        const [best, runnerUp] = record.topStrategies;
+                        return (
+                          <tr key={record.p1Age} className="border-b border-slate-50 align-top">
+                            <td className="w-24 py-3 pr-3 text-slate-700 sm:w-32">
+                              {record.p1Age}
+                              {record.p2Age !== null ? ` / ${record.p2Age}` : ''}
+                            </td>
+                            <td className="py-3 pr-3">
+                              <StrategyRow label="Best" result={best ?? record.winner} accent="emerald" mode={plannerState.mode} />
+                            </td>
+                            <td className="py-3 pr-0">
+                              {runnerUp ? (
+                                <StrategyRow label="Runner-up" result={runnerUp} accent="amber" mode={plannerState.mode} />
+                              ) : (
+                                <div className="rounded-2xl border border-slate-100 bg-white p-3 text-xs text-slate-500">
+                                  No alternative strategy for this year.
+                                </div>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              ) : null}
             </div>
-          ) : null}
-        </div>
+          </>
+        ) : (
+          <ProUpgradeOverlay
+            headline="Optimised strategy comparison"
+            description="See the best and runner-up withdrawal strategies for each year of your plan, with tax and net income detail."
+            ctaLabel="Tell me more about Pro →"
+            onCta={() => onProCta?.()}
+          >
+            <div>
+              <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+                <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
+                  <p className="text-xs font-bold text-emerald-700">Tax impact vs standard approach</p>
+                  <p className="mt-1 text-2xl font-black text-emerald-900">
+                    {formatCurrency(result.lifetimeTaxSaving, true)}
+                  </p>
+                  <p className="mt-1 text-xs text-emerald-700">
+                    Optimized tax: {formatCurrency(result.lifetimeTaxPaid, true)} · standard: {formatCurrency(result.baselineLifetimeTaxPaid, true)}
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-sky-100 bg-sky-50 p-4">
+                  <p className="text-xs font-bold text-sky-700">Plan durability vs standard approach</p>
+                  <p className="mt-1 text-2xl font-black text-sky-900">
+                    {formatDurabilityHeadline(result.assetDepletionAge, result.baselineAssetDepletionAge)}
+                  </p>
+                  <p className="mt-1 text-xs text-sky-700">
+                    {formatDurabilityDetail(result.assetDepletionAge, result.baselineAssetDepletionAge)}
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-violet-100 bg-violet-50 p-4">
+                  <p className="text-xs font-bold text-violet-700">End-of-plan assets vs standard approach</p>
+                  <p className="mt-1 text-2xl font-black text-violet-900">
+                    {formatSignedCurrency(terminalAssetDelta)}
+                  </p>
+                  <p className="mt-1 text-xs text-violet-700">
+                    Optimized: {formatCurrency(result.terminalAssets, true)} · standard: {formatCurrency(baselineTerminalAssets, true)}
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <h4 className="text-sm font-black uppercase tracking-wide text-slate-700">
+                  Strategy comparison by year
+                </h4>
+                <p className="mt-1 text-xs text-slate-500">
+                  Best and runner-up options for each of your first 5 plan years.
+                </p>
+                <div className="mt-4 overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-slate-100 text-left text-slate-500">
+                        <th className="w-24 pb-2 pr-3 font-bold sm:w-32">Age</th>
+                        <th className="pb-2 pr-3 font-bold">Best</th>
+                        <th className="pb-2 pr-0 font-bold">Runner-up</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {rows.map((record) => {
+                        const [best, runnerUp] = record.topStrategies;
+                        return (
+                          <tr key={record.p1Age} className="border-b border-slate-50 align-top">
+                            <td className="w-24 py-3 pr-3 text-slate-700 sm:w-32">
+                              {record.p1Age}
+                              {record.p2Age !== null ? ` / ${record.p2Age}` : ''}
+                            </td>
+                            <td className="py-3 pr-3">
+                              <StrategyRow label="Best" result={best ?? record.winner} accent="emerald" mode={plannerState.mode} />
+                            </td>
+                            <td className="py-3 pr-0">
+                              {runnerUp ? (
+                                <StrategyRow label="Runner-up" result={runnerUp} accent="amber" mode={plannerState.mode} />
+                              ) : (
+                                <div className="rounded-2xl border border-slate-100 bg-white p-3 text-xs text-slate-500">
+                                  No alternative strategy for this year.
+                                </div>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </ProUpgradeOverlay>
+        )}
 
         <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-4">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
@@ -492,19 +565,21 @@ export default function OptimizerPanel({ plannerState, result, proEnabled }: Pro
               <p className="text-xs text-slate-500">
                 Showing {shownYearCount} of {result.yearRecords.length} years
               </p>
-              <button
-                type="button"
-                onClick={() => setShowDrawdownBreakdown((current) => !current)}
-                className="text-sm font-semibold text-orange-600 hover:text-orange-700"
-                aria-expanded={showDrawdownBreakdown}
-                aria-controls="drawdown-breakdown-panel"
-              >
-                {showDrawdownBreakdown ? '▲ Hide breakdown' : '▼ Show breakdown'}
-              </button>
+              {proEnabled && (
+                <button
+                  type="button"
+                  onClick={() => setShowDrawdownBreakdown((current) => !current)}
+                  className="text-sm font-semibold text-orange-600 hover:text-orange-700"
+                  aria-expanded={showDrawdownBreakdown}
+                  aria-controls="drawdown-breakdown-panel"
+                >
+                  {showDrawdownBreakdown ? '▲ Hide breakdown' : '▼ Show breakdown'}
+                </button>
+              )}
             </div>
           </div>
 
-          {showDrawdownBreakdown ? (
+          {(!proEnabled || showDrawdownBreakdown) ? (
             <div id="drawdown-breakdown-panel" className="mt-4 max-h-[36rem] overflow-auto rounded-2xl border border-slate-200 bg-white shadow-sm" data-testid="optimizer-drawdown-breakdown-table">
               <table className="min-w-full text-xs">
                 <thead>
@@ -527,12 +602,15 @@ export default function OptimizerPanel({ plannerState, result, proEnabled }: Pro
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map((record, index) => (
+                  {rows.map((record, index) => {
+                    const bd = proEnabled ? record.drawdownBreakdown : record.baseline.breakdown;
+                    return (
                     <tr
                       key={`breakdown-${record.p1Age}-${record.yearIndex}`}
                       className={clsx(
                         'border-b border-slate-100 align-top',
                         index % 2 === 0 ? 'bg-white' : 'bg-slate-50/60',
+                        !proEnabled && index > 0 && 'blur-[2px] opacity-50 pointer-events-none select-none',
                       )}
                     >
                       <th
@@ -546,51 +624,52 @@ export default function OptimizerPanel({ plannerState, result, proEnabled }: Pro
                         {record.p2Age !== null ? ` / ${record.p2Age}` : ''}
                       </th>
                       <td className="px-3 py-3 text-slate-600">
-                        <PensionBreakdownCell breakdown={record.drawdownBreakdown.person1.pension} />
+                        <PensionBreakdownCell breakdown={bd.person1.pension} />
                       </td>
                       <td className="px-3 py-3 text-slate-600">
-                        <TaxFreeBreakdownCell breakdown={record.drawdownBreakdown.person1.isa} />
+                        <TaxFreeBreakdownCell breakdown={bd.person1.isa} />
                       </td>
                       <td className="px-3 py-3 text-slate-600">
-                        <TaxableBreakdownCell breakdown={record.drawdownBreakdown.person1.gia} taxableLabel="Taxable gain" />
+                        <TaxableBreakdownCell breakdown={bd.person1.gia} taxableLabel="Taxable gain" />
                       </td>
                       <td className="px-3 py-3 text-slate-600">
-                        <TaxFreeBreakdownCell breakdown={record.drawdownBreakdown.person1.cash} />
+                        <TaxFreeBreakdownCell breakdown={bd.person1.cash} />
                       </td>
                       {isCouple ? (
                         <td className="px-3 py-3 text-slate-600">
-                          <PensionBreakdownCell breakdown={record.drawdownBreakdown.person2?.pension} />
+                          <PensionBreakdownCell breakdown={bd.person2?.pension} />
                         </td>
                       ) : null}
                       {isCouple ? (
                         <td className="px-3 py-3 text-slate-600">
-                          <TaxFreeBreakdownCell breakdown={record.drawdownBreakdown.person2?.isa} />
+                          <TaxFreeBreakdownCell breakdown={bd.person2?.isa} />
                         </td>
                       ) : null}
                       {isCouple ? (
                         <td className="px-3 py-3 text-slate-600">
-                          <TaxableBreakdownCell breakdown={record.drawdownBreakdown.person2?.gia} taxableLabel="Taxable gain" />
+                          <TaxableBreakdownCell breakdown={bd.person2?.gia} taxableLabel="Taxable gain" />
                         </td>
                       ) : null}
                       {isCouple ? (
                         <td className="px-3 py-3 text-slate-600">
-                          <TaxFreeBreakdownCell breakdown={record.drawdownBreakdown.person2?.cash} />
+                          <TaxFreeBreakdownCell breakdown={bd.person2?.cash} />
                         </td>
                       ) : null}
                       {isCouple ? (
                         <td className="px-3 py-3 text-slate-600">
-                          <TaxableBreakdownCell breakdown={record.drawdownBreakdown.joint?.gia} taxableLabel="Taxable gain" />
+                          <TaxableBreakdownCell breakdown={bd.joint?.gia} taxableLabel="Taxable gain" />
                         </td>
                       ) : null}
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
           ) : null}
         </div>
 
-        {result.yearRecords.length > 5 && (
+        {proEnabled && result.yearRecords.length > 5 && (
           <button
             type="button"
             onClick={() => setShowAll((current) => !current)}
@@ -736,7 +815,6 @@ export default function OptimizerPanel({ plannerState, result, proEnabled }: Pro
           </div>
         </div>
       ) : null}
-      <ProInterestModal open={proModalOpen} sourcePanel="optimizer-explain" onClose={() => setProModalOpen(false)} />
     </>
   );
 }
