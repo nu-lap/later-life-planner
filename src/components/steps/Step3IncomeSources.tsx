@@ -127,7 +127,7 @@ function SourceCard({ icon, title, desc, enabled, onToggle, children }: {
 
 function PriorityGroup({ number, title, subtitle, badge, badgeClass, children }: {
   number: number; title: string; subtitle: string;
-  badge: string; badgeClass: string; children: React.ReactNode;
+  badge?: string; badgeClass?: string; children: React.ReactNode;
 }) {
   return (
     <div className="game-card">
@@ -138,7 +138,11 @@ function PriorityGroup({ number, title, subtitle, badge, badgeClass, children }:
         <div className="flex-1 min-w-0">
           <div className="flex flex-wrap items-center gap-2 mb-0.5">
             <span className="font-black text-slate-800">{title}</span>
-            <span className={clsx('text-xs font-bold px-2.5 py-0.5 rounded-full', badgeClass)}>{badge}</span>
+            {badge && (
+              <span className={clsx('text-xs font-bold px-2.5 py-0.5 rounded-full', badgeClass)}>
+                {badge}
+              </span>
+            )}
           </div>
           <p className="text-xs text-slate-400">{subtitle}</p>
         </div>
@@ -165,7 +169,6 @@ function IncomeSection({ currentAge, fiAge, lifeExpectancy, src, assets, set }: 
     <div className="space-y-4">
       <PriorityGroup number={1} title="Guaranteed & Secure Income"
         subtitle="Fill your personal allowance first — lowest tax drag"
-        badge="Draw first" badgeClass="bg-sky-100 text-sky-700"
       >
         <SourceCard icon="🏢" title="DB / Final Salary Pension"
           desc="Guaranteed income from an employer scheme — indexed to inflation"
@@ -248,7 +251,6 @@ function IncomeSection({ currentAge, fiAge, lifeExpectancy, src, assets, set }: 
 
       <PriorityGroup number={3} title="Flexible Income"
         subtitle="DC pension, work and other sources — drawn after guaranteed income"
-        badge="Flexible" badgeClass="bg-violet-100 text-violet-700"
       >
         <SourceCard icon="💼" title="DC / Personal Pension"
           desc="Workplace or personal pension pot — flexible drawdown"
