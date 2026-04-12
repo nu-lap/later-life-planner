@@ -88,6 +88,23 @@ describe('Step4Dashboard', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
+  test('shows simplified withdrawal strategy above optimizer panel in non-Pro mode', () => {
+    vi.stubEnv('NEXT_PUBLIC_PRO_ENABLED', 'false');
+
+    render(<Step4Dashboard onBack={vi.fn()} />);
+
+    const simplifiedHeading = screen.getByText('Simplified tax-efficient withdrawal strategy');
+    const optimizerHeading = screen.getByText('Withdrawal plan optimisation');
+    expect(simplifiedHeading).toBeInTheDocument();
+    expect(optimizerHeading).toBeInTheDocument();
+    expect(
+      Boolean(
+        simplifiedHeading.compareDocumentPosition(optimizerHeading)
+        & Node.DOCUMENT_POSITION_FOLLOWING,
+      ),
+    ).toBe(true);
+  });
+
   test('feeds optimizer-adjusted projections into the asset chart when optimizer mode is enabled', () => {
     const state = paulAndLisaState();
     const optimizerResult = optimizeWithdrawals(state);
