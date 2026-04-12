@@ -470,7 +470,7 @@ export default function OptimizerPanel({ plannerState, result, proEnabled, onPro
             headline="Optimised strategy comparison"
             description="See the best and runner-up withdrawal strategies for each year of your plan, with tax and net income detail."
             ctaLabel="Tell me more about Pro →"
-            onCta={onProCta}
+            onCta={() => onProCta?.()}
           >
             <div>
               <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
