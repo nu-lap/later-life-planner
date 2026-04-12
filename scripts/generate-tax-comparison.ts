@@ -1,6 +1,5 @@
 #!/usr/bin/env tsx
 import fs from 'fs';
-import path from 'path';
 import XLSX from 'xlsx';
 import { optimizeWithdrawals } from '@/financialEngine/withdrawalOptimizer';
 import type { PlannerState } from '@/models/types';
