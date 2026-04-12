@@ -7,6 +7,7 @@ import CurrencyInput from '@/components/ui/CurrencyInput';
 import GuidedSetupWizard from '@/components/GuidedSetupWizard';
 import { CGT, STATE_PENSION } from '@/config/financialConstants';
 import type { PersonIncomeSources, PersonAssets, AssetOwner } from '@/lib/types';
+import type { PrimaryResidenceAsset } from '@/models/types';
 import clsx from 'clsx';
 
 interface Props { onNext: () => void; onBack: () => void }
@@ -370,13 +371,15 @@ function IncomeSection({ currentAge, fiAge, lifeExpectancy, src, assets, set }: 
 
 // ─── Assets section ───────────────────────────────────────────────────────────
 
-function AssetsSection({ assets, set, mode, p1Label, p2Label, sharedGia, onSharedGiaChange }: {
+function AssetsSection({ assets, set, mode, p1Label, p2Label, sharedGia, onSharedGiaChange, primaryResidence, setPrimaryResidence }: {
   assets: PersonAssets;
   set: (key: keyof PersonAssets, u: Record<string, unknown>) => void;
   mode: 'single' | 'couple';
   p1Label: string; p2Label: string;
   sharedGia: import('@/models/types').GIAAsset;
   onSharedGiaChange: (updates: Partial<import('@/models/types').GIAAsset>) => void;
+  primaryResidence: PrimaryResidenceAsset;
+  setPrimaryResidence: (updates: Partial<PrimaryResidenceAsset>) => void;
 }) {
   const { cashSavings, isaInvestments, generalInvestments, property } = assets;
   const giaGain      = generalInvestments.enabled ? Math.max(0, generalInvestments.totalValue - generalInvestments.baseCost) : 0;
@@ -487,6 +490,35 @@ function AssetsSection({ assets, set, mode, p1Label, p2Label, sharedGia, onShare
           </div>
         )}
       </SourceCard>
+
+      <SourceCard icon="🏠" title="Primary Residence"
+        desc="Your main home — already part of your estate for Inheritance Tax"
+        enabled={primaryResidence.enabled} onToggle={(v) => setPrimaryResidence({ enabled: v })}
+      >
+        <FieldRow label="Estimated current value">
+          <CurrencyInput value={primaryResidence.currentValue} onChange={(v) => setPrimaryResidence({ currentValue: v })} max={5000000} step={5000} />
+        </FieldRow>
+        <FieldRow label="Outstanding mortgage" hint="Reduces net estate value">
+          <CurrencyInput value={primaryResidence.mortgageOutstanding} onChange={(v) => setPrimaryResidence({ mortgageOutstanding: v })} max={2000000} step={5000} />
+        </FieldRow>
+        <FieldRow label="Passes to direct descendants?">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={primaryResidence.leavesToDescendants}
+              onChange={(e) => setPrimaryResidence({ leavesToDescendants: e.target.checked })}
+              className="w-4 h-4 rounded accent-emerald-500"
+            />
+            <span className="text-sm text-slate-600">Yes — required to claim the Residence Nil-Rate Band (RNRB)</span>
+          </label>
+        </FieldRow>
+        {primaryResidence.enabled && primaryResidence.currentValue > 0 && (
+          <div className="py-2 text-xs text-violet-700 bg-violet-50 rounded-xl px-3">
+            Net estate value: <strong>£{Math.max(0, primaryResidence.currentValue - primaryResidence.mortgageOutstanding).toLocaleString('en-GB')}</strong>
+            {' '}· No CGT on your main home (Principal Private Residence relief).
+          </div>
+        )}
+      </SourceCard>
     </div>
   );
 }
@@ -499,6 +531,7 @@ export default function Step3IncomeSources({ onNext, onBack }: Props) {
     person1, setP1Income, setP1Asset,
     person2, setP2Income, setP2Asset,
     jointGia, setJointGia,
+    primaryResidence, setPrimaryResidence,
     assumptions, updateAssumptions,
   } = usePlannerStore();
 
@@ -596,6 +629,8 @@ export default function Step3IncomeSources({ onNext, onBack }: Props) {
           p1Label={p1Label} p2Label={p2Label}
           sharedGia={jointGia}
           onSharedGiaChange={setJointGia}
+          primaryResidence={primaryResidence}
+          setPrimaryResidence={setPrimaryResidence}
         />
       )}
 

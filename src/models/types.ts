@@ -63,6 +63,27 @@ export interface CareReserve {
   amount: number;
 }
 
+// ─── Primary Residence ────────────────────────────────────────────────────────
+
+/**
+ * The household's primary residence — distinct from investment/BTL property.
+ * Used for IHT estate projections and RNRB eligibility.
+ * Principal Private Residence relief means no CGT applies on sale.
+ */
+export interface PrimaryResidenceAsset {
+  enabled: boolean;
+  /** Estimated current market value in pounds. */
+  currentValue: number;
+  /** Outstanding mortgage balance — reduces net estate value for IHT. */
+  mortgageOutstanding: number;
+  /**
+   * True if the property is intended to pass to direct descendants (children,
+   * grandchildren). Required to claim the Residence Nil-Rate Band (RNRB).
+   * IHTA 1984 s.8H.
+   */
+  leavesToDescendants: boolean;
+}
+
 // ─── Spending ─────────────────────────────────────────────────────────────────
 
 export interface SpendingCategory {
@@ -227,6 +248,11 @@ export interface PlannerState {
    * See CareReserve interface above.
    */
   careReserve: CareReserve;
+  /**
+   * The household's primary residence — used for IHT estate projections.
+   * See PrimaryResidenceAsset interface above.
+   */
+  primaryResidence: PrimaryResidenceAsset;
 }
 
 export type PlannerUiState = Pick<PlannerState, 'currentStep' | 'maxVisitedStep'>;

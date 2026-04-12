@@ -17,7 +17,7 @@ describe('OptimizerPanel', () => {
     const plannerState = paulAndLisaState();
     const result = optimizeWithdrawals(plannerState);
 
-    render(<OptimizerPanel plannerState={plannerState} result={result} />);
+    render(<OptimizerPanel plannerState={plannerState} result={result} proEnabled={true} />);
 
     expect(screen.getByText('Withdrawal plan optimisation')).toBeInTheDocument();
     expect(screen.queryByText('Recommended')).not.toBeInTheDocument();
@@ -37,7 +37,7 @@ describe('OptimizerPanel', () => {
     const plannerState = paulAndLisaState();
     const result = optimizeWithdrawals(plannerState);
 
-    render(<OptimizerPanel plannerState={plannerState} result={result} />);
+    render(<OptimizerPanel plannerState={plannerState} result={result} proEnabled={true} />);
 
     expect(screen.getByRole('button', { name: '▼ Show breakdown' })).toBeInTheDocument();
     expect(screen.queryByTestId('optimizer-drawdown-breakdown-table')).not.toBeInTheDocument();
@@ -57,7 +57,7 @@ describe('OptimizerPanel', () => {
     const plannerState = paulAndLisaState();
     const result = optimizeWithdrawals(plannerState);
 
-    render(<OptimizerPanel plannerState={plannerState} result={result} />);
+    render(<OptimizerPanel plannerState={plannerState} result={result} proEnabled={true} />);
 
     await userEvent.click(screen.getByRole('button', { name: '▼ Show breakdown' }));
 
@@ -84,7 +84,7 @@ describe('OptimizerPanel', () => {
     const plannerState = paulAndLisaState();
     const result = optimizeWithdrawals(plannerState);
 
-    render(<OptimizerPanel plannerState={plannerState} result={result} />);
+    render(<OptimizerPanel plannerState={plannerState} result={result} proEnabled={true} />);
 
     expect(screen.getByRole('button', { name: '▲ Hide comparison' })).toBeInTheDocument();
     expect(screen.getAllByText('Runner-up').length).toBeGreaterThanOrEqual(5);
@@ -97,7 +97,7 @@ describe('OptimizerPanel', () => {
     const plannerState = paulAndLisaState();
     const result = optimizeWithdrawals(plannerState);
 
-    render(<OptimizerPanel plannerState={plannerState} result={result} />);
+    render(<OptimizerPanel plannerState={plannerState} result={result} proEnabled={true} />);
 
     expect(screen.getByText('Strategy guide')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Show all strategy definitions' })).toBeInTheDocument();
@@ -116,7 +116,7 @@ describe('OptimizerPanel', () => {
     const plannerState = dcOnlyState(65, 250_000);
     const result = optimizeWithdrawals(plannerState);
 
-    render(<OptimizerPanel plannerState={plannerState} result={result} />);
+    render(<OptimizerPanel plannerState={plannerState} result={result} proEnabled={true} />);
 
     await userEvent.click(screen.getByRole('button', { name: 'Show all strategy definitions' }));
 
@@ -138,7 +138,7 @@ describe('OptimizerPanel', () => {
     }));
     vi.stubGlobal('fetch', fetchMock);
 
-    render(<OptimizerPanel plannerState={plannerState} result={result} />);
+    render(<OptimizerPanel plannerState={plannerState} result={result} proEnabled={true} />);
 
     await userEvent.click(screen.getByRole('button', { name: 'Explain this recommendation' }));
 
@@ -181,7 +181,7 @@ describe('OptimizerPanel', () => {
     }));
     vi.stubGlobal('fetch', fetchMock);
 
-    render(<OptimizerPanel plannerState={plannerState} result={result} />);
+    render(<OptimizerPanel plannerState={plannerState} result={result} proEnabled={true} />);
 
     await userEvent.click(screen.getByRole('button', { name: 'Explain this recommendation' }));
     const consentCheckbox1 = await screen.findByRole('checkbox');
@@ -218,7 +218,7 @@ describe('OptimizerPanel', () => {
     }));
     vi.stubGlobal('fetch', fetchMock);
 
-    const { rerender } = render(<OptimizerPanel plannerState={plannerState} result={result} />);
+    const { rerender } = render(<OptimizerPanel plannerState={plannerState} result={result} proEnabled={true} />);
 
     await userEvent.click(screen.getByRole('button', { name: 'Explain this recommendation' }));
     const consentCheckbox2 = await screen.findByRole('checkbox');
@@ -244,7 +244,7 @@ describe('OptimizerPanel', () => {
     };
     const changedResult = optimizeWithdrawals(changedPlannerState);
 
-    rerender(<OptimizerPanel plannerState={changedPlannerState} result={changedResult} />);
+    rerender(<OptimizerPanel plannerState={changedPlannerState} result={changedResult} proEnabled={true} />);
 
     await userEvent.click(screen.getByRole('button', { name: 'Explain this recommendation' }));
 
@@ -262,7 +262,7 @@ describe('OptimizerPanel', () => {
     }));
     vi.stubGlobal('fetch', fetchMock);
 
-    render(<OptimizerPanel plannerState={plannerState} result={result} />);
+    render(<OptimizerPanel plannerState={plannerState} result={result} proEnabled={true} />);
 
     await userEvent.click(screen.getByRole('button', { name: 'Explain this recommendation' }));
     await userEvent.click(screen.getByRole('checkbox'));
@@ -286,7 +286,7 @@ describe('OptimizerPanel', () => {
     }));
     vi.stubGlobal('fetch', fetchMock);
 
-    render(<OptimizerPanel plannerState={plannerState} result={result} />);
+    render(<OptimizerPanel plannerState={plannerState} result={result} proEnabled={true} />);
 
     await userEvent.click(screen.getByRole('button', { name: 'Explain this recommendation' }));
     await userEvent.click(screen.getByRole('checkbox'));
@@ -316,7 +316,7 @@ describe('OptimizerPanel', () => {
     }));
     vi.stubGlobal('fetch', fetchMock);
 
-    render(<OptimizerPanel plannerState={plannerState} result={result} />);
+    render(<OptimizerPanel plannerState={plannerState} result={result} proEnabled={true} />);
 
     await userEvent.click(screen.getByRole('button', { name: 'Explain this recommendation' }));
     await userEvent.click(screen.getByRole('checkbox'));
@@ -346,7 +346,7 @@ describe('OptimizerPanel', () => {
     }));
     vi.stubGlobal('fetch', fetchMock);
 
-    render(<OptimizerPanel plannerState={plannerState} result={result} />);
+    render(<OptimizerPanel plannerState={plannerState} result={result} proEnabled={true} />);
 
     await userEvent.click(screen.getByRole('button', { name: 'Explain this recommendation' }));
     await userEvent.click(screen.getByRole('checkbox'));
@@ -370,7 +370,7 @@ describe('OptimizerPanel', () => {
     }));
     vi.stubGlobal('fetch', fetchMock);
 
-    render(<OptimizerPanel plannerState={plannerState} result={result} />);
+    render(<OptimizerPanel plannerState={plannerState} result={result} proEnabled={true} />);
 
     await userEvent.click(screen.getByRole('button', { name: 'Explain this recommendation' }));
     await userEvent.click(screen.getByRole('checkbox'));
@@ -397,7 +397,7 @@ describe('OptimizerPanel', () => {
     }));
     vi.stubGlobal('fetch', fetchMock);
 
-    render(<OptimizerPanel plannerState={plannerState} result={result} />);
+    render(<OptimizerPanel plannerState={plannerState} result={result} proEnabled={true} />);
 
     await userEvent.click(screen.getByRole('button', { name: 'Explain this recommendation' }));
     const consentCheckbox3 = await screen.findByRole('checkbox');
@@ -429,7 +429,7 @@ describe('OptimizerPanel', () => {
     }));
     vi.stubGlobal('fetch', fetchMock);
 
-    render(<OptimizerPanel plannerState={plannerState} result={result} />);
+    render(<OptimizerPanel plannerState={plannerState} result={result} proEnabled={true} />);
 
     await userEvent.click(screen.getByRole('button', { name: 'Explain this recommendation' }));
     const consentCheckbox4 = await screen.findByRole('checkbox');
@@ -451,7 +451,7 @@ describe('OptimizerPanel', () => {
     }));
     vi.stubGlobal('fetch', fetchMock);
 
-    render(<OptimizerPanel plannerState={plannerState} result={result} />);
+    render(<OptimizerPanel plannerState={plannerState} result={result} proEnabled={true} />);
 
     await userEvent.click(screen.getByRole('button', { name: 'Explain this recommendation' }));
     await userEvent.click(screen.getByRole('checkbox'));
@@ -464,5 +464,57 @@ describe('OptimizerPanel', () => {
     expect(screen.getByRole('button', { name: 'Cancel' })).toBeInTheDocument();
     // "Generate explanation" should still be available since hasExplanation is false
     expect(screen.getByRole('button', { name: 'Generate explanation' })).toBeInTheDocument();
+  });
+});
+
+describe('OptimizerPanel — Pro gating (proEnabled=false)', () => {
+  test('shows the Pro upgrade overlay instead of the explain button', () => {
+    const plannerState = paulAndLisaState();
+    const result = optimizeWithdrawals(plannerState);
+
+    render(<OptimizerPanel plannerState={plannerState} result={result} proEnabled={false} />);
+
+    // The locked button is present but behind the overlay (pointer-events-none)
+    expect(screen.getByText('Explain this recommendation')).toBeInTheDocument();
+    // The overlay headline and CTA should be visible
+    expect(screen.getByText('AI tax explanation')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Unlock with Pro →' })).toBeInTheDocument();
+  });
+
+  test('clicking the Pro CTA opens the interest modal, not the explain dialog', async () => {
+    const plannerState = paulAndLisaState();
+    const result = optimizeWithdrawals(plannerState);
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<OptimizerPanel plannerState={plannerState} result={result} proEnabled={false} />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Unlock with Pro →' }));
+
+    // Pro interest modal should be open (feature list visible)
+    expect(screen.getByText('LaterLifePlan Pro makes it exceptional.')).toBeInTheDocument();
+    // Explain dialog must NOT have opened
+    expect(screen.queryByTestId('optimizer-explain-panel')).not.toBeInTheDocument();
+    // No explain API call should have been made
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  test('does not call the explain API when the locked button area is clicked', async () => {
+    const plannerState = paulAndLisaState();
+    const result = optimizeWithdrawals(plannerState);
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<OptimizerPanel plannerState={plannerState} result={result} proEnabled={false} />);
+
+    // The underlying button has tabIndex=-1 and pointer-events-none wrapper; clicking the
+    // blurred button directly should not trigger the openDialog flow.
+    const lockedButton = screen.getByText('Explain this recommendation').closest('button');
+    if (lockedButton) {
+      await userEvent.click(lockedButton, { pointerEventsCheck: 0 });
+    }
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('optimizer-explain-panel')).not.toBeInTheDocument();
   });
 });

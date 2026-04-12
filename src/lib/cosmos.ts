@@ -597,3 +597,18 @@ export async function savePlannerPersistenceDocument(
     throw error;
   }
 }
+
+export async function recordProInterest(input: {
+  userId: string;
+  sourcePanel: string;
+}): Promise<void> {
+  const container = getPlannerContainer();
+  const document = {
+    id: `pro-interest-${input.userId}-${Date.now()}`,
+    type: 'pro_interest',
+    userId: input.userId,
+    sourcePanel: input.sourcePanel,
+    recordedAt: new Date().toISOString(),
+  };
+  await container.items.upsert(document);
+}

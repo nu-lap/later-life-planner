@@ -33,6 +33,7 @@ describe('Step4Dashboard', () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.stubEnv('NEXT_PUBLIC_OPTIMIZER_ENABLED', 'true');
+    vi.stubEnv('NEXT_PUBLIC_PRO_ENABLED', 'true');
     plannerState = {
       ...paulAndLisaState(),
       setGoalRegistry: setGoalRegistryMock,

@@ -225,6 +225,7 @@ export function createDefaultState(primaryAge: number = DEFAULT_ASSUMPTIONS.DEFA
     goalRegistry: buildDefaultGoalRegistry(),
     jointGia: { enabled: false, totalValue: 0, baseCost: 0, growthRate: DEFAULT_ASSUMPTIONS.INVESTMENT_GROWTH },
     careReserve: { enabled: false, amount: CARE_RESERVE.DEFAULT_AMOUNT },
+    primaryResidence: { enabled: false, currentValue: 0, mortgageOutstanding: 0, leavesToDescendants: true },
   };
 }
 

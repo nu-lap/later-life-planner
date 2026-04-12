@@ -9,6 +9,8 @@ import {
   calculateGamificationMetrics,
 } from '@/lib/calculations';
 import OptimizerPanel from '@/components/OptimizerPanel';
+import ProInterestModal from '@/components/ProInterestModal';
+import ProUpgradeOverlay from '@/components/ProUpgradeOverlay';
 import { CARE_RESERVE, CGT, INCOME_TAX } from '@/config/financialConstants';
 import { optimizeWithdrawals } from '@/financialEngine/withdrawalOptimizer';
 import { RLSS_STANDARDS } from '@/lib/mockData';
@@ -729,6 +731,7 @@ export default function Step4Dashboard({ onBack }: Props) {
   const state = usePlannerStore();
   const deferredState = useDeferredValue(state);
   const optimizerEnabled = process.env.NEXT_PUBLIC_OPTIMIZER_ENABLED === 'true';
+  const proEnabled = process.env.NEXT_PUBLIC_PRO_ENABLED === 'true';
   const {
     mode,
     person1,
@@ -743,6 +746,7 @@ export default function Step4Dashboard({ onBack }: Props) {
   } = state;
   const [policyOverride, setPolicyOverride] = useState<OptimizerPolicyOverride | null>(null);
   const [policyLoading, setPolicyLoading] = useState(false);
+  const [proModalOpen, setProModalOpen] = useState(false);
 
   useEffect(() => {
     const syncedGoalRegistry = sortGoalRegistry(syncCareReserveGoal(goalRegistry, careReserve));
@@ -758,7 +762,7 @@ export default function Step4Dashboard({ onBack }: Props) {
   }, [careReserve, goalRegistry, setGoalRegistry]);
 
   useEffect(() => {
-    if (!optimizerEnabled) {
+    if (!optimizerEnabled || !proEnabled) {
       setPolicyOverride(null);
       setPolicyLoading(false);
       return;
@@ -810,7 +814,7 @@ export default function Step4Dashboard({ onBack }: Props) {
       window.clearTimeout(timeoutId);
       activeController?.abort();
     };
-  }, [deferredState, goalRegistry, optimizerEnabled]);
+  }, [deferredState, goalRegistry, optimizerEnabled, proEnabled]);
 
   const { projections, optimizerResult } = useMemo(() => {
     if (!optimizerEnabled) {
@@ -1040,14 +1044,31 @@ export default function Step4Dashboard({ onBack }: Props) {
       </div>
 
       {optimizerEnabled && (
-        <GoalPriorityPanel
-          goalRegistry={goalRegistry}
-          onChange={setGoalRegistry}
-          careReserve={careReserve}
-          onCareReserveChange={updateCareReserveFromGoalPanel}
-          isApplying={policyLoading}
-          targetControlConfig={goalTargetControlConfig}
-        />
+        proEnabled ? (
+          <GoalPriorityPanel
+            goalRegistry={goalRegistry}
+            onChange={setGoalRegistry}
+            careReserve={careReserve}
+            onCareReserveChange={updateCareReserveFromGoalPanel}
+            isApplying={policyLoading}
+            targetControlConfig={goalTargetControlConfig}
+          />
+        ) : (
+          <ProUpgradeOverlay
+            headline="Goal-priority optimisation"
+            description="Set your goals — minimise tax, protect your estate, maximise income — and the plan adapts. Available with LaterLifePlan Pro."
+            onCta={() => setProModalOpen(true)}
+          >
+            <GoalPriorityPanel
+              goalRegistry={goalRegistry}
+              onChange={() => {/* inert when locked */}}
+              careReserve={careReserve}
+              onCareReserveChange={() => {/* inert when locked */}}
+              isApplying={false}
+              targetControlConfig={goalTargetControlConfig}
+            />
+          </ProUpgradeOverlay>
+        )
       )}
 
       {/* Charts */}
@@ -1076,8 +1097,39 @@ export default function Step4Dashboard({ onBack }: Props) {
         <AssetChart projections={chartProjections} />
       </div>
 
+      {/* IHT Advanced Planning — Pro teaser */}
+      <div className="relative rounded-2xl border border-violet-200 bg-violet-50/40 overflow-hidden">
+        <div className="p-5">
+          <div className="flex items-start gap-3">
+            <span className="text-2xl flex-shrink-0">🏛️</span>
+            <div className="flex-1">
+              <h3 className="font-black text-slate-900 text-base mb-1">IHT Advanced Planning</h3>
+              <div className="rounded-xl bg-amber-50 border border-amber-200 p-3 mb-3">
+                <p className="text-xs font-bold text-amber-800 mb-1">⚠️ Important change from April 2027</p>
+                <p className="text-xs text-amber-700">
+                  Under the Finance Act 2025, unused DC pension pots will form part of your taxable estate for
+                  Inheritance Tax from 6 April 2027. For many people this will significantly increase their IHT
+                  exposure — in some cases by £40,000–£200,000 or more.
+                </p>
+              </div>
+              <p className="text-sm text-slate-600 mb-4">
+                LaterLifePlan Pro models your full estate position — home, savings, ISAs, and pension —
+                and surfaces strategies to reduce your inheritance tax exposure through RNRB planning,
+                structured gifting, and tax-efficient drawdown.
+              </p>
+              <button
+                onClick={() => setProModalOpen(true)}
+                className="bg-violet-600 hover:bg-violet-700 active:bg-violet-800 text-white font-bold py-2.5 px-5 rounded-xl transition-colors text-sm"
+              >
+                Plan your estate with Pro →
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {optimizerEnabled && optimizerResult && (
-        <OptimizerPanel plannerState={deferredState} result={optimizerResult} />
+        <OptimizerPanel plannerState={deferredState} result={optimizerResult} proEnabled={proEnabled} />
       )}
 
       {/* Tax strategy */}
@@ -1106,6 +1158,7 @@ export default function Step4Dashboard({ onBack }: Props) {
           <button onClick={() => window.print()} className="btn-primary text-sm">🖨️ Export PDF</button>
         </div>
       </div>
+      <ProInterestModal open={proModalOpen} sourcePanel="iht-teaser" onClose={() => setProModalOpen(false)} />
     </div>
   );
 }
