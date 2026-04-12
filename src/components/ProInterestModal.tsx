@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 interface Props {
   open: boolean;
@@ -18,6 +18,15 @@ const PRO_FEATURES = [
 export default function ProInterestModal({ open, sourcePanel, onClose }: Props) {
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  // Reset state each time the modal opens so users can re-submit from a different panel
+  // and don't see stale confirmation state on reopen.
+  useEffect(() => {
+    if (open) {
+      setSubmitted(false);
+      setLoading(false);
+    }
+  }, [open, sourcePanel]);
 
   if (!open) return null;
 

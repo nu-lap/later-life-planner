@@ -466,3 +466,55 @@ describe('OptimizerPanel', () => {
     expect(screen.getByRole('button', { name: 'Generate explanation' })).toBeInTheDocument();
   });
 });
+
+describe('OptimizerPanel — Pro gating (proEnabled=false)', () => {
+  test('shows the Pro upgrade overlay instead of the explain button', () => {
+    const plannerState = paulAndLisaState();
+    const result = optimizeWithdrawals(plannerState);
+
+    render(<OptimizerPanel plannerState={plannerState} result={result} proEnabled={false} />);
+
+    // The locked button is present but behind the overlay (pointer-events-none)
+    expect(screen.getByText('Explain this recommendation')).toBeInTheDocument();
+    // The overlay headline and CTA should be visible
+    expect(screen.getByText('AI tax explanation')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Unlock with Pro →' })).toBeInTheDocument();
+  });
+
+  test('clicking the Pro CTA opens the interest modal, not the explain dialog', async () => {
+    const plannerState = paulAndLisaState();
+    const result = optimizeWithdrawals(plannerState);
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<OptimizerPanel plannerState={plannerState} result={result} proEnabled={false} />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Unlock with Pro →' }));
+
+    // Pro interest modal should be open (feature list visible)
+    expect(screen.getByText('LaterLifePlan Pro makes it exceptional.')).toBeInTheDocument();
+    // Explain dialog must NOT have opened
+    expect(screen.queryByTestId('optimizer-explain-panel')).not.toBeInTheDocument();
+    // No explain API call should have been made
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  test('does not call the explain API when the locked button area is clicked', async () => {
+    const plannerState = paulAndLisaState();
+    const result = optimizeWithdrawals(plannerState);
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<OptimizerPanel plannerState={plannerState} result={result} proEnabled={false} />);
+
+    // The underlying button has tabIndex=-1 and pointer-events-none wrapper; clicking the
+    // blurred button directly should not trigger the openDialog flow.
+    const lockedButton = screen.getByText('Explain this recommendation').closest('button');
+    if (lockedButton) {
+      await userEvent.click(lockedButton, { pointerEventsCheck: 0 });
+    }
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('optimizer-explain-panel')).not.toBeInTheDocument();
+  });
+});

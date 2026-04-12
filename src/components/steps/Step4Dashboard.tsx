@@ -10,6 +10,7 @@ import {
 } from '@/lib/calculations';
 import OptimizerPanel from '@/components/OptimizerPanel';
 import ProInterestModal from '@/components/ProInterestModal';
+import ProUpgradeOverlay from '@/components/ProUpgradeOverlay';
 import { CARE_RESERVE, CGT, INCOME_TAX } from '@/config/financialConstants';
 import { optimizeWithdrawals } from '@/financialEngine/withdrawalOptimizer';
 import { RLSS_STANDARDS } from '@/lib/mockData';
@@ -761,7 +762,7 @@ export default function Step4Dashboard({ onBack }: Props) {
   }, [careReserve, goalRegistry, setGoalRegistry]);
 
   useEffect(() => {
-    if (!optimizerEnabled) {
+    if (!optimizerEnabled || !proEnabled) {
       setPolicyOverride(null);
       setPolicyLoading(false);
       return;
@@ -813,7 +814,7 @@ export default function Step4Dashboard({ onBack }: Props) {
       window.clearTimeout(timeoutId);
       activeController?.abort();
     };
-  }, [deferredState, goalRegistry, optimizerEnabled]);
+  }, [deferredState, goalRegistry, optimizerEnabled, proEnabled]);
 
   const { projections, optimizerResult } = useMemo(() => {
     if (!optimizerEnabled) {
@@ -1043,14 +1044,31 @@ export default function Step4Dashboard({ onBack }: Props) {
       </div>
 
       {optimizerEnabled && (
-        <GoalPriorityPanel
-          goalRegistry={goalRegistry}
-          onChange={setGoalRegistry}
-          careReserve={careReserve}
-          onCareReserveChange={updateCareReserveFromGoalPanel}
-          isApplying={policyLoading}
-          targetControlConfig={goalTargetControlConfig}
-        />
+        proEnabled ? (
+          <GoalPriorityPanel
+            goalRegistry={goalRegistry}
+            onChange={setGoalRegistry}
+            careReserve={careReserve}
+            onCareReserveChange={updateCareReserveFromGoalPanel}
+            isApplying={policyLoading}
+            targetControlConfig={goalTargetControlConfig}
+          />
+        ) : (
+          <ProUpgradeOverlay
+            headline="Goal-priority optimisation"
+            description="Set your goals — minimise tax, protect your estate, maximise income — and the plan adapts. Available with LaterLifePlan Pro."
+            onCta={() => setProModalOpen(true)}
+          >
+            <GoalPriorityPanel
+              goalRegistry={goalRegistry}
+              onChange={() => {/* inert when locked */}}
+              careReserve={careReserve}
+              onCareReserveChange={() => {/* inert when locked */}}
+              isApplying={false}
+              targetControlConfig={goalTargetControlConfig}
+            />
+          </ProUpgradeOverlay>
+        )
       )}
 
       {/* Charts */}

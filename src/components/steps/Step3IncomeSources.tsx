@@ -492,7 +492,7 @@ function AssetsSection({ assets, set, mode, p1Label, p2Label, sharedGia, onShare
       </SourceCard>
 
       <SourceCard icon="🏠" title="Primary Residence"
-        desc="Your main home — included in your estate for Inheritance Tax from April 2027"
+        desc="Your main home — already part of your estate for Inheritance Tax"
         enabled={primaryResidence.enabled} onToggle={(v) => setPrimaryResidence({ enabled: v })}
       >
         <FieldRow label="Estimated current value">
