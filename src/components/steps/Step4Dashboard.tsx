@@ -565,12 +565,12 @@ function TaxOverview({ projections }: { projections: YearlyProjection[] }) {
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
         <div className="rounded-2xl p-3 bg-rose-50 border border-rose-100">
-          <p className="text-xs text-rose-600 font-bold mb-1">Lifetime income tax</p>
+          <p className="text-xs text-rose-600 font-bold mb-1">LaterLifePlan income tax</p>
           <p className="text-xl font-black text-rose-800">{formatCurrency(lifetimeIncomeTax, true)}</p>
           <p className="text-xs text-rose-500 mt-0.5">across all years</p>
         </div>
         <div className="rounded-2xl p-3 bg-amber-50 border border-amber-100">
-          <p className="text-xs text-amber-600 font-bold mb-1">Lifetime CGT</p>
+          <p className="text-xs text-amber-600 font-bold mb-1">LaterLifePlan CGT</p>
           <p className="text-xl font-black text-amber-800">{formatCurrency(lifetimeCGT, true)}</p>
           <p className="text-xs text-amber-500 mt-0.5">on GIA gains</p>
         </div>
