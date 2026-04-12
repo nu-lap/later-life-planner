@@ -746,7 +746,8 @@ export default function Step4Dashboard({ onBack }: Props) {
   } = state;
   const [policyOverride, setPolicyOverride] = useState<OptimizerPolicyOverride | null>(null);
   const [policyLoading, setPolicyLoading] = useState(false);
-  const [proModalOpen, setProModalOpen] = useState(false);
+  // Tracks which panel opened the Pro interest modal; null means closed.
+  const [proModalSource, setProModalSource] = useState<string | null>(null);
 
   useEffect(() => {
     const syncedGoalRegistry = sortGoalRegistry(syncCareReserveGoal(goalRegistry, careReserve));
@@ -1057,7 +1058,7 @@ export default function Step4Dashboard({ onBack }: Props) {
           <ProUpgradeOverlay
             headline="Goal-priority optimisation"
             description="Set your goals — minimise tax, protect your estate, maximise income — and the plan adapts. Available with LaterLifePlan Pro."
-            onCta={() => setProModalOpen(true)}
+            onCta={() => setProModalSource('goal-priority')}
           >
             <GoalPriorityPanel
               goalRegistry={goalRegistry}
@@ -1097,36 +1098,91 @@ export default function Step4Dashboard({ onBack }: Props) {
         <AssetChart projections={chartProjections} />
       </div>
 
-      {/* IHT Advanced Planning — Pro teaser */}
-      <div className="relative rounded-2xl border border-violet-200 bg-violet-50/40 overflow-hidden">
-        <div className="p-5">
-          <div className="flex items-start gap-3">
+      {/* IHT Advanced Planning — Pro teaser (Option A+C hybrid) */}
+      {proEnabled ? (
+        /* Pro is enabled but IHT-2/3/4 not yet built — show coming soon */
+        <div className="game-card border-violet-200 bg-violet-50/40">
+          <div className="flex items-center gap-3">
             <span className="text-2xl flex-shrink-0">🏛️</span>
-            <div className="flex-1">
-              <h3 className="font-black text-slate-900 text-base mb-1">IHT Advanced Planning</h3>
-              <div className="rounded-xl bg-amber-50 border border-amber-200 p-3 mb-3">
-                <p className="text-xs font-bold text-amber-800 mb-1">⚠️ Important change from April 2027</p>
-                <p className="text-xs text-amber-700">
-                  Under the Finance Act 2025, unused DC pension pots will form part of your taxable estate for
-                  Inheritance Tax from 6 April 2027. For many people this will significantly increase their IHT
-                  exposure — in some cases by £40,000–£200,000 or more.
-                </p>
-              </div>
-              <p className="text-sm text-slate-600 mb-4">
-                LaterLifePlan Pro models your full estate position — home, savings, ISAs, and pension —
-                and surfaces strategies to reduce your inheritance tax exposure through RNRB planning,
-                structured gifting, and tax-efficient drawdown.
+            <div>
+              <h3 className="font-black text-slate-900 text-base mb-1">
+                IHT Estate Planning
+                <span className="ml-2 text-xs font-semibold text-violet-600 bg-violet-100 px-2 py-0.5 rounded-full">Coming soon</span>
+              </h3>
+              <p className="text-sm text-slate-600">
+                Full estate modelling — home, savings, ISAs, and pension — is on its way as part of your Pro plan.
+                You'll be able to project your full inheritance tax position, model RNRB planning, and explore tax-efficient drawdown strategies to protect your estate.
               </p>
-              <button
-                onClick={() => setProModalOpen(true)}
-                className="bg-violet-600 hover:bg-violet-700 active:bg-violet-800 text-white font-bold py-2.5 px-5 rounded-xl transition-colors text-sm"
-              >
-                Plan your estate with Pro →
-              </button>
             </div>
           </div>
         </div>
-      </div>
+      ) : (() => {
+        /* Build a simple estate breakdown for the blurred preview */
+        const residence = state.primaryResidence.enabled
+          ? Math.max(0, state.primaryResidence.currentValue - state.primaryResidence.mortgageOutstanding)
+          : 0;
+        const p1Savings = (state.person1.assets.isaInvestments.enabled ? state.person1.assets.isaInvestments.totalValue : 0)
+          + (state.person1.assets.cashSavings.enabled ? state.person1.assets.cashSavings.totalValue : 0)
+          + (state.person1.assets.generalInvestments.enabled ? state.person1.assets.generalInvestments.totalValue : 0);
+        const p2Savings = mode === 'couple'
+          ? (state.person2.assets.isaInvestments.enabled ? state.person2.assets.isaInvestments.totalValue : 0)
+            + (state.person2.assets.cashSavings.enabled ? state.person2.assets.cashSavings.totalValue : 0)
+            + (state.person2.assets.generalInvestments.enabled ? state.person2.assets.generalInvestments.totalValue : 0)
+          : 0;
+        const p1Pension = state.person1.incomeSources.dcPension.enabled ? state.person1.incomeSources.dcPension.totalValue : 0;
+        const p2Pension = mode === 'couple' && state.person2.incomeSources.dcPension.enabled
+          ? state.person2.incomeSources.dcPension.totalValue : 0;
+        const jointGiaVal = state.jointGia.enabled ? state.jointGia.totalValue : 0;
+        const totalEstate = residence + p1Savings + p2Savings + p1Pension + p2Pension + jointGiaVal;
+        const estateRows = [
+          { label: 'Primary residence (net of mortgage)', value: residence },
+          { label: 'Savings, ISAs & investments', value: p1Savings + p2Savings + jointGiaVal },
+          { label: 'DC pension pots (from April 2027)', value: p1Pension + p2Pension },
+        ].filter(r => r.value > 0);
+        return (
+          <ProUpgradeOverlay
+            headline="IHT estate planning"
+            description="Project your full estate — home, savings, ISAs, and pension — and surface strategies to reduce your inheritance tax exposure."
+            ctaLabel="Tell me more about Pro →"
+            onCta={() => setProModalSource('iht-planning')}
+          >
+            {/* Blurred estate breakdown — values are intentionally obscured by the overlay */}
+            <div className="game-card">
+              <div className="flex items-center gap-2 mb-4">
+                <span className="text-xl">🏛️</span>
+                <h3 className="font-black text-slate-900 text-base">IHT Estate Planning</h3>
+              </div>
+              <div className="mb-3 rounded-xl bg-amber-50 border border-amber-200 p-3">
+                <p className="text-xs font-bold text-amber-800 mb-1">⚠️ Important change from April 2027</p>
+                <p className="text-xs text-amber-700">
+                  Under the Finance Act 2025, unused DC pension pots will form part of your taxable estate.
+                  This may significantly increase your IHT exposure.
+                </p>
+              </div>
+              <div className="space-y-2 mb-4">
+                {estateRows.map(row => (
+                  <div key={row.label} className="flex justify-between items-center text-sm py-1.5 border-b border-slate-100">
+                    <span className="text-slate-600">{row.label}</span>
+                    <span className="font-bold text-slate-900">{formatCurrency(row.value, true)}</span>
+                  </div>
+                ))}
+                <div className="flex justify-between items-center text-sm py-1.5 font-bold">
+                  <span className="text-slate-800">Gross estate</span>
+                  <span className="text-slate-900">{formatCurrency(totalEstate, true)}</span>
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                {(['NRB relief', 'RNRB relief', 'Potential IHT'] as const).map(label => (
+                  <div key={label} className="rounded-xl bg-slate-100 p-3 text-center">
+                    <p className="text-xs text-slate-500 mb-1">{label}</p>
+                    <p className="text-lg font-black text-slate-300">——</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </ProUpgradeOverlay>
+        );
+      })()}
 
       {optimizerEnabled && optimizerResult && (
         <OptimizerPanel plannerState={deferredState} result={optimizerResult} proEnabled={proEnabled} />
@@ -1158,7 +1214,7 @@ export default function Step4Dashboard({ onBack }: Props) {
           <button onClick={() => window.print()} className="btn-primary text-sm">🖨️ Export PDF</button>
         </div>
       </div>
-      <ProInterestModal open={proModalOpen} sourcePanel="iht-teaser" onClose={() => setProModalOpen(false)} />
+      <ProInterestModal open={proModalSource !== null} sourcePanel={proModalSource ?? 'unknown'} onClose={() => setProModalSource(null)} />
     </div>
   );
 }
