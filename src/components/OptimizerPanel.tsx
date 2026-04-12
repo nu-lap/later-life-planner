@@ -19,7 +19,7 @@ interface Props {
   plannerState: PlannerState;
   result: OptimizationResult;
   proEnabled: boolean;
-  onProCta: () => void;
+  onProCta?: () => void;
 }
 
 function StrategyRow({
@@ -333,7 +333,7 @@ export default function OptimizerPanel({ plannerState, result, proEnabled, onPro
           <div className="flex flex-col gap-2 sm:items-end">
             <button
               type="button"
-              onClick={proEnabled ? () => void openDialog() : onProCta}
+              onClick={proEnabled ? () => void openDialog() : () => onProCta?.()}
               className="btn-secondary py-2 text-sm"
             >
               Explain this recommendation
