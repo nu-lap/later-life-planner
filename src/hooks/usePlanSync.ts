@@ -177,7 +177,7 @@ function buildPlanSyncHeaders(traceId: string): Record<string, string> | undefin
 
 function logPlanSyncDebug(event: string, details: Record<string, unknown>): void {
   if (!isPlanSyncDebugEnabled()) return;
-  console.debug(`[plan-sync] ${event}`, details);
+  console.debug('[plan-sync]', { ...details, event });
 }
 
 function selectCanonicalPlannerState(state: PlannerState): PersistedPlannerState {
