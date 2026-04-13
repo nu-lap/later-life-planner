@@ -1,5 +1,9 @@
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
+import {
+  PLAN_SYNC_DEBUG_HEADER,
+  PLAN_SYNC_TRACE_HEADER,
+} from '@/lib/planSyncDebug';
 
 const isPublicRoute = createRouteMatcher([
   '/sign-in(.*)',
@@ -11,8 +15,29 @@ const isClerkConfigured = Boolean(
 );
 
 const authMiddleware = clerkMiddleware(async (auth, request) => {
+  const pathname = request.nextUrl.pathname;
+  const traceId = request.headers.get(PLAN_SYNC_TRACE_HEADER);
+  const debugEnabled = request.headers.get(PLAN_SYNC_DEBUG_HEADER) === '1';
+
+  if (debugEnabled && pathname === '/api/data') {
+    console.info('[plan-sync] middleware:start', {
+      traceId,
+      method: request.method,
+      pathname,
+      publicRoute: isPublicRoute(request),
+    });
+  }
+
   if (!isPublicRoute(request)) {
     await auth.protect();
+
+    if (debugEnabled && pathname === '/api/data') {
+      console.info('[plan-sync] middleware:passed', {
+        traceId,
+        method: request.method,
+        pathname,
+      });
+    }
   }
 });
 

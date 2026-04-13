@@ -19,6 +19,10 @@ import {
   isValidBase64,
   validateCipherPayload,
 } from '@/lib/crypto';
+import {
+  buildPlanSyncResponseHeaders,
+  readPlanSyncRequestDebugMetadata,
+} from '@/lib/planSyncDebug';
 
 const MAX_CIPHERTEXT_BASE64_LENGTH = Math.ceil((MAX_CIPHERTEXT_BYTES * 4) / 3) + 8;
 const MAX_WRAPPED_KEY_BASE64_LENGTH = Math.ceil((MAX_WRAPPED_KEY_BYTES * 4) / 3) + 8;
@@ -72,48 +76,74 @@ const PutPayloadSchema = z.object({
   }
 });
 
-function jsonError(message: string, status: number, extras?: Record<string, number>) {
+function jsonError(
+  message: string,
+  status: number,
+  extras?: Record<string, number>,
+  traceId?: string | null,
+) {
   return Response.json(
     { error: message, ...(extras ?? {}) },
-    { status },
+    { status, headers: buildPlanSyncResponseHeaders(traceId) },
   );
 }
 
-function rateLimitExceeded(resetInMs: number): Response {
+function rateLimitExceeded(resetInMs: number, traceId?: string | null): Response {
   return Response.json(
     { error: 'Rate limit exceeded.' },
     {
       status: 429,
-      headers: { 'Retry-After': Math.ceil(resetInMs / 1000).toString() },
+      headers: {
+        ...(buildPlanSyncResponseHeaders(traceId) ?? {}),
+        'Retry-After': Math.ceil(resetInMs / 1000).toString(),
+      },
     },
   );
 }
 
-function responseForKnownError(error: unknown): Response {
+function responseForKnownError(error: unknown, traceId?: string | null): Response {
   if (error instanceof UnauthorizedError) {
-    return jsonError('Authentication required.', 401);
+    return jsonError('Authentication required.', 401, undefined, traceId);
   }
 
   if (error instanceof PersistenceConfigError) {
-    return jsonError('Persistence is not configured.', 503);
+    return jsonError('Persistence is not configured.', 503, undefined, traceId);
   }
 
   if (error instanceof RevisionConflictError) {
-    return jsonError('Revision conflict.', 409, { currentRevision: error.currentRevision });
+    return jsonError('Revision conflict.', 409, { currentRevision: error.currentRevision }, traceId);
   }
 
-  return jsonError('Unexpected persistence error.', 500);
+  return jsonError('Unexpected persistence error.', 500, undefined, traceId);
 }
 
-export async function GET() {
+export async function GET(request: Request) {
+  const { traceId, debugEnabled } = readPlanSyncRequestDebugMetadata(request?.headers);
   try {
     const { userId } = await requireUser();
+    if (debugEnabled) {
+      auditLog('planner.data.get.request', {
+        traceId,
+        method: 'GET',
+        hasUser: true,
+      });
+    }
+
     const limit = rateLimit(`data:get:${userId}`, DATA_GET_RATE_LIMIT);
-    if (!limit.ok) return rateLimitExceeded(limit.resetInMs);
+    if (!limit.ok) return rateLimitExceeded(limit.resetInMs, traceId);
     const persisted = await getPlannerPersistenceDocument(userId);
 
     if (!persisted) {
-      return new Response('Not found.', { status: 404 });
+      if (debugEnabled) {
+        auditLog('planner.data.get.notFound', {
+          traceId,
+          method: 'GET',
+        });
+      }
+      return new Response('Not found.', {
+        status: 404,
+        headers: buildPlanSyncResponseHeaders(traceId),
+      });
     }
 
     const validation = validateCipherPayload({
@@ -129,7 +159,18 @@ export async function GET() {
         ciphertextBytes: getBase64ByteLength(persisted.ciphertext),
         ciphertextFingerprint: sha256Base64FingerprintFromBase64Payload(persisted.ciphertext),
       });
-      return jsonError('Corrupt planner payload.', 500);
+      return jsonError('Corrupt planner payload.', 500, undefined, traceId);
+    }
+
+    if (debugEnabled) {
+      auditLog('planner.data.get.success', {
+        traceId,
+        method: 'GET',
+        schemaVersion: persisted.schemaVersion,
+        revision: persisted.revision,
+        hasWrappedKey: persisted.wrappedKey !== undefined,
+        hasKeyVersion: persisted.keyVersion !== undefined,
+      });
     }
 
     return Response.json({
@@ -141,22 +182,44 @@ export async function GET() {
       wrappedKey: persisted.wrappedKey,
       createdAt: persisted.createdAt,
       updatedAt: persisted.updatedAt,
+    }, {
+      headers: buildPlanSyncResponseHeaders(traceId),
     });
   } catch (error) {
-    return responseForKnownError(error);
+    return responseForKnownError(error, traceId);
   }
 }
 
 export async function PUT(request: Request) {
+  const { traceId, debugEnabled } = readPlanSyncRequestDebugMetadata(request.headers);
   try {
     const { userId } = await requireUser();
     const limit = rateLimit(`data:put:${userId}`, DATA_PUT_RATE_LIMIT);
-    if (!limit.ok) return rateLimitExceeded(limit.resetInMs);
+    if (!limit.ok) return rateLimitExceeded(limit.resetInMs, traceId);
     const body = await request.json().catch(() => null);
     const parsed = PutPayloadSchema.safeParse(body);
 
     if (!parsed.success) {
-      return jsonError('Invalid request payload.', 400);
+      if (debugEnabled) {
+        auditLog('planner.data.put.invalid', {
+          traceId,
+          method: 'PUT',
+        });
+      }
+      return jsonError('Invalid request payload.', 400, undefined, traceId);
+    }
+
+    if (debugEnabled) {
+      auditLog('planner.data.put.request', {
+        traceId,
+        method: 'PUT',
+        schemaVersion: parsed.data.schemaVersion,
+        hasBaseRevision: typeof parsed.data.baseRevision === 'number',
+        ivBytes: getBase64ByteLength(parsed.data.iv),
+        ciphertextBytes: getBase64ByteLength(parsed.data.ciphertext),
+        hasWrappedKey: parsed.data.wrappedKey !== undefined,
+        keyVersion: parsed.data.keyVersion ?? null,
+      });
     }
 
     const persisted = await savePlannerPersistenceDocument({
@@ -169,14 +232,34 @@ export async function PUT(request: Request) {
       wrappedKey: parsed.data.wrappedKey,
     });
 
+    if (debugEnabled) {
+      auditLog('planner.data.put.success', {
+        traceId,
+        method: 'PUT',
+        schemaVersion: persisted.schemaVersion,
+        revision: persisted.revision,
+        hasWrappedKey: persisted.wrappedKey !== undefined,
+        keyVersion: persisted.keyVersion ?? null,
+      });
+    }
+
     return Response.json({
       schemaVersion: persisted.schemaVersion,
       revision: persisted.revision,
       createdAt: persisted.createdAt,
       updatedAt: persisted.updatedAt,
+    }, {
+      headers: buildPlanSyncResponseHeaders(traceId),
     });
   } catch (error) {
-    return responseForKnownError(error);
+    if (debugEnabled) {
+      auditLog('planner.data.put.error', {
+        traceId,
+        method: 'PUT',
+        errorName: error instanceof Error ? error.name : 'UnknownError',
+      });
+    }
+    return responseForKnownError(error, traceId);
   }
 }
 
