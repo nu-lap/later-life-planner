@@ -82,7 +82,7 @@ const JOINT_STEPS:  JointStepId[]  = ['joint-gia', 'joint-property'];
 const STEP_META: Record<StepId, { icon: string; title: string; desc: string; section: string }> = {
   sp:             { icon: '🏛️', title: 'State Pension',                  desc: 'UK new State Pension',                     section: 'Income' },
   db:             { icon: '🏢', title: 'DB / Final salary pension',       desc: 'Guaranteed employer scheme',               section: 'Income' },
-  annuity:        { icon: '📜', title: 'Annuity',                         desc: 'Guaranteed income for life',               section: 'Income' },
+  annuity:        { icon: '📜', title: 'Annuity',                         desc: 'Inflation-linked income for life (level/fixed coming soon)', section: 'Income' },
   other:          { icon: '💸', title: 'Other regular income',            desc: 'Trust, gift, or other stream',             section: 'Income' },
   dc:             { icon: '💼', title: 'DC / Personal pension pot(s)',     desc: 'Workplace pension, SIPP',                  section: 'Savings & Investments' },
   isa:            { icon: '📈', title: 'ISA(s)',                           desc: 'Stocks & Shares or Cash ISA',              section: 'Savings & Investments' },

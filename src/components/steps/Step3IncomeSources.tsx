@@ -127,7 +127,7 @@ function SourceCard({ icon, title, desc, enabled, onToggle, children }: {
 
 function PriorityGroup({ number, title, subtitle, badge, badgeClass, children }: {
   number: number; title: string; subtitle: string;
-  badge: string; badgeClass: string; children: React.ReactNode;
+  badge?: string; badgeClass?: string; children: React.ReactNode;
 }) {
   return (
     <div className="game-card">
@@ -138,7 +138,11 @@ function PriorityGroup({ number, title, subtitle, badge, badgeClass, children }:
         <div className="flex-1 min-w-0">
           <div className="flex flex-wrap items-center gap-2 mb-0.5">
             <span className="font-black text-slate-800">{title}</span>
-            <span className={clsx('text-xs font-bold px-2.5 py-0.5 rounded-full', badgeClass)}>{badge}</span>
+            {badge && (
+              <span className={clsx('text-xs font-bold px-2.5 py-0.5 rounded-full', badgeClass)}>
+                {badge}
+              </span>
+            )}
           </div>
           <p className="text-xs text-slate-400">{subtitle}</p>
         </div>
@@ -165,7 +169,6 @@ function IncomeSection({ currentAge, fiAge, lifeExpectancy, src, assets, set }: 
     <div className="space-y-4">
       <PriorityGroup number={1} title="Guaranteed & Secure Income"
         subtitle="Fill your personal allowance first — lowest tax drag"
-        badge="Draw first" badgeClass="bg-sky-100 text-sky-700"
       >
         <SourceCard icon="🏢" title="DB / Final Salary Pension"
           desc="Guaranteed income from an employer scheme — indexed to inflation"
@@ -180,7 +183,7 @@ function IncomeSection({ currentAge, fiAge, lifeExpectancy, src, assets, set }: 
         </SourceCard>
 
         <SourceCard icon="📜" title="Annuity"
-          desc="Purchased annuity — guaranteed income for life (fixed-term annuities coming soon)"
+          desc="Purchased annuity — inflation-linked guaranteed income for life (level/fixed annuity coming soon)"
           enabled={annuity.enabled} onToggle={(v) => set('annuity', { enabled: v })}
         >
           <FieldRow label="Annual income">
@@ -190,7 +193,7 @@ function IncomeSection({ currentAge, fiAge, lifeExpectancy, src, assets, set }: 
             <AgeStepper value={annuity.startAge} onChange={(v) => set('annuity', { startAge: v })} min={55} max={85} />
           </FieldRow>
           <div className="py-2 text-xs text-sky-700 bg-sky-50 rounded-xl px-3">
-            Annuity income is taxable — modelled alongside DB pension and State Pension.
+            Annuity income is taxable and modelled as inflation-linked alongside DB pension and State Pension. Level (fixed) annuity support is coming soon.
           </div>
         </SourceCard>
 
@@ -248,7 +251,6 @@ function IncomeSection({ currentAge, fiAge, lifeExpectancy, src, assets, set }: 
 
       <PriorityGroup number={3} title="Flexible Income"
         subtitle="DC pension, work and other sources — drawn after guaranteed income"
-        badge="Flexible" badgeClass="bg-violet-100 text-violet-700"
       >
         <SourceCard icon="💼" title="DC / Personal Pension"
           desc="Workplace or personal pension pot — flexible drawdown"
