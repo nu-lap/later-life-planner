@@ -28,6 +28,19 @@ const authMiddleware = clerkMiddleware(async (auth, request) => {
     });
   }
 
+  // Let the route handler authenticate /api/data itself so Clerk doesn't
+  // rewrite valid save requests into a 404 when the browser session is stale.
+  if (pathname === '/api/data') {
+    if (debugEnabled) {
+      console.info('[plan-sync] middleware:bypass', {
+        traceId,
+        method: request.method,
+        pathname,
+      });
+    }
+    return NextResponse.next();
+  }
+
   if (!isPublicRoute(request)) {
     await auth.protect();
 
