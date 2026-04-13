@@ -10,9 +10,15 @@ import {
   decryptPlannerState,
   encryptPlannerState,
   importDataEncryptionKeyFromBase64,
+  getBase64ByteLength,
   PLANNER_SCHEMA_VERSION,
   validateCipherPayload,
 } from '@/lib/crypto';
+import {
+  PLAN_SYNC_DEBUG_HEADER,
+  PLAN_SYNC_TRACE_HEADER,
+  createPlanSyncTraceId,
+} from '@/lib/planSyncDebug';
 import {
   LEGACY_PLANNER_STORAGE_KEY,
   getSyncMigrationDecisionStorageKey,
@@ -51,6 +57,7 @@ const SAVE_DEBOUNCE_MS = 900;
 const DEVICE_APPROVAL_TTL_MS = 10 * 60 * 1000;
 const DEVICE_APPROVAL_POLL_MS = 3000;
 const CORRUPT_PAYLOAD_MESSAGE = 'Saved plan data is corrupted or unreadable. Your plan has not been changed. Contact support for recovery.';
+const PLAN_SYNC_DEBUG_STORAGE_KEY = 'later-life-plan-sync-debug';
 
 type MigrationDecision = 'imported' | 'start-fresh' | 'keep-remote';
 
@@ -145,6 +152,32 @@ function removeLocalStorageItem(key: string): void {
 function safeErrorMessage(error: unknown): string {
   if (error instanceof Error && error.message.trim().length > 0) return error.message;
   return 'Unexpected sync error.';
+}
+
+function isPlanSyncDebugEnabled(): boolean {
+  if (typeof window === 'undefined') return false;
+
+  try {
+    const params = new URL(window.location.href).searchParams;
+    const queryFlag = params.get('planSyncDebug');
+    if (queryFlag === '1' || queryFlag === 'true') return true;
+    return window.localStorage.getItem(PLAN_SYNC_DEBUG_STORAGE_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function buildPlanSyncHeaders(traceId: string): Record<string, string> | undefined {
+  if (!isPlanSyncDebugEnabled()) return undefined;
+  return {
+    [PLAN_SYNC_TRACE_HEADER]: traceId,
+    [PLAN_SYNC_DEBUG_HEADER]: '1',
+  };
+}
+
+function logPlanSyncDebug(event: string, details: Record<string, unknown>): void {
+  if (!isPlanSyncDebugEnabled()) return;
+  console.debug('[plan-sync]', { ...details, event });
 }
 
 function selectCanonicalPlannerState(state: PlannerState): PersistedPlannerState {
@@ -245,8 +278,12 @@ export function usePlanSync(): UsePlanSyncResult {
       if (!syncEnabledRef.current) return false;
       if (!(await ensureKeyStorageAvailable())) return false;
 
+      const traceId = createPlanSyncTraceId();
+      const debugHeaders = buildPlanSyncHeaders(traceId);
+
       try {
         let dekB64 = await getUserDekB64(userId);
+        const dekSource = dekB64 ? 'cached' : 'generated';
         if (!dekB64) {
           if (!globalThis.crypto?.getRandomValues) {
             throw new Error('Web Crypto API is unavailable in this runtime.');
@@ -258,6 +295,23 @@ export function usePlanSync(): UsePlanSyncResult {
 
         const key = await importDataEncryptionKeyFromBase64(dekB64);
         const encrypted = await encryptPlannerState(plan, key, plannerAad(userId));
+
+        logPlanSyncDebug('save:start', {
+          traceId,
+          hasRemotePlan: hasRemotePlanRef.current,
+          currentRevision: currentRevisionRef.current,
+          baseRevision: hasRemotePlanRef.current && typeof currentRevisionRef.current === 'number'
+            ? currentRevisionRef.current
+            : null,
+          dekSource,
+          schemaVersion: PLANNER_SCHEMA_VERSION,
+          serializedBytes: serialized.length,
+          ivBytes: getBase64ByteLength(encrypted.iv),
+          ciphertextBytes: getBase64ByteLength(encrypted.ciphertext),
+          hasWrappedKey: false,
+          keyVersion: null,
+        });
+
         const payload: Record<string, unknown> = {
           schemaVersion: PLANNER_SCHEMA_VERSION,
           iv: encrypted.iv,
@@ -270,8 +324,22 @@ export function usePlanSync(): UsePlanSyncResult {
 
         const response = await fetch('/api/data', {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            ...(debugHeaders ?? {}),
+          },
           body: JSON.stringify(payload),
+        });
+
+        logPlanSyncDebug('save:response', {
+          traceId,
+          status: response.status,
+          ok: response.ok,
+          contentType: response.headers.get('content-type'),
+          clerkAuthReason: response.headers.get('x-clerk-auth-reason'),
+          middlewareRewrite: response.headers.get('x-middleware-rewrite'),
+          middlewareNext: response.headers.get('x-middleware-next'),
+          responseUrl: response.url,
         });
 
 	        if (response.status === 409) {
@@ -283,11 +351,17 @@ export function usePlanSync(): UsePlanSyncResult {
 	          setSaveStatus('conflict');
 	          blockedByConflictRef.current = true;
 	          syncEnabledRef.current = false;
-	          setSyncError('Reload the remote version to continue.');
-	          return false;
-	        }
+          setSyncError('Reload the remote version to continue.');
+          return false;
+        }
 
         if (!response.ok) {
+          const errorBody = isPlanSyncDebugEnabled() ? await response.text().catch(() => '') : '';
+          logPlanSyncDebug('save:error-body', {
+            traceId,
+            status: response.status,
+            bodySnippet: errorBody.slice(0, 400),
+          });
           throw new Error(`Save request failed (${response.status}).`);
         }
 
@@ -303,6 +377,11 @@ export function usePlanSync(): UsePlanSyncResult {
         syncEnabledRef.current = true;
         return true;
       } catch (error) {
+        logPlanSyncDebug('save:exception', {
+          traceId,
+          errorName: error instanceof Error ? error.name : 'UnknownError',
+          errorMessage: safeErrorMessage(error),
+        });
         setSaveStatus('error');
         setSyncError(safeErrorMessage(error));
         return false;
@@ -461,15 +540,43 @@ export function usePlanSync(): UsePlanSyncResult {
         blockedByConflictRef.current = false;
       };
 
+      const traceId = createPlanSyncTraceId();
+      const debugHeaders = buildPlanSyncHeaders(traceId);
+
       try {
+        logPlanSyncDebug('load:start', {
+          traceId,
+          openMigrationPrompt,
+          hasLegacyPlan: legacyPlanRef.current !== null,
+        });
+
         const response = await fetch('/api/data', {
           method: 'GET',
           cache: 'no-store',
+          headers: {
+            ...(debugHeaders ?? {}),
+          },
+        });
+
+        logPlanSyncDebug('load:response', {
+          traceId,
+          status: response.status,
+          ok: response.ok,
+          contentType: response.headers.get('content-type'),
+          clerkAuthReason: response.headers.get('x-clerk-auth-reason'),
+          middlewareRewrite: response.headers.get('x-middleware-rewrite'),
+          middlewareNext: response.headers.get('x-middleware-next'),
+          responseUrl: response.url,
         });
 
         if (loadSequenceRef.current !== sequenceId) return;
 
         if (response.status === 404) {
+          const bodySnippet = isPlanSyncDebugEnabled() ? await response.text().catch(() => '') : '';
+          logPlanSyncDebug('load:not-found', {
+            traceId,
+            bodySnippet: bodySnippet.slice(0, 400),
+          });
           hasRemotePlanRef.current = false;
           currentRevisionRef.current = null;
           lastSavedSerializedRef.current = null;
@@ -497,11 +604,34 @@ export function usePlanSync(): UsePlanSyncResult {
 
         if (!response.ok) {
           if (response.status === 500) {
-            const errorPayload = await response.json().catch(() => null) as { error?: string } | null;
+            const errorText = isPlanSyncDebugEnabled() ? await response.text().catch(() => '') : '';
+            if (isPlanSyncDebugEnabled()) {
+              logPlanSyncDebug('load:error-body', {
+                traceId,
+                status: response.status,
+                bodySnippet: errorText.slice(0, 400),
+              });
+            }
+            const errorPayload = isPlanSyncDebugEnabled()
+              ? (() => {
+                  try {
+                    return JSON.parse(errorText) as { error?: string };
+                  } catch {
+                    return null;
+                  }
+                })()
+              : await response.json().catch(() => null) as { error?: string } | null;
             if (errorPayload?.error === 'Corrupt planner payload.') {
               handleCorruptRemotePayload();
               return;
             }
+          } else if (isPlanSyncDebugEnabled()) {
+            const errorBody = await response.text().catch(() => '');
+            logPlanSyncDebug('load:error-body', {
+              traceId,
+              status: response.status,
+              bodySnippet: errorBody.slice(0, 400),
+            });
           }
           throw new Error(`Load request failed (${response.status}).`);
         }
@@ -676,6 +806,11 @@ export function usePlanSync(): UsePlanSyncResult {
         setIsSyncReady(true);
       } catch (error) {
         if (loadSequenceRef.current !== sequenceId) return;
+        logPlanSyncDebug('load:exception', {
+          traceId,
+          errorName: error instanceof Error ? error.name : 'UnknownError',
+          errorMessage: safeErrorMessage(error),
+        });
         setSaveStatus('error');
         setSyncError(safeErrorMessage(error));
         setIsSyncReady(true);
