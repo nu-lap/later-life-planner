@@ -43,14 +43,6 @@ const authMiddleware = clerkMiddleware(async (auth, request) => {
 
   if (!isPublicRoute(request)) {
     await auth.protect();
-
-    if (debugEnabled && pathname === '/api/data') {
-      console.info('[plan-sync] middleware:passed', {
-        traceId,
-        method: request.method,
-        pathname,
-      });
-    }
   }
 });
 
