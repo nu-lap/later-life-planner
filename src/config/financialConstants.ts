@@ -182,6 +182,50 @@ export const CARE_RESERVE = {
   MAX_AMOUNT: 500_000,
 } as const;
 
+// ─── Inheritance Tax ──────────────────────────────────────────────────────────
+// All thresholds frozen until at least 5 April 2030 (Finance Act 2021, Autumn Budget 2024).
+// Source: HMRC IHT rates and thresholds; IHTA 1984 ss. 7, 8A, 8D.
+
+export const IHT = {
+  /** Standard IHT rate on estate above nil-rate bands. IHTA 1984 s.7. */
+  RATE: 0.40,
+  /** Reduced rate when ≥10% of net estate left to charity. IHTA 1984 s.7A. */
+  CHARITY_RATE: 0.36,
+  /** Nil-Rate Band — frozen to April 2030. */
+  NRB: 325_000,
+  /** Residence Nil-Rate Band — frozen to April 2030. IHTA 1984 s.8D. */
+  RNRB: 175_000,
+  /**
+   * Estate value above which RNRB tapers at £1 per £2 of excess.
+   * RNRB is fully withdrawn at:
+   *   £2,350,000 for a single person (£2m + 2 × £175k)
+   *   £2,700,000 for a couple with full transferable RNRB (£2m + 2 × £350k)
+   * IHTA 1984 s.8D(5).
+   */
+  RNRB_TAPER_THRESHOLD: 2_000_000,
+  /** Estate value at which a single person's RNRB is fully tapered to zero (£2m + 2×£175k). */
+  RNRB_TAPER_END_SINGLE: 2_350_000,
+  /** Estate value at which a couple's full transferable RNRB is tapered to zero (£2m + 2×£350k). */
+  RNRB_TAPER_END_COUPLE: 2_700_000,
+  /**
+   * Estate value above which the RNRB taper warning is shown to users.
+   * Set below the actual £2m cliff to give an early amber alert.
+   * Estates between £1.8m and £2m are approaching the taper zone.
+   */
+  RNRB_TAPER_WARNING_THRESHOLD: 1_800_000,
+  /**
+   * Tax year from which unspent DC pension pots are included in the IHT estate.
+   * Finance Act 2025 (prospective); effective 6 April 2027.
+   */
+  PENSION_ESTATE_INCLUSION_YEAR: 2027,
+  /** Annual gift exemption per person. IHTA 1984 s.19. */
+  ANNUAL_GIFT_EXEMPTION: 3_000,
+  /** Small gifts exemption per recipient per year. IHTA 1984 s.20. */
+  SMALL_GIFT_EXEMPTION: 250,
+  /** Minimum charity fraction of net estate to qualify for reduced IHT rate. */
+  CHARITY_THRESHOLD_FRACTION: 0.10,
+} as const;
+
 // ─── Withdrawal order ─────────────────────────────────────────────────────────
 // The app follows this UK tax-efficient ordering.
 // Source: Standard UK financial planning practice.
