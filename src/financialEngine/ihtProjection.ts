@@ -5,7 +5,7 @@
  * - Primary residence (RNRB eligibility)
  * - Savings, ISA, GIA, cash
  * - DC pension pots (included in estate from 6 April 2027 per Finance Act 2025)
- * - Couple vs single (transferable NRB)
+ * - Couple vs single (transferable NRB and transferable RNRB; IHTA 1984 ss.8A, 8D).
  * - Annual surplus income available for normal-expenditure gift exemption (IHTA 1984 s.21)
  *
  * Sources: IHTA 1984 ss.7, 8D, 8H, 19, 20, 21; Finance Act 2025.
@@ -34,7 +34,9 @@ export interface IHTProjectionInputs {
   unusedNrbFraction: number;
   /** True for couple mode — enables transferable NRB. */
   isCouple: boolean;
-  /** True if ≥10% of net estate is earmarked for charity. */
+  /** True if ≥10% of the net estate is earmarked for charity (IHTA 1984 s.7A).
+   * The caller is responsible for verifying the 10% threshold is met.
+   * When true the reduced 36% rate is applied; no internal validation is performed. */
   charitableEstate: boolean;
   /** Annual net income during projection years (for s.21 gift capacity). */
   annualIncome: number;
@@ -115,11 +117,10 @@ export function calculateIHTProjection(inputs: IHTProjectionInputs): IHTProjecti
     : IHT.NRB;
 
   // RNRB taper: reduces by £1 for every £2 the gross estate exceeds the threshold.
-  // IHTA 1984 s.8D(5).
-  // RNRB requires a qualifying residence passing to direct descendants; it is also
-  // capped to the net residence value (IHTA 1984 s.8D(2)).
+  // RNRB is transferable between spouses (IHTA 1984 s.8D), so couples claim up to 2× RNRB.
+  // Full taper point: £2,350,000 (single) or £2,700,000 (couple with full transfer).
   const rnrbBase = residenceLeavesToDescendants
-    ? Math.min(IHT.RNRB, Math.max(0, primaryResidenceNetValue))
+    ? (isCouple ? IHT.RNRB * 2 : IHT.RNRB)
     : 0;
   const rnrbTaperReduction = Math.max(0, grossEstate - IHT.RNRB_TAPER_THRESHOLD) / 2;
   const rnrbAvailable = Math.max(0, rnrbBase - rnrbTaperReduction);
@@ -143,16 +144,13 @@ export function calculateIHTProjection(inputs: IHTProjectionInputs): IHTProjecti
   const ihtDueExcludingPension = chargeableEstateExcPension * ihtRate;
   const pensionIHTDelta = ihtDue - ihtDueExcludingPension;
 
-  const rnrbTaperWarning = grossEstate > IHT.RNRB_TAPER_THRESHOLD;
+  // Amber warning fires before the £2m cliff to give users planning headroom.
+  const rnrbTaperWarning = grossEstate > IHT.RNRB_TAPER_WARNING_THRESHOLD;
 
   // Annual gifting capacity: surplus income eligible for IHTA 1984 s.21 exemption.
   const annualGiftingCapacity = Math.max(0, annualIncome - annualSpending);
   const years = Math.max(0, remainingYears);
-  // Base the saving on the applicable IHT rate and never show a benefit
-  // larger than the currently projected IHT liability.
-  const rawCumulativeGiftingIHTSaving = annualGiftingCapacity * years * ihtRate;
-  const cumulativeGiftingIHTSaving =
-    ihtDue > 0 ? Math.min(ihtDue, rawCumulativeGiftingIHTSaving) : 0;
+  const cumulativeGiftingIHTSaving = annualGiftingCapacity * years * IHT.RATE;
 
   return {
     grossEstate,

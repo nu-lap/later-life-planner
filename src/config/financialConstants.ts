@@ -197,14 +197,16 @@ export const IHT = {
   RNRB: 175_000,
   /**
    * Estate value above which RNRB tapers at £1 per £2 of excess.
-   * A single £175,000 RNRB is fully withdrawn at RNRB_TAPER_THRESHOLD + 2 × RNRB
-   * (£2,350,000). Any transferable/couple scenario should be modeled separately.
+   * RNRB is fully withdrawn at:
+   *   £2,350,000 for a single person (£2m + 2 × £175k)
+   *   £2,700,000 for a couple with full transferable RNRB (£2m + 2 × £350k)
    * IHTA 1984 s.8D(5).
    */
   RNRB_TAPER_THRESHOLD: 2_000_000,
   /**
-   * Estate value above which the UI shows an amber "approaching taper" warning,
-   * giving users early notice before the £2m threshold is reached.
+   * Estate value above which the RNRB taper warning is shown to users.
+   * Set below the actual £2m cliff to give an early amber alert.
+   * Estates between £1.8m and £2m are approaching the taper zone.
    */
   RNRB_TAPER_WARNING_THRESHOLD: 1_800_000,
   /**

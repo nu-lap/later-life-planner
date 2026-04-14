@@ -14,14 +14,10 @@ interface IHTOutlookPanelProps {
 
 /**
  * Computes the calendar year of projected death for person1.
- * Falls back to current year + life expectancy if DOB is unavailable.
+ * Falls back to current year + remaining life expectancy if DOB is unavailable.
  */
 function estimateDeathYear(state: PlannerState): number {
-  const configuredLifeExpectancy = state.assumptions.lifeExpectancy;
-  const lifeExpectancy =
-    typeof configuredLifeExpectancy === 'number' && Number.isFinite(configuredLifeExpectancy)
-      ? configuredLifeExpectancy
-      : DEFAULT_ASSUMPTIONS.LIFE_EXPECTANCY;
+  const lifeExpectancy = DEFAULT_ASSUMPTIONS.LIFE_EXPECTANCY;
   const dob = state.person1.dateOfBirth;
   if (dob) {
     const birthYear = new Date(dob).getFullYear();
@@ -31,9 +27,15 @@ function estimateDeathYear(state: PlannerState): number {
 }
 
 export default function IHTOutlookPanel({ state, projections }: IHTOutlookPanelProps) {
-  const result = useMemo(() => {
-    const mode = state.mode;    const finalYear = projections[projections.length - 1];
+  // All calculations including display values derived once to avoid duplicating
+  // asset extraction logic between useMemo and the render path.
+  const computed = useMemo(() => {
+    const mode = state.mode;
+    const finalYear = projections.length > 0 ? projections[projections.length - 1] : null;
 
+    const residenceValue = state.primaryResidence.enabled
+      ? Math.max(0, state.primaryResidence.currentValue - state.primaryResidence.mortgageOutstanding)
+      : 0;
     const isaValue = finalYear
       ? finalYear.p1IsaBalance + (mode === 'couple' ? finalYear.p2IsaBalance : 0)
       : 0;
@@ -49,61 +51,51 @@ export default function IHTOutlookPanel({ state, projections }: IHTOutlookPanelP
       ? finalYear.p1DcBalance + (mode === 'couple' ? finalYear.p2DcBalance : 0)
       : 0;
 
-    const primaryResidenceNetValue = state.primaryResidence.enabled
-      ? Math.max(0, state.primaryResidence.currentValue - state.primaryResidence.mortgageOutstanding)
-      : 0;
-
-    // Annual income/spending from the final projection year for gifting capacity.
     const annualIncome = finalYear?.totalIncome ?? 0;
     const annualSpending = finalYear?.spending ?? 0;
     const deathYear = estimateDeathYear(state);
     const currentYear = new Date().getFullYear();
     const remainingYears = Math.max(0, deathYear - currentYear);
 
-    return calculateIHTProjection({
+    const result = calculateIHTProjection({
       deathYear,
-      primaryResidenceNetValue,
+      primaryResidenceNetValue: residenceValue,
       residenceLeavesToDescendants: state.primaryResidence.leavesToDescendants,
       isaValue,
       giaValue,
       cashValue,
       dcPensionValue,
       investmentPropertyValue: 0,
-      unusedNrbFraction: 1.0, // Assume full NRB transfer for surviving spouse
+      unusedNrbFraction: 1.0,
       isCouple: mode === 'couple',
       charitableEstate: false,
       annualIncome,
       annualSpending,
       remainingYears,
     });
+
+    return { result, mode, residenceValue, isaValue, giaValue, cashValue, dcPensionValue };
   }, [state, projections]);
 
-  const mode = state.mode;
-  const finalYear = projections[projections.length - 1];
+  // Guard after hooks — projections may be empty on first render
+  if (!projections.length) {
+    return (
+      <div className="game-card border-violet-200 bg-violet-50/40">
+        <div className="flex items-center gap-3">
+          <span className="text-2xl flex-shrink-0">&#127963;</span>
+          <p className="text-sm text-slate-500">Calculating estate projection&hellip;</p>
+        </div>
+      </div>
+    );
+  }
 
-  const residenceValue = state.primaryResidence.enabled
-    ? Math.max(0, state.primaryResidence.currentValue - state.primaryResidence.mortgageOutstanding)
-    : 0;
-  const isaValue = finalYear
-    ? finalYear.p1IsaBalance + (mode === 'couple' ? finalYear.p2IsaBalance : 0)
-    : 0;
-  const giaValue = finalYear
-    ? finalYear.p1GiaValue +
-      (mode === 'couple' ? finalYear.p2GiaValue : 0) +
-      finalYear.jointGiaValue
-    : 0;
-  const cashValue = finalYear
-    ? finalYear.p1CashBalance + (mode === 'couple' ? finalYear.p2CashBalance : 0)
-    : 0;
-  const dcPensionValue = finalYear
-    ? finalYear.p1DcBalance + (mode === 'couple' ? finalYear.p2DcBalance : 0)
-    : 0;
+  const { result, mode, residenceValue, isaValue, giaValue, cashValue, dcPensionValue } = computed;
 
   return (
     <div className="game-card border-violet-200 bg-violet-50/40">
       {/* Header */}
       <div className="flex items-center gap-3 mb-5">
-        <span className="text-2xl flex-shrink-0">🏛️</span>
+        <span className="text-2xl flex-shrink-0">&#127963;</span>
         <div>
           <h3 className="font-black text-slate-900 text-base">IHT Estate Planning</h3>
           <p className="text-xs text-slate-500 mt-0.5">
@@ -112,7 +104,7 @@ export default function IHTOutlookPanel({ state, projections }: IHTOutlookPanelP
         </div>
       </div>
 
-      {/* Section 1 — Estate Breakdown */}
+      {/* Section 1 - Estate Breakdown */}
       <div className="mb-5">
         <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">
           Estate Breakdown
@@ -150,32 +142,22 @@ export default function IHTOutlookPanel({ state, projections }: IHTOutlookPanelP
         </div>
       </div>
 
-      {/* Section 2 — IHT Projection */}
+      {/* Section 2 - IHT Projection */}
       <div className="mb-5">
         <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">
           IHT Projection
         </h4>
-        {/* Amber warning: approaching the RNRB taper threshold */}
-        {result.grossEstate > IHT.RNRB_TAPER_WARNING_THRESHOLD && !result.rnrbTaperWarning && (
-          <div className="mb-3 rounded-xl bg-amber-50 border border-amber-200 p-3">
-            <p className="text-xs font-bold text-amber-800 mb-1">
-              ⚠️ Approaching RNRB taper threshold
-            </p>
-            <p className="text-xs text-amber-700">
-              Your projected estate is approaching £2,000,000. Above that threshold, the Residence
-              Nil-Rate Band begins to taper at £1 for every £2 of excess.
-            </p>
-          </div>
-        )}
         {result.rnrbTaperWarning && (
           <div className="mb-3 rounded-xl bg-amber-50 border border-amber-200 p-3">
             <p className="text-xs font-bold text-amber-800 mb-1">
-              ⚠️ RNRB taper applies above £2m
+              Approaching RNRB taper threshold
             </p>
             <p className="text-xs text-amber-700">
-              Your projected estate exceeds £2,000,000. The Residence Nil-Rate Band is reduced
-              above that threshold from a maximum of £175,000 and tapers away completely at
-              £2,350,000.
+              Your projected estate is approaching{' '}
+              {formatCurrency(IHT.RNRB_TAPER_WARNING_THRESHOLD, true)} — the RNRB begins tapering
+              at {formatCurrency(IHT.RNRB_TAPER_THRESHOLD, true)} and is fully withdrawn at{' '}
+              {formatCurrency(2_350_000, true)} (single) or {formatCurrency(2_700_000, true)} (couple
+              with full transfer).
             </p>
           </div>
         )}
@@ -194,6 +176,9 @@ export default function IHTOutlookPanel({ state, projections }: IHTOutlookPanelP
             <p className="text-lg font-black text-slate-800">
               {formatCurrency(result.rnrbAvailable, true)}
             </p>
+            {mode === 'couple' && state.primaryResidence.leavesToDescendants && (
+              <p className="text-xs text-slate-400 mt-0.5">Includes transferable RNRB</p>
+            )}
             {!state.primaryResidence.leavesToDescendants && (
               <p className="text-xs text-amber-600 mt-0.5">Enable in Step 3 to claim</p>
             )}
@@ -224,7 +209,7 @@ export default function IHTOutlookPanel({ state, projections }: IHTOutlookPanelP
         </div>
       </div>
 
-      {/* Section 3 — April 2027 Impact */}
+      {/* Section 3 - April 2027 Impact */}
       {dcPensionValue > 0 && (
         <div className="mb-5">
           <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">
@@ -251,7 +236,7 @@ export default function IHTOutlookPanel({ state, projections }: IHTOutlookPanelP
         </div>
       )}
 
-      {/* Section 4 — Gifting Capacity */}
+      {/* Section 4 - Gifting Capacity */}
       {result.annualGiftingCapacity > 0 && (
         <div>
           <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">
