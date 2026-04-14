@@ -356,8 +356,8 @@ function GoalPriorityPanel({
             ? Math.min(100, Math.max(0, ((clampedTargetValue ?? 0) / controlConfig.max) * 100))
             : 0;
           const currentIndex = orderedGoals.findIndex((entry) => entry.id === goal.id);
-          const moveUpAllowed = isExpanded && canMoveGoal(orderedGoals, currentIndex, -1);
-          const moveDownAllowed = isExpanded && canMoveGoal(orderedGoals, currentIndex, 1);
+          const moveUpAllowed = canMoveGoal(orderedGoals, currentIndex, -1);
+          const moveDownAllowed = canMoveGoal(orderedGoals, currentIndex, 1);
 
           return (
             <div
@@ -378,69 +378,52 @@ function GoalPriorityPanel({
                   </div>
                 </div>
 
-                {isExpanded ? (
-                  <div className="flex flex-wrap items-center gap-2">
-                    <label className="inline-flex items-center gap-2 text-xs font-semibold text-slate-600">
-                      <input
-                        checked={effectiveEnabled}
-                        className="rounded border-slate-300 text-orange-500 focus:ring-orange-500"
-                        disabled={isApplying}
-                        onChange={(event) => {
-                          if (isCareReserveGoal) {
-                            onCareReserveChange({ enabled: event.target.checked });
-                            return;
-                          }
+                <div className="flex flex-wrap items-center gap-2">
+                  <label className="inline-flex items-center gap-2 text-xs font-semibold text-slate-600">
+                    <input
+                      checked={effectiveEnabled}
+                      className="rounded border-slate-300 text-orange-500 focus:ring-orange-500"
+                      disabled={isApplying}
+                      onChange={(event) => {
+                        if (isCareReserveGoal) {
+                          onCareReserveChange({ enabled: event.target.checked });
+                          return;
+                        }
 
-                          onChange(updateOrderedGoals(orderedGoals, (entry) => (
-                            entry.id === goal.id ? { ...entry, enabled: event.target.checked } : entry
-                          )));
-                        }}
-                        type="checkbox"
-                      />
-                      Enabled
-                    </label>
-                    <button
-                      aria-label={`Move ${goalCopy.label} up`}
-                      className="btn-secondary text-xs"
-                      disabled={!moveUpAllowed || isApplying}
-                      onClick={() => {
-                        onChange(sortGoalRegistry(moveGoal(orderedGoals, currentIndex, -1)));
+                        onChange(updateOrderedGoals(orderedGoals, (entry) => (
+                          entry.id === goal.id ? { ...entry, enabled: event.target.checked } : entry
+                        )));
                       }}
-                      type="button"
-                    >
-                      ↑
-                    </button>
-                    <button
-                      aria-label={`Move ${goalCopy.label} down`}
-                      className="btn-secondary text-xs"
-                      disabled={!moveDownAllowed || isApplying}
-                      onClick={() => {
-                        onChange(sortGoalRegistry(moveGoal(orderedGoals, currentIndex, 1)));
-                      }}
-                      type="button"
-                    >
-                      ↓
-                    </button>
-                  </div>
-                ) : (
-                  <div className="inline-flex rounded-full bg-white/70 px-3 py-1 text-xs font-semibold text-slate-600">
-                    Selected
-                  </div>
-                )}
+                      type="checkbox"
+                    />
+                    Enabled
+                  </label>
+                  <button
+                    aria-label={`Move ${goalCopy.label} up`}
+                    className="btn-secondary text-xs"
+                    disabled={!moveUpAllowed || isApplying}
+                    onClick={() => {
+                      onChange(sortGoalRegistry(moveGoal(orderedGoals, currentIndex, -1)));
+                    }}
+                    type="button"
+                  >
+                    ↑
+                  </button>
+                  <button
+                    aria-label={`Move ${goalCopy.label} down`}
+                    className="btn-secondary text-xs"
+                    disabled={!moveDownAllowed || isApplying}
+                    onClick={() => {
+                      onChange(sortGoalRegistry(moveGoal(orderedGoals, currentIndex, 1)));
+                    }}
+                    type="button"
+                  >
+                    ↓
+                  </button>
+                </div>
               </div>
 
-              {!isExpanded && targetLabel && effectiveEnabled && clampedTargetValue !== undefined && (
-                <div className="mt-4 rounded-2xl border border-white/70 bg-white/70 px-4 py-3">
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">{targetLabel}</p>
-                    <span className="text-sm font-black text-slate-800">
-                      {formatCurrency(clampedTargetValue, true)}
-                    </span>
-                  </div>
-                </div>
-              )}
-
-              {targetLabel && isExpanded && (
+              {targetLabel && (
                 <div className="mt-4 rounded-2xl border border-white/70 bg-white/70 p-4">
                   <div className="mb-2 flex items-center justify-between gap-3">
                     <div>
