@@ -6,6 +6,7 @@ import {
   parseLegacyPlannerStoragePayload,
 } from '@/lib/persistedPlan';
 import { MAX_PLANNING_HORIZON, MAX_SUPPORTED_CURRENT_AGE } from '@/lib/planningBounds';
+import type { PrimaryResidenceAsset } from '@/models/types';
 
 describe('extractPersistedPlannerState', () => {
   test('omits wizard UI state from the canonical persisted payload', () => {
@@ -19,6 +20,14 @@ describe('extractPersistedPlannerState', () => {
     expect(persistedState).not.toHaveProperty('maxVisitedStep');
     expect(persistedState.fiAge).toBe(state.fiAge);
     expect(persistedState.lifeVision).toBe(state.lifeVision);
+  });
+
+  test('retains primary residence data in the canonical persisted payload', () => {
+    const state = createDefaultState(57);
+
+    const persistedState = extractPersistedPlannerState(state);
+
+    expect(persistedState.primaryResidence).toEqual(state.primaryResidence);
   });
 });
 
@@ -106,5 +115,24 @@ describe('hydratePlannerState', () => {
     expect(hydratedState.person1.currentAge).toBe(MAX_SUPPORTED_CURRENT_AGE);
     expect(hydratedState.fiAge).toBe(MAX_SUPPORTED_CURRENT_AGE);
     expect(hydratedState.assumptions.lifeExpectancy).toBe(MAX_PLANNING_HORIZON);
+  });
+
+  test('hydrates primary residence data and backfills missing fields', () => {
+    const currentState = createDefaultState(57);
+
+    const hydratedState = hydratePlannerState(currentState, {
+      ...extractPersistedPlannerState(currentState),
+      primaryResidence: {
+        enabled: true,
+        currentValue: 480000,
+      } as unknown as PrimaryResidenceAsset,
+    });
+
+    expect(hydratedState.primaryResidence).toEqual({
+      enabled: true,
+      currentValue: 480000,
+      mortgageOutstanding: 0,
+      leavesToDescendants: false,
+    });
   });
 });

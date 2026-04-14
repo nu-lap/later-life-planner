@@ -4,12 +4,16 @@ interface ToggleProps {
   checked: boolean;
   onChange: (checked: boolean) => void;
   label?: string;
+  ariaLabel?: string;
 }
 
-export default function Toggle({ checked, onChange, label }: ToggleProps) {
+export default function Toggle({ checked, onChange, label, ariaLabel }: ToggleProps) {
   return (
     <label className="flex items-center gap-3 cursor-pointer select-none">
       <div
+        role="switch"
+        aria-checked={checked}
+        aria-label={ariaLabel}
         onClick={() => onChange(!checked)}
         className={`relative w-11 h-6 rounded-full transition-colors duration-200 ${
           checked ? 'bg-orange-500' : 'bg-slate-300'

@@ -95,9 +95,10 @@ function OwnerSelect({ value, onChange, mode, p1Label, p2Label }: {
 
 // ─── Source card ──────────────────────────────────────────────────────────────
 
-function SourceCard({ icon, title, desc, enabled, onToggle, children }: {
+function SourceCard({ icon, title, desc, enabled, onToggle, toggleAriaLabel, children }: {
   icon: string; title: string; desc: string;
   enabled: boolean; onToggle: (v: boolean) => void;
+  toggleAriaLabel?: string;
   children?: React.ReactNode;
 }) {
   return (
@@ -112,7 +113,7 @@ function SourceCard({ icon, title, desc, enabled, onToggle, children }: {
             <p className="text-xs text-slate-400 mt-0.5">{desc}</p>
           </div>
         </div>
-        <Toggle checked={enabled} onChange={onToggle} />
+        <Toggle checked={enabled} onChange={onToggle} ariaLabel={toggleAriaLabel} />
       </div>
       {enabled && children && (
         <div className="border-t border-orange-100 px-4 pb-2">
@@ -496,12 +497,13 @@ function AssetsSection({ assets, set, mode, p1Label, p2Label, sharedGia, onShare
       <SourceCard icon="🏠" title="Primary Residence"
         desc="Your main home — already part of your estate for Inheritance Tax"
         enabled={primaryResidence.enabled} onToggle={(v) => setPrimaryResidence({ enabled: v })}
+        toggleAriaLabel="Primary residence enabled"
       >
         <FieldRow label="Estimated current value">
-          <CurrencyInput value={primaryResidence.currentValue} onChange={(v) => setPrimaryResidence({ currentValue: v })} max={5000000} step={5000} />
+          <CurrencyInput value={primaryResidence.currentValue} onChange={(v) => setPrimaryResidence({ currentValue: v })} max={5000000} step={5000} ariaLabel="Primary residence current market value" />
         </FieldRow>
         <FieldRow label="Outstanding mortgage" hint="Reduces net estate value">
-          <CurrencyInput value={primaryResidence.mortgageOutstanding} onChange={(v) => setPrimaryResidence({ mortgageOutstanding: v })} max={2000000} step={5000} />
+          <CurrencyInput value={primaryResidence.mortgageOutstanding} onChange={(v) => setPrimaryResidence({ mortgageOutstanding: v })} max={2000000} step={5000} ariaLabel="Primary residence outstanding mortgage" />
         </FieldRow>
         <FieldRow label="Passes to direct descendants?">
           <label className="flex items-center gap-2 cursor-pointer">
@@ -510,6 +512,7 @@ function AssetsSection({ assets, set, mode, p1Label, p2Label, sharedGia, onShare
               checked={primaryResidence.leavesToDescendants}
               onChange={(e) => setPrimaryResidence({ leavesToDescendants: e.target.checked })}
               className="w-4 h-4 rounded accent-emerald-500"
+              aria-label="Passes to direct descendants"
             />
             <span className="text-sm text-slate-600">Yes — required to claim the Residence Nil-Rate Band (RNRB)</span>
           </label>
