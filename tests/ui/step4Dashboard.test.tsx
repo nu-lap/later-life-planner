@@ -367,7 +367,7 @@ describe('Step4Dashboard', () => {
       await vi.advanceTimersByTimeAsync(300);
     });
 
-    const [, fetchOptions] = fetchMock.mock.calls[0];
+    const fetchOptions = fetchMock.mock.calls[0][1];
     expect((fetchOptions as RequestInit).headers).not.toHaveProperty('Authorization');
   });
 
