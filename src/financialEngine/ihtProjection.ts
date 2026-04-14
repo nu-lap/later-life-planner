@@ -119,8 +119,10 @@ export function calculateIHTProjection(inputs: IHTProjectionInputs): IHTProjecti
   // RNRB taper: reduces by £1 for every £2 the gross estate exceeds the threshold.
   // RNRB is transferable between spouses (IHTA 1984 s.8D), so couples claim up to 2× RNRB.
   // Full taper point: £2,350,000 (single) or £2,700,000 (couple with full transfer).
+  // IHTA 1984 s.8D(2): RNRB cannot exceed the net value of the qualifying residential interest.
+  const rnrbBandMax = isCouple ? IHT.RNRB * 2 : IHT.RNRB;
   const rnrbBase = residenceLeavesToDescendants
-    ? (isCouple ? IHT.RNRB * 2 : IHT.RNRB)
+    ? Math.min(rnrbBandMax, Math.max(0, primaryResidenceNetValue))
     : 0;
   const rnrbTaperReduction = Math.max(0, grossEstate - IHT.RNRB_TAPER_THRESHOLD) / 2;
   const rnrbAvailable = Math.max(0, rnrbBase - rnrbTaperReduction);
@@ -150,7 +152,11 @@ export function calculateIHTProjection(inputs: IHTProjectionInputs): IHTProjecti
   // Annual gifting capacity: surplus income eligible for IHTA 1984 s.21 exemption.
   const annualGiftingCapacity = Math.max(0, annualIncome - annualSpending);
   const years = Math.max(0, remainingYears);
-  const cumulativeGiftingIHTSaving = annualGiftingCapacity * years * IHT.RATE;
+  // Use the applicable IHT rate and cap to the current projected liability so we
+  // never show a benefit larger than the IHT due (and return 0 when ihtDue is 0).
+  const rawCumulativeGiftingIHTSaving = annualGiftingCapacity * years * ihtRate;
+  const cumulativeGiftingIHTSaving =
+    ihtDue > 0 ? Math.min(ihtDue, rawCumulativeGiftingIHTSaving) : 0;
 
   return {
     grossEstate,

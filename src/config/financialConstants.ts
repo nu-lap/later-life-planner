@@ -203,6 +203,10 @@ export const IHT = {
    * IHTA 1984 s.8D(5).
    */
   RNRB_TAPER_THRESHOLD: 2_000_000,
+  /** Estate value at which a single person's RNRB is fully tapered to zero (£2m + 2×£175k). */
+  RNRB_TAPER_END_SINGLE: 2_350_000,
+  /** Estate value at which a couple's full transferable RNRB is tapered to zero (£2m + 2×£350k). */
+  RNRB_TAPER_END_COUPLE: 2_700_000,
   /**
    * Estate value above which the RNRB taper warning is shown to users.
    * Set below the actual £2m cliff to give an early amber alert.
