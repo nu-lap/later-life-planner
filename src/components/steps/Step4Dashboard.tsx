@@ -294,8 +294,7 @@ function GoalPriorityPanel({
     () => sortGoalRegistry(goalRegistry),
     [goalRegistry],
   );
-  const enabledGoals = orderedGoals.filter((goal) => isGoalEnabled(goal));
-  const visibleGoals = isExpanded ? orderedGoals : enabledGoals;
+  const visibleGoals = isExpanded ? orderedGoals : [];
 
   const commitGoalTarget = (goal: GoalConfig, nextTarget: number | undefined) => {
     const clampedTarget = clampGoalTargetValue(nextTarget, targetControlConfig[goal.id]?.max ?? Number.MAX_SAFE_INTEGER);
@@ -312,31 +311,31 @@ function GoalPriorityPanel({
 
   return (
     <div className="game-card">
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h3 className="section-heading">Goal priorities</h3>
-          <p className="text-xs text-slate-500 mb-4">
-            {isExpanded
-              ? 'Rank the retirement goals that should shape the optimizer. Higher goals are treated as harder constraints before lower-priority trade-offs.'
-              : 'These are the goals currently shaping your withdrawal plan.'}
+          <p className="text-xs text-slate-500">
+            Rank the goals that should shape the optimizer. Higher goals are treated as harder constraints before lower-priority trade-offs.
           </p>
         </div>
         <button
-          className="btn-secondary text-xs"
+          className="text-sm font-semibold text-orange-600 hover:text-orange-700 self-start sm:self-auto"
           onClick={() => setIsExpanded((value) => !value)}
           type="button"
+          aria-expanded={isExpanded}
         >
-          {isExpanded ? 'Show selected goals' : 'Show all goals'}
+          {isExpanded ? '▲ Hide goals' : '▼ Show goals'}
         </button>
       </div>
 
-      {!isExpanded && enabledGoals.length === 0 && (
-        <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
-          No goals selected. Expand the panel to enable goals for the optimizer.
+      {isExpanded && orderedGoals.filter((goal) => isGoalEnabled(goal)).length === 0 && (
+        <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+          No goals selected. Enable goals below to shape the optimizer.
         </div>
       )}
 
-      <div className="space-y-3">
+      {isExpanded && (
+      <div className="mt-4 space-y-3">
         {visibleGoals.map((goal, index) => {
           const goalCopy = GOAL_COPY[goal.id];
           const targetLabel = goalCopy.targetLabel;
@@ -358,8 +357,8 @@ function GoalPriorityPanel({
             ? Math.min(100, Math.max(0, ((clampedTargetValue ?? 0) / controlConfig.max) * 100))
             : 0;
           const currentIndex = orderedGoals.findIndex((entry) => entry.id === goal.id);
-          const moveUpAllowed = isExpanded && canMoveGoal(orderedGoals, currentIndex, -1);
-          const moveDownAllowed = isExpanded && canMoveGoal(orderedGoals, currentIndex, 1);
+          const moveUpAllowed = canMoveGoal(orderedGoals, currentIndex, -1);
+          const moveDownAllowed = canMoveGoal(orderedGoals, currentIndex, 1);
 
           return (
             <div
@@ -380,69 +379,52 @@ function GoalPriorityPanel({
                   </div>
                 </div>
 
-                {isExpanded ? (
-                  <div className="flex flex-wrap items-center gap-2">
-                    <label className="inline-flex items-center gap-2 text-xs font-semibold text-slate-600">
-                      <input
-                        checked={effectiveEnabled}
-                        className="rounded border-slate-300 text-orange-500 focus:ring-orange-500"
-                        disabled={isApplying}
-                        onChange={(event) => {
-                          if (isCareReserveGoal) {
-                            onCareReserveChange({ enabled: event.target.checked });
-                            return;
-                          }
+                <div className="flex flex-wrap items-center gap-2">
+                  <label className="inline-flex items-center gap-2 text-xs font-semibold text-slate-600">
+                    <input
+                      checked={effectiveEnabled}
+                      className="rounded border-slate-300 text-orange-500 focus:ring-orange-500"
+                      disabled={isApplying}
+                      onChange={(event) => {
+                        if (isCareReserveGoal) {
+                          onCareReserveChange({ enabled: event.target.checked });
+                          return;
+                        }
 
-                          onChange(updateOrderedGoals(orderedGoals, (entry) => (
-                            entry.id === goal.id ? { ...entry, enabled: event.target.checked } : entry
-                          )));
-                        }}
-                        type="checkbox"
-                      />
-                      Enabled
-                    </label>
-                    <button
-                      aria-label={`Move ${goalCopy.label} up`}
-                      className="btn-secondary text-xs"
-                      disabled={!moveUpAllowed || isApplying}
-                      onClick={() => {
-                        onChange(sortGoalRegistry(moveGoal(orderedGoals, currentIndex, -1)));
+                        onChange(updateOrderedGoals(orderedGoals, (entry) => (
+                          entry.id === goal.id ? { ...entry, enabled: event.target.checked } : entry
+                        )));
                       }}
-                      type="button"
-                    >
-                      ↑
-                    </button>
-                    <button
-                      aria-label={`Move ${goalCopy.label} down`}
-                      className="btn-secondary text-xs"
-                      disabled={!moveDownAllowed || isApplying}
-                      onClick={() => {
-                        onChange(sortGoalRegistry(moveGoal(orderedGoals, currentIndex, 1)));
-                      }}
-                      type="button"
-                    >
-                      ↓
-                    </button>
-                  </div>
-                ) : (
-                  <div className="inline-flex rounded-full bg-white/70 px-3 py-1 text-xs font-semibold text-slate-600">
-                    Selected
-                  </div>
-                )}
+                      type="checkbox"
+                    />
+                    Enabled
+                  </label>
+                  <button
+                    aria-label={`Move ${goalCopy.label} up`}
+                    className="btn-secondary text-xs"
+                    disabled={!moveUpAllowed || isApplying}
+                    onClick={() => {
+                      onChange(sortGoalRegistry(moveGoal(orderedGoals, currentIndex, -1)));
+                    }}
+                    type="button"
+                  >
+                    ↑
+                  </button>
+                  <button
+                    aria-label={`Move ${goalCopy.label} down`}
+                    className="btn-secondary text-xs"
+                    disabled={!moveDownAllowed || isApplying}
+                    onClick={() => {
+                      onChange(sortGoalRegistry(moveGoal(orderedGoals, currentIndex, 1)));
+                    }}
+                    type="button"
+                  >
+                    ↓
+                  </button>
+                </div>
               </div>
 
-              {!isExpanded && targetLabel && effectiveEnabled && clampedTargetValue !== undefined && (
-                <div className="mt-4 rounded-2xl border border-white/70 bg-white/70 px-4 py-3">
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">{targetLabel}</p>
-                    <span className="text-sm font-black text-slate-800">
-                      {formatCurrency(clampedTargetValue, true)}
-                    </span>
-                  </div>
-                </div>
-              )}
-
-              {targetLabel && isExpanded && (
+              {targetLabel && (
                 <div className="mt-4 rounded-2xl border border-white/70 bg-white/70 p-4">
                   <div className="mb-2 flex items-center justify-between gap-3">
                     <div>
@@ -541,11 +523,10 @@ function GoalPriorityPanel({
           );
         })}
       </div>
+      )}
     </div>
   );
 }
-
-// ─── Tax overview ──────────────────────────────────────────────────────────────
 
 function TaxOverview({ projections }: { projections: YearlyProjection[] }) {
   const lifetimeIncomeTax = projections.reduce((s, p) => s + p.incomeTaxPaid, 0);

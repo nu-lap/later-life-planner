@@ -77,8 +77,8 @@ describe('Step4Dashboard', () => {
     expect(screen.getByText('Gross income vs required spending — optimiser view')).toBeInTheDocument();
     expect(screen.getByText('Goal priorities')).toBeInTheDocument();
     expect(screen.queryByText('Current optimiser focus')).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Show all goals' })).toBeInTheDocument();
-    expect(screen.getByTestId('goal-card-tax_efficiency')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '▼ Show goals' })).toBeInTheDocument();
+    expect(screen.queryByTestId('goal-card-tax_efficiency')).not.toBeInTheDocument();
     expect(screen.queryByTestId('goal-card-longevity_protection')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('Longevity protection amount')).not.toBeInTheDocument();
     expect(fetchMock).not.toHaveBeenCalled();
@@ -145,7 +145,7 @@ describe('Step4Dashboard', () => {
     render(<Step4Dashboard onBack={vi.fn()} />);
 
     setGoalRegistryMock.mockClear();
-    fireEvent.click(screen.getByRole('button', { name: 'Show all goals' }));
+    fireEvent.click(screen.getByRole('button', { name: '▼ Show goals' }));
     fireEvent.click(screen.getByRole('button', { name: 'Move Longevity protection down' }));
 
     expect(setGoalRegistryMock).toHaveBeenCalledTimes(1);
@@ -163,7 +163,7 @@ describe('Step4Dashboard', () => {
     render(<Step4Dashboard onBack={vi.fn()} />);
 
     setGoalRegistryMock.mockClear();
-    fireEvent.click(screen.getByRole('button', { name: 'Show all goals' }));
+    fireEvent.click(screen.getByRole('button', { name: '▼ Show goals' }));
     const amountInput = screen.getByLabelText('Longevity protection amount') as HTMLInputElement;
     const maxValue = Number(amountInput.max);
 
@@ -185,7 +185,7 @@ describe('Step4Dashboard', () => {
     render(<Step4Dashboard onBack={vi.fn()} />);
     setCareReserveMock.mockClear();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Show all goals' }));
+    fireEvent.click(screen.getByRole('button', { name: '▼ Show goals' }));
 
     const amountInput = screen.getByLabelText('Care reserve amount') as HTMLInputElement;
     expect(amountInput.value).toBe('125,000');
@@ -209,7 +209,7 @@ describe('Step4Dashboard', () => {
     render(<Step4Dashboard onBack={vi.fn()} />);
     setCareReserveMock.mockClear();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Show all goals' }));
+    fireEvent.click(screen.getByRole('button', { name: '▼ Show goals' }));
     fireEvent.click(within(screen.getByTestId('goal-card-care_reserve')).getByRole('checkbox', { name: 'Enabled' }));
 
     expect(setCareReserveMock).toHaveBeenCalledWith({
@@ -218,7 +218,7 @@ describe('Step4Dashboard', () => {
     });
   });
 
-  test('shows only enabled goals in the collapsed view by default', () => {
+  test('hides all goals in the collapsed state by default', () => {
     plannerState = {
       ...plannerState,
       careReserve: { enabled: true, amount: 115_000 },
@@ -226,19 +226,18 @@ describe('Step4Dashboard', () => {
 
     render(<Step4Dashboard onBack={vi.fn()} />);
 
-    expect(screen.getByTestId('goal-card-tax_efficiency')).toBeInTheDocument();
-    expect(screen.getByTestId('goal-card-care_reserve')).toBeInTheDocument();
+    expect(screen.queryByTestId('goal-card-tax_efficiency')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('goal-card-care_reserve')).not.toBeInTheDocument();
     expect(screen.queryByTestId('goal-card-longevity_protection')).not.toBeInTheDocument();
     expect(screen.queryByTestId('goal-card-bequest')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('Care reserve amount')).not.toBeInTheDocument();
-    expect(screen.getByText('Protected capital')).toBeInTheDocument();
-    expect(screen.getByText('£115.0k')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '▼ Show goals' })).toBeInTheDocument();
   });
 
   test('shows Unset label when goal target value is not set', () => {
     render(<Step4Dashboard onBack={vi.fn()} />);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Show all goals' }));
+    fireEvent.click(screen.getByRole('button', { name: '▼ Show goals' }));
 
     expect(screen.getAllByText('Unset').length).toBeGreaterThan(0);
   });
@@ -257,7 +256,7 @@ describe('Step4Dashboard', () => {
     expect(setGoalRegistryMock).toHaveBeenCalledTimes(1);
     const normalizedRegistry = setGoalRegistryMock.mock.calls[0][0];
     const longevityGoal = normalizedRegistry.find((entry: { id: string }) => entry.id === 'longevity_protection');
-    fireEvent.click(screen.getByRole('button', { name: 'Show all goals' }));
+    fireEvent.click(screen.getByRole('button', { name: '▼ Show goals' }));
     const amountInput = screen.getByLabelText('Longevity protection amount') as HTMLInputElement;
     expect(longevityGoal.targetValue).toBe(Number(amountInput.max));
   });
@@ -265,7 +264,7 @@ describe('Step4Dashboard', () => {
   test('does not commit goal target on blur when no draft has been entered', () => {
     render(<Step4Dashboard onBack={vi.fn()} />);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Show all goals' }));
+    fireEvent.click(screen.getByRole('button', { name: '▼ Show goals' }));
 
     const amountInput = screen.getByLabelText('Longevity protection amount') as HTMLInputElement;
 
@@ -284,7 +283,7 @@ describe('Step4Dashboard', () => {
     render(<Step4Dashboard onBack={vi.fn()} />);
     setGoalRegistryMock.mockClear();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Show all goals' }));
+    fireEvent.click(screen.getByRole('button', { name: '▼ Show goals' }));
 
     const amountInput = screen.getByLabelText('Longevity protection amount') as HTMLInputElement;
 
@@ -298,7 +297,7 @@ describe('Step4Dashboard', () => {
   test('keeps goal target input focus while editing and formats the displayed amount with separators', () => {
     render(<Step4Dashboard onBack={vi.fn()} />);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Show all goals' }));
+    fireEvent.click(screen.getByRole('button', { name: '▼ Show goals' }));
 
     const amountInput = screen.getByLabelText('Longevity protection amount') as HTMLInputElement;
     fireEvent.change(amountInput, { target: { value: '1200' } });
