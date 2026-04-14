@@ -144,7 +144,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 };
 
 export default function LifetimeChart({ projections }: Props) {
-  const data = projections.filter((_, i) => i % 2 === 0 || projections.length <= 20).map(toChartData);
+  const data = projections.filter((_, i, arr) => i % 2 === 0 || arr.length <= 20 || i === arr.length - 1).map(toChartData);
   const activeBars  = BARS.filter(b => data.some(d => (d as any)[b.key] > 0));
   const hasTax      = data.some(d => d.tax > 0);
   const hasShortfall = data.some(d => d.shortfall > 0);
