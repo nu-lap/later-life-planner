@@ -201,7 +201,7 @@ function clearLegacyLocalPlannerCache(): void {
 }
 
 export function usePlanSync(): UsePlanSyncResult {
-  const { isLoaded, userId } = useAuth();
+  const { isLoaded, userId, getToken } = useAuth();
   const hydrateCanonicalPlan = usePlannerStore((state) => state.hydrateCanonicalPlan);
   const resetPlan = usePlannerStore((state) => state.resetPlan);
   const canonicalPlannerState = usePlannerStore(selectCanonicalPlannerState);
@@ -243,6 +243,20 @@ export function usePlanSync(): UsePlanSyncResult {
   const deviceApprovalIntervalRef = useRef<number | null>(null);
   const indexedDbAvailableRef = useRef<boolean | null>(null);
   const hasSeenSignedInRef = useRef(false);
+
+  const getTokenRef = useRef(getToken);
+  getTokenRef.current = getToken;
+
+  /** Returns Authorization headers with a fresh Clerk Bearer token, or empty object on failure. */
+  const buildAuthHeaders = useCallback(async (): Promise<Record<string, string>> => {
+    try {
+      const token = await getTokenRef.current();
+      if (token) return { Authorization: `Bearer ${token}` };
+    } catch {
+      // If getToken fails, fall back to cookie-based auth (best-effort)
+    }
+    return {};
+  }, []);
 
   const clearSensitiveStateOnSignOut = useCallback(() => {
     lastSavedSerializedRef.current = null;
@@ -322,10 +336,12 @@ export function usePlanSync(): UsePlanSyncResult {
           payload.baseRevision = currentRevisionRef.current;
         }
 
+        const authHeaders = await buildAuthHeaders();
         const response = await fetch('/api/data', {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
+            ...authHeaders,
             ...(debugHeaders ?? {}),
           },
           body: JSON.stringify(payload),
@@ -550,10 +566,12 @@ export function usePlanSync(): UsePlanSyncResult {
           hasLegacyPlan: legacyPlanRef.current !== null,
         });
 
+        const authHeaders = await buildAuthHeaders();
         const response = await fetch('/api/data', {
           method: 'GET',
           cache: 'no-store',
           headers: {
+            ...authHeaders,
             ...(debugHeaders ?? {}),
           },
         });
