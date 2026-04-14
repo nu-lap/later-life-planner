@@ -101,6 +101,7 @@ function SourceCard({ icon, title, desc, enabled, onToggle, toggleAriaLabel, chi
   toggleAriaLabel?: string;
   children?: React.ReactNode;
 }) {
+  const effectiveToggleAriaLabel = toggleAriaLabel ?? `Enable ${title}`;
   return (
     <div className={clsx('rounded-2xl border-2 overflow-hidden transition-all',
       enabled ? 'border-orange-200 bg-white' : 'border-slate-200 bg-slate-50/50'
@@ -113,7 +114,7 @@ function SourceCard({ icon, title, desc, enabled, onToggle, toggleAriaLabel, chi
             <p className="text-xs text-slate-400 mt-0.5">{desc}</p>
           </div>
         </div>
-        <Toggle checked={enabled} onChange={onToggle} ariaLabel={toggleAriaLabel} />
+        <Toggle checked={enabled} onChange={onToggle} ariaLabel={effectiveToggleAriaLabel} />
       </div>
       {enabled && children && (
         <div className="border-t border-orange-100 px-4 pb-2">
