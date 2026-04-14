@@ -293,8 +293,7 @@ function GoalPriorityPanel({
     () => sortGoalRegistry(goalRegistry),
     [goalRegistry],
   );
-  const enabledGoals = orderedGoals.filter((goal) => isGoalEnabled(goal));
-  const visibleGoals = isExpanded ? orderedGoals : enabledGoals;
+  const visibleGoals = isExpanded ? orderedGoals : [];
 
   const commitGoalTarget = (goal: GoalConfig, nextTarget: number | undefined) => {
     const clampedTarget = clampGoalTargetValue(nextTarget, targetControlConfig[goal.id]?.max ?? Number.MAX_SAFE_INTEGER);
@@ -311,31 +310,31 @@ function GoalPriorityPanel({
 
   return (
     <div className="game-card">
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h3 className="section-heading">Goal priorities</h3>
-          <p className="text-xs text-slate-500 mb-4">
-            {isExpanded
-              ? 'Rank the retirement goals that should shape the optimizer. Higher goals are treated as harder constraints before lower-priority trade-offs.'
-              : 'These are the goals currently shaping your withdrawal plan.'}
+          <p className="text-xs text-slate-500">
+            Rank the goals that should shape the optimizer. Higher goals are treated as harder constraints before lower-priority trade-offs.
           </p>
         </div>
         <button
-          className="btn-secondary text-xs"
+          className="text-sm font-semibold text-orange-600 hover:text-orange-700 self-start sm:self-auto"
           onClick={() => setIsExpanded((value) => !value)}
           type="button"
+          aria-expanded={isExpanded}
         >
-          {isExpanded ? 'Show selected goals' : 'Show all goals'}
+          {isExpanded ? '▲ Hide goals' : '▼ Show goals'}
         </button>
       </div>
 
-      {!isExpanded && enabledGoals.length === 0 && (
-        <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
-          No goals selected. Expand the panel to enable goals for the optimizer.
+      {isExpanded && orderedGoals.filter((goal) => isGoalEnabled(goal)).length === 0 && (
+        <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+          No goals selected. Enable goals below to shape the optimizer.
         </div>
       )}
 
-      <div className="space-y-3">
+      {isExpanded && (
+      <div className="mt-4 space-y-3">
         {visibleGoals.map((goal, index) => {
           const goalCopy = GOAL_COPY[goal.id];
           const targetLabel = goalCopy.targetLabel;
@@ -540,11 +539,10 @@ function GoalPriorityPanel({
           );
         })}
       </div>
+      )}
     </div>
   );
 }
-
-// ─── Tax overview ──────────────────────────────────────────────────────────────
 
 function TaxOverview({ projections }: { projections: YearlyProjection[] }) {
   const lifetimeIncomeTax = projections.reduce((s, p) => s + p.incomeTaxPaid, 0);
