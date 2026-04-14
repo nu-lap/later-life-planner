@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 import { PlannerState } from '@/models/types';
 import { YearlyProjection } from '@/models/types';
 import { calculateIHTProjection } from '@/financialEngine/ihtProjection';
+import { calculateGiftingOptimisation } from '@/financialEngine/giftingOptimiser';
 import { formatCurrency } from '@/financialEngine/projectionEngine';
 import { DEFAULT_ASSUMPTIONS, IHT } from '@/config/financialConstants';
 
@@ -78,7 +79,18 @@ export default function IHTOutlookPanel({ state, projections }: IHTOutlookPanelP
       remainingYears,
     });
 
-    return { result, mode, residenceValue, isaValue, giaValue, cashValue, dcPensionValue };
+    const gifting = calculateGiftingOptimisation({
+      grossEstate: result.grossEstate,
+      ihtDue: result.ihtDue,
+      rnrbAvailable: result.rnrbAvailable,
+      isCouple: mode === 'couple',
+      dcPensionValue,
+      annualSurplusIncome: result.annualGiftingCapacity,
+      annualIncome,
+      remainingYears,
+    });
+
+    return { result, gifting, mode, residenceValue, isaValue, giaValue, cashValue, dcPensionValue };
   }, [state, projections]);
 
   // Guard after hooks — projections may be empty on first render
@@ -93,7 +105,7 @@ export default function IHTOutlookPanel({ state, projections }: IHTOutlookPanelP
     );
   }
 
-  const { result, mode, residenceValue, isaValue, giaValue, cashValue, dcPensionValue } = computed;
+  const { result, gifting, mode, residenceValue, isaValue, giaValue, cashValue, dcPensionValue } = computed;
 
   return (
     <div className="game-card border-violet-200 bg-violet-50/40">
@@ -255,30 +267,135 @@ export default function IHTOutlookPanel({ state, projections }: IHTOutlookPanelP
         </div>
       )}
 
-      {/* Section 4 - Gifting Capacity */}
-      {result.annualGiftingCapacity > 0 && (
+      {/* Section 4 - Gifting Optimiser */}
+      {gifting.recommendationTier !== 'no-action' && (
         <div>
-          <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">
-            Gifting Capacity (IHTA 1984 s.21)
-          </h4>
-          <div className="rounded-xl bg-green-50 border border-green-200 p-4">
-            <p className="text-sm text-slate-700 mb-2">
-              You have an estimated{' '}
-              <span className="font-bold text-green-800">
-                {formatCurrency(result.annualGiftingCapacity, true)}/yr
-              </span>{' '}
-              surplus income available for IHT-exempt normal-expenditure gifts.
-            </p>
-            {result.remainingYears > 0 && (
-              <p className="text-sm text-slate-600">
-                Over {result.remainingYears} years this could save{' '}
-                <span className="font-bold text-green-800">
-                  {formatCurrency(result.cumulativeGiftingIHTSaving, true)}
-                </span>{' '}
-                in IHT.
-              </p>
+          <div className="flex items-center gap-2 mb-2">
+            <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wide">
+              Gifting Strategy
+            </h4>
+            {gifting.isInTaperZone && (
+              <span className="text-xs font-bold text-amber-700 bg-amber-100 border border-amber-300 rounded-full px-2 py-0.5">
+                60% effective IHT rate
+              </span>
             )}
           </div>
+
+          {/* RNRB taper recovery callout */}
+          {gifting.isInTaperZone && gifting.rnrbRecoveryOpportunity > 0 && (
+            <div className="mb-3 rounded-xl bg-amber-50 border border-amber-200 p-3">
+              <p className="text-xs font-bold text-amber-800 mb-1">
+                Priority: recover RNRB by bringing estate below £2m
+              </p>
+              <p className="text-xs text-amber-700">
+                Your estate is{' '}
+                <span className="font-bold">{formatCurrency(gifting.giftingNeededForRNRBRecovery, true)}</span>{' '}
+                above the £2m RNRB taper threshold. Gifting to get below this level saves{' '}
+                <span className="font-bold">{formatCurrency(gifting.rnrbRecoveryOpportunity, true)}</span>{' '}
+                in additional IHT via RNRB recovery — on top of the direct 40% IHT saving.
+                The effective marginal rate in this zone is 60p per £1 gifted.
+              </p>
+            </div>
+          )}
+
+          {/* Annual gifting breakdown */}
+          <div className="rounded-xl bg-green-50 border border-green-200 p-4 mb-3">
+            <p className="text-xs font-bold text-slate-600 mb-2">Annual gift capacity</p>
+            <div className="space-y-1.5">
+              {gifting.annualExemptFromIncome > 0 && (
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-slate-600">Surplus income gifts (s.21)</span>
+                  <span className="font-bold text-green-800">
+                    {formatCurrency(gifting.annualExemptFromIncome, true)}/yr
+                  </span>
+                </div>
+              )}
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-slate-600">
+                  Annual exempt allowance (s.19
+                  {gifting.annualExemptGiftAllowance > IHT.ANNUAL_GIFT_EXEMPTION
+                    ? ', both spouses'
+                    : ''}
+                  )
+                </span>
+                <span className="font-bold text-green-800">
+                  {formatCurrency(gifting.annualExemptGiftAllowance, true)}/yr
+                </span>
+              </div>
+              {gifting.annualDCDrawdownGiftNet > 0 && (
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-slate-600">
+                    DC drawdown &amp; gift (PET, net of{' '}
+                    {(gifting.marginalIncomeTaxRate * 100).toFixed(0)}% income tax)
+                  </span>
+                  <span className="font-bold text-green-800">
+                    {formatCurrency(gifting.annualDCDrawdownGiftNet, true)}/yr
+                  </span>
+                </div>
+              )}
+              {gifting.annualTotalGift > 0 && (
+                <div className="flex justify-between items-center text-sm border-t border-green-200 pt-2 mt-1">
+                  <span className="font-bold text-slate-700">Total annual gift</span>
+                  <span className="font-black text-green-800">
+                    {formatCurrency(gifting.annualTotalGift, true)}/yr
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Net benefit analysis */}
+          {gifting.annualNetBenefit !== 0 && (
+            <div className="rounded-xl bg-slate-50 border border-slate-200 p-4 mb-3">
+              <p className="text-xs font-bold text-slate-600 mb-2">Annual net benefit</p>
+              <div className="space-y-1.5">
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-slate-600">IHT saving</span>
+                  <span className="font-bold text-green-700">
+                    +{formatCurrency(gifting.annualIHTSaving, true)}/yr
+                  </span>
+                </div>
+                {gifting.annualIncomeTaxCost > 0 && (
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-slate-600">Income tax on DC drawdown</span>
+                    <span className="font-bold text-red-600">
+                      −{formatCurrency(gifting.annualIncomeTaxCost, true)}/yr
+                    </span>
+                  </div>
+                )}
+                <div className="flex justify-between items-center text-sm border-t border-slate-200 pt-2">
+                  <span className="font-bold text-slate-700">Net benefit</span>
+                  <span
+                    className={`font-black ${gifting.annualNetBenefit > 0 ? 'text-green-700' : 'text-red-700'}`}
+                  >
+                    {gifting.annualNetBenefit > 0 ? '+' : ''}
+                    {formatCurrency(gifting.annualNetBenefit, true)}/yr
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Cumulative saving */}
+          {result.remainingYears > 0 && gifting.cumulativeNetBenefit > 0 && (
+            <p className="text-sm text-slate-600">
+              Over {result.remainingYears} years a consistent gifting strategy could deliver a{' '}
+              <span className="font-bold text-green-800">
+                {formatCurrency(gifting.cumulativeNetBenefit, true)}
+              </span>{' '}
+              net reduction in total tax.
+            </p>
+          )}
+
+          {/* Income-only note when DC draw-and-gift is not recommended */}
+          {gifting.recommendationTier === 'income-gifts-only' && (
+            <p className="text-xs text-slate-500 mt-2">
+              At your projected income level, drawing extra pension to gift would cost{' '}
+              {(gifting.marginalIncomeTaxRate * 100).toFixed(0)}% income tax — more than the{' '}
+              {(gifting.effectiveMarginalIHTRate * 100).toFixed(0)}% IHT saving. Only surplus-income
+              and annual-exempt gifts are recommended.
+            </p>
+          )}
         </div>
       )}
     </div>
