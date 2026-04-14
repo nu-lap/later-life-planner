@@ -25,6 +25,7 @@ import type { YearlyProjection } from '@/lib/types';
 import type { OptimizerPolicyOverride } from '@/financialEngine/types';
 import type { CareReserve, GoalConfig, GoalId } from '@/models/types';
 import clsx from 'clsx';
+import IHTOutlookPanel from '@/components/IHTOutlookPanel';
 
 const GOAL_ORCHESTRATION_DEBOUNCE_MS = 300;
 const GOAL_TARGET_FORMATTER = new Intl.NumberFormat('en-GB', {
@@ -1060,21 +1061,7 @@ export default function Step4Dashboard({ onBack }: Props) {
               targetControlConfig={goalTargetControlConfig}
             />
           )}
-          <div className="game-card border-violet-200 bg-violet-50/40">
-            <div className="flex items-center gap-3">
-              <span className="text-2xl flex-shrink-0">🏛️</span>
-              <div>
-                <h3 className="font-black text-slate-900 text-base mb-1">
-                  IHT Estate Planning
-                  <span className="ml-2 text-xs font-semibold text-violet-600 bg-violet-100 px-2 py-0.5 rounded-full">Coming soon</span>
-                </h3>
-                <p className="text-sm text-slate-600">
-                  Full estate modelling — home, savings, ISAs, and pension — is on its way as part of your Pro plan.
-                  You&apos;ll be able to project your full inheritance tax position, model RNRB planning, and explore tax-efficient drawdown strategies to protect your estate.
-                </p>
-              </div>
-            </div>
-          </div>
+          <IHTOutlookPanel state={deferredState} projections={projections} />
         </>
       ) : (
         <ProUpgradeOverlay
