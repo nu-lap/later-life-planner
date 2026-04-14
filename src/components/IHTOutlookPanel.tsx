@@ -113,14 +113,14 @@ export default function IHTOutlookPanel({ state, projections }: IHTOutlookPanelP
           {residenceValue > 0 && (
             <div className="flex justify-between items-center text-sm py-1.5 border-b border-slate-100">
               <span className="text-slate-600">Primary residence (net of mortgage)</span>
-              <span className="font-bold text-slate-900">{formatCurrency(residenceValue, true)}</span>
+              <span className="font-bold text-slate-900">{formatCurrency(residenceValue, false)}</span>
             </div>
           )}
           {(isaValue + giaValue + cashValue) > 0 && (
             <div className="flex justify-between items-center text-sm py-1.5 border-b border-slate-100">
               <span className="text-slate-600">Savings, ISAs &amp; investments</span>
               <span className="font-bold text-slate-900">
-                {formatCurrency(isaValue + giaValue + cashValue, true)}
+                {formatCurrency(isaValue + giaValue + cashValue, false)}
               </span>
             </div>
           )}
@@ -132,12 +132,12 @@ export default function IHTOutlookPanel({ state, projections }: IHTOutlookPanelP
                   included from April 2027
                 </span>
               </span>
-              <span className="font-bold text-slate-900">{formatCurrency(dcPensionValue, true)}</span>
+              <span className="font-bold text-slate-900">{formatCurrency(dcPensionValue, false)}</span>
             </div>
           )}
           <div className="flex justify-between items-center text-sm py-1.5 font-bold">
             <span className="text-slate-800">Gross estate</span>
-            <span className="text-slate-900">{formatCurrency(result.grossEstate, true)}</span>
+            <span className="text-slate-900">{formatCurrency(result.grossEstate, false)}</span>
           </div>
         </div>
       </div>
@@ -186,7 +186,7 @@ export default function IHTOutlookPanel({ state, projections }: IHTOutlookPanelP
           <div className="rounded-xl bg-white border border-slate-200 p-3">
             <p className="text-xs text-slate-500 mb-1">Chargeable estate</p>
             <p className="text-lg font-black text-slate-800">
-              {formatCurrency(result.chargeableEstate, true)}
+              {formatCurrency(result.chargeableEstate, false)}
             </p>
           </div>
           <div
@@ -202,7 +202,7 @@ export default function IHTOutlookPanel({ state, projections }: IHTOutlookPanelP
                 result.ihtDue > 0 ? 'text-red-700' : 'text-green-700'
               }`}
             >
-              {formatCurrency(result.ihtDue, true)}
+              {formatCurrency(result.ihtDue, false)}
             </p>
             <p className="text-xs text-slate-400 mt-0.5">at {(result.ihtRate * 100).toFixed(0)}%</p>
           </div>
@@ -219,17 +219,17 @@ export default function IHTOutlookPanel({ state, projections }: IHTOutlookPanelP
             <div className="flex justify-between items-center text-sm">
               <span className="text-slate-600">IHT without pension in estate</span>
               <span className="font-bold text-slate-800">
-                {formatCurrency(result.ihtDueExcludingPension, true)}
+                {formatCurrency(result.ihtDueExcludingPension, false)}
               </span>
             </div>
             <div className="flex justify-between items-center text-sm">
               <span className="text-slate-600">IHT with pension (from 2027)</span>
-              <span className="font-bold text-slate-800">{formatCurrency(result.ihtDue, true)}</span>
+              <span className="font-bold text-slate-800">{formatCurrency(result.ihtDue, false)}</span>
             </div>
             <div className="flex justify-between items-center text-sm border-t border-slate-200 pt-2">
               <span className="font-bold text-red-700">Additional IHT from pension</span>
               <span className="font-black text-red-700">
-                +{formatCurrency(result.pensionIHTDelta, true)}
+                +{formatCurrency(result.pensionIHTDelta, false)}
               </span>
             </div>
           </div>
