@@ -2,8 +2,8 @@
 
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
-import { useAuth } from '@clerk/nextjs';
 import { usePlannerStore } from '@/store/plannerStore';
+import { useOptionalGetToken } from '@/hooks/useOptionalGetToken';
 import {
   calculateProjections, getStageTotalSpending,
   getAssetDepletionAge, formatCurrency,
@@ -714,7 +714,7 @@ export function buildOptimizerViewProjections(
 // ─── Main dashboard ────────────────────────────────────────────────────────────
 
 export default function Step4Dashboard({ onBack }: Props) {
-  const { getToken } = useAuth();
+  const getToken = useOptionalGetToken();
   const getTokenRef = useRef(getToken);
   getTokenRef.current = getToken;
   const state = usePlannerStore();
