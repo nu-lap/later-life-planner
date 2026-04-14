@@ -18,6 +18,10 @@ vi.mock('@/store/plannerStore', () => ({
   usePlannerStore: () => plannerState,
 }));
 
+vi.mock('@clerk/nextjs', () => ({
+  useAuth: () => ({ getToken: vi.fn().mockResolvedValue('test-token') }),
+}));
+
 vi.mock('next/dynamic', () => ({
   default: () => function MockDynamicComponent(props: any) {
     if (props.mode !== undefined) {

@@ -1,7 +1,8 @@
 'use client';
 
-import { useDeferredValue, useEffect, useMemo, useState } from 'react';
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
+import { useAuth } from '@clerk/nextjs';
 import { usePlannerStore } from '@/store/plannerStore';
 import {
   calculateProjections, getStageTotalSpending,
@@ -713,6 +714,9 @@ export function buildOptimizerViewProjections(
 // ─── Main dashboard ────────────────────────────────────────────────────────────
 
 export default function Step4Dashboard({ onBack }: Props) {
+  const { getToken } = useAuth();
+  const getTokenRef = useRef(getToken);
+  getTokenRef.current = getToken;
   const state = usePlannerStore();
   const deferredState = useDeferredValue(state);
   const optimizerEnabled = process.env.NEXT_PUBLIC_OPTIMIZER_ENABLED === 'true';
@@ -777,7 +781,7 @@ export default function Step4Dashboard({ onBack }: Props) {
 
       activeController = new AbortController();
       setPolicyLoading(true);
-      orchestrateGoals(request, { signal: activeController.signal })
+      orchestrateGoals(request, { signal: activeController.signal, getToken: () => getTokenRef.current() })
         .then((nextPolicyOverride) => {
           if (!cancelled) {
             setPolicyOverride(nextPolicyOverride);

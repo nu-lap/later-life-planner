@@ -10,6 +10,10 @@ const isPublicRoute = createRouteMatcher([
   '/sign-up(.*)',
   '/.well-known/microsoft-identity-association.json',
 ]);
+// All /api/* routes authenticate themselves via requireUser() and must not
+// be subject to Clerk's protect-rewrite, which rewrites requests into 404s
+// when the __client_uat cookie is out of sync on production domains.
+const isApiRoute = createRouteMatcher(['/api/(.*)']);
 const isClerkConfigured = Boolean(
   process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY && process.env.CLERK_SECRET_KEY,
 );
@@ -28,10 +32,11 @@ const authMiddleware = clerkMiddleware(async (auth, request) => {
     });
   }
 
-  // Let the route handler authenticate /api/data itself so Clerk doesn't
-  // rewrite valid save requests into a 404 when the browser session is stale.
-  if (pathname === '/api/data') {
-    if (debugEnabled) {
+  // API routes handle their own authentication via requireUser().
+  // Bypassing here prevents Clerk from rewriting requests into 404s when the
+  // __client_uat cookie is out of sync (e.g. on non-localhost production domains).
+  if (isApiRoute(request)) {
+    if (debugEnabled && pathname === '/api/data') {
       console.info('[plan-sync] middleware:bypass', {
         traceId,
         method: request.method,
