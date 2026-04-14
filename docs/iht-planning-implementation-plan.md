@@ -77,8 +77,9 @@ to land behind the flag without a separate infrastructure change.
 
 - [x] Phase IHT-1 — Primary Residence Data Model
 - [x] Phase IHT-2 — Feature Flag (superseded by `NEXT_PUBLIC_PRO_ENABLED`; Pro gate live in Phase 15)
-- [ ] Phase IHT-3 — IHT Constants + Calculation Engine
-- [ ] Phase IHT-4 — IHT Outlook Panel in Step 4
+- [x] Phase IHT-3 — IHT Constants + Calculation Engine
+- [x] Phase IHT-4 — IHT Outlook Panel in Step 4
+- [ ] Phase IHT-5 — Gifting Optimiser
 
 ---
 
@@ -346,10 +347,10 @@ Test cases:
 | Annual gifting capacity | `annualGiftingCapacity === income − spending` |
 
 **Acceptance criteria:**
-- [ ] `IHT` constants block in `financialConstants.ts`
-- [ ] `calculateIHTProjection` exported from `ihtProjection.ts`
-- [ ] All unit test cases passing
-- [ ] Pure function — no imports from `src/app`, `src/hooks`, or any API layer
+- [x] `IHT` constants block in `financialConstants.ts`
+- [x] `calculateIHTProjection` exported from `ihtProjection.ts`
+- [x] All unit test cases passing
+- [x] Pure function — no imports from `src/app`, `src/hooks`, or any API layer
 
 ---
 
@@ -404,13 +405,13 @@ const proEnabled = process.env.NEXT_PUBLIC_PRO_ENABLED === 'true';
 - Render `IHTOutlookPanel` after the main asset depletion chart, before the care reserve section.
 
 **Acceptance criteria:**
-- [ ] Panel hidden when `NEXT_PUBLIC_PRO_ENABLED=false` (teaser shown via Phase 15 overlay)
-- [ ] Panel visible and correct when `NEXT_PUBLIC_PRO_ENABLED=true`
-- [ ] Estate breakdown figures match projection engine final-year values
-- [ ] RNRB taper warning appears for estates > £1.8m
-- [ ] Pension delta card shows correct before/after 2027 figures
-- [ ] Gifting capacity section only shown when surplus > 0
-- [ ] No change to existing Step 4 content when Pro is off
+- [x] Panel hidden when `NEXT_PUBLIC_PRO_ENABLED=false` (teaser shown via Phase 15 overlay)
+- [x] Panel visible and correct when `NEXT_PUBLIC_PRO_ENABLED=true`
+- [x] Estate breakdown figures match projection engine final-year values
+- [x] RNRB taper warning appears for estates > £1.8m
+- [x] Pension delta card shows correct before/after 2027 figures
+- [x] Gifting capacity section only shown when surplus > 0
+- [x] No change to existing Step 4 content when Pro is off
 
 ---
 
@@ -439,8 +440,277 @@ These were identified as planning scenarios but are deferred:
 | Scenario | Notes |
 |---|---|
 | IHT-aware DC drawdown optimizer candidate | New optimizer strategy drawing to basic-rate ceiling annually; requires optimizer Phase 11 first |
-| Structured annual gifts modelling (£3k/£250 exemptions) | Year-by-year gifting plan; future enhancement to IHTOutlookPanel |
 | Charitable legacy 10% optimisation | Show break-even analysis; requires charity intent capture in Step 1 |
 | Spousal NRB pass-through optimisation | Cross-death asset rebalancing advice; complex two-death modelling |
 | Whole-of-life insurance trade-off | Out of scope for v1 |
 | Pension vs ISA accumulation post-2027 | Requires accumulation phase modelling |
+
+---
+
+## Phase IHT-5 — Gifting Optimiser
+
+**Goal:** Model and optimise an annual gifting strategy that minimises _total_ tax
+(income tax on withdrawals + IHT on estate), not just IHT in isolation.  Simply
+withdrawing from a DC pension and gifting only reduces tax if the income tax cost is
+less than the IHT saving — and this calculus changes significantly when the estate sits
+in the RNRB taper zone (£2m–£2.35m single / £2.7m couple) where the effective marginal
+IHT rate is **60%** rather than 40%.
+
+**Depends on:** Phase IHT-3, Phase IHT-4 complete.
+
+**Gated by:** `NEXT_PUBLIC_PRO_ENABLED` (same as IHT-4).
+
+---
+
+### Financial background
+
+#### RNRB taper and effective marginal IHT rate
+
+The RNRB tapers at £1 per £2 of estate above £2,000,000 (IHTA 1984 s.8D(5)).
+Each £2 gifted from an estate above £2m recovers £1 of RNRB, saving a further
+£0.40 in IHT (at 40% rate). Combined with the direct 40% IHT saving per £1 gifted,
+the effective marginal rate while in the taper zone is **60%**.
+
+| Estate position | Effective marginal IHT rate on next £1 gifted |
+|---|---|
+| Estate ≤ NRB+RNRB (no IHT) | 0% |
+| Estate > NRB+RNRB, ≤ £2m (standard zone) | 40% |
+| Estate > £2m, RNRB not yet fully tapered | **60%** (40% IHT + 20% RNRB recovery) |
+| Estate > taper ceiling (RNRB fully lost) | 40% |
+
+**Taper ceiling:**
+- Single: £2,000,000 + 2 × £175,000 = **£2,350,000**
+- Couple: £2,000,000 + 2 × £350,000 = **£2,700,000** (using both RNRB allowances)
+
+#### Gift types modelled
+
+| Exemption | Annual limit | 7-year rule? | Notes |
+|---|---|---|---|
+| Normal expenditure out of income (s.21) | Unlimited (must be from surplus income after normal living) | ❌ Exempt immediately | Requires pattern of regular giving |
+| Annual exempt gift (s.19) | £3,000 per donor per year (carry forward unused to next year; max £6,000) | ❌ Exempt immediately | Each spouse/partner can use own allowance |
+| Potentially Exempt Transfers (PETs) | Unlimited | ✅ Fully exempt after 7 years | Taper relief 3–7 years; full IHT if < 3 years |
+
+For modelling the DC draw-and-gift analysis, PETs are the primary vehicle for
+larger gifts. The model uses the plan's remaining years to determine the number of
+full 7-year PET windows available.
+
+#### Break-even logic
+
+A DC draw-and-gift is beneficial when:
+
+```
+income_tax_on_withdrawal < effective_marginal_IHT_rate × gift_amount
+```
+
+Equivalently:
+
+```
+marginal_income_tax_rate < effective_marginal_IHT_rate
+```
+
+| Marginal income tax rate | Estate ≤ £2m (40% IHT) | Estate in taper zone (60% effective IHT) |
+|---|---|---|
+| 20% basic rate | ✅ Net benefit: 20p/£ | ✅ Net benefit: 40p/£ |
+| 40% higher rate | ❌ No net benefit | ✅ Net benefit: 20p/£ |
+| 45% additional rate | ❌ No net benefit | ❌ No net benefit |
+| ~60% (PA taper zone) | ❌ No net benefit | ❌ No net benefit |
+
+---
+
+### IHT-5.1 — `giftingOptimiser.ts` engine
+
+File: `src/financialEngine/giftingOptimiser.ts`
+
+Pure function; no network, no side effects.
+
+**Inputs:**
+
+```typescript
+export interface GiftingOptimiserInputs {
+  /** Total gross estate from IHT projection. */
+  grossEstate: number;
+  /** Current IHT liability. */
+  ihtDue: number;
+  /** RNRB after taper (may be less than full RNRB if estate > £2m). */
+  rnrbAvailable: number;
+  /** True if couple (affects RNRB cap and annual gift allowance). */
+  isCouple: boolean;
+  /** Combined DC pension value — source of additional gifting via drawdown. */
+  dcPensionValue: number;
+  /** Annual surplus income after normal living expenditure (s.21 capacity). */
+  annualSurplusIncome: number;
+  /** Annual income used to determine marginal income tax band on extra DC withdrawals. */
+  annualIncome: number;
+  /** Remaining years until projected death. */
+  remainingYears: number;
+}
+```
+
+**Outputs:**
+
+```typescript
+export interface GiftingOptimiserResult {
+  // ── Tax rate context ──────────────────────────────────────────────────────
+  /** Effective marginal IHT rate: 0.60 in RNRB taper zone, 0.40 otherwise. */
+  effectiveMarginalIHTRate: number;
+  /** Estimated marginal income tax rate on additional DC withdrawals. */
+  marginalIncomeTaxRate: number;
+  /** True if draw-and-gift reduces total tax (income tax < effective IHT rate). */
+  isDrawAndGiftWorthwhile: boolean;
+
+  // ── RNRB taper recovery ────────────────────────────────────────────────────
+  /** True if estate is above the £2m RNRB taper threshold. */
+  isInTaperZone: boolean;
+  /** Maximum additional IHT saving from recovering full RNRB (£0 if not in taper zone). */
+  rnrbRecoveryOpportunity: number;
+  /** Total gifting required to bring estate to £2m taper floor (0 if already below). */
+  giftingNeededForRNRBRecovery: number;
+
+  // ── Annual gifting breakdown ───────────────────────────────────────────────
+  /** s.21 — from surplus income (immediately IHT-exempt, no 7-year rule). */
+  annualExemptFromIncome: number;
+  /** s.19 — annual exempt gift allowance (£3k/person, £6k couple). */
+  annualExemptGiftAllowance: number;
+  /**
+   * DC to draw down (gross pre-tax) and gift as a PET.
+   * Only non-zero when isDrawAndGiftWorthwhile is true and DC pot is available.
+   * Capped to avoid exhausting DC pot before RNRB recovery target is met.
+   */
+  annualDCDrawdownGross: number;
+  /** Income tax cost of annualDCDrawdownGross. */
+  annualDCDrawdownIncomeTaxCost: number;
+  /** Net gift amount from DC drawdown (after income tax). */
+  annualDCDrawdownGiftNet: number;
+  /** Total gift amount per year across all strategies. */
+  annualTotalGift: number;
+
+  // ── Annual net benefit ─────────────────────────────────────────────────────
+  /** Direct IHT reduction from annual gifting (estate × effective marginal rate). */
+  annualIHTSaving: number;
+  /** Total income tax paid on DC drawdown this year. */
+  annualIncomeTaxCost: number;
+  /** Net annual benefit (IHT saving − income tax cost). Negative means not worthwhile. */
+  annualNetBenefit: number;
+
+  // ── Cumulative projection (over remainingYears) ────────────────────────────
+  cumulativeIHTSaving: number;
+  cumulativeIncomeTaxCost: number;
+  cumulativeNetBenefit: number;
+
+  // ── Recommendation ─────────────────────────────────────────────────────────
+  /**
+   * - `no-action`: IHT due is zero; no gifting needed.
+   * - `income-gifts-only`: gifting surplus income worthwhile; DC draw-and-gift is not.
+   * - `rnrb-recovery-priority`: estate in taper zone; prioritise gifting to £2m first.
+   * - `draw-and-gift`: draw from DC and gift is tax-efficient.
+   */
+  recommendationTier: 'no-action' | 'income-gifts-only' | 'draw-and-gift' | 'rnrb-recovery-priority';
+}
+```
+
+**Marginal income tax rate estimation** (derived from `annualIncome`):
+
+Use a step function against the current tax year's bands from `getSnapshotForYear`:
+
+| Income range | Marginal rate |
+|---|---|
+| ≤ personal allowance | 0% |
+| Personal allowance → basic rate limit (£50,270) | 20% |
+| £50,270 → £100,000 | 40% |
+| £100,000 → £125,140 (PA taper zone) | ~60% (effective) |
+| > £125,140 | 45% |
+
+**Key calculation rules:**
+
+1. **Effective marginal IHT rate:**
+   - Max RNRB (pre-taper) = `isCouple ? IHT.RNRB * 2 : IHT.RNRB`
+   - If `grossEstate > IHT.RNRB_TAPER_THRESHOLD && rnrbAvailable < maxRNRB` → `0.60`
+   - Otherwise → `IHT.RATE` (0.40)
+
+2. **RNRB recovery opportunity:**
+   - `giftingNeededForRNRBRecovery = max(0, grossEstate − IHT.RNRB_TAPER_THRESHOLD)`
+   - `rnrbRecoveryOpportunity = (maxRNRB − rnrbAvailable) * IHT.RATE`
+
+3. **Annual DC drawdown gift** (only if `isDrawAndGiftWorthwhile`):
+   - Target: gift enough each year so that over `remainingYears` the estate reaches £2m
+     (or exhausts the DC pot if pot is insufficient)
+   - Annual target gross = `min(giftingNeededForRNRBRecovery / remainingYears, dcPensionValue / remainingYears)`
+   - Income tax cost = `annualDCDrawdownGross * marginalIncomeTaxRate`
+   - Net gift = `annualDCDrawdownGross * (1 − marginalIncomeTaxRate)`
+
+4. **Annual IHT saving:**
+   - `(annualExemptFromIncome + annualExemptGiftAllowance) * IHT.RATE`
+   - Plus: `annualDCDrawdownGiftNet * effectiveMarginalIHTRate`
+   - Capped at `ihtDue` (cannot save more than the liability)
+
+5. **Recommendation tier logic:**
+   - `ihtDue === 0` → `'no-action'`
+   - `ihtDue > 0 && isInTaperZone && isDrawAndGiftWorthwhile` → `'rnrb-recovery-priority'`
+   - `ihtDue > 0 && !isInTaperZone && isDrawAndGiftWorthwhile` → `'draw-and-gift'`
+   - `ihtDue > 0 && !isDrawAndGiftWorthwhile && annualSurplusIncome > 0` → `'income-gifts-only'`
+   - `ihtDue > 0 && !isDrawAndGiftWorthwhile && annualSurplusIncome === 0` → `'no-action'`
+
+---
+
+### IHT-5.2 — Unit tests
+
+File: `tests/unit/giftingOptimiser.test.ts`
+
+| Test case | Key assertion |
+|---|---|
+| No IHT due | `recommendationTier === 'no-action'`; all saving values are 0 |
+| Basic rate taxpayer, estate £1.5m (standard zone) | `effectiveMarginalIHTRate === 0.40`; `isDrawAndGiftWorthwhile === true` |
+| Higher rate taxpayer, estate £1.5m (standard zone) | `isDrawAndGiftWorthwhile === false`; `recommendationTier !== 'draw-and-gift'` |
+| Estate £2.2m (taper zone), basic rate | `effectiveMarginalIHTRate === 0.60`; `isInTaperZone === true`; `recommendationTier === 'rnrb-recovery-priority'` |
+| Estate £2.2m (taper zone), higher rate | `effectiveMarginalIHTRate === 0.60`; `isDrawAndGiftWorthwhile === true` (40% < 60%) |
+| Estate £2.2m (taper zone), additional rate | `effectiveMarginalIHTRate === 0.60`; `isDrawAndGiftWorthwhile === false` (45% < 60% → actually true); check correctly |
+| RNRB recovery opportunity calculation | `rnrbRecoveryOpportunity === (maxRNRB − rnrbAvailable) * 0.40` |
+| Annual net benefit = IHT saving − income tax | `annualNetBenefit === annualIHTSaving − annualIncomeTaxCost` |
+| Cumulative projection over N years | `cumulativeNetBenefit === annualNetBenefit * N` |
+| No DC pot available | `annualDCDrawdownGross === 0`; no draw-and-gift recommendation without DC |
+| Couple vs single annual gift allowance | Couple: `annualExemptGiftAllowance === 6_000`; Single: `3_000` |
+
+---
+
+### IHT-5.3 — `IHTOutlookPanel.tsx` enhanced gifting section
+
+Replace the current simple "Gifting Capacity" section (Section 4) with a comprehensive
+optimiser-backed display.
+
+**When `recommendationTier === 'no-action'`:**
+- Don't render the gifting section (no IHT to mitigate).
+
+**When `recommendationTier === 'income-gifts-only'`:**
+- Show the existing simple s.21 card (surplus income → IHT exempt gifts).
+- Add s.19 annual exempt gift amounts.
+- Explain why DC draw-and-gift is not beneficial at the current income level.
+
+**When `recommendationTier === 'draw-and-gift'` or `'rnrb-recovery-priority'`:**
+- Show a multi-tier optimiser card with:
+  - Effective marginal IHT rate badge (amber badge "60% effective" if in taper zone)
+  - If RNRB recovery: callout explaining the £2m taper threshold and opportunity
+  - Annual gifting breakdown table:
+    - From surplus income (s.21): `annualExemptFromIncome`
+    - Annual exempt allowance (s.19): `annualExemptGiftAllowance`
+    - DC drawdown & gift (PET): `annualDCDrawdownGiftNet` (net of income tax)
+    - **Total annual gift:** `annualTotalGift`
+  - Net benefit analysis card:
+    - "IHT saving: £X/yr"
+    - "Income tax cost: −£Y/yr"
+    - **"Net benefit: +£Z/yr"** (green when positive)
+  - Cumulative saving over remaining years
+
+**Acceptance criteria:**
+
+- [ ] `calculateGiftingOptimisation` exported from `giftingOptimiser.ts`
+- [ ] All unit test cases passing
+- [ ] Pure function — no imports from `src/app`, `src/hooks`, or any API layer
+- [ ] `IHTOutlookPanel` gifting section replaced with optimiser-backed display
+- [ ] RNRB taper zone correctly triggers 60% effective rate and `rnrb-recovery-priority` tier
+- [ ] Draw-and-gift correctly absent for higher-rate taxpayers in standard IHT zone
+- [ ] Draw-and-gift correctly present for higher-rate taxpayers in taper zone (40% < 60%)
+- [ ] Annual gift allowance doubles for couples vs singles
+- [ ] Cumulative projection matches `annualNetBenefit × remainingYears`
+- [ ] No visible change when `ihtDue === 0`
+
+---
