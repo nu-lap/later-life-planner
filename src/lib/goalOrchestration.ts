@@ -231,12 +231,23 @@ export function buildGoalOrchestrateRequest(
 
 export async function orchestrateGoals(
   request: GoalOrchestrateRequest,
-  options?: { signal?: AbortSignal },
+  options?: { signal?: AbortSignal; getToken?: () => Promise<string | null> },
 ): Promise<OptimizerPolicyOverride> {
+  let authHeader: Record<string, string> = {};
+  if (options?.getToken) {
+    try {
+      const token = await options.getToken();
+      if (token) authHeader = { Authorization: `Bearer ${token}` };
+    } catch {
+      // Fall back to cookie-based auth if getToken fails
+    }
+  }
+
   const response = await fetch('/api/goal-orchestrate', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      ...authHeader,
     },
     body: JSON.stringify(request),
     signal: options?.signal,

@@ -8,6 +8,7 @@ import { optimizeWithdrawals } from '@/financialEngine/withdrawalOptimizer';
 const setGoalRegistryMock = vi.fn();
 const setCareReserveMock = vi.fn();
 const fetchMock = vi.fn();
+const getTokenMock = vi.fn();
 let plannerState = {
   ...paulAndLisaState(),
   setGoalRegistry: setGoalRegistryMock,
@@ -16,6 +17,10 @@ let plannerState = {
 
 vi.mock('@/store/plannerStore', () => ({
   usePlannerStore: () => plannerState,
+}));
+
+vi.mock('@/hooks/useOptionalGetToken', () => ({
+  useOptionalGetToken: () => getTokenMock,
 }));
 
 vi.mock('next/dynamic', () => ({
@@ -41,6 +46,8 @@ describe('Step4Dashboard', () => {
     };
     setGoalRegistryMock.mockReset();
     setCareReserveMock.mockReset();
+    getTokenMock.mockReset();
+    getTokenMock.mockResolvedValue('test-token');
     fetchMock.mockReset();
     fetchMock.mockResolvedValue({
       ok: true,
@@ -330,6 +337,38 @@ describe('Step4Dashboard', () => {
 
     expect(fetchMock).not.toHaveBeenCalled();
     expect(screen.getByText('Goal priorities')).toBeInTheDocument();
+  });
+
+  test('includes Authorization: Bearer header in goal-orchestrate fetch when getToken returns a token', async () => {
+    getTokenMock.mockResolvedValue('test-token');
+
+    render(<Step4Dashboard onBack={vi.fn()} />);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(300);
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/goal-orchestrate',
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: 'Bearer test-token',
+        }),
+      }),
+    );
+  });
+
+  test('omits Authorization header in goal-orchestrate fetch when getToken returns null', async () => {
+    getTokenMock.mockResolvedValue(null);
+
+    render(<Step4Dashboard onBack={vi.fn()} />);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(300);
+    });
+
+    const fetchOptions = fetchMock.mock.calls[0][1];
+    expect((fetchOptions as RequestInit).headers).not.toHaveProperty('Authorization');
   });
 
   test('maps optimiser ending balances into chart projections', () => {
