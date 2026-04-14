@@ -46,7 +46,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 
 export default function AssetChart({ projections }: Props) {
   const data = projections
-    .filter((_, i) => i % 2 === 0 || projections.length <= 20)
+    .filter((_, i, arr) => i % 2 === 0 || arr.length <= 20 || i === arr.length - 1)
     .map(p => ({
       age:              p.p1Age,
       p2Age:            p.p2Age,
