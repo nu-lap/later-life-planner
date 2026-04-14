@@ -1,6 +1,6 @@
 import type {
   PlannerState, LifeStage, SpendingCategory,
-  PersonIncomeSources, PersonAssets, RlssStandard,
+  PersonIncomeSources, PersonAssets, RlssStandard, PrimaryResidenceAsset,
 } from '@/models/types';
 import {
   RLSS, DEFAULT_ASSUMPTIONS, STATE_PENSION, PENSION_RULES, CARE_RESERVE,
@@ -182,6 +182,13 @@ export function buildDefaultAssets(): PersonAssets {
   };
 }
 
+export const defaultPrimaryResidence: PrimaryResidenceAsset = {
+  enabled: false,
+  currentValue: 0,
+  mortgageOutstanding: 0,
+  leavesToDescendants: false,
+};
+
 // ─── Default state ────────────────────────────────────────────────────────────
 
 export function createDefaultState(primaryAge: number = DEFAULT_ASSUMPTIONS.DEFAULT_AGE): PlannerState {
@@ -225,7 +232,27 @@ export function createDefaultState(primaryAge: number = DEFAULT_ASSUMPTIONS.DEFA
     goalRegistry: buildDefaultGoalRegistry(),
     jointGia: { enabled: false, totalValue: 0, baseCost: 0, growthRate: DEFAULT_ASSUMPTIONS.INVESTMENT_GROWTH },
     careReserve: { enabled: false, amount: CARE_RESERVE.DEFAULT_AMOUNT },
-    primaryResidence: { enabled: false, currentValue: 0, mortgageOutstanding: 0, leavesToDescendants: true },
+    primaryResidence: { ...defaultPrimaryResidence },
+  };
+}
+
+// ─── Primary residence normalizer ────────────────────────────────────────────
+
+function normalizePrimaryResidence(
+  source: Partial<PrimaryResidenceAsset> | null | undefined,
+): PrimaryResidenceAsset {
+  return {
+    ...defaultPrimaryResidence,
+    enabled: typeof source?.enabled === 'boolean' ? source.enabled : defaultPrimaryResidence.enabled,
+    currentValue: typeof source?.currentValue === 'number' && Number.isFinite(source.currentValue)
+      ? Math.max(0, source.currentValue)
+      : defaultPrimaryResidence.currentValue,
+    mortgageOutstanding: typeof source?.mortgageOutstanding === 'number' && Number.isFinite(source.mortgageOutstanding)
+      ? Math.max(0, source.mortgageOutstanding)
+      : defaultPrimaryResidence.mortgageOutstanding,
+    leavesToDescendants: typeof source?.leavesToDescendants === 'boolean'
+      ? source.leavesToDescendants
+      : defaultPrimaryResidence.leavesToDescendants,
   };
 }
 
@@ -278,6 +305,7 @@ export function normalizePlannerState(state: PlannerState): PlannerState {
       lifeExpectancy: normalized.lifeExpectancy,
     },
     goalRegistry: normalizeGoalRegistry(state.goalRegistry),
+    primaryResidence: normalizePrimaryResidence(state.primaryResidence),
   };
 }
 

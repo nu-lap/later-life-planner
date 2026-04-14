@@ -11,6 +11,7 @@ interface CurrencyInputProps {
   className?: string;
   compact?: boolean;
   decimalScale?: number;
+  ariaLabel?: string;
 }
 
 export default function CurrencyInput({
@@ -22,6 +23,7 @@ export default function CurrencyInput({
   className = '',
   compact = false,
   decimalScale = 0,
+  ariaLabel,
 }: CurrencyInputProps) {
   const [draftValue, setDraftValue] = useState<string | null>(null);
 
@@ -72,6 +74,7 @@ export default function CurrencyInput({
       <input
         type="text"
         inputMode={decimalScale > 0 ? 'decimal' : 'numeric'}
+        aria-label={ariaLabel}
         value={displayValue}
         onFocus={() => setDraftValue(formatDraftValue(value))}
         onChange={handleChange}

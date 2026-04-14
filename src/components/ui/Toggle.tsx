@@ -4,14 +4,27 @@ interface ToggleProps {
   checked: boolean;
   onChange: (checked: boolean) => void;
   label?: string;
+  ariaLabel?: string;
 }
 
-export default function Toggle({ checked, onChange, label }: ToggleProps) {
+export default function Toggle({ checked, onChange, label, ariaLabel }: ToggleProps) {
+  function handleKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
+    if (e.key === ' ' || e.key === 'Enter') {
+      e.preventDefault();
+      onChange(!checked);
+    }
+  }
+
   return (
     <label className="flex items-center gap-3 cursor-pointer select-none">
       <div
+        role="switch"
+        aria-checked={checked}
+        aria-label={ariaLabel}
+        tabIndex={0}
         onClick={() => onChange(!checked)}
-        className={`relative w-11 h-6 rounded-full transition-colors duration-200 ${
+        onKeyDown={handleKeyDown}
+        className={`relative w-11 h-6 rounded-full transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 ${
           checked ? 'bg-orange-500' : 'bg-slate-300'
         }`}
       >

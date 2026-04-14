@@ -67,6 +67,15 @@ describe('createDefaultState', () => {
     expect(p.assets).toBeDefined();
   });
 
+  test('includes a disabled primary residence by default', () => {
+    expect(createDefaultState(57).primaryResidence).toEqual({
+      enabled: false,
+      currentValue: 0,
+      mortgageOutstanding: 0,
+      leavesToDescendants: false,
+    });
+  });
+
   test('jointGia is present', () => {
     expect(createDefaultState(57).jointGia).toBeDefined();
   });
@@ -208,6 +217,26 @@ describe('normalizePlannerState', () => {
       [104, 104],
       [105, 105],
     ]);
+  });
+
+  test('preserves primary residence data during normalization', () => {
+    const baseState = createDefaultState(57);
+    const normalized = normalizePlannerState({
+      ...baseState,
+      primaryResidence: {
+        enabled: true,
+        currentValue: 450000,
+        mortgageOutstanding: 125000,
+        leavesToDescendants: true,
+      },
+    });
+
+    expect(normalized.primaryResidence).toEqual({
+      enabled: true,
+      currentValue: 450000,
+      mortgageOutstanding: 125000,
+      leavesToDescendants: true,
+    });
   });
 });
 
