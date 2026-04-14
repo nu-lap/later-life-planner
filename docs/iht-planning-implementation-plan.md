@@ -38,13 +38,14 @@ HMRC citations:
 
 | Component | Status | Notes |
 |---|---|---|
-| `PrimaryResidenceAsset` type | ❌ Not yet | Existing `PropertyAsset` is BTL/rental only |
-| Primary residence in `PlannerState` | ❌ Not yet | No plan-level home asset |
-| Primary residence UI (Step 3) | ❌ Not yet | — |
+| `PrimaryResidenceAsset` type | ✅ Live | `src/models/types.ts` |
+| Primary residence in `PlannerState` | ✅ Live | `primaryResidence` field; normalised on hydration |
+| Primary residence UI (Step 3) | ✅ Live | Primary Residence card in Step 3 assets tab |
 | IHT constants in `financialConstants.ts` | ❌ Not yet | — |
 | `src/financialEngine/ihtProjection.ts` | ❌ Not yet | — |
 | `IHTOutlookPanel.tsx` in Step 4 | ❌ Not yet | — |
-| `NEXT_PUBLIC_IHT_ADVANCED_ENABLED` flag | ❌ Not yet | — |
+| `NEXT_PUBLIC_IHT_ADVANCED_ENABLED` flag | ✅ Removed | Superseded by `NEXT_PUBLIC_PRO_ENABLED` (Phase 15) |
+| `NEXT_PUBLIC_PRO_ENABLED` gate + IHT teaser | ✅ Live | Pro upgrade overlay + blurred IHT teaser in Step 4 |
 
 ---
 
@@ -53,23 +54,29 @@ HMRC citations:
 **Phase IHT-1** (primary residence data model) is always on — it is plain data capture
 with no advanced tax logic and no paywall implication.
 
-**Phases IHT-2 through IHT-4** (constants, engine, UI panel) are gated by:
+**Phases IHT-2 through IHT-4** (constants, engine, UI panel) are gated by `NEXT_PUBLIC_PRO_ENABLED`,
+the single Pro-tier feature flag introduced in Phase 15 (see `docs/ai-optimizer-implementation-plan.md`).
 
-```
-NEXT_PUBLIC_IHT_ADVANCED_ENABLED=false   # off by default
-```
+`NEXT_PUBLIC_IHT_ADVANCED_ENABLED` was removed in Phase 15 — it was never deployed and
+IHT features gate on `NEXT_PUBLIC_PRO_ENABLED` instead.
 
-This follows the existing `NEXT_PUBLIC_OPTIMIZER_ENABLED` pattern. The engine and
-constants are always compiled; only rendering is gated. This allows the feature to be
-enabled per-user (e.g. via a Clerk subscription tier check or a server-set env var)
-without a code deploy.
+The Pro gate behaviour for IHT (implemented in Phase 15, `src/components/steps/Step4Dashboard.tsx`):
+
+| `proEnabled` | IHT constants / engine shipped | Rendered output |
+|---|---|---|
+| `false` | n/a | Blurred IHT estate teaser with `ProUpgradeOverlay` + interest-capture CTA |
+| `true` | ❌ (IHT-3/4 not yet built) | "Coming soon" notice within the Pro panel |
+| `true` | ✅ (after IHT-3/4 land) | Full `IHTOutlookPanel` with live projection |
+
+The engine and constants are always compiled; only rendering is gated. This allows IHT-3/4
+to land behind the flag without a separate infrastructure change.
 
 ---
 
 ## Phase Checklist
 
-- [ ] Phase IHT-1 — Primary Residence Data Model
-- [ ] Phase IHT-2 — Feature Flag
+- [x] Phase IHT-1 — Primary Residence Data Model
+- [x] Phase IHT-2 — Feature Flag (superseded by `NEXT_PUBLIC_PRO_ENABLED`; Pro gate live in Phase 15)
 - [ ] Phase IHT-3 — IHT Constants + Calculation Engine
 - [ ] Phase IHT-4 — IHT Outlook Panel in Step 4
 
@@ -154,23 +161,50 @@ No rental income or CGT fields — those belong in the BTL property card.
 
 ## Phase IHT-2 — Feature Flag
 
-**Goal:** Gate all advanced IHT UI behind `NEXT_PUBLIC_IHT_ADVANCED_ENABLED`.
+**Status: ✅ Implemented (via Phase 15).**
+
+**Goal:** Gate all advanced IHT UI behind the Pro feature flag so it is only visible
+to Pro subscribers.
 
 **Depends on:** Phase IHT-1 complete.
 
-### IHT-2.1 — Add flag to `.env.example`
+### What changed from the original plan
+
+The original plan proposed a dedicated `NEXT_PUBLIC_IHT_ADVANCED_ENABLED` environment
+variable. Phase 15 superseded this: all advanced features (AI explainer, goal priorities,
+IHT estate planning) are now gated by the single `NEXT_PUBLIC_PRO_ENABLED` flag.
+`NEXT_PUBLIC_IHT_ADVANCED_ENABLED` was never deployed and has been removed from the
+codebase and CI/CD pipeline.
+
+### IHT-2.1 — Pro flag in `.env.example`
+
+Already present as part of Phase 15:
 
 ```bash
-# IHT Advanced Planning Panel
-# Gates the IHT Outlook panel in Step 4 (estate projection, 2027 pension delta,
-# gifting capacity). Intended as a premium / paywall feature.
-# Set to true to enable for all users, or check user subscription tier at render time.
-NEXT_PUBLIC_IHT_ADVANCED_ENABLED=false
+# LaterLifePlan Pro tier
+# Gates the AI explainer, goal-priority orchestration, and IHT estate planning panel.
+# Set to true to enable for Pro subscribers (or for all users during testing).
+NEXT_PUBLIC_PRO_ENABLED=false
 ```
 
+### IHT-2.2 — IHT teaser when Pro is off
+
+When `NEXT_PUBLIC_PRO_ENABLED=false` (already live in `Step4Dashboard.tsx`):
+- A blurred IHT estate breakdown panel is shown using real plan data (residence, savings, pensions).
+- The panel is wrapped in `ProUpgradeOverlay`.
+- No exact £ figures appear in the overlay copy.
+- CTA opens `ProInterestModal` with `sourcePanel="iht-planning"`.
+
+### IHT-2.3 — Coming soon when Pro is on (before IHT-3/4 land)
+
+When `NEXT_PUBLIC_PRO_ENABLED=true` but IHT-3/4 are not yet built:
+- A "Coming soon" notice is shown within the Pro IHT panel.
+- This will be replaced by `IHTOutlookPanel` once IHT-3 and IHT-4 are complete.
+
 **Acceptance criteria:**
-- [ ] Flag present in `.env.example` with comment explaining paywall intent
-- [ ] Pattern consistent with `NEXT_PUBLIC_OPTIMIZER_ENABLED`
+- [x] `NEXT_PUBLIC_PRO_ENABLED=false` shows blurred IHT teaser with interest-capture CTA
+- [x] `NEXT_PUBLIC_IHT_ADVANCED_ENABLED` removed from codebase, `.env.example`, and CI
+- [x] `NEXT_PUBLIC_PRO_ENABLED` present in `.env.example` with explanatory comment
 
 ---
 
@@ -322,7 +356,7 @@ Test cases:
 ## Phase IHT-4 — IHT Outlook Panel in Step 4
 
 **Goal:** Surface projected IHT liability and actionable mitigation signals in the
-Step 4 dashboard, gated behind `NEXT_PUBLIC_IHT_ADVANCED_ENABLED`.
+Step 4 dashboard, gated behind `NEXT_PUBLIC_PRO_ENABLED`.
 
 **Depends on:** Phase IHT-3, Phase IHT-1 UI (Step 3 card).
 
@@ -357,9 +391,9 @@ Sections:
 **Render gate:**
 
 ```typescript
-const ihtAdvancedEnabled = process.env.NEXT_PUBLIC_IHT_ADVANCED_ENABLED === 'true';
+const proEnabled = process.env.NEXT_PUBLIC_PRO_ENABLED === 'true';
 // ...
-{ihtAdvancedEnabled && <IHTOutlookPanel ... />}
+{proEnabled && <IHTOutlookPanel ... />}
 ```
 
 ### IHT-4.2 — Wire into `Step4Dashboard.tsx`
@@ -370,13 +404,13 @@ const ihtAdvancedEnabled = process.env.NEXT_PUBLIC_IHT_ADVANCED_ENABLED === 'tru
 - Render `IHTOutlookPanel` after the main asset depletion chart, before the care reserve section.
 
 **Acceptance criteria:**
-- [ ] Panel hidden when `NEXT_PUBLIC_IHT_ADVANCED_ENABLED=false`
-- [ ] Panel visible and correct when flag is `true`
+- [ ] Panel hidden when `NEXT_PUBLIC_PRO_ENABLED=false` (teaser shown via Phase 15 overlay)
+- [ ] Panel visible and correct when `NEXT_PUBLIC_PRO_ENABLED=true`
 - [ ] Estate breakdown figures match projection engine final-year values
 - [ ] RNRB taper warning appears for estates > £1.8m
 - [ ] Pension delta card shows correct before/after 2027 figures
 - [ ] Gifting capacity section only shown when surplus > 0
-- [ ] No change to existing Step 4 content when flag is off
+- [ ] No change to existing Step 4 content when Pro is off
 
 ---
 
@@ -393,7 +427,7 @@ projectionEngine.ts  ──► final-year asset balances
 ihtProjection.ts  ──► IHTProjectionResult
         │
         ▼
-IHTOutlookPanel.tsx  (only when NEXT_PUBLIC_IHT_ADVANCED_ENABLED=true)
+IHTOutlookPanel.tsx  (only when NEXT_PUBLIC_PRO_ENABLED=true)
 ```
 
 ---
