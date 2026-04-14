@@ -158,12 +158,14 @@ describe('calculateIHTProjection', () => {
   it('annual gifting capacity: equals income minus spending', () => {
     const result = calculateIHTProjection({
       ...base,
+      isaValue: 1_000_000, // ensure ihtDue > 0 so cap logic can be exercised
       annualIncome: 50_000,
       annualSpending: 35_000,
       remainingYears: 10,
     });
     expect(result.annualGiftingCapacity).toBe(15_000);
-    // cumulative saving = 15,000 × 10 × 0.40 = 60,000
+    // ihtDue = (1,000,000 - 325,000) × 40% = 270,000
+    // rawSaving = 15,000 × 10 × 0.40 = 60,000 < ihtDue → saving = 60,000
     expect(result.cumulativeGiftingIHTSaving).toBe(60_000);
   });
 
@@ -175,5 +177,52 @@ describe('calculateIHTProjection', () => {
     });
     expect(result.annualGiftingCapacity).toBe(0);
     expect(result.cumulativeGiftingIHTSaving).toBe(0);
+  });
+
+  it('returns zero gifting saving when no IHT is due', () => {
+    // Estate below NRB so ihtDue = 0; saving should not show a phantom benefit.
+    const result = calculateIHTProjection({
+      ...base,
+      isaValue: 100_000, // grossEstate 100k < NRB 325k → ihtDue = 0
+      annualIncome: 50_000,
+      annualSpending: 35_000,
+      remainingYears: 10,
+    });
+    expect(result.ihtDue).toBe(0);
+    expect(result.cumulativeGiftingIHTSaving).toBe(0);
+  });
+
+  it('cumulativeGiftingIHTSaving is capped to ihtDue when raw saving would exceed it', () => {
+    // Set up a modest IHT liability and a large annual surplus so the raw saving > ihtDue.
+    const result = calculateIHTProjection({
+      ...base,
+      isaValue: 400_000, // chargeable = 400k - 325k = 75k; ihtDue = 75k × 40% = 30,000
+      annualIncome: 100_000,
+      annualSpending: 50_000, // surplus = 50k; raw saving = 50k × 10 × 40% = 200k >> 30k
+      remainingYears: 10,
+    });
+    expect(result.ihtDue).toBe(30_000);
+    expect(result.cumulativeGiftingIHTSaving).toBe(30_000); // capped at ihtDue
+  });
+
+  it('RNRB is 0 when primaryResidenceNetValue is 0, even if residenceLeavesToDescendants is true', () => {
+    const result = calculateIHTProjection({
+      ...base,
+      primaryResidenceNetValue: 0,
+      residenceLeavesToDescendants: true,
+      isaValue: 500_000,
+    });
+    expect(result.rnrbAvailable).toBe(0);
+  });
+
+  it('RNRB is capped to net residence value when it is below IHT.RNRB', () => {
+    const result = calculateIHTProjection({
+      ...base,
+      primaryResidenceNetValue: 80_000, // less than RNRB of £175,000
+      residenceLeavesToDescendants: true,
+      isaValue: 500_000,
+    });
+    // rnrbBase = min(175k, 80k) = 80k; no taper (estate < 2m)
+    expect(result.rnrbAvailable).toBe(80_000);
   });
 });

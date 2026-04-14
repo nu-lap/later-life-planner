@@ -197,10 +197,16 @@ export const IHT = {
   RNRB: 175_000,
   /**
    * Estate value above which RNRB tapers at £1 per £2 of excess.
-   * RNRB is fully withdrawn at RNRB_TAPER_THRESHOLD + 2 × RNRB (£2,350,000 for a couple).
+   * A single £175,000 RNRB is fully withdrawn at RNRB_TAPER_THRESHOLD + 2 × RNRB
+   * (£2,350,000). Any transferable/couple scenario should be modeled separately.
    * IHTA 1984 s.8D(5).
    */
   RNRB_TAPER_THRESHOLD: 2_000_000,
+  /**
+   * Estate value above which the UI shows an amber "approaching taper" warning,
+   * giving users early notice before the £2m threshold is reached.
+   */
+  RNRB_TAPER_WARNING_THRESHOLD: 1_800_000,
   /**
    * Tax year from which unspent DC pension pots are included in the IHT estate.
    * Finance Act 2025 (prospective); effective 6 April 2027.

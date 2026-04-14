@@ -116,7 +116,11 @@ export function calculateIHTProjection(inputs: IHTProjectionInputs): IHTProjecti
 
   // RNRB taper: reduces by £1 for every £2 the gross estate exceeds the threshold.
   // IHTA 1984 s.8D(5).
-  const rnrbBase = residenceLeavesToDescendants ? IHT.RNRB : 0;
+  // RNRB requires a qualifying residence passing to direct descendants; it is also
+  // capped to the net residence value (IHTA 1984 s.8D(2)).
+  const rnrbBase = residenceLeavesToDescendants
+    ? Math.min(IHT.RNRB, Math.max(0, primaryResidenceNetValue))
+    : 0;
   const rnrbTaperReduction = Math.max(0, grossEstate - IHT.RNRB_TAPER_THRESHOLD) / 2;
   const rnrbAvailable = Math.max(0, rnrbBase - rnrbTaperReduction);
 
@@ -144,7 +148,11 @@ export function calculateIHTProjection(inputs: IHTProjectionInputs): IHTProjecti
   // Annual gifting capacity: surplus income eligible for IHTA 1984 s.21 exemption.
   const annualGiftingCapacity = Math.max(0, annualIncome - annualSpending);
   const years = Math.max(0, remainingYears);
-  const cumulativeGiftingIHTSaving = annualGiftingCapacity * years * IHT.RATE;
+  // Base the saving on the applicable IHT rate and never show a benefit
+  // larger than the currently projected IHT liability.
+  const rawCumulativeGiftingIHTSaving = annualGiftingCapacity * years * ihtRate;
+  const cumulativeGiftingIHTSaving =
+    ihtDue > 0 ? Math.min(ihtDue, rawCumulativeGiftingIHTSaving) : 0;
 
   return {
     grossEstate,

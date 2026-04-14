@@ -5,7 +5,7 @@ import { PlannerState } from '@/models/types';
 import { YearlyProjection } from '@/models/types';
 import { calculateIHTProjection } from '@/financialEngine/ihtProjection';
 import { formatCurrency } from '@/financialEngine/projectionEngine';
-import { DEFAULT_ASSUMPTIONS } from '@/config/financialConstants';
+import { DEFAULT_ASSUMPTIONS, IHT } from '@/config/financialConstants';
 
 interface IHTOutlookPanelProps {
   state: PlannerState;
@@ -17,7 +17,11 @@ interface IHTOutlookPanelProps {
  * Falls back to current year + life expectancy if DOB is unavailable.
  */
 function estimateDeathYear(state: PlannerState): number {
-  const lifeExpectancy = DEFAULT_ASSUMPTIONS.LIFE_EXPECTANCY;
+  const configuredLifeExpectancy = state.assumptions.lifeExpectancy;
+  const lifeExpectancy =
+    typeof configuredLifeExpectancy === 'number' && Number.isFinite(configuredLifeExpectancy)
+      ? configuredLifeExpectancy
+      : DEFAULT_ASSUMPTIONS.LIFE_EXPECTANCY;
   const dob = state.person1.dateOfBirth;
   if (dob) {
     const birthYear = new Date(dob).getFullYear();
@@ -151,15 +155,27 @@ export default function IHTOutlookPanel({ state, projections }: IHTOutlookPanelP
         <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">
           IHT Projection
         </h4>
+        {/* Amber warning: approaching the RNRB taper threshold */}
+        {result.grossEstate > IHT.RNRB_TAPER_WARNING_THRESHOLD && !result.rnrbTaperWarning && (
+          <div className="mb-3 rounded-xl bg-amber-50 border border-amber-200 p-3">
+            <p className="text-xs font-bold text-amber-800 mb-1">
+              ⚠️ Approaching RNRB taper threshold
+            </p>
+            <p className="text-xs text-amber-700">
+              Your projected estate is approaching £2,000,000. Above that threshold, the Residence
+              Nil-Rate Band begins to taper at £1 for every £2 of excess.
+            </p>
+          </div>
+        )}
         {result.rnrbTaperWarning && (
           <div className="mb-3 rounded-xl bg-amber-50 border border-amber-200 p-3">
             <p className="text-xs font-bold text-amber-800 mb-1">
               ⚠️ RNRB taper applies above £2m
             </p>
             <p className="text-xs text-amber-700">
-              Your projected estate exceeds £2,000,000. The Residence Nil-Rate Band is being
-              reduced — it tapers away completely at £2,350,000 (per person) or £2,700,000
-              (transferable couple).
+              Your projected estate exceeds £2,000,000. The Residence Nil-Rate Band is reduced
+              above that threshold from a maximum of £175,000 and tapers away completely at
+              £2,350,000.
             </p>
           </div>
         )}
