@@ -9,10 +9,10 @@
  * Run `npm run gen:tax-snapshot` to refresh the snapshot when HMRC publishes new rates.
  */
 
-import { getSnapshotForYear, TAX_BAND_FREEZE_END_YEAR, TAX_BAND_ESCALATION_RATE } from './taxRuleSnapshot';
+import { getSnapshotForYear, TAX_BAND_FREEZE_END_YEAR, TAX_BAND_ESCALATION_RATE, ISA_ANNUAL_ALLOWANCE_BASE } from './taxRuleSnapshot';
 
 // Re-export so callers only need to import from financialConstants.
-export { TAX_BAND_FREEZE_END_YEAR, TAX_BAND_ESCALATION_RATE };
+export { TAX_BAND_FREEZE_END_YEAR, TAX_BAND_ESCALATION_RATE, ISA_ANNUAL_ALLOWANCE_BASE };
 
 // Snapshot for the current tax year — used to initialise constants below.
 // Pinned to a specific calendar year so values are deterministic across server/client
