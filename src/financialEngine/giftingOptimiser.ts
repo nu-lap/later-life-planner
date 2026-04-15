@@ -121,6 +121,8 @@ export interface GiftingOptimiserResult {
  * marginal pound.
  */
 function estimateMarginalIncomeTaxRate(annualIncome: number): number {
+  // Note: always uses CURRENT_TAX_YEAR_START snapshot.
+  // Future band changes (e.g. threshold adjustments) are not modelled — intentional simplification.
   const snapshot = getSnapshotForYear(CURRENT_TAX_YEAR_START);
   const { personalAllowance, basicRateLimit, additionalRateThreshold, paTaperThreshold } =
     snapshot.incomeTaxBands;
@@ -185,9 +187,11 @@ export function calculateGiftingOptimisation(
   const annualExemptGiftAllowance = isCouple ? IHT.ANNUAL_GIFT_EXEMPTION * 2 : IHT.ANNUAL_GIFT_EXEMPTION;
 
   // Compute exempt gift IHT saving early so we can cap DC drawdown appropriately.
-  // Exempt gifts (s.21, s.19) are immediately exempt — they reduce IHT at the
-  // standard 40% rate regardless of whether the estate is in the taper zone.
-  const exemptGiftIHTSaving = (annualExemptFromIncome + annualExemptGiftAllowance) * IHT.RATE;
+  // Exempt gifts (s.21, s.19) reduce the gross estate — in the taper zone they also
+  // recover RNRB at the same 60% effective marginal rate as PETs, so we must use
+  // effectiveMarginalIHTRate here rather than the fixed 40% rate to avoid
+  // overstating the IHT remaining for DC drawdown to address.
+  const exemptGiftIHTSaving = (annualExemptFromIncome + annualExemptGiftAllowance) * effectiveMarginalIHTRate;
   // DC drawdown can only recover IHT liability that the exempt gifts haven't already covered.
   const remainingIHTForDC = Math.max(0, ihtDue - exemptGiftIHTSaving);
   // Maximum net DC gift amount whose IHT saving does not exceed the remaining liability.
@@ -209,7 +213,9 @@ export function calculateGiftingOptimisation(
       const maxAnnualGrossFromDC = dcPensionValue / remainingYears;
       annualDCDrawdownGross = Math.min(grossFromTaper, maxAnnualGrossFromDC);
     } else {
-      // Standard zone: steady annual gifting, capped to DC pot
+      // Standard zone: spread the whole DC pot steadily over remaining years as the baseline.
+      // The IHT cap below (maxGrossForIHTBenefit) trims this to the amount that actually reduces
+      // the remaining IHT liability — avoiding income tax cost with no offsetting IHT benefit.
       annualDCDrawdownGross = dcPensionValue / remainingYears;
     }
     annualDCDrawdownGross = Math.max(0, annualDCDrawdownGross);

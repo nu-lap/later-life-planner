@@ -102,7 +102,7 @@ describe('calculateGiftingOptimisation', () => {
     expect(result.recommendationTier).toBe('rnrb-recovery-priority');
   });
 
-  test('additional-rate taxpayer in taper zone → draw-and-gift NOT worthwhile (45% < 60% → actually IS)', () => {
+  test('additional-rate taxpayer in taper zone → draw-and-gift IS worthwhile because 45% < 60%', () => {
     // 45% < 60% so it IS worthwhile
     const rnrbAvailable = 175_000 - 100_000;
     const result = calculateGiftingOptimisation(
@@ -237,6 +237,32 @@ describe('calculateGiftingOptimisation', () => {
     expect(result.annualNetBenefit).toBeGreaterThanOrEqual(0);
     // s.19 gifts still recommended
     expect(result.recommendationTier).toBe('income-gifts-only');
+  });
+
+  test('taper zone: s.21/s.19 exempt gifts use 60% effective rate — DC drawdown suppressed when not needed', () => {
+    // Estate £2.1m single; annualSurplusIncome £5k + s.19 £3k = £8k total exempt gifts
+    // At 60%: exemptIHTSaving = £4,800 > ihtDue £4,000 → DC drawdown = 0
+    // Regression for bug where 40% was used: exemptIHTSaving = £3,200 < £4,000
+    // → DC drawdown incorrectly recommended, incurring income tax with no benefit
+    const result = calculateGiftingOptimisation(
+      inputs({
+        grossEstate: 2_100_000,
+        ihtDue: 4_000,
+        rnrbAvailable: 75_000,      // (2.1m - 2m) / 2 = £50k lost → 175k - 50k = £125k
+        rnrbEligible: true,
+        rnrbBase: 175_000,
+        isCouple: false,
+        annualIncome: 30_000,       // basic rate — DC draw-and-gift would normally be worthwhile
+        annualSurplusIncome: 5_000,
+        dcPensionValue: 300_000,
+        remainingYears: 15,
+      }),
+    );
+    // Exempt gifts (£5k s.21 + £3k s.19) at 60% = £4,800 saving > £4k liability
+    // DC drawdown must be zero — no residual IHT left to recover
+    expect(result.isInTaperZone).toBe(true);
+    expect(result.annualDCDrawdownGross).toBe(0);
+    expect(result.annualIHTSaving).toBeLessThanOrEqual(4_000);
   });
 
   test('no DC pot → no DC draw-and-gift even when worthwhile', () => {
