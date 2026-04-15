@@ -1,6 +1,17 @@
 'use client';
 
 import { useMemo } from 'react';
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ReferenceLine,
+  ResponsiveContainer,
+} from 'recharts';
 import { PlannerState } from '@/models/types';
 import { YearlyProjection } from '@/models/types';
 import { calculateIHTProjection } from '@/financialEngine/ihtProjection';
@@ -96,7 +107,27 @@ export default function IHTOutlookPanel({ state, projections }: IHTOutlookPanelP
       remainingYears,
     });
 
-    return { result, gifting, mode, residenceValue, isaValue, giaValue, cashValue, dcPensionValue };
+    // ── Gifting comparison chart data ────────────────────────────────────────────
+    // Annual financial-asset reduction from the gifting strategy:
+    //  - surplusIncome + annualExempt: cash that would otherwise have been reinvested
+    //  - DCDrawdownGross: full gross DC amount leaves the pension pot
+    //    (income tax evaporates to HMRC; net proceeds are gifted away)
+    const annualAssetReduction =
+      gifting.annualExemptFromIncome +
+      gifting.annualExemptGiftAllowance +
+      gifting.annualDCDrawdownGross;
+
+    // Only chart when there is meaningful gifting to show and projections exist.
+    const giftingChartData =
+      gifting.recommendationTier !== 'no-action' && annualAssetReduction > 0 && projections.length > 0
+        ? projections.map((p, i) => ({
+            age: p.p1Age,
+            current: Math.round(p.totalAssets),
+            withGifting: Math.max(0, Math.round(p.totalAssets - annualAssetReduction * i)),
+          }))
+        : null;
+
+    return { result, gifting, mode, residenceValue, isaValue, giaValue, cashValue, dcPensionValue, giftingChartData };
   }, [state, projections]);
 
   // Guard after hooks — projections may be empty on first render
@@ -111,7 +142,7 @@ export default function IHTOutlookPanel({ state, projections }: IHTOutlookPanelP
     );
   }
 
-  const { result, gifting, mode, residenceValue, isaValue, giaValue, cashValue, dcPensionValue } = computed;
+  const { result, gifting, mode, residenceValue, isaValue, giaValue, cashValue, dcPensionValue, giftingChartData } = computed;
 
   return (
     <div className="game-card border-violet-200 bg-violet-50/40">
@@ -401,6 +432,81 @@ export default function IHTOutlookPanel({ state, projections }: IHTOutlookPanelP
               {(gifting.effectiveMarginalIHTRate * 100).toFixed(0)}% IHT saving. Only surplus-income
               and annual-exempt gifts are recommended.
             </p>
+          )}
+
+          {/* Comparison chart: total assets with vs without gifting strategy */}
+          {giftingChartData && (
+            <div className="mt-4">
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">
+                Asset trajectory comparison
+              </p>
+              <p className="text-xs text-slate-400 mb-3">
+                Approximate — assumes consistent annual gifting of{' '}
+                {formatCurrency(
+                  gifting.annualExemptFromIncome +
+                    gifting.annualExemptGiftAllowance +
+                    gifting.annualDCDrawdownGross,
+                  true,
+                )}{' '}
+                per year. Does not re-run the full projection engine.
+              </p>
+              <ResponsiveContainer width="100%" height={220}>
+                <LineChart
+                  data={giftingChartData}
+                  margin={{ top: 4, right: 8, left: 8, bottom: 0 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                  <XAxis
+                    dataKey="age"
+                    tick={{ fontSize: 11, fill: '#64748b' }}
+                    tickLine={false}
+                    label={{ value: 'Age', position: 'insideBottom', offset: -2, fontSize: 11, fill: '#94a3b8' }}
+                  />
+                  <YAxis
+                    tickFormatter={(v: number) => {
+                      if (v >= 1_000_000) return `£${(v / 1_000_000).toFixed(1)}m`;
+                      if (v >= 1_000) return `£${(v / 1_000).toFixed(0)}k`;
+                      return `£${v}`;
+                    }}
+                    tick={{ fontSize: 11, fill: '#64748b' }}
+                    tickLine={false}
+                    axisLine={false}
+                    width={56}
+                  />
+                  <Tooltip
+                    formatter={(value: number, name: string) => [formatCurrency(value), name]}
+                    labelFormatter={(label) => `Age ${label}`}
+                    contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e2e8f0' }}
+                  />
+                  <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '8px' }} iconType="line" iconSize={14} />
+                  <ReferenceLine
+                    y={0}
+                    stroke="#94a3b8"
+                    strokeDasharray="2 2"
+                    strokeWidth={1}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="current"
+                    name="Current path"
+                    stroke="#2563eb"
+                    strokeWidth={2}
+                    dot={false}
+                    activeDot={{ r: 4 }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="withGifting"
+                    name="With gifting strategy"
+                    stroke="#16a34a"
+                    strokeWidth={2}
+                    strokeDasharray="6 3"
+                    dot={false}
+                    activeDot={{ r: 4 }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
           )}
         </div>
       )}

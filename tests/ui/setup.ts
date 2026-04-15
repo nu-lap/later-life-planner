@@ -88,3 +88,12 @@ try {
 } catch {
   // If the runtime prevents patching, crypto-dependent UI tests will fail loudly.
 }
+
+// Recharts' ResponsiveContainer uses ResizeObserver which jsdom doesn't provide.
+if (typeof globalThis.ResizeObserver === 'undefined') {
+  globalThis.ResizeObserver = class ResizeObserver {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  };
+}
