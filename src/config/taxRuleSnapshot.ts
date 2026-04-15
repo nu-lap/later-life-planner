@@ -3,13 +3,16 @@
 // Run `npm run gen:tax-snapshot` inside the Copilot CLI environment to refresh.
 //
 // Rule coverage is intentionally uneven:
-//   income_tax_bands  → confirmed 2025-26 through 2030-31
+//   income_tax_bands  → confirmed 2025-26 through 2030-31 (frozen at 2025/26 values
+//                        per Autumn Budget 2025; escalated at 4%/yr beyond 2030-31)
 //   cgt_due           → confirmed 2025-26 and 2026-27 only
 //   pension_lsa / UFPLS → confirmed 2025-26 and 2026-27 only
 //   state_pension_annual → confirmed 2025-26 and 2026-27 only
 //
 // For simulation years beyond the confirmed range, getSnapshotForYear falls
-// back to the latest available entry. To avoid console noise during long
+// back to the latest available entry. Income-tax thresholds (not rates) are
+// then escalated post-freeze at TAX_BAND_ESCALATION_RATE (4%/yr, matching
+// the Voyant Default Tax Table Assumption). To avoid console noise during long
 // projections, a console.warn is emitted at most once per rule group per
 // process (suppressed in test environments).
 //
@@ -69,6 +72,24 @@ export const LATEST_INCOME_TAX_YEAR = '2030-31';
 export const LATEST_CGT_YEAR        = '2026-27';
 export const LATEST_PENSION_YEAR    = '2026-27';
 export const LATEST_STATE_PENSION_YEAR = '2026-27';
+
+// ─── Post-freeze band escalation ─────────────────────────────────────────────
+// UK income-tax thresholds (PA, basic-rate limit, additional-rate threshold,
+// PA-taper threshold) are legislatively frozen until 5 April 2031.
+// Source: Autumn Budget 2025 — HM Treasury, October 2025.
+//
+// For simulation years beyond the freeze, the software escalates these
+// thresholds at TAX_BAND_ESCALATION_RATE per year, matching the approach used
+// by Voyant (Default Tax Table Assumption = 4%).
+//
+// TAX_BAND_FREEZE_END_YEAR is the last calendar year in which bands remain
+// frozen (i.e. tax year 2030-31). Escalation begins from calendar year 2031
+// (tax year 2031-32) onward.
+//
+// To change the escalation rate, update TAX_BAND_ESCALATION_RATE here.
+// Note: tax *rates* (20%, 40%, 45%) are never escalated — only the thresholds.
+export const TAX_BAND_FREEZE_END_YEAR   = 2030; // last frozen calendar year (tax year 2030-31)
+export const TAX_BAND_ESCALATION_RATE   = 0.04; // 4%/yr post-freeze (matches Voyant default)
 
 // ─── Snapshot data ────────────────────────────────────────────────────────────
 // Stored per rule group, each keyed by UK tax year (e.g. '2025-26').
@@ -213,7 +234,10 @@ const _warnedKeys = new Set<string>();
  * Maps calendarYear to a UK tax year: `${calendarYear}-${(calendarYear+1) % 100}`.
  *
  * Rule coverage is not uniform:
- *  - Income tax bands: confirmed through 2030-31 (falls back to 2030-31 entry if beyond).
+ *  - Income tax bands: confirmed through 2030-31 (frozen at 2025/26 values per Finance Act).
+ *    For years beyond 2030, thresholds are escalated at TAX_BAND_ESCALATION_RATE (4%/yr)
+ *    from the 2030-31 frozen baseline — matching Voyant's Default Tax Table Assumption.
+ *    Tax *rates* (20%, 40%, 45%) are never escalated, only the monetary thresholds.
  *  - CGT / pension / state pension: confirmed only through their latest published years.
  *    Fallback flags still indicate missing-year use, but console warnings are emitted
  *    at most once per rule group per process to avoid projection log spam
@@ -227,10 +251,27 @@ export function getSnapshotForYear(calendarYear: number): ResolvedSnapshot {
 
   const taxYear = `${calendarYear}-${String(calendarYear + 1).slice(-2)}`;
 
-  // Income tax: full coverage through 2030-31.
-  const incomeTaxBands =
+  // Income tax: confirmed through 2030-31 (all frozen at 2025/26 values).
+  // Beyond the freeze, escalate monetary thresholds at TAX_BAND_ESCALATION_RATE per year.
+  // Tax rates (basicRate, higherRate, additionalRate) are never escalated.
+  let incomeTaxBands =
     TAX_RULE_SNAPSHOT.incomeTaxBands[taxYear] ??
     TAX_RULE_SNAPSHOT.incomeTaxBands[LATEST_INCOME_TAX_YEAR];
+
+  if (calendarYear > TAX_BAND_FREEZE_END_YEAR) {
+    const yearsPostFreeze = calendarYear - TAX_BAND_FREEZE_END_YEAR;
+    const factor = Math.pow(1 + TAX_BAND_ESCALATION_RATE, yearsPostFreeze);
+    const frozen = TAX_RULE_SNAPSHOT.incomeTaxBands[LATEST_INCOME_TAX_YEAR];
+    incomeTaxBands = {
+      ...frozen,
+      taxYear,
+      personalAllowance:        Math.round(frozen.personalAllowance        * factor),
+      basicRateLimit:           Math.round(frozen.basicRateLimit           * factor),
+      additionalRateThreshold:  Math.round(frozen.additionalRateThreshold  * factor),
+      paTaperThreshold:         Math.round(frozen.paTaperThreshold         * factor),
+      // basicRate / higherRate / additionalRate intentionally not escalated
+    };
+  }
 
   // CGT: only confirmed to 2026-27. Fall back gracefully.
   const cgtEntry = TAX_RULE_SNAPSHOT.cgt[taxYear];

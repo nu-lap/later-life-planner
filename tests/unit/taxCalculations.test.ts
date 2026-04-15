@@ -380,3 +380,56 @@ describe('getSnapshotForYear — fallback behaviour', () => {
     }
   });
 });
+
+// ─── Post-freeze tax band escalation ─────────────────────────────────────────
+// Verifies that income-tax thresholds are escalated at TAX_BAND_ESCALATION_RATE
+// (4%/yr) for simulation years beyond the confirmed freeze end (2030).
+// Tax *rates* must remain unchanged.
+
+describe('getSnapshotForYear — post-freeze band escalation', () => {
+  test('calendarYear 2030 (last frozen year) → PA still at £12,570', () => {
+    const s = getSnapshotForYear(2030);
+    expect(s.incomeTaxBands.personalAllowance).toBe(12_570);
+    expect(s.incomeTaxBands.basicRateLimit).toBe(50_270);
+    expect(s.incomeTaxBands.additionalRateThreshold).toBe(125_140);
+  });
+
+  test('calendarYear 2031 (1 year post-freeze) → thresholds escalated by 4%', () => {
+    const s = getSnapshotForYear(2031);
+    expect(s.incomeTaxBands.personalAllowance).toBe(Math.round(12_570 * 1.04));       // £13,073
+    expect(s.incomeTaxBands.basicRateLimit).toBe(Math.round(50_270 * 1.04));           // £52,281
+    expect(s.incomeTaxBands.additionalRateThreshold).toBe(Math.round(125_140 * 1.04)); // £130,146
+    expect(s.incomeTaxBands.paTaperThreshold).toBe(Math.round(100_000 * 1.04));        // £104,000
+  });
+
+  test('calendarYear 2031 → tax rates unchanged (not escalated)', () => {
+    const s = getSnapshotForYear(2031);
+    expect(s.incomeTaxBands.basicRate).toBe(0.20);
+    expect(s.incomeTaxBands.higherRate).toBe(0.40);
+    expect(s.incomeTaxBands.additionalRate).toBe(0.45);
+  });
+
+  test('calendarYear 2035 (5 years post-freeze) → thresholds compound correctly', () => {
+    const s = getSnapshotForYear(2035);
+    const factor = Math.pow(1.04, 5);
+    expect(s.incomeTaxBands.personalAllowance).toBe(Math.round(12_570 * factor));
+    expect(s.incomeTaxBands.basicRateLimit).toBe(Math.round(50_270 * factor));
+    expect(s.incomeTaxBands.additionalRateThreshold).toBe(Math.round(125_140 * factor));
+    // Rates still frozen
+    expect(s.incomeTaxBands.higherRate).toBe(0.40);
+  });
+
+  test('escalation is strictly greater than frozen values for all years > 2030', () => {
+    for (const yr of [2031, 2035, 2040, 2050]) {
+      const s = getSnapshotForYear(yr);
+      expect(s.incomeTaxBands.personalAllowance).toBeGreaterThan(12_570);
+      expect(s.incomeTaxBands.basicRateLimit).toBeGreaterThan(50_270);
+      expect(s.incomeTaxBands.additionalRateThreshold).toBeGreaterThan(125_140);
+    }
+  });
+
+  test('escalated snapshot taxYear reflects the requested year', () => {
+    const s = getSnapshotForYear(2035);
+    expect(s.taxYear).toBe('2035-36');
+  });
+});
