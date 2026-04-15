@@ -322,12 +322,12 @@ describe('getSnapshotForYear — fallback behaviour', () => {
     expect(s.incomeTaxBands.personalAllowance).toBe(12_570);
   });
 
-  test('calendarYear 2030 → cgt falls back to 2026-27; cgtFallback true', () => {
+  test('calendarYear 2030 → cgt falls back to 2026-27; cgtFallback true; exemptAmount escalated 4 yrs', () => {
     const s = getSnapshotForYear(2030);
     expect(s.cgtFallback).toBe(true);
-    // Falls back to latest confirmed CGT entry
-    expect(s.cgt.taxYear).toBe('2026-27');
-    expect(s.cgt.exemptAmount).toBe(3_000);
+    // No confirmed entry for 2030-31; exemptAmount is escalated 4%/yr × 4 years from 2026-27 baseline.
+    expect(s.cgt.exemptAmount).toBe(Math.round(3_000 * Math.pow(1.04, 4))); // £3,510
+    // CGT rates are never escalated
     expect(s.cgt.basicRate).toBe(0.18);
     expect(s.cgt.higherRate).toBe(0.24);
   });
@@ -339,12 +339,12 @@ describe('getSnapshotForYear — fallback behaviour', () => {
     expect(s.pension.lsa).toBe(268_275);
   });
 
-  test('CGT for 2030 simulation year uses 2026-27 rates (documented fallback)', () => {
-    // This test explicitly asserts the expected fallback behaviour for long-range projections.
-    // HMRC has not published CGT rates beyond 2026-27; the fallback is by design, not a bug.
+  test('CGT for 2030 simulation year: exemptAmount escalated, rates from 2026-27 baseline', () => {
+    // HMRC has not published CGT beyond 2026-27. exemptAmount escalates at 4%/yr;
+    // rates (18%/24%) are frozen at the last confirmed value — not escalated.
     const s2030 = getSnapshotForYear(2030);
     const s2026 = getSnapshotForYear(2026);
-    expect(s2030.cgt.exemptAmount).toBe(s2026.cgt.exemptAmount);
+    expect(s2030.cgt.exemptAmount).toBeGreaterThan(s2026.cgt.exemptAmount);
     expect(s2030.cgt.basicRate).toBe(s2026.cgt.basicRate);
     expect(s2030.cgt.higherRate).toBe(s2026.cgt.higherRate);
   });
@@ -377,6 +377,118 @@ describe('getSnapshotForYear — fallback behaviour', () => {
         process.env.NODE_ENV = originalNodeEnv;
       }
       vi.resetModules();
+    }
+  });
+});
+
+// ─── Post-freeze tax band escalation ─────────────────────────────────────────
+// Verifies that income-tax thresholds are escalated at TAX_BAND_ESCALATION_RATE
+// (4%/yr) for simulation years beyond the confirmed freeze end (2030).
+// Tax *rates* must remain unchanged.
+
+describe('getSnapshotForYear — post-freeze band escalation', () => {
+  test('calendarYear 2030 (last frozen year) → PA still at £12,570', () => {
+    const s = getSnapshotForYear(2030);
+    expect(s.incomeTaxBands.personalAllowance).toBe(12_570);
+    expect(s.incomeTaxBands.basicRateLimit).toBe(50_270);
+    expect(s.incomeTaxBands.additionalRateThreshold).toBe(125_140);
+  });
+
+  test('calendarYear 2031 (1 year post-freeze) → thresholds escalated by 4%', () => {
+    const s = getSnapshotForYear(2031);
+    expect(s.incomeTaxBands.personalAllowance).toBe(Math.round(12_570 * 1.04));       // £13,073
+    expect(s.incomeTaxBands.basicRateLimit).toBe(Math.round(50_270 * 1.04));           // £52,281
+    expect(s.incomeTaxBands.additionalRateThreshold).toBe(Math.round(125_140 * 1.04)); // £130,146
+    expect(s.incomeTaxBands.paTaperThreshold).toBe(Math.round(100_000 * 1.04));        // £104,000
+  });
+
+  test('calendarYear 2031 → tax rates unchanged (not escalated)', () => {
+    const s = getSnapshotForYear(2031);
+    expect(s.incomeTaxBands.basicRate).toBe(0.20);
+    expect(s.incomeTaxBands.higherRate).toBe(0.40);
+    expect(s.incomeTaxBands.additionalRate).toBe(0.45);
+  });
+
+  test('calendarYear 2035 (5 years post-freeze) → thresholds compound correctly', () => {
+    const s = getSnapshotForYear(2035);
+    const factor = Math.pow(1.04, 5);
+    expect(s.incomeTaxBands.personalAllowance).toBe(Math.round(12_570 * factor));
+    expect(s.incomeTaxBands.basicRateLimit).toBe(Math.round(50_270 * factor));
+    expect(s.incomeTaxBands.additionalRateThreshold).toBe(Math.round(125_140 * factor));
+    // Rates still frozen
+    expect(s.incomeTaxBands.higherRate).toBe(0.40);
+  });
+
+  test('escalation is strictly greater than frozen values for all years > 2030', () => {
+    for (const yr of [2031, 2035, 2040, 2050]) {
+      const s = getSnapshotForYear(yr);
+      expect(s.incomeTaxBands.personalAllowance).toBeGreaterThan(12_570);
+      expect(s.incomeTaxBands.basicRateLimit).toBeGreaterThan(50_270);
+      expect(s.incomeTaxBands.additionalRateThreshold).toBeGreaterThan(125_140);
+    }
+  });
+
+  test('escalated snapshot taxYear reflects the requested year', () => {
+    const s = getSnapshotForYear(2035);
+    expect(s.taxYear).toBe('2035-36');
+  });
+});
+
+// ─── CGT exempt amount escalation ────────────────────────────────────────────
+describe('getSnapshotForYear — CGT exempt amount escalation', () => {
+  test('calendarYear 2026 (last confirmed) → exemptAmount £3,000, rates unchanged', () => {
+    const s = getSnapshotForYear(2026);
+    expect(s.cgt.exemptAmount).toBe(3_000);
+    expect(s.cgt.basicRate).toBe(0.18);
+    expect(s.cgt.higherRate).toBe(0.24);
+    expect(s.cgtFallback).toBe(false);
+  });
+
+  test('calendarYear 2027 (1 year post-confirmed) → exemptAmount escalated 4%', () => {
+    const s = getSnapshotForYear(2027);
+    expect(s.cgt.exemptAmount).toBe(Math.round(3_000 * 1.04)); // £3,120
+    expect(s.cgt.basicRate).toBe(0.18);
+    expect(s.cgt.higherRate).toBe(0.24);
+    expect(s.cgtFallback).toBe(true);
+  });
+
+  test('calendarYear 2036 (10 years post-confirmed) → exemptAmount compounds correctly', () => {
+    const s = getSnapshotForYear(2036);
+    expect(s.cgt.exemptAmount).toBe(Math.round(3_000 * Math.pow(1.04, 10)));
+    expect(s.cgt.basicRate).toBe(0.18);
+    expect(s.cgt.higherRate).toBe(0.24);
+  });
+});
+
+// ─── ISA annual allowance escalation ─────────────────────────────────────────
+describe('getSnapshotForYear — ISA annual allowance escalation', () => {
+  test('calendarYear 2026 (last confirmed) → ISA allowance £20,000', () => {
+    const s = getSnapshotForYear(2026);
+    expect(s.isaAnnualAllowance).toBe(20_000);
+  });
+
+  test('calendarYear 2025 → ISA allowance £20,000', () => {
+    const s = getSnapshotForYear(2025);
+    expect(s.isaAnnualAllowance).toBe(20_000);
+  });
+
+  test('calendarYear 2027 (1 year post-confirmed) → ISA allowance escalated 4%', () => {
+    const s = getSnapshotForYear(2027);
+    expect(s.isaAnnualAllowance).toBe(Math.round(20_000 * 1.04)); // £20,800
+  });
+
+  test('calendarYear 2031 (5 years post-confirmed) → ISA allowance compounds correctly', () => {
+    const s = getSnapshotForYear(2031);
+    expect(s.isaAnnualAllowance).toBe(Math.round(20_000 * Math.pow(1.04, 5)));
+  });
+
+  test('ISA allowance strictly increases year-on-year beyond 2026', () => {
+    const years = [2027, 2030, 2035, 2040];
+    let prev = 20_000;
+    for (const yr of years) {
+      const s = getSnapshotForYear(yr);
+      expect(s.isaAnnualAllowance).toBeGreaterThan(prev);
+      prev = s.isaAnnualAllowance;
     }
   });
 });

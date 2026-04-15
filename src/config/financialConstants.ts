@@ -9,7 +9,10 @@
  * Run `npm run gen:tax-snapshot` to refresh the snapshot when HMRC publishes new rates.
  */
 
-import { getSnapshotForYear } from './taxRuleSnapshot';
+import { getSnapshotForYear, TAX_BAND_FREEZE_END_YEAR, TAX_BAND_ESCALATION_RATE, ISA_ANNUAL_ALLOWANCE_BASE } from './taxRuleSnapshot';
+
+// Re-export so callers only need to import from financialConstants.
+export { TAX_BAND_FREEZE_END_YEAR, TAX_BAND_ESCALATION_RATE, ISA_ANNUAL_ALLOWANCE_BASE };
 
 // Snapshot for the current tax year — used to initialise constants below.
 // Pinned to a specific calendar year so values are deterministic across server/client
@@ -191,16 +194,13 @@ export const IHT = {
   RATE: 0.40,
   /** Reduced rate when ≥10% of net estate left to charity. IHTA 1984 s.7A. */
   CHARITY_RATE: 0.36,
-  /** Nil-Rate Band — frozen to April 2030. */
+  /** Nil-Rate Band — frozen to April 2030. Use getNRBForYear() for year-specific projections. */
   NRB: 325_000,
-  /** Residence Nil-Rate Band — frozen to April 2030. IHTA 1984 s.8D. */
+  /** Residence Nil-Rate Band — frozen to April 2030. Use getRNRBForYear() for year-specific projections. IHTA 1984 s.8D. */
   RNRB: 175_000,
   /**
-   * Estate value above which RNRB tapers at £1 per £2 of excess.
-   * RNRB is fully withdrawn at:
-   *   £2,350,000 for a single person (£2m + 2 × £175k)
-   *   £2,700,000 for a couple with full transferable RNRB (£2m + 2 × £350k)
-   * IHTA 1984 s.8D(5).
+   * Estate value above which RNRB tapers at £1 per £2 of excess (frozen to 2030).
+   * Use getRNRBTaperThresholdForYear() for year-specific projections. IHTA 1984 s.8D(5).
    */
   RNRB_TAPER_THRESHOLD: 2_000_000,
   /** Estate value at which a single person's RNRB is fully tapered to zero (£2m + 2×£175k). */
@@ -225,6 +225,55 @@ export const IHT = {
   /** Minimum charity fraction of net estate to qualify for reduced IHT rate. */
   CHARITY_THRESHOLD_FRACTION: 0.10,
 } as const;
+
+// ─── IHT post-freeze escalation ───────────────────────────────────────────────
+// NRB and RNRB are frozen until 5 April 2030. Per IHTA 1984 legislative intent,
+// they should subsequently increase with CPI. Voyant models this as CPI-linked
+// escalation from 2031 using a plan-level CPI assumption (default ~2.5%).
+// The RNRB taper threshold (£2m) is also escalated at the same CPI rate to maintain
+// consistent proportionality between the bands and the taper ceiling.
+//
+// Source: Voyant UK — NRB Escalation % and IHT Property Exemption settings.
+
+/** Last calendar year in which NRB and RNRB are legislatively frozen (tax year 2030-31). */
+export const IHT_FREEZE_END_YEAR = 2030;
+
+/**
+ * Annual escalation rate applied to NRB, RNRB, and RNRB taper threshold after the freeze.
+ * Matches Voyant's default CPI assumption (~2.5%), consistent with the legislative intent
+ * that these thresholds should increase with the Consumer Price Index from April 2030.
+ */
+export const IHT_ESCALATION_RATE = 0.025;
+
+/**
+ * Returns the NRB for a given calendar year.
+ * Frozen at £325,000 through 2030; escalates at IHT_ESCALATION_RATE from 2031.
+ */
+export function getNRBForYear(calendarYear: number): number {
+  if (calendarYear <= IHT_FREEZE_END_YEAR) return IHT.NRB;
+  const yearsPost = calendarYear - IHT_FREEZE_END_YEAR;
+  return Math.round(IHT.NRB * Math.pow(1 + IHT_ESCALATION_RATE, yearsPost));
+}
+
+/**
+ * Returns the RNRB for a given calendar year.
+ * Frozen at £175,000 through 2030; escalates at IHT_ESCALATION_RATE from 2031.
+ */
+export function getRNRBForYear(calendarYear: number): number {
+  if (calendarYear <= IHT_FREEZE_END_YEAR) return IHT.RNRB;
+  const yearsPost = calendarYear - IHT_FREEZE_END_YEAR;
+  return Math.round(IHT.RNRB * Math.pow(1 + IHT_ESCALATION_RATE, yearsPost));
+}
+
+/**
+ * Returns the RNRB taper threshold for a given calendar year.
+ * Frozen at £2,000,000 through 2030; escalates at IHT_ESCALATION_RATE from 2031.
+ */
+export function getRNRBTaperThresholdForYear(calendarYear: number): number {
+  if (calendarYear <= IHT_FREEZE_END_YEAR) return IHT.RNRB_TAPER_THRESHOLD;
+  const yearsPost = calendarYear - IHT_FREEZE_END_YEAR;
+  return Math.round(IHT.RNRB_TAPER_THRESHOLD * Math.pow(1 + IHT_ESCALATION_RATE, yearsPost));
+}
 
 // ─── Withdrawal order ─────────────────────────────────────────────────────────
 // The app follows this UK tax-efficient ordering.

@@ -105,6 +105,7 @@ export default function IHTOutlookPanel({ state, projections }: IHTOutlookPanelP
       annualSurplusIncome: result.annualGiftingCapacity,
       annualIncome,
       remainingYears,
+      calendarYear: deathYear,
     });
 
     // ── Gifting comparison chart data ────────────────────────────────────────────

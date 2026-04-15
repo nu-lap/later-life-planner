@@ -11,7 +11,7 @@
  * Sources: IHTA 1984 ss.7, 8D, 8H, 19, 20, 21; Finance Act 2025.
  */
 
-import { IHT } from '@/config/financialConstants';
+import { IHT, getNRBForYear, getRNRBForYear, getRNRBTaperThresholdForYear } from '@/config/financialConstants';
 
 export interface IHTProjectionInputs {
   /** Calendar year of projected death (used for pension inclusion threshold). */
@@ -102,6 +102,13 @@ export function calculateIHTProjection(inputs: IHTProjectionInputs): IHTProjecti
   // Pension in estate: only from the inclusion year onwards.
   const pensionInEstate = deathYear >= IHT.PENSION_ESTATE_INCLUSION_YEAR ? dcPensionValue : 0;
 
+  // Year-specific NRB, RNRB, and taper threshold — escalate at CPI after 2030 freeze.
+  const nrb = getNRBForYear(deathYear);
+  const rnrb = getRNRBForYear(deathYear);
+  const rnrbTaperThreshold = getRNRBTaperThresholdForYear(deathYear);
+  // Amber warning fires £200k below the taper cliff to give planning headroom.
+  const rnrbTaperWarningThreshold = rnrbTaperThreshold - 200_000;
+
   const grossEstate =
     Math.max(0, primaryResidenceNetValue) +
     isaValue +
@@ -113,18 +120,17 @@ export function calculateIHTProjection(inputs: IHTProjectionInputs): IHTProjecti
   // Transferable NRB for couples (IHTA 1984 s.8A).
   // unusedNrbFraction is 0–1; full transfer = 1.0 → doubles the NRB.
   const nrbAvailable = isCouple
-    ? IHT.NRB * (1 + Math.min(1, Math.max(0, unusedNrbFraction)))
-    : IHT.NRB;
+    ? nrb * (1 + Math.min(1, Math.max(0, unusedNrbFraction)))
+    : nrb;
 
   // RNRB taper: reduces by £1 for every £2 the gross estate exceeds the threshold.
   // RNRB is transferable between spouses (IHTA 1984 s.8D), so couples claim up to 2× RNRB.
-  // Full taper point: £2,350,000 (single) or £2,700,000 (couple with full transfer).
   // IHTA 1984 s.8D(2): RNRB cannot exceed the net value of the qualifying residential interest.
-  const rnrbBandMax = isCouple ? IHT.RNRB * 2 : IHT.RNRB;
+  const rnrbBandMax = isCouple ? rnrb * 2 : rnrb;
   const rnrbBase = residenceLeavesToDescendants
     ? Math.min(rnrbBandMax, Math.max(0, primaryResidenceNetValue))
     : 0;
-  const rnrbTaperReduction = Math.max(0, grossEstate - IHT.RNRB_TAPER_THRESHOLD) / 2;
+  const rnrbTaperReduction = Math.max(0, grossEstate - rnrbTaperThreshold) / 2;
   const rnrbAvailable = Math.max(0, rnrbBase - rnrbTaperReduction);
 
   const chargeableEstate = Math.max(0, grossEstate - nrbAvailable - rnrbAvailable);
@@ -137,7 +143,7 @@ export function calculateIHTProjection(inputs: IHTProjectionInputs): IHTProjecti
   // Pre-2027 comparison: same calculation but without pension in estate.
   const grossEstateExcPension = grossEstate - pensionInEstate;
   const rnrbTaperReductionExcPension =
-    Math.max(0, grossEstateExcPension - IHT.RNRB_TAPER_THRESHOLD) / 2;
+    Math.max(0, grossEstateExcPension - rnrbTaperThreshold) / 2;
   const rnrbAvailableExcPension = Math.max(0, rnrbBase - rnrbTaperReductionExcPension);
   const chargeableEstateExcPension = Math.max(
     0,
@@ -146,8 +152,8 @@ export function calculateIHTProjection(inputs: IHTProjectionInputs): IHTProjecti
   const ihtDueExcludingPension = chargeableEstateExcPension * ihtRate;
   const pensionIHTDelta = ihtDue - ihtDueExcludingPension;
 
-  // Amber warning fires before the £2m cliff to give users planning headroom.
-  const rnrbTaperWarning = grossEstate > IHT.RNRB_TAPER_WARNING_THRESHOLD;
+  // Amber warning fires before the taper cliff to give users planning headroom.
+  const rnrbTaperWarning = grossEstate > rnrbTaperWarningThreshold;
 
   // Annual gifting capacity: surplus income eligible for IHTA 1984 s.21 exemption.
   const annualGiftingCapacity = Math.max(0, annualIncome - annualSpending);
