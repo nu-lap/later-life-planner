@@ -355,3 +355,54 @@ describe('calculateGiftingOptimisation', () => {
     expect(result.cumulativeNetBenefit).toBe(0);
   });
 });
+
+// ─── Post-freeze RNRB taper escalation ───────────────────────────────────────
+
+describe('calculateGiftingOptimisation — post-freeze calendarYear escalation', () => {
+  // For an estate of £2.05m in 2030 (frozen threshold £2m), the estate is in the taper zone.
+  // In 2041 (10 years post-freeze), the taper threshold is ~£2.56m, so the same estate is
+  // no longer in the taper zone — effective marginal rate drops from 60% to 40%.
+  const taperInputs: GiftingOptimiserInputs = {
+    grossEstate: 2_050_000,
+    ihtDue: 200_000,
+    rnrbAvailable: 150_000,
+    rnrbEligible: true,
+    rnrbBase: 175_000,
+    isCouple: false,
+    dcPensionValue: 500_000,
+    annualSurplusIncome: 5_000,
+    annualIncome: 40_000,
+    remainingYears: 10,
+  };
+
+  test('defaults to current year when calendarYear omitted (frozen values)', () => {
+    const result = calculateGiftingOptimisation(taperInputs);
+    // Current year 2025 is during freeze — threshold £2m, estate £2.05m → in taper zone
+    expect(result.isInTaperZone).toBe(true);
+    expect(result.effectiveMarginalIHTRate).toBe(0.60);
+  });
+
+  test('estate £2.05m in 2030 is in taper zone (frozen threshold)', () => {
+    const result = calculateGiftingOptimisation({ ...taperInputs, calendarYear: 2030 });
+    expect(result.isInTaperZone).toBe(true);
+    expect(result.effectiveMarginalIHTRate).toBe(0.60);
+  });
+
+  test('same estate in 2041 exits taper zone as escalated threshold exceeds estate value', () => {
+    // After 10 years at 2.5%: taper threshold ≈ £2,000,000 × 1.025^10 ≈ £2,560,169 > £2,050,000
+    const result = calculateGiftingOptimisation({ ...taperInputs, calendarYear: 2041 });
+    expect(result.isInTaperZone).toBe(false);
+    expect(result.effectiveMarginalIHTRate).toBe(0.40);
+  });
+
+  test('giftingNeededForRNRBRecovery uses escalated threshold in post-freeze year', () => {
+    // In 2030 (frozen £2m): giftingNeeded = £2.05m - £2m = £50k
+    const frozen = calculateGiftingOptimisation({ ...taperInputs, calendarYear: 2030 });
+    expect(frozen.giftingNeededForRNRBRecovery).toBe(50_000);
+
+    // In 2032 (£2m × 1.025^2 ≈ £2,100,625): same estate £2.05m is below threshold → not in taper
+    const escalated = calculateGiftingOptimisation({ ...taperInputs, calendarYear: 2032 });
+    expect(escalated.isInTaperZone).toBe(false);
+    expect(escalated.giftingNeededForRNRBRecovery).toBe(0);
+  });
+});

@@ -1,10 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import { calculateIHTProjection, IHTProjectionInputs } from '@/financialEngine/ihtProjection';
-import { IHT } from '@/config/financialConstants';
+import { IHT, getNRBForYear, getRNRBForYear, getRNRBTaperThresholdForYear, IHT_FREEZE_END_YEAR, IHT_ESCALATION_RATE } from '@/config/financialConstants';
 
-/** Minimal valid inputs — all assets zero, single, no charity, no gifting surplus. */
+/** Minimal valid inputs — all assets zero, single, no charity, no gifting surplus.
+ * deathYear 2028 is within the freeze (NRB/RNRB frozen at £325k/£175k). */
 const base: IHTProjectionInputs = {
-  deathYear: 2040,
+  deathYear: 2028,
   primaryResidenceNetValue: 0,
   residenceLeavesToDescendants: false,
   isaValue: 0,
@@ -265,5 +266,94 @@ describe('calculateIHTProjection', () => {
     });
     expect(result.ihtDue).toBe(30_000);
     expect(result.cumulativeGiftingIHTSaving).toBe(30_000); // capped at ihtDue
+  });
+});
+
+// ─── Post-freeze NRB/RNRB escalation ─────────────────────────────────────────
+
+describe('NRB/RNRB helper functions', () => {
+  it('getNRBForYear returns frozen value on and before freeze end year', () => {
+    expect(getNRBForYear(2025)).toBe(IHT.NRB);
+    expect(getNRBForYear(2030)).toBe(IHT.NRB);
+  });
+
+  it('getNRBForYear escalates at IHT_ESCALATION_RATE after freeze', () => {
+    const expected = Math.round(IHT.NRB * Math.pow(1 + IHT_ESCALATION_RATE, 5));
+    expect(getNRBForYear(IHT_FREEZE_END_YEAR + 5)).toBe(expected);
+  });
+
+  it('getRNRBForYear returns frozen value on and before freeze end year', () => {
+    expect(getRNRBForYear(2025)).toBe(IHT.RNRB);
+    expect(getRNRBForYear(2030)).toBe(IHT.RNRB);
+  });
+
+  it('getRNRBForYear escalates at IHT_ESCALATION_RATE after freeze', () => {
+    const expected = Math.round(IHT.RNRB * Math.pow(1 + IHT_ESCALATION_RATE, 5));
+    expect(getRNRBForYear(IHT_FREEZE_END_YEAR + 5)).toBe(expected);
+  });
+
+  it('getRNRBTaperThresholdForYear returns frozen value during freeze', () => {
+    expect(getRNRBTaperThresholdForYear(2030)).toBe(IHT.RNRB_TAPER_THRESHOLD);
+  });
+
+  it('getRNRBTaperThresholdForYear escalates after freeze', () => {
+    const expected = Math.round(IHT.RNRB_TAPER_THRESHOLD * Math.pow(1 + IHT_ESCALATION_RATE, 10));
+    expect(getRNRBTaperThresholdForYear(IHT_FREEZE_END_YEAR + 10)).toBe(expected);
+  });
+});
+
+describe('calculateIHTProjection — post-freeze escalation', () => {
+  it('NRB is higher in 2041 than in 2030 (10 years of CPI growth)', () => {
+    const frozen = calculateIHTProjection({ ...base, deathYear: 2030, isaValue: 400_000 });
+    const escalated = calculateIHTProjection({ ...base, deathYear: 2040, isaValue: 400_000 });
+    // Higher NRB in 2040 means less chargeable estate and less IHT.
+    expect(escalated.nrbAvailable).toBeGreaterThan(frozen.nrbAvailable);
+    expect(escalated.ihtDue).toBeLessThan(frozen.ihtDue);
+  });
+
+  it('estate just above 2030 taper threshold is in the taper zone; same estate is not in taper zone post-escalation', () => {
+    // In 2030 (frozen): estate £2.05m is above £2m threshold → rnrbTaperWarning = true
+    const frozenResult = calculateIHTProjection({
+      ...base,
+      deathYear: 2030,
+      isCouple: true,
+      unusedNrbFraction: 1.0,
+      primaryResidenceNetValue: 700_000,
+      residenceLeavesToDescendants: true,
+      isaValue: 800_000,
+      cashValue: 550_000, // total = 2,050,000 — just above £2m
+    });
+    expect(frozenResult.rnrbTaperWarning).toBe(true);
+    expect(frozenResult.rnrbAvailable).toBeLessThan(350_000);
+
+    // In 2041 (10 years post-freeze): taper threshold ≈ £2.56m, same estate is below threshold
+    const escalatedResult = calculateIHTProjection({
+      ...base,
+      deathYear: 2040,
+      isCouple: true,
+      unusedNrbFraction: 1.0,
+      primaryResidenceNetValue: 700_000,
+      residenceLeavesToDescendants: true,
+      isaValue: 800_000,
+      cashValue: 550_000,
+    });
+    expect(escalatedResult.rnrbTaperWarning).toBe(false);
+    expect(escalatedResult.rnrbAvailable).toBeGreaterThan(frozenResult.rnrbAvailable);
+  });
+
+  it('IHT liability is lower for 2041 death than 2030 death on same nominal estate value', () => {
+    const inputs = {
+      ...base,
+      isCouple: true,
+      unusedNrbFraction: 1.0,
+      primaryResidenceNetValue: 600_000,
+      residenceLeavesToDescendants: true,
+      isaValue: 700_000,
+      cashValue: 700_000, // gross £2m
+    };
+    const iht2030 = calculateIHTProjection({ ...inputs, deathYear: 2030 }).ihtDue;
+    const iht2040 = calculateIHTProjection({ ...inputs, deathYear: 2040 }).ihtDue;
+    // Escalated NRB + RNRB in 2040 → lower IHT on same nominal estate
+    expect(iht2040).toBeLessThan(iht2030);
   });
 });

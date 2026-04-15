@@ -14,7 +14,7 @@
  * - IHTA 1984 s.8D(5) — RNRB taper at £1 per £2 over £2,000,000
  */
 
-import { IHT, CURRENT_TAX_YEAR_START } from '@/config/financialConstants';
+import { IHT, CURRENT_TAX_YEAR_START, getRNRBForYear, getRNRBTaperThresholdForYear } from '@/config/financialConstants';
 import { getSnapshotForYear } from '@/config/taxRuleSnapshot';
 
 export interface GiftingOptimiserInputs {
@@ -46,6 +46,11 @@ export interface GiftingOptimiserInputs {
   annualIncome: number;
   /** Remaining years until projected death (planning horizon). */
   remainingYears: number;
+  /**
+   * Calendar year of projected death — used to apply post-freeze RNRB and taper threshold
+   * escalation. Defaults to current year if omitted (uses frozen 2025 values).
+   */
+  calendarYear?: number;
 }
 
 export interface GiftingOptimiserResult {
@@ -152,16 +157,22 @@ export function calculateGiftingOptimisation(
     annualSurplusIncome,
     annualIncome,
     remainingYears,
+    calendarYear = CURRENT_TAX_YEAR_START,
   } = inputs;
 
+  // Year-specific RNRB and taper threshold — escalate at CPI after 2030 freeze.
+  const rnrbForYear = getRNRBForYear(calendarYear);
+  const rnrbTaperThreshold = getRNRBTaperThresholdForYear(calendarYear);
+  const taperEnd = isCouple
+    ? rnrbTaperThreshold + 4 * rnrbForYear   // couple: 2×RNRB fully withdrawn at threshold + 4×RNRB
+    : rnrbTaperThreshold + 2 * rnrbForYear;  // single: RNRB fully withdrawn at threshold + 2×RNRB
   // ── 1. Effective marginal IHT rate ──────────────────────────────────────────
-  // Taper zone: estate is above £2m threshold AND below the ceiling where RNRB is
-  // fully withdrawn, AND RNRB is actually eligible (residence left to descendants).
+  // Taper zone: estate is above the (year-specific) threshold AND below the ceiling
+  // where RNRB is fully withdrawn, AND RNRB is actually eligible.
   // Outside these conditions, gifting saves at the standard 40% rate only.
-  const taperEnd = isCouple ? IHT.RNRB_TAPER_END_COUPLE : IHT.RNRB_TAPER_END_SINGLE;
   const isInTaperZone =
     rnrbEligible &&
-    grossEstate > IHT.RNRB_TAPER_THRESHOLD &&
+    grossEstate > rnrbTaperThreshold &&
     grossEstate < taperEnd;
   const effectiveMarginalIHTRate = isInTaperZone ? 0.60 : IHT.RATE;
 
@@ -175,7 +186,7 @@ export function calculateGiftingOptimisation(
   // the nominal maxRNRB, to avoid overstating the opportunity when the residence
   // value caps the allowance.
   const giftingNeededForRNRBRecovery = isInTaperZone
-    ? Math.max(0, grossEstate - IHT.RNRB_TAPER_THRESHOLD)
+    ? Math.max(0, grossEstate - rnrbTaperThreshold)
     : 0;
   const rnrbRecoveryOpportunity = isInTaperZone
     ? Math.max(0, rnrbBase - rnrbAvailable) * IHT.RATE
