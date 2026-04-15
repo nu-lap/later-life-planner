@@ -331,7 +331,9 @@ function selectTopStrategies(results: WaterfallResult[]): WaterfallResult[] {
       }
       if (left.feasible !== right.feasible) return left.feasible ? -1 : 1;
       if (left.totalTax !== right.totalTax) return left.totalTax - right.totalTax;
-      return left.gap - right.gap;
+      if (left.gap !== right.gap) return left.gap - right.gap;
+      // Stable tie-breaker: deterministic across platforms and Node versions.
+      return left.strategy.label.localeCompare(right.strategy.label);
     })
     .slice(0, 2);
 }
@@ -348,7 +350,9 @@ function selectWinner(results: CandidateEvaluation[]): CandidateEvaluation {
     if (left.result.totalTax !== right.result.totalTax) {
       return left.result.totalTax - right.result.totalTax;
     }
-    return left.result.gap - right.result.gap;
+    if (left.result.gap !== right.result.gap) return left.result.gap - right.result.gap;
+    // Stable tie-breaker: deterministic across platforms and Node versions.
+    return left.result.strategy.label.localeCompare(right.result.strategy.label);
   })[0];
 }
 
