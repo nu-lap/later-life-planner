@@ -83,6 +83,12 @@ export default function IHTOutlookPanel({ state, projections }: IHTOutlookPanelP
       grossEstate: result.grossEstate,
       ihtDue: result.ihtDue,
       rnrbAvailable: result.rnrbAvailable,
+      rnrbEligible: state.primaryResidence.enabled && state.primaryResidence.leavesToDescendants,
+      // rnrbBase: eligible RNRB before taper = min(maxRNRB, qualifying residence value).
+      // Bounds the recovery opportunity to what is genuinely recoverable.
+      rnrbBase: (state.primaryResidence.enabled && state.primaryResidence.leavesToDescendants)
+        ? Math.min(mode === 'couple' ? IHT.RNRB * 2 : IHT.RNRB, residenceValue)
+        : 0,
       isCouple: mode === 'couple',
       dcPensionValue,
       annualSurplusIncome: result.annualGiftingCapacity,

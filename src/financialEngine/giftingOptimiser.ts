@@ -24,6 +24,18 @@ export interface GiftingOptimiserInputs {
   ihtDue: number;
   /** RNRB actually available after taper (may be 0 if estate > taper ceiling). */
   rnrbAvailable: number;
+  /**
+   * True if the qualifying residence is left to lineal descendants (condition for RNRB
+   * eligibility). When false, no taper-zone 60% rate or RNRB recovery logic applies.
+   */
+  rnrbEligible: boolean;
+  /**
+   * Pre-taper eligible RNRB base: min(maxRNRB, residenceValue).
+   * Used to compute the true recovery opportunity — avoids overstating savings when the
+   * qualifying residence is worth less than the nominal RNRB cap.
+   * Should be 0 when rnrbEligible is false.
+   */
+  rnrbBase: number;
   /** True if couple (affects RNRB cap and annual gift allowance). */
   isCouple: boolean;
   /** Combined DC pension value — source of additional gifting via drawdown. */
@@ -101,20 +113,21 @@ export interface GiftingOptimiserResult {
  * Estimate the marginal income tax rate for an additional DC withdrawal,
  * given the person's current gross annual income.
  *
- * Uses IHTA 1984 s.21 income bands from the current tax year snapshot.
- * The £100k–£125,140 personal allowance taper creates an ~60% effective
- * marginal rate, which is modelled explicitly here.
+ * Uses the current tax year snapshot for all band thresholds.
+ * The personal allowance taper (income between paTaperThreshold and
+ * additionalRateThreshold) creates an effective ~60% marginal rate
+ * because each £2 of extra income loses £1 of personal allowance, making
+ * 40p of previously tax-free income taxable alongside the normal 40p on the
+ * marginal pound.
  */
 function estimateMarginalIncomeTaxRate(annualIncome: number): number {
   const snapshot = getSnapshotForYear(CURRENT_TAX_YEAR_START);
-  const { personalAllowance, basicRateLimit, additionalRateThreshold } = snapshot.incomeTaxBands;
-
-  // PA taper: PA reduces by £1 per £2 of income over £100,000; fully lost at £125,140
-  const paTaperStart = 100_000;
+  const { personalAllowance, basicRateLimit, additionalRateThreshold, paTaperThreshold } =
+    snapshot.incomeTaxBands;
 
   if (annualIncome <= personalAllowance) return 0;
   if (annualIncome <= basicRateLimit) return 0.20;
-  if (annualIncome < paTaperStart) return 0.40;
+  if (annualIncome < paTaperThreshold) return 0.40;
   if (annualIncome <= additionalRateThreshold) return 0.60; // PA taper effective rate
   return 0.45;
 }
@@ -130,6 +143,8 @@ export function calculateGiftingOptimisation(
     grossEstate,
     ihtDue,
     rnrbAvailable,
+    rnrbEligible,
+    rnrbBase,
     isCouple,
     dcPensionValue,
     annualSurplusIncome,
@@ -138,9 +153,14 @@ export function calculateGiftingOptimisation(
   } = inputs;
 
   // ── 1. Effective marginal IHT rate ──────────────────────────────────────────
-  const maxRNRB = isCouple ? IHT.RNRB * 2 : IHT.RNRB;
+  // Taper zone: estate is above £2m threshold AND below the ceiling where RNRB is
+  // fully withdrawn, AND RNRB is actually eligible (residence left to descendants).
+  // Outside these conditions, gifting saves at the standard 40% rate only.
+  const taperEnd = isCouple ? IHT.RNRB_TAPER_END_COUPLE : IHT.RNRB_TAPER_END_SINGLE;
   const isInTaperZone =
-    grossEstate > IHT.RNRB_TAPER_THRESHOLD && rnrbAvailable < maxRNRB;
+    rnrbEligible &&
+    grossEstate > IHT.RNRB_TAPER_THRESHOLD &&
+    grossEstate < taperEnd;
   const effectiveMarginalIHTRate = isInTaperZone ? 0.60 : IHT.RATE;
 
   const marginalIncomeTaxRate = estimateMarginalIncomeTaxRate(annualIncome);
@@ -148,15 +168,31 @@ export function calculateGiftingOptimisation(
     ihtDue > 0 && marginalIncomeTaxRate < effectiveMarginalIHTRate && dcPensionValue > 0;
 
   // ── 2. RNRB taper recovery opportunity ──────────────────────────────────────
+  // Only meaningful when in the taper zone. The recoverable RNRB is bounded by the
+  // pre-taper eligible base (rnrbBase = min(maxRNRB, residenceValue)) rather than
+  // the nominal maxRNRB, to avoid overstating the opportunity when the residence
+  // value caps the allowance.
   const giftingNeededForRNRBRecovery = isInTaperZone
     ? Math.max(0, grossEstate - IHT.RNRB_TAPER_THRESHOLD)
     : 0;
-  const rnrbRecoveryOpportunity = (maxRNRB - rnrbAvailable) * IHT.RATE;
+  const rnrbRecoveryOpportunity = isInTaperZone
+    ? Math.max(0, rnrbBase - rnrbAvailable) * IHT.RATE
+    : 0;
 
   // ── 3. Annual gifting tiers ─────────────────────────────────────────────────
   const annualExemptFromIncome = Math.max(0, annualSurplusIncome);
   // s.19: £3k per donor. Couple has two donors.
   const annualExemptGiftAllowance = isCouple ? IHT.ANNUAL_GIFT_EXEMPTION * 2 : IHT.ANNUAL_GIFT_EXEMPTION;
+
+  // Compute exempt gift IHT saving early so we can cap DC drawdown appropriately.
+  // Exempt gifts (s.21, s.19) are immediately exempt — they reduce IHT at the
+  // standard 40% rate regardless of whether the estate is in the taper zone.
+  const exemptGiftIHTSaving = (annualExemptFromIncome + annualExemptGiftAllowance) * IHT.RATE;
+  // DC drawdown can only recover IHT liability that the exempt gifts haven't already covered.
+  const remainingIHTForDC = Math.max(0, ihtDue - exemptGiftIHTSaving);
+  // Maximum net DC gift amount whose IHT saving does not exceed the remaining liability.
+  const maxDCGiftNetForIHTBenefit =
+    effectiveMarginalIHTRate > 0 ? remainingIHTForDC / effectiveMarginalIHTRate : 0;
 
   // DC draw-and-gift: pace to recover RNRB over the planning horizon when in
   // taper zone; otherwise draw a steady annual amount.
@@ -177,6 +213,16 @@ export function calculateGiftingOptimisation(
       annualDCDrawdownGross = dcPensionValue / remainingYears;
     }
     annualDCDrawdownGross = Math.max(0, annualDCDrawdownGross);
+
+    // Cap drawdown so the IHT saving from the net gift cannot exceed the remaining
+    // IHT liability after exempt gifts. Without this cap, the optimiser would
+    // recommend drawdown that produces income tax cost with no corresponding IHT
+    // benefit when the remaining liability is small.
+    const maxGrossForIHTBenefit =
+      marginalIncomeTaxRate < 1
+        ? maxDCGiftNetForIHTBenefit / (1 - marginalIncomeTaxRate)
+        : maxDCGiftNetForIHTBenefit;
+    annualDCDrawdownGross = Math.min(annualDCDrawdownGross, maxGrossForIHTBenefit);
   }
 
   const annualDCDrawdownIncomeTaxCost = annualDCDrawdownGross * marginalIncomeTaxRate;
@@ -184,8 +230,6 @@ export function calculateGiftingOptimisation(
   const annualTotalGift = annualExemptFromIncome + annualExemptGiftAllowance + annualDCDrawdownGiftNet;
 
   // ── 4. Annual net benefit ────────────────────────────────────────────────────
-  // Exempt gifts (s.21, s.19) save at standard 40% IHT rate — always immediately exempt.
-  const exemptGiftIHTSaving = (annualExemptFromIncome + annualExemptGiftAllowance) * IHT.RATE;
   // DC gifts (PETs) save at effective marginal rate (40% or 60% in taper zone).
   const dcGiftIHTSaving = annualDCDrawdownGiftNet * effectiveMarginalIHTRate;
   // Cap total saving at current IHT liability (cannot save more than the bill).
@@ -205,9 +249,9 @@ export function calculateGiftingOptimisation(
 
   if (ihtDue === 0) {
     recommendationTier = 'no-action';
-  } else if (isInTaperZone && isDrawAndGiftWorthwhile) {
+  } else if (isInTaperZone && isDrawAndGiftWorthwhile && annualDCDrawdownGross > 0) {
     recommendationTier = 'rnrb-recovery-priority';
-  } else if (!isInTaperZone && isDrawAndGiftWorthwhile) {
+  } else if (!isInTaperZone && isDrawAndGiftWorthwhile && annualDCDrawdownGross > 0) {
     recommendationTier = 'draw-and-gift';
   } else if (annualSurplusIncome > 0 || annualExemptGiftAllowance > 0) {
     recommendationTier = 'income-gifts-only';

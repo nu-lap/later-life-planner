@@ -9,6 +9,8 @@ const BASE_INPUTS: GiftingOptimiserInputs = {
   grossEstate: 1_500_000,
   ihtDue: 0,
   rnrbAvailable: 175_000,
+  rnrbEligible: true,
+  rnrbBase: 175_000,
   isCouple: false,
   dcPensionValue: 300_000,
   annualSurplusIncome: 5_000,
@@ -70,6 +72,8 @@ describe('calculateGiftingOptimisation', () => {
         grossEstate: 2_200_000,
         ihtDue: 200_000,
         rnrbAvailable,
+        rnrbEligible: true,
+        rnrbBase: 175_000,
         annualIncome: 30_000,   // basic rate
         isCouple: false,
       }),
@@ -86,6 +90,8 @@ describe('calculateGiftingOptimisation', () => {
         grossEstate: 2_200_000,
         ihtDue: 200_000,
         rnrbAvailable,
+        rnrbEligible: true,
+        rnrbBase: 175_000,
         annualIncome: 80_000,   // 40% marginal rate
         isCouple: false,
       }),
@@ -104,6 +110,8 @@ describe('calculateGiftingOptimisation', () => {
         grossEstate: 2_200_000,
         ihtDue: 200_000,
         rnrbAvailable,
+        rnrbEligible: true,
+        rnrbBase: 175_000,
         annualIncome: 200_000,  // 45% additional rate
         isCouple: false,
       }),
@@ -132,7 +140,7 @@ describe('calculateGiftingOptimisation', () => {
 
   test('RNRB recovery opportunity calculated correctly', () => {
     // Estate £2.2m single: RNRB tapered by £100k → rnrbAvailable = £75k
-    // maxRNRB = £175k; already lost £100k
+    // rnrbBase = £175k (full eligible pre-taper base); already lost £100k
     // opportunity = (175k - 75k) * 0.40 = £40,000
     const rnrbAvailable = 75_000;
     const result = calculateGiftingOptimisation(
@@ -140,11 +148,95 @@ describe('calculateGiftingOptimisation', () => {
         grossEstate: 2_200_000,
         ihtDue: 200_000,
         rnrbAvailable,
+        rnrbEligible: true,
+        rnrbBase: 175_000,
         isCouple: false,
       }),
     );
     expect(result.rnrbRecoveryOpportunity).toBeCloseTo((175_000 - 75_000) * 0.40);
     expect(result.giftingNeededForRNRBRecovery).toBe(200_000); // £2.2m - £2m
+  });
+
+  test('RNRB ineligible (residence not left to descendants) → no taper-zone logic', () => {
+    // Estate £2.2m — would be in taper zone, but RNRB is not eligible.
+    // Gifting should save at standard 40% only; no recovery opportunity.
+    const result = calculateGiftingOptimisation(
+      inputs({
+        grossEstate: 2_200_000,
+        ihtDue: 200_000,
+        rnrbAvailable: 0,    // not claimed
+        rnrbEligible: false, // residence not left to descendants
+        rnrbBase: 0,
+        annualIncome: 30_000,
+        isCouple: false,
+      }),
+    );
+    expect(result.isInTaperZone).toBe(false);
+    expect(result.effectiveMarginalIHTRate).toBe(0.40);
+    expect(result.rnrbRecoveryOpportunity).toBe(0);
+    expect(result.recommendationTier).not.toBe('rnrb-recovery-priority');
+  });
+
+  test('estate above taper ceiling → RNRB fully tapered, reverts to standard 40% rate', () => {
+    // Estate £2.4m — above RNRB_TAPER_END_SINGLE (£2.35m).
+    // RNRB is completely tapered away; no recovery is possible via gifting.
+    const result = calculateGiftingOptimisation(
+      inputs({
+        grossEstate: 2_400_000,
+        ihtDue: 260_000,
+        rnrbAvailable: 0,   // fully tapered away
+        rnrbEligible: true,
+        rnrbBase: 175_000,
+        annualIncome: 30_000,
+        isCouple: false,
+      }),
+    );
+    expect(result.isInTaperZone).toBe(false);
+    expect(result.effectiveMarginalIHTRate).toBe(0.40);
+    expect(result.rnrbRecoveryOpportunity).toBe(0);
+    expect(result.giftingNeededForRNRBRecovery).toBe(0);
+  });
+
+  test('rnrbBase caps recovery opportunity when residence value < full RNRB', () => {
+    // Estate £2.2m, residence worth only £100k (less than full £175k RNRB).
+    // rnrbBase = £100k; after taper from £2.2m: rnrbAvailable = 100k - 100k = £0k
+    // opportunity = (100k - 0) * 0.40 = £40,000 (not 175k × 0.40 = £70k)
+    const result = calculateGiftingOptimisation(
+      inputs({
+        grossEstate: 2_200_000,
+        ihtDue: 200_000,
+        rnrbAvailable: 0,
+        rnrbEligible: true,
+        rnrbBase: 100_000,   // low-value residence
+        isCouple: false,
+      }),
+    );
+    expect(result.isInTaperZone).toBe(true);
+    expect(result.rnrbRecoveryOpportunity).toBeCloseTo(100_000 * 0.40);
+  });
+
+  test('DC drawdown capped when exempt gifts already cover IHT liability', () => {
+    // Exempt gifts cover all IHT → DC drawdown should be zero to avoid
+    // paying income tax with no IHT benefit.
+    // ihtDue = £1,000; annualExemptGiftAllowance = £3,000 → exemptIHTSaving = £1,200 > £1,000
+    const result = calculateGiftingOptimisation(
+      inputs({
+        grossEstate: 1_500_000,
+        ihtDue: 1_000,
+        rnrbAvailable: 175_000,
+        rnrbEligible: true,
+        rnrbBase: 175_000,
+        annualIncome: 30_000,   // basic rate — DC draw-and-gift would normally be worthwhile
+        dcPensionValue: 300_000,
+        annualSurplusIncome: 0,
+      }),
+    );
+    // Exempt gift (s.19 = £3k) saves £1,200 in IHT — exceeds the £1k liability.
+    // DC drawdown would incur income tax with no IHT payback → should be 0.
+    expect(result.annualDCDrawdownGross).toBe(0);
+    expect(result.annualNetBenefit).toBeGreaterThanOrEqual(0);
+    // s.19 gifts still recommended
+    expect(result.recommendationTier).toBe('income-gifts-only');
   });
 
   test('no DC pot → no DC draw-and-gift even when worthwhile', () => {
