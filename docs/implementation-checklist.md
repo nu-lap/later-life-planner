@@ -4,7 +4,7 @@
 
 - Status: Active
 - Owner: Later-Life Planner Engineering (`NxLap Ltd`)
-- Last reviewed: 2026-03-27
+- Last reviewed: 2026-04-15
 - Review cadence: Weekly while active implementation phases are open; otherwise monthly
 
 This checklist translates the current canonical planning docs into a practical execution sequence:
@@ -26,6 +26,7 @@ Priority order:
 8. Phase 5: tests and docs
 9. Phase 6: documentation consolidation and refresh
 10. Phase 7: pension contribution modelling
+11. Phase 8: IHT planning and post-freeze tax band escalation
 
 ## Phase 0: Product and Consistency Cleanup
 
@@ -263,3 +264,64 @@ Implementation tasks:
 - [ ] SIPP annual gross contribution uplift by inflation
 - [ ] contribution stop at FI age
 - [ ] parity between Get Started and `Income & Assets` entry points
+
+## Phase 8: IHT Planning and Post-Freeze Tax Band Escalation
+
+Goal: give users a credible long-range IHT forecast that accounts for UK tax-band
+escalation after the known HMRC freeze ends, and surface actionable gifting guidance
+that adjusts automatically as thresholds change over the projection horizon.
+
+### IHT projection engine (IHT-1 through IHT-4)
+
+- [x] Add `calculateIHTProjection()` pure function (`src/financialEngine/ihtProjection.ts`).
+  Computes gross estate, NRB, RNRB (with taper), chargeable estate, IHT due, pension-estate delta, and annual gifting capacity.
+- [x] Support couple mode: transferable NRB (IHTA 1984 s.8A) and transferable RNRB (s.8D).
+- [x] Include DC pension pots in estate from 6 April 2027 (Finance Act 2025).
+- [x] Add `IHTOutlookPanel` component to Step 4 dashboard.
+- [x] Add `ihtProjection.test.ts` unit tests (28 tests).
+
+### Gifting optimiser (IHT-5)
+
+- [x] Add `calculateGiftingOptimisation()` pure function (`src/financialEngine/giftingOptimiser.ts`).
+  Models s.21 surplus-income gifts, s.19 annual exempt gifts, and DC draw-and-gift strategy.
+- [x] Apply 60% effective marginal IHT rate in the RNRB taper zone (each £2 gifted recovers £1 RNRB worth 40% IHT).
+- [x] Compute RNRB recovery opportunity and pacing when estate is in the taper zone.
+- [x] Add gifting strategy asset-trajectory comparison chart to `IHTOutlookPanel`.
+- [x] Add `giftingOptimiser.test.ts` unit tests.
+
+### Post-freeze tax band escalation — income tax, CGT, ISA (branch: `feat/tax-band-post-freeze-escalation`)
+
+Background: HMRC has frozen income-tax thresholds (personal allowance, basic-rate limit,
+additional-rate threshold) until April 2030 (tax year 2030-31). After the freeze Voyant
+applies a 4%/yr Default Tax Table Assumption to all monetary income-tax thresholds.
+CGT exempt amount and ISA annual allowance are also escalated at 4%/yr from the last
+confirmed HMRC data year (currently 2026-27). Tax *rates* (20%/40%/45%, 18%/24%) are
+never escalated — only monetary thresholds.
+
+- [x] Add `TAX_BAND_FREEZE_END_YEAR = 2030` and `TAX_BAND_ESCALATION_RATE = 0.04` constants to `taxRuleSnapshot.ts`; re-export from `financialConstants.ts`.
+- [x] Implement post-freeze escalation of income-tax thresholds (PA, BRL, ART, PA-taper) in `getSnapshotForYear()` for `calendarYear > 2030`.
+- [x] Add `LATEST_CGT_CALENDAR_YEAR = 2026`, `LATEST_ISA_CALENDAR_YEAR = 2026`, `ISA_ANNUAL_ALLOWANCE_BASE = 20_000` sentinel constants; escalate CGT exempt amount and ISA annual allowance at 4%/yr from 2027 onwards.
+- [x] Add `isaAnnualAllowance: number` to `ResolvedSnapshot` interface (infrastructure for future contribution-limit enforcement).
+- [x] Add 14 new unit tests covering income-tax, CGT, and ISA escalation; 108 tests passing.
+
+### Post-freeze IHT threshold escalation — NRB, RNRB, taper (branch: `feat/tax-band-post-freeze-escalation`)
+
+Background: NRB (£325k) and RNRB (£175k) are legislatively frozen until April 2030.
+Voyant models post-freeze NRB escalation at a configurable "Nil Rate Band Escalation %"
+and RNRB escalation at the plan CPI rate (default ~2.5%). The RNRB taper threshold (£2m)
+also escalates at CPI to maintain proportionality. This is distinct from the 4% income-tax
+Default Tax Table rate — IHT thresholds track CPI, not the higher income-tax assumption.
+
+- [x] Add `IHT_FREEZE_END_YEAR = 2030` and `IHT_ESCALATION_RATE = 0.025` (CPI) to `financialConstants.ts`.
+- [x] Add `getNRBForYear(year)`, `getRNRBForYear(year)`, `getRNRBTaperThresholdForYear(year)` pure helper functions; frozen through 2030, escalate at 2.5%/yr from 2031.
+- [x] Update `calculateIHTProjection()` to use `deathYear`-specific NRB, RNRB, and taper threshold; RNRB taper warning threshold tracks £200k below the escalated taper floor.
+- [x] Add optional `calendarYear` to `GiftingOptimiserInputs`; `calculateGiftingOptimisation()` uses escalated RNRB and taper threshold so the 60% effective marginal rate zone boundary is year-accurate.
+- [x] Update `IHTOutlookPanel` to pass `deathYear` as `calendarYear` to the gifting optimiser.
+- [x] Add 13 new unit tests covering NRB/RNRB helpers and post-freeze projection behaviour; 118 total tests passing across `ihtProjection.test.ts` and `giftingOptimiser.test.ts`.
+
+### Outstanding IHT / escalation work
+
+- [ ] Open PR for `feat/tax-band-post-freeze-escalation` targeting `main` (or the appropriate integration branch).
+- [ ] Expose escalation assumptions in the UI (e.g. a settings panel showing 4% income-tax escalation rate and 2.5% CPI for IHT thresholds) so advisers can override them — matching Voyant's configurable-rate approach.
+- [ ] Thread `calendarYear` into the `projectionEngine.ts` per-year loop so in-projection IHT estimates (rather than just the death-year snapshot) also use escalated bands.
+- [ ] Consider making `IHT_ESCALATION_RATE` user-configurable (plan-level CPI) consistent with Voyant's "Nil Rate Band Escalation %" setting.
