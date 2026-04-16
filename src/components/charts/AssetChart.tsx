@@ -100,7 +100,7 @@ export default function AssetChart({ projections }: Props) {
         <Area
           type="monotone"
           dataKey="totalAssets"
-          name="Total Assets"
+          name="Investment Total"
           stroke="#2563eb"
           fill="none"
           strokeWidth={2.5}
