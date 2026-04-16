@@ -223,7 +223,7 @@ export default function IHTOutlookPanel({ state, projections }: IHTOutlookPanelP
           Estate Breakdown
         </h4>
         <div className="space-y-1.5">
-          {residenceValue > 0 && (
+          {projectedResidenceValue > 0 && (
             <div className="flex justify-between items-center text-sm py-1.5 border-b border-slate-100">
               <span className="text-slate-600">
                 Primary residence
