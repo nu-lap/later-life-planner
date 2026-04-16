@@ -56,6 +56,15 @@ export default function IHTOutlookPanel({ state, projections }: IHTOutlookPanelP
     const residenceValue = state.primaryResidence.enabled
       ? Math.max(0, state.primaryResidence.currentValue - state.primaryResidence.mortgageOutstanding)
       : 0;
+
+    // Project residence value forward to death using Voyant-aligned 3 %/yr nominal growth.
+    // At death the mortgage is assumed fully repaid, so we compound the full current value
+    // and preserve any residual equity.
+    const yearsToDeathFromNow = Math.max(0, estimateDeathYear(state) - new Date().getFullYear());
+    const residenceGrowthFactor = Math.pow(1 + DEFAULT_ASSUMPTIONS.HOUSE_PRICE_GROWTH / 100, yearsToDeathFromNow);
+    const projectedResidenceValue = state.primaryResidence.enabled
+      ? Math.round(state.primaryResidence.currentValue * residenceGrowthFactor)
+      : 0;
     const isaValue = finalYear
       ? finalYear.p1IsaBalance + (mode === 'couple' ? finalYear.p2IsaBalance : 0)
       : 0;
@@ -79,7 +88,7 @@ export default function IHTOutlookPanel({ state, projections }: IHTOutlookPanelP
 
     const result = calculateIHTProjection({
       deathYear,
-      primaryResidenceNetValue: residenceValue,
+      primaryResidenceNetValue: projectedResidenceValue,
       residenceLeavesToDescendants: state.primaryResidence.leavesToDescendants,
       isaValue,
       giaValue,
@@ -99,10 +108,10 @@ export default function IHTOutlookPanel({ state, projections }: IHTOutlookPanelP
       ihtDue: result.ihtDue,
       rnrbAvailable: result.rnrbAvailable,
       rnrbEligible: state.primaryResidence.enabled && state.primaryResidence.leavesToDescendants,
-      // rnrbBase: eligible RNRB before taper = min(maxRNRB, qualifying residence value).
+      // rnrbBase: eligible RNRB before taper = min(maxRNRB, qualifying residence value at death).
       // Bounds the recovery opportunity to what is genuinely recoverable.
       rnrbBase: (state.primaryResidence.enabled && state.primaryResidence.leavesToDescendants)
-        ? Math.min(mode === 'couple' ? IHT.RNRB * 2 : IHT.RNRB, residenceValue)
+        ? Math.min(mode === 'couple' ? IHT.RNRB * 2 : IHT.RNRB, projectedResidenceValue)
         : 0,
       isCouple: mode === 'couple',
       dcPensionValue,
@@ -154,6 +163,12 @@ export default function IHTOutlookPanel({ state, projections }: IHTOutlookPanelP
       ? Math.min(getRNRBForYear(deathYear) * (mode === 'couple' ? 2 : 1), residenceValue)
       : 0;
 
+    // Projected RNRB taper threshold and taper-end values at death (post-2030 escalation applied).
+    const taperThreshold = getRNRBTaperThresholdForYear(deathYear);
+    const projectedRNRBPerPerson = getRNRBForYear(deathYear);
+    const projectedTaperEndSingle = taperThreshold + 2 * projectedRNRBPerPerson;
+    const projectedTaperEndCouple = taperThreshold + 4 * projectedRNRBPerPerson;
+
     const rnrbScenarios = result.ihtDue > 0
       ? calculateRNRBScenarios({
           grossEstate: result.grossEstate,
@@ -166,10 +181,12 @@ export default function IHTOutlookPanel({ state, projections }: IHTOutlookPanelP
           yearsInRetirement,
           isCouple: mode === 'couple',
           deathYear,
+          p1Name: state.person1.name || 'Person 1',
+          p2Name: (mode === 'couple' && state.person2?.name) ? state.person2.name : 'Person 2',
         })
       : null;
 
-    return { result, gifting, mode, residenceValue, isaValue, giaValue, cashValue, dcPensionValue, giftingChartData, rnrbScenarios, deathYear };
+    return { result, gifting, mode, residenceValue, projectedResidenceValue, isaValue, giaValue, cashValue, dcPensionValue, giftingChartData, rnrbScenarios, deathYear, taperThreshold, projectedTaperEndSingle, projectedTaperEndCouple };
   }, [state, projections]);
 
   const [activeScenario, setActiveScenario] = useState<'B1' | 'B2' | 'C2' | null>(null);
@@ -186,7 +203,7 @@ export default function IHTOutlookPanel({ state, projections }: IHTOutlookPanelP
     );
   }
 
-  const { result, gifting, mode, residenceValue, isaValue, giaValue, cashValue, dcPensionValue, giftingChartData, rnrbScenarios, deathYear } = computed;
+  const { result, gifting, mode, projectedResidenceValue, isaValue, giaValue, cashValue, dcPensionValue, giftingChartData, rnrbScenarios, taperThreshold, projectedTaperEndSingle, projectedTaperEndCouple } = computed;
 
   return (
     <div className="game-card border-violet-200 bg-violet-50/40">
@@ -207,10 +224,13 @@ export default function IHTOutlookPanel({ state, projections }: IHTOutlookPanelP
           Estate Breakdown
         </h4>
         <div className="space-y-1.5">
-          {residenceValue > 0 && (
+          {projectedResidenceValue > 0 && (
             <div className="flex justify-between items-center text-sm py-1.5 border-b border-slate-100">
-              <span className="text-slate-600">Primary residence (net of mortgage)</span>
-              <span className="font-bold text-slate-900">{formatCurrency(residenceValue, true)}</span>
+              <span className="text-slate-600">
+                Primary residence
+                <span className="ml-1.5 text-xs text-slate-400">(projected at death)</span>
+              </span>
+              <span className="font-bold text-slate-900">{formatCurrency(projectedResidenceValue, true)}</span>
             </div>
           )}
           {(isaValue + giaValue + cashValue) > 0 && (
@@ -244,32 +264,33 @@ export default function IHTOutlookPanel({ state, projections }: IHTOutlookPanelP
         <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">
           IHT Projection
         </h4>
-        {/* Amber: approaching taper zone — estate between £1.8m and £2m */}
-        {result.rnrbTaperWarning && result.grossEstate <= IHT.RNRB_TAPER_THRESHOLD && (
+        {/* Amber: approaching taper zone — estate between warning threshold and taper threshold */}
+        {result.rnrbTaperWarning && result.grossEstate <= taperThreshold && (
           <div className="mb-3 rounded-xl bg-amber-50 border border-amber-200 p-3">
             <p className="text-xs font-bold text-amber-800 mb-1">
               Approaching RNRB taper threshold
             </p>
             <p className="text-xs text-amber-700">
-              Your projected estate is approaching{' '}
-              {formatCurrency(IHT.RNRB_TAPER_WARNING_THRESHOLD, true)} — the RNRB begins tapering
-              at {formatCurrency(IHT.RNRB_TAPER_THRESHOLD, true)} and is fully withdrawn at{' '}
-              {formatCurrency(IHT.RNRB_TAPER_END_SINGLE, true)} (single) or{' '}
-              {formatCurrency(IHT.RNRB_TAPER_END_COUPLE, true)} (couple with full transfer).
+              Your projected estate is approaching the RNRB taper threshold. The RNRB begins tapering
+              at {formatCurrency(taperThreshold, true)} at death (today: {formatCurrency(IHT.RNRB_TAPER_THRESHOLD, true)}) and is fully
+              withdrawn at{' '}
+              {formatCurrency(projectedTaperEndSingle, true)} (single) or{' '}
+              {formatCurrency(projectedTaperEndCouple, true)} (couple with full transfer).
             </p>
           </div>
         )}
-        {/* Amber: taper is actively reducing RNRB — estate above £2m */}
-        {result.grossEstate > IHT.RNRB_TAPER_THRESHOLD && (
+        {/* Amber: taper is actively reducing RNRB — estate above projected threshold */}
+        {result.grossEstate > taperThreshold && (
           <div className="mb-3 rounded-xl bg-amber-50 border border-amber-200 p-3">
             <p className="text-xs font-bold text-amber-800 mb-1">
-              ⚠️ RNRB taper applies above £2m
+              ⚠️ RNRB taper applies above {formatCurrency(taperThreshold, true)} at death
             </p>
             <p className="text-xs text-amber-700">
-              Your projected estate exceeds {formatCurrency(IHT.RNRB_TAPER_THRESHOLD, true)}. The
-              Residence Nil-Rate Band is being reduced and tapers away completely at{' '}
-              {formatCurrency(IHT.RNRB_TAPER_END_SINGLE, true)} (single) or{' '}
-              {formatCurrency(IHT.RNRB_TAPER_END_COUPLE, true)} (couple with full transfer).
+              Your projected estate exceeds the RNRB taper threshold (today: {formatCurrency(IHT.RNRB_TAPER_THRESHOLD, true)},
+              projected at death: {formatCurrency(taperThreshold, true)}). The Residence Nil-Rate Band is being
+              reduced and tapers away completely at{' '}
+              {formatCurrency(projectedTaperEndSingle, true)} (single) or{' '}
+              {formatCurrency(projectedTaperEndCouple, true)} (couple with full transfer).
             </p>
           </div>
         )}
@@ -356,8 +377,11 @@ export default function IHTOutlookPanel({ state, projections }: IHTOutlookPanelP
               Gifting Strategy
             </h4>
             {gifting.isInTaperZone && (
-              <span className="text-xs font-bold text-amber-700 bg-amber-100 border border-amber-300 rounded-full px-2 py-0.5">
-                60% effective IHT rate
+              <span
+                className="text-xs font-bold text-amber-700 bg-amber-100 border border-amber-300 rounded-full px-2 py-0.5"
+                title="60% is the effective marginal rate before any gifting strategy is applied — £1 gifted saves 40p IHT directly, plus recovers £1 of RNRB worth another 20p"
+              >
+                60% marginal rate (before strategy)
               </span>
             )}
           </div>
@@ -366,15 +390,16 @@ export default function IHTOutlookPanel({ state, projections }: IHTOutlookPanelP
           {gifting.isInTaperZone && gifting.rnrbRecoveryOpportunity > 0 && (
             <div className="mb-3 rounded-xl bg-amber-50 border border-amber-200 p-3">
               <p className="text-xs font-bold text-amber-800 mb-1">
-                Priority: recover RNRB by bringing estate below £2m
+                Priority: recover RNRB by bringing estate below {formatCurrency(taperThreshold, true)} at death
               </p>
               <p className="text-xs text-amber-700">
                 Your estate is{' '}
                 <span className="font-bold">{formatCurrency(gifting.giftingNeededForRNRBRecovery, true)}</span>{' '}
-                above the £2m RNRB taper threshold. Gifting to get below this level saves{' '}
+                above the projected RNRB taper threshold at death ({formatCurrency(taperThreshold, true)};
+                today&apos;s value {formatCurrency(IHT.RNRB_TAPER_THRESHOLD, true)}). Gifting to get below this level saves{' '}
                 <span className="font-bold">{formatCurrency(gifting.rnrbRecoveryOpportunity, true)}</span>{' '}
                 in additional IHT via RNRB recovery — on top of the direct 40% IHT saving.
-                The effective marginal rate in this zone is 60p per £1 gifted.
+                The effective marginal rate in this zone is 60p per £1 gifted, before strategy is applied.
               </p>
             </div>
           )}
@@ -580,14 +605,14 @@ export default function IHTOutlookPanel({ state, projections }: IHTOutlookPanelP
                     : 'bg-white border-slate-300 text-slate-600 hover:border-violet-400 hover:text-violet-700'
                 }`}
               >
-                {s.id}
+                {s.label}
                 {s.breachesRNRBTaperThreshold && (
-                  <span className="ml-1 text-amber-300" title="Estate drops below the RNRB taper threshold">★</span>
+                  <span className="ml-1 text-amber-300" title={`Estate drops below the ${formatCurrency(taperThreshold, true)} projected RNRB taper threshold at death`}>★</span>
                 )}
               </button>
             ))}
             <span className="text-xs text-slate-400 self-center ml-1">
-              ★ = estate drops below the RNRB taper threshold
+              ★ = estate drops below {formatCurrency(taperThreshold, true)} RNRB threshold at death
             </span>
           </div>
 
@@ -673,8 +698,8 @@ export default function IHTOutlookPanel({ state, projections }: IHTOutlookPanelP
 
                 {s.breachesRNRBTaperThreshold && (
                   <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-                    ★ This scenario brings the estate below the{' '}
-                    {formatCurrency(getRNRBTaperThresholdForYear(deathYear), true)} RNRB taper threshold — the full
+                    ★ This scenario brings the estate below the projected RNRB taper threshold at death
+                    ({formatCurrency(taperThreshold, true)}; today&apos;s value {formatCurrency(IHT.RNRB_TAPER_THRESHOLD, true)}) — the full
                     RNRB is recovered, saving an additional{' '}
                     <span className="font-bold">{formatCurrency(s.rnrbRecovered * result.ihtRate, true)}</span> in IHT.
                   </p>
@@ -684,6 +709,21 @@ export default function IHTOutlookPanel({ state, projections }: IHTOutlookPanelP
           })()}
         </div>
       )}
+
+      {/* Accuracy disclaimer */}
+      <div className="mt-5 rounded-xl bg-slate-50 border border-slate-200 p-4">
+        <p className="text-xs font-bold text-slate-600 mb-1">📋 About these projections</p>
+        <p className="text-xs text-slate-500 leading-relaxed">
+          These figures are illustrations only. Over a long planning horizon the results
+          are sensitive to assumptions about property growth, investment returns, inflation,
+          and future tax threshold changes — all of which carry significant uncertainty.
+          Tax rules and thresholds may change; projections assume current legislation
+          continues or escalates in line with stated assumptions.{' '}
+          <strong>These calculations are not financial advice.</strong>{' '}
+          Before making any significant planning decisions, please seek guidance from a
+          qualified financial adviser.
+        </p>
+      </div>
     </div>
   );
 }

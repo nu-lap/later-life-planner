@@ -356,6 +356,16 @@ export interface RNRBScenarioInputs {
    * Defaults to the full basic-rate band capacity (BASIC_RATE_LIMIT − PERSONAL_ALLOWANCE = £37,700).
    */
   c2AnnualDrawdown?: number;
+  /**
+   * Display name for person 1 — used in scenario labels and descriptions.
+   * Defaults to "Person 1" when omitted.
+   */
+  p1Name?: string;
+  /**
+   * Display name for person 2 — used in scenario labels and descriptions.
+   * Defaults to "Person 2" when omitted. Only relevant when isCouple is true.
+   */
+  p2Name?: string;
 }
 
 export interface RNRBScenarioResult {
@@ -449,6 +459,8 @@ export function calculateRNRBScenarios(inputs: RNRBScenarioInputs): RNRBScenario
     deathYear = CURRENT_TAX_YEAR_START,
     b2AnnualDrawdown = 50_000,
     c2AnnualDrawdown = INCOME_TAX.BASIC_RATE_LIMIT - INCOME_TAX.PERSONAL_ALLOWANCE,
+    p1Name = 'Person 1',
+    p2Name = 'Person 2',
   } = inputs;
 
   // PCLS = 25% of DC pot at retirement, capped at the lifetime lump sum allowance.
@@ -500,22 +512,24 @@ export function calculateRNRBScenarios(inputs: RNRBScenarioInputs): RNRBScenario
   return [
     buildScenario(
       'B1',
-      'B1 — P1 PCLS only',
-      'Person 1 crystallises 25% tax-free cash at retirement and gifts it as a PET.',
+      `${p1Name}'s tax-free lump sum`,
+      `${p1Name} takes 25% tax-free cash (PCLS) at retirement and gifts it as a PET.`,
       p1PCLS,
       0,
     ),
     buildScenario(
       'B2',
-      'B2 — Both PCLS + drawdown',
-      `Both people crystallise 25% tax-free cash at retirement, then draw £${(b2AnnualDrawdown / 1000).toFixed(0)}k/yr DC to gift.`,
+      `Both tax-free cash${isCouple ? ' + drawdown' : ''}`,
+      isCouple
+        ? `${p1Name} and ${p2Name} both take 25% tax-free cash at retirement, then draw £${(b2AnnualDrawdown / 1000).toFixed(0)}k/yr from DC to gift.`
+        : `${p1Name} takes 25% tax-free cash at retirement, then draws £${(b2AnnualDrawdown / 1000).toFixed(0)}k/yr from DC to gift.`,
       p1PCLS + p2PCLS,
       b2AnnualDrawdown,
     ),
     buildScenario(
       'C2',
-      'C2 — Drawdown only',
-      `No lump sums — draw £${(c2AnnualDrawdown / 1000).toFixed(0)}k/yr DC at basic rate and gift the net proceeds.`,
+      'Income drawdown only',
+      `No upfront lump sums — draw £${(c2AnnualDrawdown / 1000).toFixed(0)}k/yr DC at basic rate and gift the net proceeds.`,
       0,
       c2AnnualDrawdown,
     ),
