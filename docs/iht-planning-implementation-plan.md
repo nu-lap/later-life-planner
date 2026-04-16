@@ -714,3 +714,135 @@ optimiser-backed display.
 - [ ] No visible change when `ihtDue === 0`
 
 ---
+
+## Phase IHT-6 — RNRB Taper Clawback Scenario Analysis
+
+### Background
+
+For high-value estates (gross estate > £2m), the RNRB is tapered at £1 per £2 of excess.
+A couple's full transferable RNRB (2 × £175k = £350k) is worth £140k of IHT saving. When
+the estate is in the taper zone, the effective marginal IHT rate is **60p per £1 gifted**
+(40p direct IHT saving + 20p from RNRB recovery) rather than the standard 40p.
+
+From April 2027, unspent DC pots enter the estate (Finance Act 2025). For pension-heavy
+couples with gross estates of £5m–£10m, the DC contribution can be £1m–£2m, making
+proactive pre-retirement actions highly effective.
+
+### Three Directional Scenarios
+
+The following scenarios model the IHT impact of pension actions taken **before or at
+the start of the retirement phase** (FI age), based on a representative couple:
+
+- **Person 1 (P1)**: age 56, FI at 60, DC pot ~£1.44m at retirement → PCLS = £268,275 (capped at LSA)
+- **Person 2 (P2)**: age 57, DC pot ~£360k at retirement → PCLS = £90k
+- **Gross estate at death**: ~£9m (fully in RNRB taper zone, RNRB = £0)
+- **Baseline IHT**: ~£3.34m (at 40% on £9m − £650k NRB)
+- **Years in retirement**: 36
+
+#### Scenario B1 — P1 PCLS only
+
+| Item | Value |
+|---|---|
+| Tax-free PCLS (P1 crystallises at FI) | £268,275 |
+| Annual drawdown | £0 |
+| Total estate reduction | £268,275 |
+| IHT saving (at 40%) | ~£107k |
+| Income tax cost | £0 |
+| **Net benefit** | **~£107k** |
+
+_Lower risk. P1 simply takes 25% tax-free cash at FI and gifts it as a PET. No income tax
+cost. Modest IHT saving unless it crosses the £2m taper threshold._
+
+#### Scenario B2 — Both PCLS + Ongoing Drawdown
+
+| Item | Value |
+|---|---|
+| Tax-free PCLS (P1 + P2 combined) | ~£358k |
+| Annual DC drawdown (gross) | £50,000/yr |
+| Annual income tax at 20% | £10,000/yr |
+| Annual net gift (PET) | £40,000/yr |
+| Total estate reduction (36 yrs) | £358k + £1.8m = ~£2.16m |
+| IHT saving | ~£864k |
+| Income tax cost | £360k |
+| **Net benefit** | **~£504k** |
+
+_Higher complexity but much larger saving. The ongoing drawdown systematically reduces the
+DC pot (and thus the estate from 2027) while gifting net proceeds. Likely brings the estate
+below £2m taper threshold, recovering the full transferable RNRB (additional ~£140k IHT
+saving)._
+
+#### Scenario C2 — Drawdown Only (No Lump Sums)
+
+| Item | Value |
+|---|---|
+| Tax-free PCLS | £0 |
+| Annual DC drawdown (basic-rate band capacity: £37,700) | £37,700/yr |
+| Annual income tax at 20% | £7,540/yr |
+| Annual net gift (PET) | £30,160/yr |
+| Total estate reduction (36 yrs) | ~£1.36m |
+| IHT saving | ~£542k |
+| Income tax cost | £271k |
+| **Net benefit** | **~£271k** |
+
+_No upfront action required — purely disciplined post-FI drawdown at the basic-rate ceiling.
+Simpler to explain and execute. Meaningful saving but less than B2 due to smaller drawdown
+and no PCLS._
+
+### Trade-Off Summary
+
+| Scenario | Income Tax Cost | IHT Saving | Net Benefit | RNRB Threshold |
+|---|---|---|---|---|
+| Baseline | £0 | £0 | £0 | Fully tapered |
+| B1 | £0 | ~£107k | ~£107k | Likely still above |
+| C2 | ~£271k | ~£542k | ~£271k | May be crossed |
+| B2 | ~£360k | ~£864k | ~£504k | Likely crossed (★) |
+
+(★) When the estate crosses the £2m RNRB taper threshold, the full transferable RNRB
+(£350k for couples) is recovered, saving an additional £140k in IHT.
+
+### Key Tax Considerations
+
+- **PCLS is tax-free**: The 25% pension commencement lump sum has no income tax cost.
+  It does count towards the Lifetime Lump Sum Allowance (LSA = £268,275 per person).
+- **DC drawdown is income**: Basic-rate drawdown (20%) is cost-effective because the IHT
+  saving exceeds the income tax cost, especially in the 60% effective rate zone.
+- **7-year PET rule**: Gifts clear the estate after 7 years. With 36 years of retirement,
+  all PETs from FI onwards are clear by death.
+- **Post-freeze escalation**: From 2031, NRB, RNRB, and the taper threshold all
+  escalate at 2.5% CPI per year (Voyant convention). This increases IHT thresholds over
+  time, but does not by itself change the income-tax bands used for DC drawdown.
+- **Income-tax rate caution**: Income-tax thresholds should be treated separately from
+  the IHT thresholds above. If gross income (including DC drawdown) exceeds £125,140,
+  the personal allowance is tapered and the marginal rate hits 60%, so avoid implying
+  the 2.5% IHT uplift increases how much drawdown fits within basic-rate tax.
+
+### Implementation (IHT-6)
+
+**`calculateRNRBScenarios()` in `src/financialEngine/giftingOptimiser.ts`:**
+- Pure function — takes baseline IHT result + DC balances at retirement start
+- Returns B1, B2, C2 scenario results with full breakdown
+- Uses simplified delta model (not a full projection re-run) — results are directional
+
+**`IHTOutlookPanel.tsx` Section 5:**
+- Shown when `ihtDue > 0`
+- Three toggle buttons (B1 / B2 / C2); click to expand detail card
+- Star badge on scenarios that breach the £2m RNRB taper threshold
+- Shows: PCLS, drawdown, income tax cost, estate reduction, new IHT, net benefit
+
+**Unit tests:** `tests/unit/giftingOptimiser.test.ts` — 14 new tests covering:
+- PCLS LSA cap enforcement
+- Income tax = BASIC_RATE × drawdown × years
+- Net benefit = IHT saving − income tax cost
+- `breachesRNRBTaperThreshold` logic (freeze-period and post-freeze)
+- Single vs couple P2 PCLS inclusion
+- Custom drawdown overrides
+
+### Acceptance Criteria
+
+- [ ] `calculateRNRBScenarios` exported from `giftingOptimiser.ts`
+- [ ] All unit tests pass (38 total in `giftingOptimiser.test.ts`)
+- [ ] Section 5 only shown when `ihtDue > 0`
+- [ ] All three scenarios always rendered; toggle hides/shows detail
+- [ ] Star marker on scenarios that cross the £2m threshold
+- [ ] RNRB recovery clearly called out when applicable
+- [ ] Disclaimer: "directional estimate, does not re-run the full projection engine"

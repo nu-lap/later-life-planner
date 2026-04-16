@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import {
   LineChart,
   Line,
@@ -15,9 +15,13 @@ import {
 import { PlannerState } from '@/models/types';
 import { YearlyProjection } from '@/models/types';
 import { calculateIHTProjection } from '@/financialEngine/ihtProjection';
-import { calculateGiftingOptimisation } from '@/financialEngine/giftingOptimiser';
+import {
+  calculateGiftingOptimisation,
+  calculateRNRBScenarios,
+  RNRBScenarioResult,
+} from '@/financialEngine/giftingOptimiser';
 import { formatCurrency } from '@/financialEngine/projectionEngine';
-import { DEFAULT_ASSUMPTIONS, IHT } from '@/config/financialConstants';
+import { DEFAULT_ASSUMPTIONS, IHT, getRNRBForYear, getRNRBTaperThresholdForYear } from '@/config/financialConstants';
 
 interface IHTOutlookPanelProps {
   state: PlannerState;
@@ -128,8 +132,47 @@ export default function IHTOutlookPanel({ state, projections }: IHTOutlookPanelP
           }))
         : null;
 
-    return { result, gifting, mode, residenceValue, isaValue, giaValue, cashValue, dcPensionValue, giftingChartData };
+    // ── RNRB taper clawback scenarios ────────────────────────────────────────────
+    // Use the first projection at or after FI age as the retirement-start snapshot.
+    // Projections begin at "today", so projections[0] can be pre-retirement.
+    const retirementStartIndex = projections.findIndex((p) => p.p1Age >= state.fiAge);
+    const retirementStartProjection =
+      retirementStartIndex >= 0 ? projections[retirementStartIndex] : null;
+    const p1DcAtRetirement = retirementStartProjection?.p1DcBalance ?? 0;
+    const p2DcAtRetirement =
+      (mode === 'couple' && retirementStartProjection?.p2DcBalance)
+        ? retirementStartProjection.p2DcBalance
+        : 0;
+    const yearsInRetirement =
+      retirementStartIndex >= 0 ? projections.length - retirementStartIndex : 0;
+
+    // Recompute maxPreTaperRNRB: the RNRB before any taper reduction at the baseline estate.
+    // Gate on RNRB eligibility — if the residence is not left to descendants, no RNRB recovery
+    // is possible and maxPreTaperRNRB must be 0 to avoid falsely showing IHT savings.
+    const isRnrbEligible = state.primaryResidence.enabled && state.primaryResidence.leavesToDescendants;
+    const maxPreTaperRNRB = isRnrbEligible
+      ? Math.min(getRNRBForYear(deathYear) * (mode === 'couple' ? 2 : 1), residenceValue)
+      : 0;
+
+    const rnrbScenarios = result.ihtDue > 0
+      ? calculateRNRBScenarios({
+          grossEstate: result.grossEstate,
+          ihtDue: result.ihtDue,
+          ihtRate: result.ihtRate,
+          nrbAvailable: result.nrbAvailable,
+          maxPreTaperRNRB,
+          p1DcAtRetirement,
+          p2DcAtRetirement,
+          yearsInRetirement,
+          isCouple: mode === 'couple',
+          deathYear,
+        })
+      : null;
+
+    return { result, gifting, mode, residenceValue, isaValue, giaValue, cashValue, dcPensionValue, giftingChartData, rnrbScenarios, deathYear };
   }, [state, projections]);
+
+  const [activeScenario, setActiveScenario] = useState<'B1' | 'B2' | 'C2' | null>(null);
 
   // Guard after hooks — projections may be empty on first render
   if (!projections.length) {
@@ -143,7 +186,7 @@ export default function IHTOutlookPanel({ state, projections }: IHTOutlookPanelP
     );
   }
 
-  const { result, gifting, mode, residenceValue, isaValue, giaValue, cashValue, dcPensionValue, giftingChartData } = computed;
+  const { result, gifting, mode, residenceValue, isaValue, giaValue, cashValue, dcPensionValue, giftingChartData, rnrbScenarios, deathYear } = computed;
 
   return (
     <div className="game-card border-violet-200 bg-violet-50/40">
@@ -509,6 +552,136 @@ export default function IHTOutlookPanel({ state, projections }: IHTOutlookPanelP
               </ResponsiveContainer>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Section 5 — RNRB Taper Clawback Scenarios */}
+      {rnrbScenarios && rnrbScenarios.length > 0 && (
+        <div className="mt-5">
+          <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">
+            RNRB Taper Clawback Scenarios
+          </h4>
+          <p className="text-xs text-slate-400 mb-3">
+            Directional estimates — does not re-run the full projection engine.
+            All scenarios assume DC lump sums / drawdown proceeds are gifted as PETs (&gt;7 yrs
+            before death).
+          </p>
+
+          {/* Scenario toggle buttons */}
+          <div className="flex gap-2 mb-4 flex-wrap">
+            {rnrbScenarios.map((s) => (
+              <button
+                key={s.id}
+                type="button"
+                onClick={() => setActiveScenario(activeScenario === s.id ? null : s.id)}
+                className={`text-xs font-semibold px-3 py-1.5 rounded-full border transition-colors ${
+                  activeScenario === s.id
+                    ? 'bg-violet-600 border-violet-600 text-white'
+                    : 'bg-white border-slate-300 text-slate-600 hover:border-violet-400 hover:text-violet-700'
+                }`}
+              >
+                {s.id}
+                {s.breachesRNRBTaperThreshold && (
+                  <span className="ml-1 text-amber-300" title="Estate drops below the RNRB taper threshold">★</span>
+                )}
+              </button>
+            ))}
+            <span className="text-xs text-slate-400 self-center ml-1">
+              ★ = estate drops below the RNRB taper threshold
+            </span>
+          </div>
+
+          {/* Active scenario detail */}
+          {activeScenario && (() => {
+            const s = rnrbScenarios.find((x: RNRBScenarioResult) => x.id === activeScenario);
+            if (!s) return null;
+            return (
+              <div className="rounded-xl border border-violet-200 bg-violet-50 p-4 space-y-3">
+                <div>
+                  <p className="text-sm font-bold text-violet-900">{s.label}</p>
+                  <p className="text-xs text-violet-700 mt-0.5">{s.description}</p>
+                </div>
+
+                {/* Actions */}
+                <div className="space-y-1.5">
+                  {s.upfrontPCLS > 0 && (
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-slate-600">Tax-free PCLS at retirement</span>
+                      <span className="font-bold text-violet-800">{formatCurrency(s.upfrontPCLS, true)}</span>
+                    </div>
+                  )}
+                  {s.annualDrawdown > 0 && (
+                    <>
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-slate-600">Annual DC drawdown (gross)</span>
+                        <span className="font-bold text-slate-700">{formatCurrency(s.annualDrawdown, true)}/yr</span>
+                      </div>
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-slate-600">Income tax on drawdown (20%)</span>
+                        <span className="font-bold text-red-600">−{formatCurrency(s.annualIncomeTaxCost, true)}/yr</span>
+                      </div>
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-slate-600">Net annual gift (PET)</span>
+                        <span className="font-bold text-green-700">{formatCurrency(s.annualGift, true)}/yr</span>
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                {/* Estate outcome */}
+                <div className="rounded-lg bg-white border border-violet-100 p-3 space-y-1.5">
+                  <p className="text-xs font-bold text-slate-500 uppercase tracking-wide">Estate outcome</p>
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-slate-600">Total estate reduction</span>
+                    <span className="font-bold text-violet-800">−{formatCurrency(s.totalEstateReduction, true)}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-slate-600">New gross estate</span>
+                    <span className="font-bold text-slate-800">{formatCurrency(s.newGrossEstate, true)}</span>
+                  </div>
+                  {s.rnrbRecovered > 0 && (
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-slate-600">RNRB recovered</span>
+                      <span className="font-bold text-green-700">+{formatCurrency(s.rnrbRecovered, true)}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between items-center text-sm border-t border-violet-100 pt-1.5">
+                    <span className="text-slate-600">New IHT liability</span>
+                    <span className="font-bold text-slate-800">{formatCurrency(s.newIHTDue, true)}</span>
+                  </div>
+                </div>
+
+                {/* Net benefit */}
+                <div className="rounded-lg bg-white border border-violet-100 p-3 space-y-1.5">
+                  <p className="text-xs font-bold text-slate-500 uppercase tracking-wide">Net benefit</p>
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-slate-600">IHT saving</span>
+                    <span className="font-bold text-green-700">+{formatCurrency(s.ihtSaving, true)}</span>
+                  </div>
+                  {s.totalIncomeTaxCost > 0 && (
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-slate-600">Total income tax cost</span>
+                      <span className="font-bold text-red-600">−{formatCurrency(s.totalIncomeTaxCost, true)}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between items-center text-sm border-t border-violet-100 pt-1.5">
+                    <span className={`font-black text-base ${s.netBenefit >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+                      Net benefit: {s.netBenefit >= 0 ? '+' : ''}{formatCurrency(s.netBenefit, true)}
+                    </span>
+                  </div>
+                </div>
+
+                {s.breachesRNRBTaperThreshold && (
+                  <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                    ★ This scenario brings the estate below the{' '}
+                    {formatCurrency(getRNRBTaperThresholdForYear(deathYear), true)} RNRB taper threshold — the full
+                    RNRB is recovered, saving an additional{' '}
+                    <span className="font-bold">{formatCurrency(s.rnrbRecovered * result.ihtRate, true)}</span> in IHT.
+                  </p>
+                )}
+              </div>
+            );
+          })()}
         </div>
       )}
     </div>

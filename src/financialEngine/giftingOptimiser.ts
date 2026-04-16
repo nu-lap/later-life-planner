@@ -14,7 +14,14 @@
  * - IHTA 1984 s.8D(5) — RNRB taper at £1 per £2 over £2,000,000
  */
 
-import { IHT, CURRENT_TAX_YEAR_START, getRNRBForYear, getRNRBTaperThresholdForYear } from '@/config/financialConstants';
+import {
+  IHT,
+  INCOME_TAX,
+  PENSION_RULES,
+  CURRENT_TAX_YEAR_START,
+  getRNRBForYear,
+  getRNRBTaperThresholdForYear,
+} from '@/config/financialConstants';
 import { getSnapshotForYear } from '@/config/taxRuleSnapshot';
 
 export interface GiftingOptimiserInputs {
@@ -297,4 +304,220 @@ export function calculateGiftingOptimisation(
     cumulativeNetBenefit,
     recommendationTier,
   };
+}
+
+// ─── RNRB Taper Clawback Scenario Analysis ──────────────────────────────────
+
+/**
+ * Inputs for the three RNRB taper clawback scenarios.
+ *
+ * These are directional estimates — the simplified delta model does not
+ * re-run the full projection engine. Results are intended to guide planning
+ * decisions, not replace a full re-projection.
+ */
+export interface RNRBScenarioInputs {
+  /** Total gross estate from the baseline IHT projection. */
+  grossEstate: number;
+  /** Baseline IHT liability. */
+  ihtDue: number;
+  /** IHT rate applied in baseline (0.36 if charitable, else 0.40). */
+  ihtRate: number;
+  /**
+   * Effective NRB in baseline (includes transferable NRB if couple).
+   * Used unchanged across all scenarios since NRB is not affected by estate size.
+   */
+  nrbAvailable: number;
+  /**
+   * Pre-taper maximum RNRB eligible for the plan (may be capped by residence value).
+   * This is rnrbAvailable + taper_reduction_already_applied at the baseline estate level.
+   * Pass 0 when the residence is not left to descendants (no RNRB eligibility).
+   */
+  maxPreTaperRNRB: number;
+  /** Projected DC balance for person 1 at the start of the retirement phase (for PCLS calculation). */
+  p1DcAtRetirement: number;
+  /** Projected DC balance for person 2 at the start of the retirement phase (0 if single). */
+  p2DcAtRetirement: number;
+  /** Number of years from retirement start to projected death (projection length). */
+  yearsInRetirement: number;
+  /** True if couple plan (affects PCLS eligibility for P2). */
+  isCouple: boolean;
+  /**
+   * Calendar year of projected death — used for year-specific RNRB taper threshold.
+   * Defaults to current year.
+   */
+  deathYear?: number;
+  /**
+   * Override gross annual DC drawdown for the B2 scenario.
+   * Defaults to £50,000 (basic-rate drawdown target per user brief).
+   */
+  b2AnnualDrawdown?: number;
+  /**
+   * Override gross annual DC drawdown for the C2 scenario.
+   * Defaults to the full basic-rate band capacity (BASIC_RATE_LIMIT − PERSONAL_ALLOWANCE = £37,700).
+   */
+  c2AnnualDrawdown?: number;
+}
+
+export interface RNRBScenarioResult {
+  /** Scenario identifier. */
+  id: 'B1' | 'B2' | 'C2';
+  /** Short display label. */
+  label: string;
+  /** One-sentence description for the tooltip / plan description. */
+  description: string;
+
+  // ── What the scenario does ────────────────────────────────────────────────
+  /** Tax-free lump sum (PCLS) taken at retirement start. */
+  upfrontPCLS: number;
+  /** Gross DC amount drawn down annually for gifting (0 for B1). */
+  annualDrawdown: number;
+  /** Income tax cost on annual drawdown. */
+  annualIncomeTaxCost: number;
+  /** Net annual gift (after income tax). */
+  annualGift: number;
+
+  // ── Cumulative totals over yearsInRetirement ──────────────────────────────
+  /** Total reduction in gross estate (PCLS + full gross drawdown). */
+  totalEstateReduction: number;
+  /** Total income tax paid on drawdown over the period. */
+  totalIncomeTaxCost: number;
+
+  // ── Resulting estate and IHT ──────────────────────────────────────────────
+  /** Gross estate after scenario actions. */
+  newGrossEstate: number;
+  /** RNRB available after recomputing taper on new estate. */
+  newRNRBAvailable: number;
+  /** IHT due on new estate. */
+  newIHTDue: number;
+
+  // ── Savings ───────────────────────────────────────────────────────────────
+  /** RNRB recovered vs baseline (0 when estate remains above taper threshold). */
+  rnrbRecovered: number;
+  /** Total IHT saving vs baseline. */
+  ihtSaving: number;
+  /** Net benefit: ihtSaving − totalIncomeTaxCost. */
+  netBenefit: number;
+  /** True if this scenario brings the estate below the RNRB taper threshold. */
+  breachesRNRBTaperThreshold: boolean;
+}
+
+/**
+ * Helper: recompute IHT on a new gross estate after a scenario's estate reduction.
+ * Uses the same NRB / RNRB rules as calculateIHTProjection.
+ */
+function computeScenarioIHT(
+  newGrossEstate: number,
+  maxPreTaperRNRB: number,
+  nrbAvailable: number,
+  ihtRate: number,
+  deathYear: number,
+): { newRNRBAvailable: number; newIHTDue: number } {
+  const taperThreshold = getRNRBTaperThresholdForYear(deathYear);
+  const rnrbTaperReduction = Math.max(0, newGrossEstate - taperThreshold) / 2;
+  const newRNRBAvailable = Math.max(0, maxPreTaperRNRB - rnrbTaperReduction);
+  const chargeableEstate = Math.max(0, newGrossEstate - nrbAvailable - newRNRBAvailable);
+  const newIHTDue = chargeableEstate * ihtRate;
+  return { newRNRBAvailable, newIHTDue };
+}
+
+/**
+ * Calculate directional IHT savings for three RNRB taper clawback scenarios:
+ *
+ *  B1 — Person 1 crystallises PCLS (25% tax-free cash) at retirement; gifts proceeds.
+ *  B2 — Both people crystallise PCLS at retirement, then draw ~£50k/yr DC to gift.
+ *  C2 — No upfront PCLS; draw DC at basic-rate ceiling annually and gift proceeds.
+ *
+ * Income tax on DC drawdown is assumed at the basic rate (20%).
+ * Full gross drawdown reduces the DC balance at death, which reduces the gross estate.
+ * Gifted proceeds are treated as PETs that clear the estate (7-year rule assumed satisfied
+ * given a typical 30+ year retirement horizon).
+ *
+ * Results are directional — the simplified delta model does not re-run the full
+ * projection engine.
+ */
+export function calculateRNRBScenarios(inputs: RNRBScenarioInputs): RNRBScenarioResult[] {
+  const {
+    grossEstate,
+    ihtDue,
+    ihtRate,
+    nrbAvailable,
+    maxPreTaperRNRB,
+    p1DcAtRetirement,
+    p2DcAtRetirement,
+    yearsInRetirement,
+    isCouple,
+    deathYear = CURRENT_TAX_YEAR_START,
+    b2AnnualDrawdown = 50_000,
+    c2AnnualDrawdown = INCOME_TAX.BASIC_RATE_LIMIT - INCOME_TAX.PERSONAL_ALLOWANCE,
+  } = inputs;
+
+  // PCLS = 25% of DC pot at retirement, capped at the lifetime lump sum allowance.
+  const lsa = PENSION_RULES.PCLS_LUMP_SUM_ALLOWANCE;
+  const p1PCLS = Math.min(p1DcAtRetirement * 0.25, lsa);
+  const p2PCLS = isCouple ? Math.min(p2DcAtRetirement * 0.25, lsa) : 0;
+
+  const taperThreshold = getRNRBTaperThresholdForYear(deathYear);
+
+  function buildScenario(
+    id: RNRBScenarioResult['id'],
+    label: string,
+    description: string,
+    upfrontPCLS: number,
+    annualDrawdown: number,
+  ): RNRBScenarioResult {
+    const annualIncomeTaxCost = annualDrawdown * INCOME_TAX.BASIC_RATE;
+    const annualGift = annualDrawdown - annualIncomeTaxCost;
+
+    // Full gross drawdown (gifted + income-tax portions) leaves the DC pot and
+    // thus reduces the gross estate.  PCLS also leaves the estate as a PET gift.
+    const totalEstateReduction = upfrontPCLS + annualDrawdown * yearsInRetirement;
+    const totalIncomeTaxCost = annualIncomeTaxCost * yearsInRetirement;
+
+    const newGrossEstate = Math.max(0, grossEstate - totalEstateReduction);
+    const { newRNRBAvailable, newIHTDue } = computeScenarioIHT(
+      newGrossEstate,
+      maxPreTaperRNRB,
+      nrbAvailable,
+      ihtRate,
+      deathYear,
+    );
+
+    const rnrbRecovered = Math.max(0, newRNRBAvailable - (maxPreTaperRNRB - Math.max(0, grossEstate - taperThreshold) / 2));
+    const ihtSaving = Math.max(0, ihtDue - newIHTDue);
+    const netBenefit = ihtSaving - totalIncomeTaxCost;
+    const breachesRNRBTaperThreshold = grossEstate > taperThreshold && newGrossEstate <= taperThreshold;
+
+    return {
+      id, label, description,
+      upfrontPCLS, annualDrawdown, annualIncomeTaxCost, annualGift,
+      totalEstateReduction, totalIncomeTaxCost,
+      newGrossEstate, newRNRBAvailable, newIHTDue,
+      rnrbRecovered, ihtSaving, netBenefit,
+      breachesRNRBTaperThreshold,
+    };
+  }
+
+  return [
+    buildScenario(
+      'B1',
+      'B1 — P1 PCLS only',
+      'Person 1 crystallises 25% tax-free cash at retirement and gifts it as a PET.',
+      p1PCLS,
+      0,
+    ),
+    buildScenario(
+      'B2',
+      'B2 — Both PCLS + drawdown',
+      `Both people crystallise 25% tax-free cash at retirement, then draw £${(b2AnnualDrawdown / 1000).toFixed(0)}k/yr DC to gift.`,
+      p1PCLS + p2PCLS,
+      b2AnnualDrawdown,
+    ),
+    buildScenario(
+      'C2',
+      'C2 — Drawdown only',
+      `No lump sums — draw £${(c2AnnualDrawdown / 1000).toFixed(0)}k/yr DC at basic rate and gift the net proceeds.`,
+      0,
+      c2AnnualDrawdown,
+    ),
+  ];
 }
