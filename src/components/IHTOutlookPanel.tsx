@@ -507,7 +507,7 @@ export default function IHTOutlookPanel({ state, projections }: IHTOutlookPanelP
           {giftingChartData && (
             <div className="mt-4">
               <p className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-1">
-                Asset trajectory comparison
+                Investment asset trajectory comparison
               </p>
               <p className="text-xs text-slate-400 mb-3">
                 Approximate — assumes consistent annual gifting of{' '}

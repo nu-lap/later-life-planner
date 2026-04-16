@@ -615,7 +615,7 @@ function ProjectionTable({ projections, lifeStages }: {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-slate-100 text-right">
-              {['Age', 'Stage', 'Spending', 'Income', 'Tax', 'Net', 'Assets'].map((h, i) => (
+              {['Age', 'Stage', 'Spending', 'Income', 'Tax', 'Net', 'Inv. Assets'].map((h, i) => (
                 <th key={h} className={clsx('pb-2 pr-3 last:pr-0 font-bold text-slate-500', i <= 1 && 'text-left')}>{h}</th>
               ))}
             </tr>
@@ -947,12 +947,12 @@ export default function Step4Dashboard({ onBack }: Props) {
         <StatCard icon="📥" label={`Gross income at ${fiAge}`} value={formatCurrency(firstYear?.totalIncome ?? 0, true)}
           sub={firstYear ? `Net after tax: ${formatCurrency(firstYear.netIncome, true)} — year 1` : 'year 1'}
           accent="sky" />
-        <StatCard icon="🏦" label={`Assets at ${fiAge}`} value={formatCurrency(firstYear?.totalAssets ?? 0, true)}
+        <StatCard icon="🏦" label={`Investment Assets at ${fiAge}`} value={formatCurrency(firstYear?.totalAssets ?? 0, true)}
           sub={unrealisedGain > 0 ? `${formatCurrency(unrealisedGain, true)} unrealised gain` : 'across all accounts'}
           accent="orange" />
         <StatCard
           icon={surplus ? '✅' : '⚠️'}
-          label={surplus ? `Assets at ${state.assumptions.lifeExpectancy}` : 'Depleted at age'}
+          label={surplus ? `Investment Assets at ${state.assumptions.lifeExpectancy}` : 'Depleted at age'}
           value={surplus ? formatCurrency(lastPositive?.totalAssets ?? 0, true) : String(depletionAge)}
           sub={surplus ? 'plan is on track' : 'review your plan'}
           accent={surplus ? 'emerald' : 'rose'} />
