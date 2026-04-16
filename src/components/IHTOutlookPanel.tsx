@@ -264,7 +264,7 @@ export default function IHTOutlookPanel({ state, projections }: IHTOutlookPanelP
           IHT Projection
         </h4>
         {/* Amber: approaching taper zone — estate between warning threshold and taper threshold */}
-        {result.rnrbTaperWarning && result.grossEstate <= IHT.RNRB_TAPER_THRESHOLD && (
+        {result.rnrbTaperWarning && result.grossEstate <= taperThreshold && (
           <div className="mb-3 rounded-xl bg-amber-50 border border-amber-200 p-3">
             <p className="text-xs font-bold text-amber-800 mb-1">
               Approaching RNRB taper threshold
@@ -279,7 +279,7 @@ export default function IHTOutlookPanel({ state, projections }: IHTOutlookPanelP
           </div>
         )}
         {/* Amber: taper is actively reducing RNRB — estate above projected threshold */}
-        {result.grossEstate > IHT.RNRB_TAPER_THRESHOLD && (
+        {result.grossEstate > taperThreshold && (
           <div className="mb-3 rounded-xl bg-amber-50 border border-amber-200 p-3">
             <p className="text-xs font-bold text-amber-800 mb-1">
               ⚠️ RNRB taper applies above {formatCurrency(taperThreshold, true)} at death
