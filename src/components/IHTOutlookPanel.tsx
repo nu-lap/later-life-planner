@@ -1,3 +1,5 @@
+'use client';
+
 import { useMemo, useState } from 'react';
 import {
   LineChart,
@@ -19,7 +21,7 @@ import {
   RNRBScenarioResult,
 } from '@/financialEngine/giftingOptimiser';
 import { formatCurrency } from '@/financialEngine/projectionEngine';
-import { DEFAULT_ASSUMPTIONS, IHT, getRNRBTaperThresholdForYear } from '@/config/financialConstants';
+import { DEFAULT_ASSUMPTIONS, IHT, getRNRBForYear, getRNRBTaperThresholdForYear } from '@/config/financialConstants';
 
 interface IHTOutlookPanelProps {
   state: PlannerState;
@@ -131,18 +133,26 @@ export default function IHTOutlookPanel({ state, projections }: IHTOutlookPanelP
         : null;
 
     // ── RNRB taper clawback scenarios ────────────────────────────────────────────
-    // The first projection year (projections[0]) gives DC balances at the start of
-    // the retirement phase — used as the PCLS base for B1/B2 scenarios.
-    const firstYear = projections.length > 0 ? projections[0] : null;
-    const p1DcAtRetirement = firstYear?.p1DcBalance ?? 0;
-    const p2DcAtRetirement = (mode === 'couple' && firstYear?.p2DcBalance) ? firstYear.p2DcBalance : 0;
-    const yearsInRetirement = projections.length;
+    // Use the first projection at or after FI age as the retirement-start snapshot.
+    // Projections begin at "today", so projections[0] can be pre-retirement.
+    const retirementStartIndex = projections.findIndex((p) => p.p1Age >= state.fiAge);
+    const retirementStartProjection =
+      retirementStartIndex >= 0 ? projections[retirementStartIndex] : null;
+    const p1DcAtRetirement = retirementStartProjection?.p1DcBalance ?? 0;
+    const p2DcAtRetirement =
+      (mode === 'couple' && retirementStartProjection?.p2DcBalance)
+        ? retirementStartProjection.p2DcBalance
+        : 0;
+    const yearsInRetirement =
+      retirementStartIndex >= 0 ? projections.length - retirementStartIndex : 0;
 
     // Recompute maxPreTaperRNRB: the RNRB before any taper reduction at the baseline estate.
-    // This is the ceiling for RNRB recovery across all scenarios.
-    const taperThreshold = getRNRBTaperThresholdForYear(deathYear);
-    const baselineTaperReduction = Math.max(0, result.grossEstate - taperThreshold) / 2;
-    const maxPreTaperRNRB = result.rnrbAvailable + baselineTaperReduction;
+    // Gate on RNRB eligibility — if the residence is not left to descendants, no RNRB recovery
+    // is possible and maxPreTaperRNRB must be 0 to avoid falsely showing IHT savings.
+    const isRnrbEligible = state.primaryResidence.enabled && state.primaryResidence.leavesToDescendants;
+    const maxPreTaperRNRB = isRnrbEligible
+      ? Math.min(getRNRBForYear(deathYear) * (mode === 'couple' ? 2 : 1), residenceValue)
+      : 0;
 
     const rnrbScenarios = result.ihtDue > 0
       ? calculateRNRBScenarios({
@@ -159,7 +169,7 @@ export default function IHTOutlookPanel({ state, projections }: IHTOutlookPanelP
         })
       : null;
 
-    return { result, gifting, mode, residenceValue, isaValue, giaValue, cashValue, dcPensionValue, giftingChartData, rnrbScenarios };
+    return { result, gifting, mode, residenceValue, isaValue, giaValue, cashValue, dcPensionValue, giftingChartData, rnrbScenarios, deathYear };
   }, [state, projections]);
 
   const [activeScenario, setActiveScenario] = useState<'B1' | 'B2' | 'C2' | null>(null);
@@ -176,7 +186,7 @@ export default function IHTOutlookPanel({ state, projections }: IHTOutlookPanelP
     );
   }
 
-  const { result, gifting, mode, residenceValue, isaValue, giaValue, cashValue, dcPensionValue, giftingChartData, rnrbScenarios } = computed;
+  const { result, gifting, mode, residenceValue, isaValue, giaValue, cashValue, dcPensionValue, giftingChartData, rnrbScenarios, deathYear } = computed;
 
   return (
     <div className="game-card border-violet-200 bg-violet-50/40">
@@ -572,12 +582,12 @@ export default function IHTOutlookPanel({ state, projections }: IHTOutlookPanelP
               >
                 {s.id}
                 {s.breachesRNRBTaperThreshold && (
-                  <span className="ml-1 text-amber-300" title="Estate drops below £2m taper threshold">★</span>
+                  <span className="ml-1 text-amber-300" title="Estate drops below the RNRB taper threshold">★</span>
                 )}
               </button>
             ))}
             <span className="text-xs text-slate-400 self-center ml-1">
-              ★ = estate drops below £2m RNRB threshold
+              ★ = estate drops below the RNRB taper threshold
             </span>
           </div>
 
@@ -663,7 +673,8 @@ export default function IHTOutlookPanel({ state, projections }: IHTOutlookPanelP
 
                 {s.breachesRNRBTaperThreshold && (
                   <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-                    ★ This scenario brings the estate below the £2m RNRB taper threshold — the full
+                    ★ This scenario brings the estate below the{' '}
+                    {formatCurrency(getRNRBTaperThresholdForYear(deathYear), true)} RNRB taper threshold — the full
                     RNRB is recovered, saving an additional{' '}
                     <span className="font-bold">{formatCurrency(s.rnrbRecovered * result.ihtRate, true)}</span> in IHT.
                   </p>

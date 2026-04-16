@@ -808,12 +808,13 @@ and no PCLS._
   saving exceeds the income tax cost, especially in the 60% effective rate zone.
 - **7-year PET rule**: Gifts clear the estate after 7 years. With 36 years of retirement,
   all PETs from FI onwards are clear by death.
-- **Post-freeze escalation**: From 2031, NRB, RNRB, and the £2m taper threshold all
-  escalate at 2.5% CPI per year (Voyant convention). This means later years can draw
-  more DC before hitting the 45% higher-rate band.
-- **45% rate caution**: If gross income (including DC drawdown) exceeds £125,140, the
-  personal allowance is tapered, and marginal rate hits 60%. Keep annual drawdown below
-  this ceiling to preserve basic-rate efficiency.
+- **Post-freeze escalation**: From 2031, NRB, RNRB, and the taper threshold all
+  escalate at 2.5% CPI per year (Voyant convention). This increases IHT thresholds over
+  time, but does not by itself change the income-tax bands used for DC drawdown.
+- **Income-tax rate caution**: Income-tax thresholds should be treated separately from
+  the IHT thresholds above. If gross income (including DC drawdown) exceeds £125,140,
+  the personal allowance is tapered and the marginal rate hits 60%, so avoid implying
+  the 2.5% IHT uplift increases how much drawdown fits within basic-rate tax.
 
 ### Implementation (IHT-6)
 
