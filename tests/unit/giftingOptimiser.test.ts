@@ -1,8 +1,11 @@
 import { describe, expect, test } from 'vitest';
 import {
   calculateGiftingOptimisation,
+  calculateRNRBScenarios,
   type GiftingOptimiserInputs,
+  type RNRBScenarioInputs,
 } from '@/financialEngine/giftingOptimiser';
+import { INCOME_TAX, PENSION_RULES } from '@/config/financialConstants';
 
 // Base inputs for a couple with a £1.5m estate and IHT liability
 const BASE_INPUTS: GiftingOptimiserInputs = {
@@ -404,5 +407,154 @@ describe('calculateGiftingOptimisation — post-freeze calendarYear escalation',
     const escalated = calculateGiftingOptimisation({ ...taperInputs, calendarYear: 2032 });
     expect(escalated.isInTaperZone).toBe(false);
     expect(escalated.giftingNeededForRNRBRecovery).toBe(0);
+  });
+});
+
+// ─── calculateRNRBScenarios ─────────────────────────────────────────────────
+
+// Baseline: couple with £9m estate, fully-tapered RNRB (grossEstate >> £2.7m ceiling).
+// NRB available = 2×£325k = £650k. IHT rate = 40%.
+// ihtDue = (£9m - £650k - £0 rnrb) * 0.40 = £3.34m
+const RNRB_SCENARIO_BASE: RNRBScenarioInputs = {
+  grossEstate: 9_000_000,
+  ihtDue: 3_340_000,
+  ihtRate: 0.40,
+  nrbAvailable: 650_000,
+  maxPreTaperRNRB: 350_000,   // 2×£175k, fully tapered to 0 at this estate level
+  p1DcAtRetirement: 1_440_000,
+  p2DcAtRetirement: 360_000,
+  yearsInRetirement: 36,
+  isCouple: true,
+  deathYear: 2061,
+};
+
+describe('calculateRNRBScenarios', () => {
+  test('returns three scenarios: B1, B2, C2', () => {
+    const scenarios = calculateRNRBScenarios(RNRB_SCENARIO_BASE);
+    expect(scenarios).toHaveLength(3);
+    expect(scenarios.map(s => s.id)).toEqual(['B1', 'B2', 'C2']);
+  });
+
+  test('B1 — PCLS only, no annual drawdown', () => {
+    const [b1] = calculateRNRBScenarios(RNRB_SCENARIO_BASE);
+    const expectedPCLS = Math.min(RNRB_SCENARIO_BASE.p1DcAtRetirement * 0.25, PENSION_RULES.PCLS_LUMP_SUM_ALLOWANCE);
+    expect(b1.upfrontPCLS).toBeCloseTo(expectedPCLS, 0);
+    expect(b1.annualDrawdown).toBe(0);
+    expect(b1.annualIncomeTaxCost).toBe(0);
+    expect(b1.totalEstateReduction).toBeCloseTo(expectedPCLS, 0);
+    expect(b1.totalIncomeTaxCost).toBe(0);
+    expect(b1.ihtSaving).toBeGreaterThan(0);
+    expect(b1.netBenefit).toBe(b1.ihtSaving);
+  });
+
+  test('B1 — PCLS is capped at the LSA (£268,275)', () => {
+    const [b1] = calculateRNRBScenarios({
+      ...RNRB_SCENARIO_BASE,
+      p1DcAtRetirement: 2_000_000,  // 25% = £500k > LSA
+    });
+    expect(b1.upfrontPCLS).toBe(PENSION_RULES.PCLS_LUMP_SUM_ALLOWANCE);
+  });
+
+  test('B2 — includes both PCLS and annual drawdown', () => {
+    const [, b2] = calculateRNRBScenarios(RNRB_SCENARIO_BASE);
+    const p1PCLS = Math.min(RNRB_SCENARIO_BASE.p1DcAtRetirement * 0.25, PENSION_RULES.PCLS_LUMP_SUM_ALLOWANCE);
+    const p2PCLS = Math.min(RNRB_SCENARIO_BASE.p2DcAtRetirement * 0.25, PENSION_RULES.PCLS_LUMP_SUM_ALLOWANCE);
+    expect(b2.upfrontPCLS).toBeCloseTo(p1PCLS + p2PCLS, 0);
+    expect(b2.annualDrawdown).toBe(50_000);
+    expect(b2.annualIncomeTaxCost).toBeCloseTo(50_000 * INCOME_TAX.BASIC_RATE, 0);
+    expect(b2.annualGift).toBeCloseTo(50_000 * (1 - INCOME_TAX.BASIC_RATE), 0);
+    const expectedEstateDelta = b2.upfrontPCLS + 50_000 * RNRB_SCENARIO_BASE.yearsInRetirement;
+    expect(b2.totalEstateReduction).toBeCloseTo(expectedEstateDelta, 0);
+  });
+
+  test('C2 — no PCLS, uses default basic-rate band capacity', () => {
+    const [, , c2] = calculateRNRBScenarios(RNRB_SCENARIO_BASE);
+    const expectedC2Drawdown = INCOME_TAX.BASIC_RATE_LIMIT - INCOME_TAX.PERSONAL_ALLOWANCE;
+    expect(c2.upfrontPCLS).toBe(0);
+    expect(c2.annualDrawdown).toBe(expectedC2Drawdown);
+    expect(c2.totalEstateReduction).toBeCloseTo(expectedC2Drawdown * RNRB_SCENARIO_BASE.yearsInRetirement, 0);
+  });
+
+  test('income tax cost is basic-rate fraction of drawdown × years', () => {
+    const [, b2, c2] = calculateRNRBScenarios(RNRB_SCENARIO_BASE);
+    expect(b2.totalIncomeTaxCost).toBeCloseTo(b2.annualIncomeTaxCost * RNRB_SCENARIO_BASE.yearsInRetirement, 0);
+    expect(c2.totalIncomeTaxCost).toBeCloseTo(c2.annualIncomeTaxCost * RNRB_SCENARIO_BASE.yearsInRetirement, 0);
+  });
+
+  test('net benefit = iht saving − income tax cost', () => {
+    const scenarios = calculateRNRBScenarios(RNRB_SCENARIO_BASE);
+    for (const s of scenarios) {
+      expect(s.netBenefit).toBeCloseTo(s.ihtSaving - s.totalIncomeTaxCost, 2);
+    }
+  });
+
+  test('iht saving ≥ 0 for all scenarios', () => {
+    const scenarios = calculateRNRBScenarios(RNRB_SCENARIO_BASE);
+    for (const s of scenarios) {
+      expect(s.ihtSaving).toBeGreaterThanOrEqual(0);
+    }
+  });
+
+  test('newGrossEstate < grossEstate for all scenarios', () => {
+    const scenarios = calculateRNRBScenarios(RNRB_SCENARIO_BASE);
+    for (const s of scenarios) {
+      expect(s.newGrossEstate).toBeLessThan(RNRB_SCENARIO_BASE.grossEstate);
+    }
+  });
+
+  test('scenarios that cross £2m threshold set breachesRNRBTaperThreshold', () => {
+    // Estate just above £2m — use deathYear within the freeze (£2m flat threshold).
+    // B1 PCLS = £100k brings estate from £2.1m to £2.0m → crosses threshold.
+    const nearThreshold: RNRBScenarioInputs = {
+      ...RNRB_SCENARIO_BASE,
+      grossEstate: 2_100_000,
+      ihtDue: 200_000,
+      p1DcAtRetirement: 400_000,  // PCLS = min(100k, LSA) = 100k → estate drops to £2m exactly
+      p2DcAtRetirement: 0,
+      yearsInRetirement: 5,
+      deathYear: 2029,  // within the NRB/RNRB freeze — threshold stays at £2m
+    };
+    const [b1] = calculateRNRBScenarios(nearThreshold);
+    expect(b1.upfrontPCLS).toBe(100_000);
+    expect(b1.breachesRNRBTaperThreshold).toBe(true);
+  });
+
+  test('B2 and C2 have larger estate reduction than B1', () => {
+    const [b1, b2, c2] = calculateRNRBScenarios(RNRB_SCENARIO_BASE);
+    expect(b2.totalEstateReduction).toBeGreaterThan(b1.totalEstateReduction);
+    expect(c2.totalEstateReduction).toBeGreaterThan(b1.totalEstateReduction);
+  });
+
+  test('custom drawdown overrides are respected', () => {
+    const [, b2, c2] = calculateRNRBScenarios({
+      ...RNRB_SCENARIO_BASE,
+      b2AnnualDrawdown: 30_000,
+      c2AnnualDrawdown: 20_000,
+    });
+    expect(b2.annualDrawdown).toBe(30_000);
+    expect(c2.annualDrawdown).toBe(20_000);
+  });
+
+  test('single person plan — P2 PCLS is zero', () => {
+    const [, b2] = calculateRNRBScenarios({
+      ...RNRB_SCENARIO_BASE,
+      isCouple: false,
+      p2DcAtRetirement: 200_000,
+    });
+    // B2 PCLS should only include P1
+    const p1PCLS = Math.min(RNRB_SCENARIO_BASE.p1DcAtRetirement * 0.25, PENSION_RULES.PCLS_LUMP_SUM_ALLOWANCE);
+    expect(b2.upfrontPCLS).toBeCloseTo(p1PCLS, 0);
+  });
+
+  test('returns empty array is never returned — 3 scenarios always', () => {
+    // Even with zero DC pots, 3 scenarios are returned (B1/B2 PCLS = 0, C2 drawdown)
+    const scenarios = calculateRNRBScenarios({
+      ...RNRB_SCENARIO_BASE,
+      p1DcAtRetirement: 0,
+      p2DcAtRetirement: 0,
+    });
+    expect(scenarios).toHaveLength(3);
+    expect(scenarios[0].upfrontPCLS).toBe(0);
+    expect(scenarios[1].upfrontPCLS).toBe(0);
   });
 });
