@@ -1146,7 +1146,7 @@ export default function Step4Dashboard({ onBack }: Props) {
       </div>
 
       <div className="game-card">
-        <h3 className="section-heading">Asset balances over time</h3>
+        <h3 className="section-heading">Investment balances over time</h3>
         <p className="text-xs text-slate-500 mb-4">
           Combined ISA, GIA, cash and pension as you draw from them.
           {state.careReserve?.enabled && (
