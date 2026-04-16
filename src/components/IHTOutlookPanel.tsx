@@ -56,6 +56,15 @@ export default function IHTOutlookPanel({ state, projections }: IHTOutlookPanelP
     const residenceValue = state.primaryResidence.enabled
       ? Math.max(0, state.primaryResidence.currentValue - state.primaryResidence.mortgageOutstanding)
       : 0;
+
+    // Project residence value forward to death using Voyant-aligned 3 %/yr nominal growth.
+    // At death the mortgage is assumed fully repaid, so we compound the full current value
+    // and preserve any residual equity.
+    const yearsToDeathFromNow = Math.max(0, estimateDeathYear(state) - new Date().getFullYear());
+    const residenceGrowthFactor = Math.pow(1 + DEFAULT_ASSUMPTIONS.HOUSE_PRICE_GROWTH / 100, yearsToDeathFromNow);
+    const projectedResidenceValue = state.primaryResidence.enabled
+      ? Math.round(state.primaryResidence.currentValue * residenceGrowthFactor)
+      : 0;
     const isaValue = finalYear
       ? finalYear.p1IsaBalance + (mode === 'couple' ? finalYear.p2IsaBalance : 0)
       : 0;
@@ -79,7 +88,7 @@ export default function IHTOutlookPanel({ state, projections }: IHTOutlookPanelP
 
     const result = calculateIHTProjection({
       deathYear,
-      primaryResidenceNetValue: residenceValue,
+      primaryResidenceNetValue: projectedResidenceValue,
       residenceLeavesToDescendants: state.primaryResidence.leavesToDescendants,
       isaValue,
       giaValue,
@@ -99,10 +108,10 @@ export default function IHTOutlookPanel({ state, projections }: IHTOutlookPanelP
       ihtDue: result.ihtDue,
       rnrbAvailable: result.rnrbAvailable,
       rnrbEligible: state.primaryResidence.enabled && state.primaryResidence.leavesToDescendants,
-      // rnrbBase: eligible RNRB before taper = min(maxRNRB, qualifying residence value).
+      // rnrbBase: eligible RNRB before taper = min(maxRNRB, qualifying residence value at death).
       // Bounds the recovery opportunity to what is genuinely recoverable.
       rnrbBase: (state.primaryResidence.enabled && state.primaryResidence.leavesToDescendants)
-        ? Math.min(mode === 'couple' ? IHT.RNRB * 2 : IHT.RNRB, residenceValue)
+        ? Math.min(mode === 'couple' ? IHT.RNRB * 2 : IHT.RNRB, projectedResidenceValue)
         : 0,
       isCouple: mode === 'couple',
       dcPensionValue,
@@ -166,10 +175,12 @@ export default function IHTOutlookPanel({ state, projections }: IHTOutlookPanelP
           yearsInRetirement,
           isCouple: mode === 'couple',
           deathYear,
+          p1Name: state.person1.name || 'Person 1',
+          p2Name: (mode === 'couple' && state.person2?.name) ? state.person2.name : 'Person 2',
         })
       : null;
 
-    return { result, gifting, mode, residenceValue, isaValue, giaValue, cashValue, dcPensionValue, giftingChartData, rnrbScenarios, deathYear };
+    return { result, gifting, mode, residenceValue, projectedResidenceValue, isaValue, giaValue, cashValue, dcPensionValue, giftingChartData, rnrbScenarios, deathYear };
   }, [state, projections]);
 
   const [activeScenario, setActiveScenario] = useState<'B1' | 'B2' | 'C2' | null>(null);
@@ -186,7 +197,7 @@ export default function IHTOutlookPanel({ state, projections }: IHTOutlookPanelP
     );
   }
 
-  const { result, gifting, mode, residenceValue, isaValue, giaValue, cashValue, dcPensionValue, giftingChartData, rnrbScenarios, deathYear } = computed;
+  const { result, gifting, mode, residenceValue, projectedResidenceValue, isaValue, giaValue, cashValue, dcPensionValue, giftingChartData, rnrbScenarios, deathYear } = computed;
 
   return (
     <div className="game-card border-violet-200 bg-violet-50/40">
@@ -209,8 +220,11 @@ export default function IHTOutlookPanel({ state, projections }: IHTOutlookPanelP
         <div className="space-y-1.5">
           {residenceValue > 0 && (
             <div className="flex justify-between items-center text-sm py-1.5 border-b border-slate-100">
-              <span className="text-slate-600">Primary residence (net of mortgage)</span>
-              <span className="font-bold text-slate-900">{formatCurrency(residenceValue, true)}</span>
+              <span className="text-slate-600">
+                Primary residence
+                <span className="ml-1.5 text-xs text-slate-400">(projected at death)</span>
+              </span>
+              <span className="font-bold text-slate-900">{formatCurrency(projectedResidenceValue, true)}</span>
             </div>
           )}
           {(isaValue + giaValue + cashValue) > 0 && (
@@ -580,7 +594,7 @@ export default function IHTOutlookPanel({ state, projections }: IHTOutlookPanelP
                     : 'bg-white border-slate-300 text-slate-600 hover:border-violet-400 hover:text-violet-700'
                 }`}
               >
-                {s.id}
+                {s.label}
                 {s.breachesRNRBTaperThreshold && (
                   <span className="ml-1 text-amber-300" title="Estate drops below the RNRB taper threshold">★</span>
                 )}
@@ -684,6 +698,21 @@ export default function IHTOutlookPanel({ state, projections }: IHTOutlookPanelP
           })()}
         </div>
       )}
+
+      {/* Accuracy disclaimer */}
+      <div className="mt-5 rounded-xl bg-slate-50 border border-slate-200 p-4">
+        <p className="text-xs font-bold text-slate-600 mb-1">📋 About these projections</p>
+        <p className="text-xs text-slate-500 leading-relaxed">
+          These figures are illustrations only. Over a long planning horizon the results
+          are sensitive to assumptions about property growth, investment returns, inflation,
+          and future tax threshold changes — all of which carry significant uncertainty.
+          Tax rules and thresholds may change; projections assume current legislation
+          continues or escalates in line with stated assumptions.{' '}
+          <strong>These calculations are not financial advice.</strong>{' '}
+          Before making any significant planning decisions, please seek guidance from a
+          qualified financial adviser.
+        </p>
+      </div>
     </div>
   );
 }

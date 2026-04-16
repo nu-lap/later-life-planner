@@ -168,6 +168,14 @@ export const DEFAULT_ASSUMPTIONS = {
    * Everything before this is the building phase, still fully modelled in projections.
    */
   FI_AGE: 65,
+
+  /**
+   * Annual nominal house price growth rate used for IHT estate projections.
+   * Source: Voyant Adviser UK default (3 %/yr nominal). Consistent with long-run
+   * UK historic average of c.3–3.5 % and OBR medium-term house price forecasts.
+   * Override via env: NEXT_PUBLIC_HOUSE_PRICE_GROWTH
+   */
+  HOUSE_PRICE_GROWTH: parseFloat(process.env.NEXT_PUBLIC_HOUSE_PRICE_GROWTH ?? '3'),
 } as const;
 
 // ─── Care Reserve ────────────────────────────────────────────────────────────
