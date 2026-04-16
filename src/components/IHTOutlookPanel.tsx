@@ -202,7 +202,7 @@ export default function IHTOutlookPanel({ state, projections }: IHTOutlookPanelP
     );
   }
 
-  const { result, gifting, mode, residenceValue, projectedResidenceValue, isaValue, giaValue, cashValue, dcPensionValue, giftingChartData, rnrbScenarios, taperThreshold, projectedTaperEndSingle, projectedTaperEndCouple } = computed;
+  const { result, gifting, mode, projectedResidenceValue, isaValue, giaValue, cashValue, dcPensionValue, giftingChartData, rnrbScenarios, taperThreshold, projectedTaperEndSingle, projectedTaperEndCouple } = computed;
 
   return (
     <div className="game-card border-violet-200 bg-violet-50/40">
