@@ -164,6 +164,7 @@ export default function IHTOutlookPanel({ state, projections }: IHTOutlookPanelP
       : 0;
 
     // Projected RNRB taper threshold and taper-end values at death (post-2030 escalation applied).
+    const taperThreshold = getRNRBTaperThresholdForYear(deathYear);
     const projectedRNRBPerPerson = getRNRBForYear(deathYear);
     const projectedTaperEndSingle = taperThreshold + 2 * projectedRNRBPerPerson;
     const projectedTaperEndCouple = taperThreshold + 4 * projectedRNRBPerPerson;
