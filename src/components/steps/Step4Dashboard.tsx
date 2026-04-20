@@ -811,23 +811,28 @@ export default function Step4Dashboard({ onBack }: Props) {
   }, [deferredState, goalRegistry, optimizerEnabled, proEnabled]);
 
   const { projections, optimizerResult } = useMemo(() => {
+    // Sanitise: pcls-bed-isa is a Pro-only strategy — fall back to standard-ufpls if Pro is off.
+    const effectiveState = !proEnabled && deferredState.drawdownStrategy === 'pcls-bed-isa'
+      ? { ...deferredState, drawdownStrategy: 'standard-ufpls' as const }
+      : deferredState;
+
     if (!optimizerEnabled) {
       return {
-        projections: calculateProjections(deferredState),
+        projections: calculateProjections(effectiveState),
         optimizerResult: null,
       };
     }
 
     // Run the optimizer once; reuse its pre-computed projections so we avoid
     // a duplicate calculateProjections() call.
-    const result = optimizeWithdrawals(deferredState, {
+    const result = optimizeWithdrawals(effectiveState, {
       policyOverride: policyOverride ?? undefined,
     });
     return {
       projections: result.baselineProjections,
       optimizerResult: result,
     };
-  }, [deferredState, optimizerEnabled, policyOverride]);
+  }, [deferredState, optimizerEnabled, proEnabled, policyOverride]);
   // Income and spending only starts at FI age — filter for display, but keep full
   // projections for asset depletion checks (assets grow from current age).
   const displayProjections = useMemo(
@@ -940,7 +945,7 @@ export default function Step4Dashboard({ onBack }: Props) {
           : PENSION_RULES.MIN_ACCESS_AGE;
         const effectivePclsAge = Math.max(rawAge, nmpa);
 
-        return (
+        const selectorContent = (
           <div className="rounded-2xl bg-slate-50 border border-slate-200 p-4">
             <div className="flex items-center gap-2 mb-3">
               <span className="text-lg">⚙️</span>
@@ -1022,6 +1027,17 @@ export default function Step4Dashboard({ onBack }: Props) {
               </div>
             )}
           </div>
+        );
+
+        return proEnabled ? selectorContent : (
+          <ProUpgradeOverlay
+            headline="Advanced withdrawal strategies"
+            description="PCLS + Bed & ISA crystallises your tax-free lump sum and shelters growth inside your ISA wrapper — a Pro-only planning strategy."
+            ctaLabel="Unlock with Pro →"
+            onCta={() => setProModalSource('pcls-strategy')}
+          >
+            {selectorContent}
+          </ProUpgradeOverlay>
         );
       })()}
 
