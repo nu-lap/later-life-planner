@@ -27,6 +27,7 @@ Priority order:
 9. Phase 6: documentation consolidation and refresh
 10. Phase 7: pension contribution modelling
 11. Phase 8: IHT planning and post-freeze tax band escalation
+12. Phase 9: PCLS + Bed & ISA withdrawal strategy
 
 ## Phase 0: Product and Consistency Cleanup
 
@@ -325,3 +326,58 @@ Default Tax Table rate — IHT thresholds track CPI, not the higher income-tax a
 - [ ] Expose escalation assumptions in the UI (e.g. a settings panel showing 4% income-tax escalation rate and 2.5% CPI for IHT thresholds) so advisers can override them — matching Voyant's configurable-rate approach.
 - [ ] Thread `calendarYear` into the `projectionEngine.ts` per-year loop so in-projection IHT estimates (rather than just the death-year snapshot) also use escalated bands.
 - [ ] Consider making `IHT_ESCALATION_RATE` user-configurable (plan-level CPI) consistent with Voyant's "Nil Rate Band Escalation %" setting.
+
+---
+
+## Phase 9 — PCLS + Bed & ISA Withdrawal Strategy
+
+### Goal
+
+Add a second drawdown strategy that takes person 1's full Pension Commencement Lump Sum (PCLS)
+at the point of financial independence and reinvests the proceeds into ISA and GIA. Each
+subsequent year, up to the ISA annual allowance is transferred from GIA into ISA ("Bed & ISA").
+This shelters future growth from income tax and CGT, at the cost of paying CGT on any embedded
+GIA gain at the time of transfer.
+
+Simulated against Paul and Lisa's plan (lifeplan.json, FI age 56 → life expectancy 90):
+- Standard UFPLS: £121,684 income tax + £10,358 CGT = **£132,042 lifetime tax**
+- PCLS + joint Bed & ISA: £5,982 income tax + £22,073 CGT = **£28,055 lifetime tax**
+- **Net lifetime tax saving: £103,987**
+
+### Implementation checklist
+
+#### Data model & persistence
+- [x] Add `DrawdownStrategy = 'standard-ufpls' | 'pcls-bed-isa'` union type to `src/models/types.ts`
+- [x] Add `drawdownStrategy: DrawdownStrategy` field to `PlannerState` in `src/models/types.ts`
+- [x] Add `p1PclsEvent`, `p1BedIsaTransfer`, `p2BedIsaTransfer` fields to `YearlyProjection` in `src/models/types.ts`
+- [x] Set `drawdownStrategy: 'standard-ufpls'` default in `createDefaultState()` in `src/lib/mockData.ts`
+- [x] Add backward-compat `?? 'standard-ufpls'` fallback in `normalizePlannerState()` in `src/lib/mockData.ts`
+- [x] Add `'drawdownStrategy'` to `PERSISTED_PLANNER_KEYS` in `src/lib/persistedPlan.ts`
+
+#### Store
+- [x] Import `DrawdownStrategy` and add `setDrawdownStrategy: (strategy: DrawdownStrategy) => void` action to `src/store/plannerStore.ts`
+
+#### Projection engine (`src/financialEngine/projectionEngine.ts`)
+- [x] Read `drawdownStrategy` from state; derive `isPclsBedIsa` flag
+- [x] PCLS crystallisation block at year 0: extract `min(p1Dc × ufplsFrac, lsa)` from p1Dc; distribute up to ISA allowance → p1Isa, remainder → p1GiaV/BC; exhaust LSA (`p1LifetimePcls = yearPensionLsa`)
+- [x] Annual Bed & ISA block (pre-drawdown snapshot, pre-gross-up): p1GiaV → p1Isa using `drawFromGIA()`; post-FI joint GIA → p2Isa (couple mode)
+- [x] B&I capital gains (`p1BedIsaCg`, `p2BedIsaCg`) folded into `p1TotalCG`/`p2TotalCG` inside gross-up loop so CGT rate reflects iteration income context
+- [x] Output new fields (`p1PclsEvent`, `p1BedIsaTransfer`, `p2BedIsaTransfer`) in yearly projection push
+
+#### UI (`src/components/steps/Step4Dashboard.tsx`)
+- [x] Destructure `drawdownStrategy` and `setDrawdownStrategy` from store state
+- [x] Import `DrawdownStrategy` type
+- [x] Add strategy selector card below the hero section, gated on `person1.incomeSources.dcPension.enabled`; two options: "Standard UFPLS" and "PCLS + Bed & ISA"
+
+#### Tests
+- [ ] Add unit tests in `tests/unit/projectionEngine.test.ts`:
+  - PCLS fires at year 0 (`p1PclsEvent > 0`; p1Dc decreases; p1Isa increases)
+  - After PCLS, p1LifetimePcls exhausted (all future DC draws 100% taxable, ufplsFrac = 0)
+  - Bed & ISA transfer each year (p1GiaV decreases, p1Isa increases by same amount)
+  - Post-FI joint GIA → p2Isa (couple mode)
+  - Standard-ufpls mode: all new fields are 0 (no regression)
+  - B&I CGT is included in `totalCgtPaid`
+
+#### Outstanding
+- [ ] Expose `p1PclsEvent`, `p1BedIsaTransfer`, `p2BedIsaTransfer` in a yearly breakdown view (e.g. expandable table row or tooltip) within the dashboard
+- [ ] Consider a "Tax comparison" summary card surfacing PCLS vs standard UFPLS lifetime tax difference for the user's specific plan numbers

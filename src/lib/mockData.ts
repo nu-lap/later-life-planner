@@ -233,6 +233,7 @@ export function createDefaultState(primaryAge: number = DEFAULT_ASSUMPTIONS.DEFA
     jointGia: { enabled: false, totalValue: 0, baseCost: 0, growthRate: DEFAULT_ASSUMPTIONS.INVESTMENT_GROWTH },
     careReserve: { enabled: false, amount: CARE_RESERVE.DEFAULT_AMOUNT },
     primaryResidence: { ...defaultPrimaryResidence },
+    drawdownStrategy: 'standard-ufpls',
   };
 }
 
@@ -306,6 +307,7 @@ export function normalizePlannerState(state: PlannerState): PlannerState {
     },
     goalRegistry: normalizeGoalRegistry(state.goalRegistry),
     primaryResidence: normalizePrimaryResidence(state.primaryResidence),
+    drawdownStrategy: state.drawdownStrategy ?? 'standard-ufpls',
   };
 }
 

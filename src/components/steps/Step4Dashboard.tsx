@@ -24,7 +24,7 @@ import {
 } from '@/lib/goalOrchestration';
 import type { YearlyProjection } from '@/lib/types';
 import type { OptimizerPolicyOverride } from '@/financialEngine/types';
-import type { CareReserve, GoalConfig, GoalId } from '@/models/types';
+import type { CareReserve, DrawdownStrategy, GoalConfig, GoalId } from '@/models/types';
 import clsx from 'clsx';
 import IHTOutlookPanel from '@/components/IHTOutlookPanel';
 
@@ -732,6 +732,8 @@ export default function Step4Dashboard({ onBack }: Props) {
     setGoalRegistry,
     careReserve,
     setCareReserve,
+    drawdownStrategy,
+    setDrawdownStrategy,
   } = state;
   const [policyOverride, setPolicyOverride] = useState<OptimizerPolicyOverride | null>(null);
   const [policyLoading, setPolicyLoading] = useState(false);
@@ -924,6 +926,59 @@ export default function Step4Dashboard({ onBack }: Props) {
           From age {fiAge} → {state.assumptions.lifeExpectancy} · nominal £
         </p>
       </div>
+
+      {/* PCLS + Bed & ISA strategy selector — shown when person 1 has a DC pension */}
+      {person1.incomeSources.dcPension.enabled && (
+        <div className="rounded-2xl bg-slate-50 border border-slate-200 p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-lg">⚙️</span>
+            <h3 className="font-black text-slate-900 text-sm">Withdrawal strategy</h3>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {([
+              {
+                id: 'standard-ufpls' as DrawdownStrategy,
+                label: 'Standard UFPLS',
+                icon: '💧',
+                description: 'Draw from DC pension using Uncrystallised Funds Pension Lump Sum — 25% tax-free, 75% taxable on each withdrawal.',
+              },
+              {
+                id: 'pcls-bed-isa' as DrawdownStrategy,
+                label: 'PCLS + Bed & ISA',
+                icon: '🚀',
+                description: `Take ${person1.name || 'person 1'}'s maximum tax-free lump sum (PCLS) now and reinvest into ISA and GIA. Then transfer up to the ISA allowance from GIA each year — sheltering growth from future tax.`,
+              },
+            ] as const).map(option => {
+              const isActive = (drawdownStrategy ?? 'standard-ufpls') === option.id;
+              return (
+                <button
+                  key={option.id}
+                  onClick={() => setDrawdownStrategy(option.id)}
+                  className={[
+                    'text-left rounded-xl border-2 p-3 transition-all',
+                    isActive
+                      ? 'border-orange-400 bg-orange-50'
+                      : 'border-slate-200 bg-white hover:border-slate-300',
+                  ].join(' ')}
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-base">{option.icon}</span>
+                    <span className={`text-sm font-black ${isActive ? 'text-orange-800' : 'text-slate-800'}`}>
+                      {option.label}
+                    </span>
+                    {isActive && (
+                      <span className="ml-auto text-xs font-bold bg-orange-200 text-orange-700 px-2 py-0.5 rounded-full">Active</span>
+                    )}
+                  </div>
+                  <p className={`text-xs leading-relaxed ${isActive ? 'text-orange-700' : 'text-slate-500'}`}>
+                    {option.description}
+                  </p>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Gap alert */}
       {!surplus && (
