@@ -40,7 +40,7 @@ import type {
   PersonIncomeSources, PersonAssets, SimulationResult,
   GamificationMetrics,
 } from '@/models/types';
-import { CGT, RLSS, CURRENT_TAX_YEAR_START } from '@/config/financialConstants';
+import { CGT, PENSION_RULES, RLSS, CURRENT_TAX_YEAR_START } from '@/config/financialConstants';
 import { getSnapshotForYear } from '@/config/taxRuleSnapshot';
 import { calcIncomeTax, calcCGT, drawFromGIA, isHigherRateTaxpayer } from './taxCalculations';
 
@@ -126,6 +126,15 @@ export function calculateProjections(state: PlannerState): YearlyProjection[] {
   const { lifeExpectancy, inflation, investmentGrowth } = assumptions;
   const drawdownStrategy = state.drawdownStrategy ?? 'standard-ufpls';
   const isPclsBedIsa = drawdownStrategy === 'pcls-bed-isa';
+
+  // Resolve the PCLS crystallisation age: user-specified (≥ NMPA), else fiAge.
+  // NMPA is 55 before calendar year 2028, rising to 57 from 2028 onwards.
+  const rawPclsAge = state.pclsAge ?? fiAge;
+  const pclsCalendarYear = CURRENT_TAX_YEAR_START + (rawPclsAge - person1.currentAge);
+  const nmpa = pclsCalendarYear >= PENSION_RULES.NMPA_RISE_YEAR
+    ? PENSION_RULES.MIN_ACCESS_AGE_POST_2028
+    : PENSION_RULES.MIN_ACCESS_AGE;
+  const resolvedPclsAge = Math.max(rawPclsAge, nmpa);
 
   // ── Initialise asset balances ──────────────────────────────────────────────
   let p1Isa   = person1.assets.isaInvestments.enabled     ? person1.assets.isaInvestments.totalValue     : 0;
@@ -243,8 +252,8 @@ export function calculateProjections(state: PlannerState): YearlyProjection[] {
     let p2BedIsaTransfer = 0, p2BedIsaCg = 0;
 
     if (isPclsBedIsa) {
-      // ── Year 0: PCLS crystallisation ──────────────────────────────────
-      if (y === 0 && p1Dc > 0 && dc1.enabled) {
+      // ── PCLS crystallisation at resolvedPclsAge ───────────────────────
+      if (p1Age === resolvedPclsAge && p1Dc > 0 && dc1.enabled) {
         const pclsAmount = Math.min(p1Dc * yearUfplsFrac, yearPensionLsa);
         if (pclsAmount > 0) {
           p1Dc -= pclsAmount;

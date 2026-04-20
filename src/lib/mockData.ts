@@ -308,6 +308,8 @@ export function normalizePlannerState(state: PlannerState): PlannerState {
     goalRegistry: normalizeGoalRegistry(state.goalRegistry),
     primaryResidence: normalizePrimaryResidence(state.primaryResidence),
     drawdownStrategy: state.drawdownStrategy ?? 'standard-ufpls',
+    // pclsAge is optional — undefined means "default to fiAge" in the engine
+    pclsAge: state.pclsAge,
   };
 }
 

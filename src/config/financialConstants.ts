@@ -127,8 +127,12 @@ export const PENSION_RULES = {
    * Once the LSA is exhausted, subsequent DC withdrawals are fully taxable.
    */
   PCLS_LUMP_SUM_ALLOWANCE: _currentYearSnapshot.pension.lsa,
-  /** Minimum age at which DC pension can be accessed (rising to 57 in 2028). */
+  /** Minimum age at which DC pension can be accessed before April 2028. */
   MIN_ACCESS_AGE: 55,
+  /** Normal Minimum Pension Age from April 2028 onwards. */
+  MIN_ACCESS_AGE_POST_2028: 57,
+  /** Calendar year in which the NMPA rises from 55 to 57. */
+  NMPA_RISE_YEAR: 2028,
 } as const;
 
 // ─── Default projection assumptions ─────────────────────────────────────────

@@ -42,6 +42,7 @@ type Actions = {
   setCareReserve: (updates: Partial<CareReserve>) => void;
   setPrimaryResidence: (updates: Partial<PrimaryResidenceAsset>) => void;
   setDrawdownStrategy: (strategy: DrawdownStrategy) => void;
+  setPclsAge: (age: number | undefined) => void;
 
   setLifeVision: (vision: string) => void;
   toggleAspiration: (tag: AspirationTag) => void;
@@ -284,6 +285,7 @@ export const usePlannerStore = create<PlannerState & Actions>()(
         set((s) => ({ primaryResidence: { ...s.primaryResidence, ...updates } })),
 
       setDrawdownStrategy: (strategy) => set({ drawdownStrategy: strategy }),
+      setPclsAge: (age) => set({ pclsAge: age }),
 
       setLifeVision: (lifeVision) => set({ lifeVision }),
       toggleAspiration: (tag) =>

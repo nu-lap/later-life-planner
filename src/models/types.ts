@@ -272,10 +272,16 @@ export interface PlannerState {
   /**
    * DC pension drawdown strategy.
    * - `standard-ufpls` (default): each DC draw is 25% tax-free via UFPLS.
-   * - `pcls-bed-isa`: take full PCLS at plan start, reinvest into ISA + GIA,
+   * - `pcls-bed-isa`: take full PCLS at a chosen age (≥ NMPA), reinvest into ISA + GIA,
    *   then Bed & ISA each year to build the ISA wrapper further.
    */
   drawdownStrategy: DrawdownStrategy;
+  /**
+   * Age at which person 1 crystallises their PCLS under the `pcls-bed-isa` strategy.
+   * Must be ≥ 55 (or 57 if that calendar year is 2028 or later).
+   * Defaults to `fiAge` when not set.
+   */
+  pclsAge?: number;
 }
 
 export type PlannerUiState = Pick<PlannerState, 'currentStep' | 'maxVisitedStep'>;
