@@ -260,8 +260,9 @@ export function calculateProjections(state: PlannerState): YearlyProjection[] {
         if (pclsAmount > 0) {
           p1Dc -= pclsAmount;
           // Advance the lifetime PCLS usage by the amount actually crystallised,
-          // clamping at the year's LSA so future p1 DC draws become fully taxable
-          // once the allowance has been exhausted.
+          // clamping at the year's LSA (= Lifetime Allowance cap from the HMRC snapshot
+          // for this calendar year — see `yearPensionLsa` above) so future p1 DC draws
+          // become fully taxable once the allowance has been exhausted.
           p1LifetimePcls = Math.min(yearPensionLsa, p1LifetimePcls + pclsAmount);
           // Reinvest: up to the annual ISA allowance into ISA, remainder into GIA
           const toIsa = Math.min(pclsAmount, yearSnapshot.isaAnnualAllowance);
