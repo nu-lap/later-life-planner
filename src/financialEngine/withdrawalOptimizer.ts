@@ -917,10 +917,12 @@ function simulateCandidatePass(
         jointGiaBaseCost: working.jointGiaBaseCost,
       },
       // Only treat withdrawal-driven tax as dominated when the strategy is
-      // intended to use ISA assets immediately. Deferred ISA strategies may
-      // intentionally leave ISA balances untouched for later years.
+      // intended to use ISA assets immediately AND ISA was not drawn at all
+      // this year. If ISA was drawn, remaining balance is future reserves —
+      // not evidence the strategy failed to use its ISA.
       taxDominated: strategy.isaMode === 'now'
         && withdrawalTax > FEASIBILITY_TOLERANCE_GBP
+        && (drawdowns.p1Isa + (mode === 'couple' ? drawdowns.p2Isa : 0)) === 0
         && remainingIsaCapacity > FEASIBILITY_TOLERANCE_GBP,
     },
     endBalances: working,
