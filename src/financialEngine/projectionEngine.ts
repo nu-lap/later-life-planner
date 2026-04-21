@@ -242,15 +242,31 @@ export function calculateProjections(state: PlannerState): YearlyProjection[] {
     // These modify asset balances BEFORE the gross-up snapshot so the changes
     // are permanent for the year and not repeated on each gross-up iteration.
     //
-    // Year 0: take person1's maximum PCLS (up to LSA), reinvest into ISA + GIA.
-    //         Mark p1LifetimePcls = LSA so all subsequent DC draws are 100% taxable.
-    // Each year: Bed & ISA — sell up to the ISA annual allowance from GIA and
-    //            repurchase inside the ISA wrapper (triggers CGT on gains sold).
-    //            Pre-FI: p1 GIA → p1 ISA only.
-    //            Post-FI (couple): also joint GIA → p2 ISA.
+    // PCLS crystallisation (pcls-bed-isa strategy only):
+    //   At resolvedPclsAge, take person1's maximum tax-free lump sum (up to LSA),
+    //   reinvest into ISA wrappers then GIA. Mark p1LifetimePcls = LSA so all
+    //   subsequent DC draws are 100% taxable.
+    //
+    // Annual Bed & ISA (all strategies, FI years only):
+    //   Sell GIA assets (individual then joint) up to each person's remaining ISA
+    //   annual allowance and repurchase inside the ISA wrapper. Triggers CGT on
+    //   any embedded gains crystallised. Holding GIA when ISA allowance is unused
+    //   is suboptimal — future growth in GIA is subject to CGT whereas ISA growth
+    //   is tax-free.
+    //
+    //   Allowance order: p1 individual GIA → p1 ISA, p2 individual GIA → p2 ISA,
+    //   joint GIA → p1 ISA (remaining allowance), joint GIA → p2 ISA (remaining).
     let p1PclsEvent = 0;
+    // p1BedIsaTransfer / p1BedIsaCg: transfers into p1 ISA and their capital gains (individual p1 GIA).
+    // p2BedIsaTransfer / p2IndivBedIsaCg: transfers into p2 ISA and individual p2 GIA gains (100% p2).
+    // p2BedIsaCg: total joint GIA Bed & ISA gains (split 50/50 between persons for CGT).
     let p1BedIsaTransfer = 0, p1BedIsaCg = 0;
-    let p2BedIsaTransfer = 0, p2BedIsaCg = 0;
+    let p2BedIsaTransfer = 0, p2IndivBedIsaCg = 0, p2BedIsaCg = 0;
+
+    // Track how much of each person's ISA annual allowance has already been used
+    // in this year (PCLS reinvestment counts toward the same subscription limit).
+    let p1IsaAllowanceUsed = 0;
+    let p2IsaAllowanceUsed = 0;
 
     if (isPclsBedIsa) {
       // ── PCLS crystallisation at resolvedPclsAge ───────────────────────
@@ -260,9 +276,8 @@ export function calculateProjections(state: PlannerState): YearlyProjection[] {
         if (pclsAmount > 0) {
           p1Dc -= pclsAmount;
           // Advance the lifetime PCLS usage by the amount actually crystallised,
-          // clamping at the year's LSA (= Lifetime Allowance cap from the HMRC snapshot
-          // for this calendar year — see `yearPensionLsa` above) so future p1 DC draws
-          // become fully taxable once the allowance has been exhausted.
+          // clamping at the year's LSA so future p1 DC draws become fully taxable
+          // once the allowance has been exhausted.
           p1LifetimePcls = Math.min(yearPensionLsa, p1LifetimePcls + pclsAmount);
           // Reinvest: up to the annual ISA allowance per person into ISA wrappers,
           // remainder into GIA (joint for couple, p1 for single).
@@ -274,7 +289,8 @@ export function calculateProjections(state: PlannerState): YearlyProjection[] {
             : 0;
           const toGia = afterP1Isa - p2ToIsa;
           p1Isa += p1ToIsa;
-          if (p2ToIsa > 0) p2Isa += p2ToIsa;
+          p1IsaAllowanceUsed = p1ToIsa;
+          if (p2ToIsa > 0) { p2Isa += p2ToIsa; p2IsaAllowanceUsed = p2ToIsa; }
           if (toGia > 0) {
             if (mode === 'couple') { jointGiaV += toGia; jointGiaBC += toGia; }
             else                   { p1GiaV    += toGia; p1GiaBC    += toGia; }
@@ -282,30 +298,71 @@ export function calculateProjections(state: PlannerState): YearlyProjection[] {
           p1PclsEvent = pclsAmount;
         }
       }
+    }
 
-      // ── Annual Bed & ISA: p1 GIA → p1 ISA ────────────────────────────
-      if (p1GiaV > 0) {
-        const biAmount = Math.min(p1GiaV, yearSnapshot.isaAnnualAllowance);
+    // ── Annual Bed & ISA — all strategies, FI years ─────────────────────
+    // Shelter GIA assets into ISA wrappers up to each person's remaining annual
+    // ISA allowance (reduced by any PCLS reinvestment above).
+    if (householdFiStarted) {
+      // p1 individual GIA → p1 ISA
+      const p1Allowance = yearSnapshot.isaAnnualAllowance - p1IsaAllowanceUsed;
+      if (p1GiaV > 0 && p1Allowance > 0) {
+        const biAmount = Math.min(p1GiaV, p1Allowance);
         if (biAmount > 0) {
           const r = drawFromGIA(p1GiaV, p1GiaBC, biAmount);
-          p1BedIsaTransfer = r.drawn;
-          p1BedIsaCg = r.capitalGain;
+          p1BedIsaTransfer += r.drawn;
+          p1BedIsaCg       += r.capitalGain;
           p1GiaV    = r.newValue;
           p1GiaBC   = r.newBaseCost;
           p1Isa    += r.drawn;
+          p1IsaAllowanceUsed += r.drawn;
         }
       }
 
-      // ── Annual Bed & ISA: joint GIA → p2 ISA (post-FI, couple only) ──
-      if (householdFiStarted && mode === 'couple' && p2Age !== null && jointGiaV > 0) {
-        const biAmount = Math.min(jointGiaV, yearSnapshot.isaAnnualAllowance);
+      // p2 individual GIA → p2 ISA (couple only)
+      const p2Allowance = yearSnapshot.isaAnnualAllowance - p2IsaAllowanceUsed;
+      if (mode === 'couple' && p2GiaV > 0 && p2Allowance > 0) {
+        const biAmount = Math.min(p2GiaV, p2Allowance);
+        if (biAmount > 0) {
+          const r = drawFromGIA(p2GiaV, p2GiaBC, biAmount);
+          p2BedIsaTransfer  += r.drawn;
+          p2IndivBedIsaCg   += r.capitalGain;
+          p2GiaV    = r.newValue;
+          p2GiaBC   = r.newBaseCost;
+          p2Isa    += r.drawn;
+          p2IsaAllowanceUsed += r.drawn;
+        }
+      }
+
+      // joint GIA → p1 ISA (remaining p1 allowance)
+      const p1JointAllow = yearSnapshot.isaAnnualAllowance - p1IsaAllowanceUsed;
+      if (jointGiaV > 0 && p1JointAllow > 0) {
+        const biAmount = Math.min(jointGiaV, p1JointAllow);
         if (biAmount > 0) {
           const r = drawFromGIA(jointGiaV, jointGiaBC, biAmount);
-          p2BedIsaTransfer = r.drawn;
-          p2BedIsaCg = r.capitalGain;
+          p1BedIsaTransfer += r.drawn;
+          p2BedIsaCg       += r.capitalGain;   // joint disposal → 50/50 CGT split
           jointGiaV    = r.newValue;
           jointGiaBC   = r.newBaseCost;
-          p2Isa += r.drawn;
+          p1Isa       += r.drawn;
+          p1IsaAllowanceUsed += r.drawn;
+        }
+      }
+
+      // joint GIA → p2 ISA (remaining p2 allowance, couple only)
+      if (mode === 'couple' && p2Age !== null) {
+        const p2JointAllow = yearSnapshot.isaAnnualAllowance - p2IsaAllowanceUsed;
+        if (jointGiaV > 0 && p2JointAllow > 0) {
+          const biAmount = Math.min(jointGiaV, p2JointAllow);
+          if (biAmount > 0) {
+            const r = drawFromGIA(jointGiaV, jointGiaBC, biAmount);
+            p2BedIsaTransfer += r.drawn;
+            p2BedIsaCg       += r.capitalGain;  // joint disposal → 50/50 CGT split
+            jointGiaV    = r.newValue;
+            jointGiaBC   = r.newBaseCost;
+            p2Isa       += r.drawn;
+            p2IsaAllowanceUsed += r.drawn;
+          }
         }
       }
     }
@@ -563,10 +620,10 @@ export function calculateProjections(state: PlannerState): YearlyProjection[] {
       p2IncomeTax      = calcIncomeTax(p2TaxBasis, calendarYear);
       incomeTaxPaid    = p1IncomeTax + p2IncomeTax;
       // Joint GIA Bed & ISA gains follow the same 50/50 CGT split as other joint
-      // GIA disposals, rather than being attributed wholly to p2.
+      // GIA disposals. p2IndivBedIsaCg is attributed wholly to p2 (individual GIA).
       const jointBedIsaGainEach = p2BedIsaCg / 2;
       p1TotalCG        = p1GiaCG + jointGainEach + p1BedIsaCg + jointBedIsaGainEach;
-      p2TotalCG        = p2GiaCG + jointGainEach + jointBedIsaGainEach;
+      p2TotalCG        = p2GiaCG + jointGainEach + p2IndivBedIsaCg + jointBedIsaGainEach;
       p1CgtPaid        = calcCGT(p1TotalCG, isHigherRateTaxpayer(p1TaxBasis, calendarYear), calendarYear);
       p2CgtPaid        = calcCGT(p2TotalCG, isHigherRateTaxpayer(p2TaxBasis, calendarYear), calendarYear);
       totalCgtPaid     = p1CgtPaid + p2CgtPaid;

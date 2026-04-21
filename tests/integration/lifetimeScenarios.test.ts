@@ -19,23 +19,29 @@ import type { PlannerState } from '@/models/types';
 describe('Scenario A — Paul & Lisa', () => {
   test('zero income tax in years 60–66 (before State Pension)', () => {
     const projections = calculateProjections(paulAndLisaState());
-    const tax = taxBetween(projections, 60, 66);
-    // Debug script confirmed £0 income tax pre-SP
-    expect(tax).toBeCloseTo(0, 0);
+    // Sum income tax only (not CGT) — Bed & ISA now generates CGT but no income tax
+    const incomeTax = projections
+      .filter(p => p.p1Age >= 60 && p.p1Age <= 66)
+      .reduce((s, p) => s + p.incomeTaxPaid, 0);
+    // Debug script confirmed £0 income tax pre-SP; Bed & ISA does not affect income tax
+    expect(incomeTax).toBeCloseTo(0, 0);
   });
 
-  test('zero CGT in years 60–66 (GIA gains within combined exempt)', () => {
+  test('Bed & ISA generates CGT in years 60–66 (GIA sheltered into ISA annually)', () => {
     const projections = calculateProjections(paulAndLisaState());
     const cgt = cgtBetween(projections, 60, 66);
-    // Individual + joint GIA gains stay within per-person £3,000 exempt
-    expect(cgt).toBeCloseTo(0, 0);
+    // General Bed & ISA shelters GIA gains above the £3,000 exempt threshold into CGT each year.
+    // Income tax remains zero; CGT is expected from the annual Bed & ISA transfers.
+    expect(cgt).toBeGreaterThan(0);
+    // CGT should be modest — from B&I transfers only, not from taxable drawdown.
+    expect(cgt).toBeLessThan(20_000);
   });
 
-  test('total tax years 60–67 is low (< £5,000)', () => {
-    // Debug script showed £1,324 income tax at year 67 when SP starts
+  test('total tax years 60–67 is modest (includes Bed & ISA CGT + SP year)', () => {
+    // Bed & ISA CGT is now expected in years 60-66; SP starts at 67 adding income tax.
     const projections = calculateProjections(paulAndLisaState());
     const tax = taxBetween(projections, 60, 67);
-    expect(tax).toBeLessThan(5_000);
+    expect(tax).toBeLessThan(15_000);
   });
 
   test('DC pension drawn in FI years (using PA headroom)', () => {
