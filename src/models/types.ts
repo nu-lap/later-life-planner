@@ -29,6 +29,22 @@ export type GoalId =
 /** Who owns a shared asset. 'joint' splits CGT gains equally between both persons. */
 export type AssetOwner = 'p1' | 'p2' | 'joint';
 
+/**
+ * Drawdown strategy for DC pensions.
+ *
+ * - `standard-ufpls`: Each DC withdrawal is 25% tax-free / 75% taxable (UFPLS).
+ *   The full pot stays invested for longer; the LSA is consumed gradually.
+ *
+ * - `pcls-bed-isa`: At plan start, person1 takes the maximum Pension Commencement
+ *   Lump Sum (up to the £268,275 LSA). The cash is reinvested into their ISA
+ *   (up to the annual allowance) and GIA. All subsequent DC draws for person1
+ *   are 100% taxable (LSA exhausted). Each year, up to the ISA annual allowance
+ *   is transferred from person1's GIA to their ISA (pre- and post-FI), and from
+ *   the joint GIA to person2's ISA (post-FI only). This Bed & ISA step builds a
+ *   large tax-free ISA pot that can cover spending with minimal income tax.
+ */
+export type DrawdownStrategy = 'standard-ufpls' | 'pcls-bed-isa';
+
 export interface GoalConfig {
   id: GoalId;
   priority: number;
@@ -253,6 +269,19 @@ export interface PlannerState {
    * See PrimaryResidenceAsset interface above.
    */
   primaryResidence: PrimaryResidenceAsset;
+  /**
+   * DC pension drawdown strategy.
+   * - `standard-ufpls` (default): each DC draw is 25% tax-free via UFPLS.
+   * - `pcls-bed-isa`: take full PCLS at a chosen age (≥ NMPA), reinvest into ISA + GIA,
+   *   then Bed & ISA each year to build the ISA wrapper further.
+   */
+  drawdownStrategy: DrawdownStrategy;
+  /**
+   * Age at which person 1 crystallises their PCLS under the `pcls-bed-isa` strategy.
+   * Must be ≥ 55 (or 57 if that calendar year is 2028 or later).
+   * Defaults to `fiAge` when not set.
+   */
+  pclsAge?: number;
 }
 
 export type PlannerUiState = Pick<PlannerState, 'currentStep' | 'maxVisitedStep'>;
@@ -334,6 +363,14 @@ export interface YearlyProjection {
   jointGiaValue: number;
   jointGiaBaseCost: number;
   totalAssets: number;
+
+  // PCLS + Bed & ISA strategy tracking (zero when strategy = 'standard-ufpls')
+  /** PCLS lump sum taken at plan start (person1 only, year 0 event). */
+  p1PclsEvent: number;
+  /** Amount transferred from person1 GIA to person1 ISA via Bed & ISA this year. */
+  p1BedIsaTransfer: number;
+  /** Amount transferred from joint GIA to person2 ISA via Bed & ISA this year. */
+  p2BedIsaTransfer: number;
 }
 
 // ─── Simulation result (dashboard summary) ───────────────────────────────────

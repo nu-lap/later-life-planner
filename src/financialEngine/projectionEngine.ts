@@ -40,7 +40,7 @@ import type {
   PersonIncomeSources, PersonAssets, SimulationResult,
   GamificationMetrics,
 } from '@/models/types';
-import { CGT, RLSS, CURRENT_TAX_YEAR_START } from '@/config/financialConstants';
+import { CGT, PENSION_RULES, RLSS, CURRENT_TAX_YEAR_START } from '@/config/financialConstants';
 import { getSnapshotForYear } from '@/config/taxRuleSnapshot';
 import { calcIncomeTax, calcCGT, drawFromGIA, isHigherRateTaxpayer } from './taxCalculations';
 
@@ -124,6 +124,18 @@ function getAnnualDcContribution(
 export function calculateProjections(state: PlannerState): YearlyProjection[] {
   const { person1, person2, lifeStages, spendingCategories, assumptions, mode, fiAge, jointGia } = state;
   const { lifeExpectancy, inflation, investmentGrowth } = assumptions;
+  const drawdownStrategy = state.drawdownStrategy ?? 'standard-ufpls';
+  const isPclsBedIsa = drawdownStrategy === 'pcls-bed-isa';
+
+  // Resolve the PCLS crystallisation age: user-specified (≥ current age and NMPA), else fiAge.
+  // NMPA is 55 before calendar year 2028, rising to 57 from 2028 onwards.
+  const rawPclsAge = state.pclsAge ?? fiAge;
+  const pclsCalendarYear = CURRENT_TAX_YEAR_START + (rawPclsAge - person1.currentAge);
+  const nmpa = pclsCalendarYear >= PENSION_RULES.NMPA_RISE_YEAR
+    ? PENSION_RULES.MIN_ACCESS_AGE_POST_2028
+    : PENSION_RULES.MIN_ACCESS_AGE;
+  // Prevent the crystallisation event from being scheduled in the past.
+  const resolvedPclsAge = Math.max(rawPclsAge, nmpa, person1.currentAge);
 
   // ── Initialise asset balances ──────────────────────────────────────────────
   let p1Isa   = person1.assets.isaInvestments.enabled     ? person1.assets.isaInvestments.totalValue     : 0;
@@ -226,7 +238,72 @@ export function calculateProjections(state: PlannerState): YearlyProjection[] {
     const p2TaxableFixed = p2Inc.sp + p2Inc.db + p2Inc.ptw + p2Inc.other + p2RentEffective;
     const spExempt = assumptions.statePensionSoleIncomeExempt ?? true;
 
-    // ── Save asset state after growth, before any drawdown ────────────────
+    // ── PCLS + Bed & ISA strategy — pre-waterfall adjustments ─────────────
+    // These modify asset balances BEFORE the gross-up snapshot so the changes
+    // are permanent for the year and not repeated on each gross-up iteration.
+    //
+    // Year 0: take person1's maximum PCLS (up to LSA), reinvest into ISA + GIA.
+    //         Mark p1LifetimePcls = LSA so all subsequent DC draws are 100% taxable.
+    // Each year: Bed & ISA — sell up to the ISA annual allowance from GIA and
+    //            repurchase inside the ISA wrapper (triggers CGT on gains sold).
+    //            Pre-FI: p1 GIA → p1 ISA only.
+    //            Post-FI (couple): also joint GIA → p2 ISA.
+    let p1PclsEvent = 0;
+    let p1BedIsaTransfer = 0, p1BedIsaCg = 0;
+    let p2BedIsaTransfer = 0, p2BedIsaCg = 0;
+
+    if (isPclsBedIsa) {
+      // ── PCLS crystallisation at resolvedPclsAge ───────────────────────
+      if (p1Age === resolvedPclsAge && p1Dc > 0 && dc1.enabled) {
+        const remainingPensionLsa = Math.max(0, yearPensionLsa - p1LifetimePcls);
+        const pclsAmount = Math.min(p1Dc * yearUfplsFrac, remainingPensionLsa);
+        if (pclsAmount > 0) {
+          p1Dc -= pclsAmount;
+          // Advance the lifetime PCLS usage by the amount actually crystallised,
+          // clamping at the year's LSA (= Lifetime Allowance cap from the HMRC snapshot
+          // for this calendar year — see `yearPensionLsa` above) so future p1 DC draws
+          // become fully taxable once the allowance has been exhausted.
+          p1LifetimePcls = Math.min(yearPensionLsa, p1LifetimePcls + pclsAmount);
+          // Reinvest: up to the annual ISA allowance into ISA, remainder into GIA
+          const toIsa = Math.min(pclsAmount, yearSnapshot.isaAnnualAllowance);
+          const toGia = pclsAmount - toIsa;
+          p1Isa += toIsa;
+          if (toGia > 0) {
+            p1GiaV  += toGia;
+            p1GiaBC += toGia; // Base cost = reinvested amount; no embedded gain at acquisition
+          }
+          p1PclsEvent = pclsAmount;
+        }
+      }
+
+      // ── Annual Bed & ISA: p1 GIA → p1 ISA ────────────────────────────
+      if (p1GiaV > 0) {
+        const biAmount = Math.min(p1GiaV, yearSnapshot.isaAnnualAllowance);
+        if (biAmount > 0) {
+          const r = drawFromGIA(p1GiaV, p1GiaBC, biAmount);
+          p1BedIsaTransfer = r.drawn;
+          p1BedIsaCg = r.capitalGain;
+          p1GiaV    = r.newValue;
+          p1GiaBC   = r.newBaseCost;
+          p1Isa    += r.drawn;
+        }
+      }
+
+      // ── Annual Bed & ISA: joint GIA → p2 ISA (post-FI, couple only) ──
+      if (householdFiStarted && mode === 'couple' && p2Age !== null && jointGiaV > 0) {
+        const biAmount = Math.min(jointGiaV, yearSnapshot.isaAnnualAllowance);
+        if (biAmount > 0) {
+          const r = drawFromGIA(jointGiaV, jointGiaBC, biAmount);
+          p2BedIsaTransfer = r.drawn;
+          p2BedIsaCg = r.capitalGain;
+          jointGiaV    = r.newValue;
+          jointGiaBC   = r.newBaseCost;
+          p2Isa += r.drawn;
+        }
+      }
+    }
+
+    // ── Save asset state after growth (and after PCLS/B&I), before drawdown ──
     // Needed to restore between gross-up iterations.
     const preDrawSnap = {
       p1Isa, p1GiaV, p1GiaBC, p1Cash, p1Dc,
@@ -463,6 +540,9 @@ export function calculateProjections(state: PlannerState): YearlyProjection[] {
       // UFPLS: each DC withdrawal is 25% tax-free (tracked per-year via p1DcTaxFree).
       // Once the LSA is exhausted, p1DcTaxFree = 0 and the full withdrawal is taxable.
       // Joint GIA: capital gain split equally between both persons' CGT allowances.
+      // Bed & ISA gains (p1BedIsaCg / p2BedIsaCg) are added to each person's CGT base —
+      // they are fixed regardless of waterfall draws, but the CGT rate correctly
+      // reflects that iteration's income level.
       jointGainEach    = jointGiaCG / 2;
       p1OtherTaxable   = p1Inc.db + p1Inc.ptw + p1Inc.other + p1Inc.rent + (p1DcD - p1DcTaxFree);
       p2OtherTaxable   = p2Inc.db + p2Inc.ptw + p2Inc.other + p2RentEffective + (p2DcD - p2DcTaxFree);
@@ -475,8 +555,11 @@ export function calculateProjections(state: PlannerState): YearlyProjection[] {
       p1IncomeTax      = calcIncomeTax(p1TaxBasis, calendarYear);
       p2IncomeTax      = calcIncomeTax(p2TaxBasis, calendarYear);
       incomeTaxPaid    = p1IncomeTax + p2IncomeTax;
-      p1TotalCG        = p1GiaCG + jointGainEach;
-      p2TotalCG        = p2GiaCG + jointGainEach;
+      // Joint GIA Bed & ISA gains follow the same 50/50 CGT split as other joint
+      // GIA disposals, rather than being attributed wholly to p2.
+      const jointBedIsaGainEach = p2BedIsaCg / 2;
+      p1TotalCG        = p1GiaCG + jointGainEach + p1BedIsaCg + jointBedIsaGainEach;
+      p2TotalCG        = p2GiaCG + jointGainEach + jointBedIsaGainEach;
       p1CgtPaid        = calcCGT(p1TotalCG, isHigherRateTaxpayer(p1TaxBasis, calendarYear), calendarYear);
       p2CgtPaid        = calcCGT(p2TotalCG, isHigherRateTaxpayer(p2TaxBasis, calendarYear), calendarYear);
       totalCgtPaid     = p1CgtPaid + p2CgtPaid;
@@ -533,6 +616,11 @@ export function calculateProjections(state: PlannerState): YearlyProjection[] {
                  + clamp(jointGiaV),
       // Care reserve tracked separately — earmarked, never drawn for spending.
       careReserveBalance: Math.round(careReserveBalance),
+
+      // PCLS + Bed & ISA strategy tracking (zero in standard-ufpls mode)
+      p1PclsEvent: Math.round(p1PclsEvent),
+      p1BedIsaTransfer: Math.round(p1BedIsaTransfer),
+      p2BedIsaTransfer: Math.round(p2BedIsaTransfer),
     });
   }
 

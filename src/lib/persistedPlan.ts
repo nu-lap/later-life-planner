@@ -16,6 +16,8 @@ export const PERSISTED_PLANNER_KEYS = [
   'jointGia',
   'careReserve',
   'primaryResidence',
+  'drawdownStrategy',
+  'pclsAge',
 ] as const satisfies readonly (keyof PersistedPlannerState)[];
 
 function isRecord(value: unknown): value is Record<string, unknown> {

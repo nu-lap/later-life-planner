@@ -12,7 +12,7 @@ import {
 import OptimizerPanel from '@/components/OptimizerPanel';
 import ProInterestModal from '@/components/ProInterestModal';
 import ProUpgradeOverlay from '@/components/ProUpgradeOverlay';
-import { CARE_RESERVE, CGT, INCOME_TAX } from '@/config/financialConstants';
+import { CARE_RESERVE, CGT, CURRENT_TAX_YEAR_START, INCOME_TAX, PENSION_RULES } from '@/config/financialConstants';
 import { optimizeWithdrawals } from '@/financialEngine/withdrawalOptimizer';
 import { RLSS_STANDARDS } from '@/lib/mockData';
 import {
@@ -24,7 +24,7 @@ import {
 } from '@/lib/goalOrchestration';
 import type { YearlyProjection } from '@/lib/types';
 import type { OptimizerPolicyOverride } from '@/financialEngine/types';
-import type { CareReserve, GoalConfig, GoalId } from '@/models/types';
+import type { CareReserve, DrawdownStrategy, GoalConfig, GoalId } from '@/models/types';
 import clsx from 'clsx';
 import IHTOutlookPanel from '@/components/IHTOutlookPanel';
 
@@ -732,6 +732,10 @@ export default function Step4Dashboard({ onBack }: Props) {
     setGoalRegistry,
     careReserve,
     setCareReserve,
+    drawdownStrategy,
+    setDrawdownStrategy,
+    pclsAge,
+    setPclsAge,
   } = state;
   const [policyOverride, setPolicyOverride] = useState<OptimizerPolicyOverride | null>(null);
   const [policyLoading, setPolicyLoading] = useState(false);
@@ -807,23 +811,28 @@ export default function Step4Dashboard({ onBack }: Props) {
   }, [deferredState, goalRegistry, optimizerEnabled, proEnabled]);
 
   const { projections, optimizerResult } = useMemo(() => {
+    // Sanitise: pcls-bed-isa is a Pro-only strategy — fall back to standard-ufpls if Pro is off.
+    const effectiveState = !proEnabled && deferredState.drawdownStrategy === 'pcls-bed-isa'
+      ? { ...deferredState, drawdownStrategy: 'standard-ufpls' as const }
+      : deferredState;
+
     if (!optimizerEnabled) {
       return {
-        projections: calculateProjections(deferredState),
+        projections: calculateProjections(effectiveState),
         optimizerResult: null,
       };
     }
 
     // Run the optimizer once; reuse its pre-computed projections so we avoid
     // a duplicate calculateProjections() call.
-    const result = optimizeWithdrawals(deferredState, {
+    const result = optimizeWithdrawals(effectiveState, {
       policyOverride: policyOverride ?? undefined,
     });
     return {
       projections: result.baselineProjections,
       optimizerResult: result,
     };
-  }, [deferredState, optimizerEnabled, policyOverride]);
+  }, [deferredState, optimizerEnabled, proEnabled, policyOverride]);
   // Income and spending only starts at FI age — filter for display, but keep full
   // projections for asset depletion checks (assets grow from current age).
   const displayProjections = useMemo(
@@ -924,6 +933,123 @@ export default function Step4Dashboard({ onBack }: Props) {
           From age {fiAge} → {state.assumptions.lifeExpectancy} · nominal £
         </p>
       </div>
+
+      {/* PCLS + Bed & ISA strategy selector — shown when person 1 has a DC pension */}
+      {person1.incomeSources.dcPension.enabled && (() => {
+        const activeStrategy = drawdownStrategy ?? 'standard-ufpls';
+        // Helper: clamp a candidate age to max(person1.currentAge, NMPA for that year).
+        // Persisting this clamped value keeps the store in sync with what the engine uses.
+        const resolvePclsAge = (candidate: number) => {
+          const calYear = CURRENT_TAX_YEAR_START + (candidate - person1.currentAge);
+          const nmpaForAge = calYear >= PENSION_RULES.NMPA_RISE_YEAR
+            ? PENSION_RULES.MIN_ACCESS_AGE_POST_2028
+            : PENSION_RULES.MIN_ACCESS_AGE;
+          return Math.max(candidate, nmpaForAge, person1.currentAge);
+        };
+
+        // Compute effective NMPA for the age currently set
+        const rawAge = pclsAge ?? fiAge;
+        const pclsCalYear = CURRENT_TAX_YEAR_START + (rawAge - person1.currentAge);
+        const nmpa = pclsCalYear >= PENSION_RULES.NMPA_RISE_YEAR
+          ? PENSION_RULES.MIN_ACCESS_AGE_POST_2028
+          : PENSION_RULES.MIN_ACCESS_AGE;
+        const effectivePclsAge = Math.max(rawAge, nmpa, person1.currentAge);
+
+        const selectorContent = (
+          <div className="rounded-2xl bg-slate-50 border border-slate-200 p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-lg">⚙️</span>
+              <h3 className="font-black text-slate-900 text-sm">Withdrawal strategy</h3>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {([
+                {
+                  id: 'standard-ufpls' as DrawdownStrategy,
+                  label: 'Standard UFPLS',
+                  icon: '💧',
+                  description: 'Draw from DC pension using Uncrystallised Funds Pension Lump Sum — 25% tax-free, 75% taxable on each withdrawal.',
+                },
+                {
+                  id: 'pcls-bed-isa' as DrawdownStrategy,
+                  label: 'Tax-free lump sum + ISA transfer',
+                  icon: '🚀',
+                  description: `Once your pension pot is large enough that any further growth would be fully taxable on withdrawal, it could make sense to take your entire tax-free entitlement now and move it into an ISA — where future growth is sheltered from tax. Each subsequent year, up to the ISA annual allowance is transferred from your investment account into your ISA wrapper.`,
+                },
+              ] as const).map(option => {
+                const isActive = activeStrategy === option.id;
+                return (
+                  <button
+                    key={option.id}
+                    onClick={() => setDrawdownStrategy(option.id)}
+                    className={[
+                      'text-left rounded-xl border-2 p-3 transition-all',
+                      isActive
+                        ? 'border-orange-400 bg-orange-50'
+                        : 'border-slate-200 bg-white hover:border-slate-300',
+                    ].join(' ')}
+                  >
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-base">{option.icon}</span>
+                      <span className={`text-sm font-black ${isActive ? 'text-orange-800' : 'text-slate-800'}`}>
+                        {option.label}
+                      </span>
+                      {isActive && (
+                        <span className="ml-auto text-xs font-bold bg-orange-200 text-orange-700 px-2 py-0.5 rounded-full">Active</span>
+                      )}
+                    </div>
+                    <p className={`text-xs leading-relaxed ${isActive ? 'text-orange-700' : 'text-slate-500'}`}>
+                      {option.description}
+                    </p>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* PCLS age selector — only visible when pcls-bed-isa is active */}
+            {activeStrategy === 'pcls-bed-isa' && (
+              <div className="mt-3 pt-3 border-t border-slate-200 flex flex-wrap items-center gap-3">
+                <label className="text-xs font-bold text-slate-600 flex-shrink-0">
+                  PCLS age
+                </label>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setPclsAge(resolvePclsAge(effectivePclsAge - 1))}
+                    className="w-7 h-7 rounded-lg bg-white border border-slate-300 text-slate-600 font-bold text-sm hover:border-orange-400 transition-colors"
+                    aria-label="Decrease PCLS age"
+                  >−</button>
+                  <span className="text-base font-black text-slate-900 min-w-[2.5rem] text-center">
+                    {effectivePclsAge}
+                  </span>
+                  <button
+                    onClick={() => setPclsAge(Math.min(resolvePclsAge(effectivePclsAge + 1), state.assumptions.lifeExpectancy - 1))}
+                    className="w-7 h-7 rounded-lg bg-white border border-slate-300 text-slate-600 font-bold text-sm hover:border-orange-400 transition-colors"
+                    aria-label="Increase PCLS age"
+                  >+</button>
+                </div>
+                <p className="text-xs text-slate-500">
+                  Min {nmpa} (NMPA{pclsCalYear >= PENSION_RULES.NMPA_RISE_YEAR ? ' from 2028' : ''}) ·{' '}
+                  {effectivePclsAge < fiAge
+                    ? `${fiAge - effectivePclsAge} yr${fiAge - effectivePclsAge !== 1 ? 's' : ''} before FI — proceeds grow in ISA & GIA until then`
+                    : effectivePclsAge === fiAge
+                      ? 'taken at FI age'
+                      : `${effectivePclsAge - fiAge} yr${effectivePclsAge - fiAge !== 1 ? 's' : ''} after FI`}
+                </p>
+              </div>
+            )}
+          </div>
+        );
+
+        return proEnabled ? selectorContent : (
+          <ProUpgradeOverlay
+            headline="Advanced withdrawal strategies"
+            description="When your pension pot is large enough that further growth would be fully taxable, taking your tax-free entitlement now and sheltering it in an ISA can significantly reduce lifetime tax."
+            ctaLabel="Unlock with Pro →"
+            onCta={() => setProModalSource('pcls-strategy')}
+          >
+            {selectorContent}
+          </ProUpgradeOverlay>
+        );
+      })()}
 
       {/* Gap alert */}
       {!surplus && (
