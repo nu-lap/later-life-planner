@@ -1,4 +1,4 @@
-import { CURRENT_TAX_YEAR_START } from '@/config/financialConstants';
+import { CURRENT_TAX_YEAR_START, PENSION_RULES } from '@/config/financialConstants';
 import { getSnapshotForYear } from '@/config/taxRuleSnapshot';
 import { getStrategyDisplayLabel } from '@/lib/strategyDefinitions';
 import type { PlannerState, YearlyProjection } from '@/models/types';
@@ -1017,10 +1017,60 @@ function simulateStrategies(
     ? getCandidateStrategies(policyOverride)
     : [BASELINE_STRATEGY];
 
+  // Resolve PCLS + Bed & ISA strategy parameters once.
+  const isPclsBedIsa = (state.drawdownStrategy ?? 'standard-ufpls') === 'pcls-bed-isa';
+  const dc1Enabled = state.person1.incomeSources.dcPension.enabled;
+  let resolvedPclsAge = 0;
+  if (isPclsBedIsa) {
+    const rawPclsAge = state.pclsAge ?? state.fiAge;
+    const pclsCalendarYear = CURRENT_TAX_YEAR_START + (rawPclsAge - state.person1.currentAge);
+    const nmpa = pclsCalendarYear >= PENSION_RULES.NMPA_RISE_YEAR
+      ? PENSION_RULES.MIN_ACCESS_AGE_POST_2028
+      : PENSION_RULES.MIN_ACCESS_AGE;
+    resolvedPclsAge = Math.max(rawPclsAge, nmpa);
+
+    // If PCLS fired before FI age (pre-FI period), the projection engine already
+    // reduced p1Dc and boosted ISA/GIA in the pre-FI rows that seed our balances.
+    // We must mark the LSA as fully exhausted so that subsequent DC draws are
+    // treated as 100% taxable — not 25% tax-free.
+    if (resolvedPclsAge < state.fiAge) {
+      const pclsSnapshot = getSnapshotForYear(
+        CURRENT_TAX_YEAR_START + (resolvedPclsAge - state.person1.currentAge),
+      );
+      balances = { ...balances, p1LifetimePcls: pclsSnapshot.pension.lsa };
+    }
+  }
+
   for (const row of postFiRows) {
     const calendarYear = CURRENT_TAX_YEAR_START + row.yearIndex;
     recordRuleProvenance(provenance, calendarYear);
     balances = applyGrowth(balances, growth);
+
+    // PCLS + Bed & ISA: fire the crystallisation event at resolvedPclsAge.
+    // Mirrors projectionEngine logic: happens after growth, before drawdown.
+    // Moves the tax-free lump sum from DC into ISA (up to annual allowance)
+    // and GIA (remainder), then exhausts the LSA so all future DC draws are
+    // 100% taxable.
+    if (isPclsBedIsa && dc1Enabled && row.p1Age === resolvedPclsAge && balances.p1Dc > 0) {
+      const pclsSnapshot = getSnapshotForYear(calendarYear);
+      const pclsAmount = Math.min(
+        balances.p1Dc * pclsSnapshot.pension.ufplsTaxFreeFraction,
+        Math.max(0, pclsSnapshot.pension.lsa - balances.p1LifetimePcls),
+      );
+      if (pclsAmount > 0) {
+        const toIsa = Math.min(pclsAmount, pclsSnapshot.isaAnnualAllowance);
+        const toGia = pclsAmount - toIsa;
+        balances = {
+          ...balances,
+          p1Dc: balances.p1Dc - pclsAmount,
+          p1LifetimePcls: pclsSnapshot.pension.lsa,
+          p1Isa: balances.p1Isa + toIsa,
+          p1GiaValue: balances.p1GiaValue + toGia,
+          p1GiaBaseCost: balances.p1GiaBaseCost + toGia,
+        };
+      }
+    }
+
     const startingBalances = cloneBalances(balances);
 
     const evaluated = strategies.map((strategy) =>

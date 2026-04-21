@@ -89,7 +89,7 @@ function PensionBreakdownCell({ breakdown }: { breakdown?: PensionWithdrawalBrea
   return (
     <div className="space-y-2 rounded-xl border border-slate-100 bg-white/90 p-2 shadow-sm">
       <BreakdownField label="Gross" value={breakdown.grossAmount} />
-      <BreakdownField label="25% Tax Free" value={breakdown.pcls} />
+      {breakdown.pcls > 0 && <BreakdownField label="25% Tax Free" value={breakdown.pcls} />}
       <BreakdownField label="Taxable" value={breakdown.taxableAmount} />
       <BreakdownField label="Tax due" value={breakdown.taxDue} />
     </div>
