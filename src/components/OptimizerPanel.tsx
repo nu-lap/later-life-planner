@@ -660,13 +660,13 @@ export default function OptimizerPanel({ plannerState, result, proEnabled, onPro
           ) : null}
         </div>
 
-        {proEnabled && result.yearRecords.length > 5 && (
+        {result.yearRecords.length > 5 && (proEnabled || !!onProCta) && (
           <button
             type="button"
-            onClick={() => setShowAll((current) => !current)}
+            onClick={proEnabled ? () => setShowAll((current) => !current) : () => onProCta?.()}
             className="mt-4 text-sm font-semibold text-orange-600 hover:text-orange-700"
           >
-            {showAll ? '▲ Show fewer years' : '▼ Show all optimiser years'}
+            {proEnabled && showAll ? '▲ Show fewer years' : '▼ Show all optimiser years'}
           </button>
         )}
       </div>

@@ -516,4 +516,22 @@ describe('OptimizerPanel — Pro gating (proEnabled=false)', () => {
     expect(bodyRows[3]?.className).toContain('blur-[2px]');
     expect(bodyRows[4]?.className).toContain('blur-[2px]');
   });
+
+  test('clicking "Show all optimiser years" in non-Pro mode triggers onProCta', async () => {
+    const plannerState = paulAndLisaState();
+    const result = optimizeWithdrawals(plannerState);
+    const onProCta = vi.fn();
+
+    render(<OptimizerPanel plannerState={plannerState} result={result} proEnabled={false} onProCta={onProCta} />);
+
+    const showAllBtn = screen.getByRole('button', { name: '▼ Show all optimiser years' });
+    expect(showAllBtn).toBeInTheDocument();
+
+    await userEvent.click(showAllBtn);
+
+    expect(onProCta).toHaveBeenCalledTimes(1);
+    // Table should still show only 5 rows — the Pro dialog handles the upsell
+    const table = screen.getByTestId('optimizer-drawdown-breakdown-table');
+    expect(table.querySelectorAll('tbody tr').length).toBe(5);
+  });
 });
