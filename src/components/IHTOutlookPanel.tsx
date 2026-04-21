@@ -631,7 +631,7 @@ export default function IHTOutlookPanel({ state, projections }: IHTOutlookPanelP
                 <div className="space-y-1.5">
                   {s.upfrontPCLS > 0 && (
                     <div className="flex justify-between items-center text-sm">
-                      <span className="text-slate-600">Tax-free PCLS at retirement</span>
+                      <span className="text-slate-600">Tax-free lump sum</span>
                       <span className="font-bold text-violet-800">{formatCurrency(s.upfrontPCLS, true)}</span>
                     </div>
                   )}

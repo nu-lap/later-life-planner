@@ -264,13 +264,20 @@ export function calculateProjections(state: PlannerState): YearlyProjection[] {
           // for this calendar year — see `yearPensionLsa` above) so future p1 DC draws
           // become fully taxable once the allowance has been exhausted.
           p1LifetimePcls = Math.min(yearPensionLsa, p1LifetimePcls + pclsAmount);
-          // Reinvest: up to the annual ISA allowance into ISA, remainder into GIA
-          const toIsa = Math.min(pclsAmount, yearSnapshot.isaAnnualAllowance);
-          const toGia = pclsAmount - toIsa;
-          p1Isa += toIsa;
+          // Reinvest: up to the annual ISA allowance per person into ISA wrappers,
+          // remainder into GIA (joint for couple, p1 for single).
+          // Base cost = reinvested amount; no embedded gain at acquisition.
+          const p1ToIsa = Math.min(pclsAmount, yearSnapshot.isaAnnualAllowance);
+          const afterP1Isa = pclsAmount - p1ToIsa;
+          const p2ToIsa = (mode === 'couple' && afterP1Isa > 0)
+            ? Math.min(afterP1Isa, yearSnapshot.isaAnnualAllowance)
+            : 0;
+          const toGia = afterP1Isa - p2ToIsa;
+          p1Isa += p1ToIsa;
+          if (p2ToIsa > 0) p2Isa += p2ToIsa;
           if (toGia > 0) {
-            p1GiaV  += toGia;
-            p1GiaBC += toGia; // Base cost = reinvested amount; no embedded gain at acquisition
+            if (mode === 'couple') { jointGiaV += toGia; jointGiaBC += toGia; }
+            else                   { p1GiaV    += toGia; p1GiaBC    += toGia; }
           }
           p1PclsEvent = pclsAmount;
         }

@@ -1060,15 +1060,23 @@ function simulateStrategies(
         Math.max(0, pclsSnapshot.pension.lsa - balances.p1LifetimePcls),
       );
       if (pclsAmount > 0) {
-        const toIsa = Math.min(pclsAmount, pclsSnapshot.isaAnnualAllowance);
-        const toGia = pclsAmount - toIsa;
+        // Reinvest into ISA wrappers (£20k per person) then GIA for any remainder.
+        // Joint GIA for couple, p1 GIA for single; base cost = reinvested amount.
+        const p1ToIsa = Math.min(pclsAmount, pclsSnapshot.isaAnnualAllowance);
+        const afterP1Isa = pclsAmount - p1ToIsa;
+        const p2ToIsa = (state.mode === 'couple' && afterP1Isa > 0)
+          ? Math.min(afterP1Isa, pclsSnapshot.isaAnnualAllowance)
+          : 0;
+        const toGia = afterP1Isa - p2ToIsa;
         balances = {
           ...balances,
           p1Dc: balances.p1Dc - pclsAmount,
           p1LifetimePcls: pclsSnapshot.pension.lsa,
-          p1Isa: balances.p1Isa + toIsa,
-          p1GiaValue: balances.p1GiaValue + toGia,
-          p1GiaBaseCost: balances.p1GiaBaseCost + toGia,
+          p1Isa: balances.p1Isa + p1ToIsa,
+          p2Isa: balances.p2Isa + p2ToIsa,
+          ...(state.mode === 'couple'
+            ? { jointGiaValue: balances.jointGiaValue + toGia, jointGiaBaseCost: balances.jointGiaBaseCost + toGia }
+            : { p1GiaValue: balances.p1GiaValue + toGia, p1GiaBaseCost: balances.p1GiaBaseCost + toGia }),
         };
       }
     }
