@@ -963,7 +963,7 @@ export default function Step4Dashboard({ onBack }: Props) {
                   id: 'pcls-bed-isa' as DrawdownStrategy,
                   label: 'Tax-free lump sum + ISA transfer',
                   icon: '🚀',
-                  description: `Once your pension pot is large enough that any further growth would be fully taxable on withdrawal, it makes sense to take your entire tax-free entitlement now and move it into an ISA — where future growth is sheltered from tax. Each subsequent year, up to the ISA annual allowance is transferred from your investment account into your ISA wrapper.`,
+                  description: `Once your pension pot is large enough that any further growth would be fully taxable on withdrawal, it could make sense to take your entire tax-free entitlement now and move it into an ISA — where future growth is sheltered from tax. Each subsequent year, up to the ISA annual allowance is transferred from your investment account into your ISA wrapper.`,
                 },
               ] as const).map(option => {
                 const isActive = activeStrategy === option.id;
