@@ -43,7 +43,7 @@ describe('optimizer explain payload helpers', () => {
     expect(request.timelineFacts.planStartAges).toEqual([60, 60]);
     expect(request.timelineFacts.statePensionStartAges).toEqual([67]);
     expect(request.timelineFacts.dbPensionStartAges).toEqual([65]);
-    expect(request.optimizationResult.firstYearTax).toBe(0);
+    expect(request.optimizationResult.firstYearTax).toBeGreaterThan(0); // Bed & ISA CGT in year 1
     expect(request.optimizationResult).not.toHaveProperty('yearRecords');
     expect(serialized).not.toContain(plannerState.person1.name);
     expect(serialized).not.toContain(plannerState.person2.name);

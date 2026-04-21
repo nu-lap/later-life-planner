@@ -111,7 +111,11 @@ describe('optimizeWithdrawals', () => {
     expect(Math.abs((lastYear?.netIncome ?? 0) - (lastYear?.spendingTarget ?? 0))).toBeLessThan(1);
   });
 
-  test('harvests joint GIA within the annual exempt amount before touching ISA', () => {
+  test('automatically beds and ISAs joint GIA into ISA wrappers before the waterfall runs', () => {
+    // General Bed & ISA: any GIA held while ISA allowance is unused gets sheltered
+    // into the ISA wrapper before the waterfall strategy runs. The transfer
+    // crystallises embedded gains (triggering CGT) but future growth is tax-free.
+    // This test verifies the ISA is used for spending after the transfer.
     const base = bareCoupleState(60, 60);
     const state = withSpending({
       ...base,
@@ -135,9 +139,12 @@ describe('optimizeWithdrawals', () => {
 
     const firstYear = optimizeWithdrawals(state).yearRecords[0].winner;
 
-    expect(firstYear.drawdowns.jointGia).toBeCloseTo(5_000, 2);
-    expect(firstYear.drawdowns.p1Isa + firstYear.drawdowns.p2Isa).toBe(0);
-    expect(firstYear.cgtPaid).toBe(0);
+    // Bed & ISA shelters £20k from joint GIA into each person's ISA (£40k total).
+    // The waterfall then draws from ISA for spending — not from the GIA.
+    expect(firstYear.drawdowns.jointGia).toBe(0);
+    expect(firstYear.drawdowns.p1Isa + firstYear.drawdowns.p2Isa).toBeGreaterThan(0);
+    // 100% embedded gain on £40k Bed & ISA transfer → CGT is incurred.
+    expect(firstYear.cgtPaid).toBeGreaterThan(0);
   });
 
   test('uses spouse-aware ISA ordering for couple strategies', () => {
@@ -197,21 +204,35 @@ describe('optimizeWithdrawals', () => {
   });
 
   test('captures joint GIA taxable gains and attributable tax in the yearly breakdown', () => {
+    // Use spending that exceeds post-Bed-&-ISA ISA balance so the waterfall
+    // must also draw from joint GIA, ensuring the breakdown entry is populated.
+    // (Bed & ISA shelters £20k per person into ISA first; spending beyond that
+    //  comes from joint GIA and generates above-exempt CGT.)
     const base = bareCoupleState(60, 60);
     const state = withSpending({
       ...base,
-      jointGia: { enabled: true, totalValue: 50_000, baseCost: 0, growthRate: 0 },
+      jointGia: { enabled: true, totalValue: 200_000, baseCost: 0, growthRate: 0 },
       assumptions: { ...base.assumptions, investmentGrowth: 0 },
-    }, 10_000);
+    }, 60_000);
 
     const firstYear = optimizeWithdrawals(state).yearRecords[0];
     const jointGia = firstYear.drawdownBreakdown.joint?.gia;
 
+    // Bed & ISA creates £40k ISA from joint GIA. Spending (£60k+) exceeds
+    // that, so the waterfall also draws from joint GIA → breakdown is populated.
     expect(jointGia).toBeDefined();
     expect(jointGia?.grossAmount).toBeCloseTo(firstYear.winner.drawdowns.jointGia, 2);
+    // 100% embedded gain on all disposals (Bed & ISA + waterfall draw).
     expect(jointGia?.taxableAmount).toBeGreaterThan(0);
     expect(jointGia?.taxDue).toBeGreaterThan(0);
-    expect(jointGia?.taxDue).toBeCloseTo(firstYear.winner.cgtPaid, 2);
+    // After the fix, the breakdown GIA taxDue covers only waterfall draws.
+    // Bed & ISA also crystallises joint GIA gains (£40k at 100% gain), so
+    // total cgtPaid is higher than the breakdown GIA line alone.
+    // Waterfall draw taxDue must be strictly less than total cgtPaid because
+    // B&I gains push combined CGT above the waterfall-draw-only CGT.
+    expect(jointGia?.taxDue).toBeLessThan(firstYear.winner.cgtPaid);
+    // grossAmount on the breakdown must equal the waterfall joint GIA draw.
+    expect(jointGia?.grossAmount).toBeCloseTo(firstYear.winner.drawdowns.jointGia, 2);
   });
 
   test('inflates spending-floor targets from today money each year', () => {

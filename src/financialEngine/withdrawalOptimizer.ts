@@ -517,6 +517,64 @@ function attributeCapitalGainsTax(
   };
 }
 
+type GainAttribution = ReturnType<typeof attributeCapitalGainsTax>;
+
+type GainAttributionWithSources = GainAttribution & {
+  // Waterfall-draw-only attribution — used for the breakdown so that
+  // grossAmount/taxableAmount/taxDue on the GIA line items reconcile with
+  // the actual waterfall GIA disposal amounts.
+  drawdown: GainAttribution;
+  // Bed & ISA attribution — the remainder after removing the drawdown slice.
+  // Available for explicit breakdown surfacing without double-counting.
+  bedAndIsa: Pick<GainAttribution, 'personalTaxableGain' | 'personalTaxDue' | 'jointTaxableGain' | 'jointTaxDue'>;
+};
+
+/**
+ * Compute CGT attribution split between waterfall GIA draws and pre-waterfall
+ * Bed & ISA transfers. The top-level fields (personalTaxDue, jointTaxDue …)
+ * represent the combined total so that the annual exempt amount is applied once
+ * across all disposals. The nested `drawdown` fields attribute only the
+ * waterfall-driven portion, and `bedAndIsa` holds the remainder.
+ */
+function buildCapitalGainsAttribution(
+  drawdownPersonalGain: number,
+  bedAndIsaPersonalGain: number,
+  jointGainEach: number,         // waterfall joint-GIA gain per person
+  biJointGainEach: number,       // Bed & ISA joint-GIA gain per person
+  higherRate: boolean,
+  calendarYear: number,
+  exemptAmount: number,
+): GainAttributionWithSources {
+  const totalPersonalGain = drawdownPersonalGain + bedAndIsaPersonalGain;
+  const totalJointGainEach = jointGainEach + biJointGainEach;
+
+  const total = attributeCapitalGainsTax(
+    totalPersonalGain,
+    totalJointGainEach,
+    higherRate,
+    calendarYear,
+    exemptAmount,
+  );
+  const drawdown = attributeCapitalGainsTax(
+    drawdownPersonalGain,
+    jointGainEach,
+    higherRate,
+    calendarYear,
+    exemptAmount,
+  );
+
+  return {
+    ...total,
+    drawdown,
+    bedAndIsa: {
+      personalTaxableGain: Math.max(0, total.personalTaxableGain - drawdown.personalTaxableGain),
+      personalTaxDue:      Math.max(0, total.personalTaxDue      - drawdown.personalTaxDue),
+      jointTaxableGain:    Math.max(0, total.jointTaxableGain    - drawdown.jointTaxableGain),
+      jointTaxDue:         Math.max(0, total.jointTaxDue         - drawdown.jointTaxDue),
+    },
+  };
+}
+
 function buildYearDrawdownBreakdown(
   mode: PlannerState['mode'],
   drawdowns: DrawdownBreakdown,
@@ -581,6 +639,10 @@ function simulateCandidatePass(
   strategy: WaterfallConfig,
   grossTarget: number,
   policyOverride?: OptimizerPolicyOverride,
+  // Capital gains from Bed & ISA transfers that happened before this candidate pass.
+  // These are included in cgtPaid (and therefore totalTax) but excluded from
+  // withdrawalTax so Bed & ISA CGT does not incorrectly trigger the taxDominated flag.
+  bedIsaGains?: { p1IndivGain: number; p2IndivGain: number; jointGain: number },
 ): CandidateEvaluation {
   const mode = state.mode;
   const working = cloneBalances(balances);
@@ -640,6 +702,15 @@ function simulateCandidatePass(
 
   let p1CgtBudget = snapshot.cgt.exemptAmount;
   let p2CgtBudget = mode === 'couple' ? snapshot.cgt.exemptAmount : 0;
+
+  // Bed & ISA gains consume part of each person's annual CGT exempt amount.
+  // Reduce the waterfall budget accordingly so GIA draws within the exempt
+  // don't try to use an allowance that is already committed to Bed & ISA gains.
+  if (bedIsaGains) {
+    const biJointEach = mode === 'couple' ? bedIsaGains.jointGain / 2 : bedIsaGains.jointGain;
+    p1CgtBudget = Math.max(0, p1CgtBudget - bedIsaGains.p1IndivGain - biJointEach);
+    p2CgtBudget = Math.max(0, p2CgtBudget - bedIsaGains.p2IndivGain - biJointEach);
+  }
 
   if (remaining > 0 && working.p1GiaValue > 0) {
     const gainFrac = working.p1GiaValue > 0
@@ -836,29 +907,55 @@ function simulateCandidatePass(
 
   const p1HigherRate = isHigherRateTaxpayer(p1TaxableIncome, calendarYear);
   const p2HigherRate = mode === 'couple' && isHigherRateTaxpayer(p2TaxableIncome, calendarYear);
-  const p1Gains = attributeCapitalGainsTax(
+
+  // Bed & ISA gains are GIA disposals that happened before the waterfall.
+  // They are fixed regardless of strategy so they are added to the CGT base
+  // for this candidate pass. The joint Bed & ISA gains are split 50/50.
+  const biGains = bedIsaGains ?? { p1IndivGain: 0, p2IndivGain: 0, jointGain: 0 };
+  const jointBiGainEach = mode === 'couple' ? biGains.jointGain / 2 : biGains.jointGain;
+
+  // Combined CGT attribution: total = drawdown gains + Bed & ISA gains.
+  // The top-level fields (personalTaxDue/jointTaxDue) capture the combined CGT so
+  // the annual exempt amount is applied once across all disposals for the year.
+  // The nested `drawdown` sub-fields attribute only the waterfall-driven portion —
+  // used for the breakdown so that GIA grossAmount/taxableAmount/taxDue reconcile
+  // with actual waterfall GIA disposals.  The `bedAndIsa` fields hold the remainder.
+  const p1Gains = buildCapitalGainsAttribution(
     drawdowns.p1CapitalGain,
+    biGains.p1IndivGain,
     jointGainEach,
+    jointBiGainEach,
     p1HigherRate,
     calendarYear,
     snapshot.cgt.exemptAmount,
   );
   const p2Gains = mode === 'couple'
-    ? attributeCapitalGainsTax(
+    ? buildCapitalGainsAttribution(
       drawdowns.p2CapitalGain,
+      biGains.p2IndivGain,
       jointGainEach,
+      jointBiGainEach,
       p2HigherRate,
       calendarYear,
       snapshot.cgt.exemptAmount,
     )
-    : { personalTaxableGain: 0, personalTaxDue: 0, jointTaxableGain: 0, jointTaxDue: 0 };
+    : {
+      personalTaxableGain: 0, personalTaxDue: 0, jointTaxableGain: 0, jointTaxDue: 0,
+      drawdown: { personalTaxableGain: 0, personalTaxDue: 0, jointTaxableGain: 0, jointTaxDue: 0 },
+      bedAndIsa: { personalTaxableGain: 0, personalTaxDue: 0, jointTaxableGain: 0, jointTaxDue: 0 },
+    };
 
   const p1CgtPaid = p1Gains.personalTaxDue + p1Gains.jointTaxDue;
   const p2CgtPaid = p2Gains.personalTaxDue + p2Gains.jointTaxDue;
+  // Exclude Bed & ISA CGT from withdrawalTax — it is not driven by the waterfall
+  // strategy choice, and including it would incorrectly mark ISA-now strategies
+  // as taxDominated on years when GIA is sheltered but ISA is not drawn from.
+  const p1DrawdownCgtPaid = p1Gains.drawdown.personalTaxDue + p1Gains.drawdown.jointTaxDue;
+  const p2DrawdownCgtPaid = p2Gains.drawdown.personalTaxDue + p2Gains.drawdown.jointTaxDue;
   const incomeTax = p1IncomeTax + p2IncomeTax;
   const cgtPaid = p1CgtPaid + p2CgtPaid;
   const totalTax = incomeTax + cgtPaid;
-  const withdrawalTax = p1PensionTaxDue + p2PensionTaxDue + p1CgtPaid + p2CgtPaid;
+  const withdrawalTax = p1PensionTaxDue + p2PensionTaxDue + p1DrawdownCgtPaid + p2DrawdownCgtPaid;
   const remainingIsaCapacity = working.p1Isa + (mode === 'couple' ? working.p2Isa : 0);
   const totalDrawn = drawdowns.p1Dc + drawdowns.p1Isa + drawdowns.p1Gia + drawdowns.p1Cash
     + drawdowns.p2Dc + drawdowns.p2Isa + drawdowns.p2Gia + drawdowns.p2Cash + drawdowns.jointGia;
@@ -870,15 +967,19 @@ function simulateCandidatePass(
   const incomeGap = Math.max(0, spendingTarget - netIncome);
   const capitalGap = Math.max(0, capitalFloor - terminalAssets);
 
+  // Use drawdown-only CGT sub-fields for the breakdown so that each GIA line's
+  // grossAmount/taxableAmount/taxDue reconcile with the actual waterfall disposal.
+  // Bed & ISA CGT (p1Gains.bedAndIsa / p2Gains.bedAndIsa) is included in the
+  // total cgtPaid / p1CgtPaid above but is not attributed to waterfall GIA draws.
   const breakdown = buildYearDrawdownBreakdown(mode, drawdowns, {
     p1PensionTaxDue,
     p2PensionTaxDue,
-    p1GiaTaxableAmount: p1Gains.personalTaxableGain,
-    p1GiaTaxDue: p1Gains.personalTaxDue,
-    p2GiaTaxableAmount: p2Gains.personalTaxableGain,
-    p2GiaTaxDue: p2Gains.personalTaxDue,
-    jointGiaTaxableAmount: p1Gains.jointTaxableGain + p2Gains.jointTaxableGain,
-    jointGiaTaxDue: p1Gains.jointTaxDue + p2Gains.jointTaxDue,
+    p1GiaTaxableAmount: p1Gains.drawdown.personalTaxableGain,
+    p1GiaTaxDue: p1Gains.drawdown.personalTaxDue,
+    p2GiaTaxableAmount: p2Gains.drawdown.personalTaxableGain,
+    p2GiaTaxDue: p2Gains.drawdown.personalTaxDue,
+    jointGiaTaxableAmount: p1Gains.drawdown.jointTaxableGain + p2Gains.drawdown.jointTaxableGain,
+    jointGiaTaxDue: p1Gains.drawdown.jointTaxDue + p2Gains.drawdown.jointTaxDue,
   });
 
   return {
@@ -935,13 +1036,14 @@ function evaluateCandidate(
   balances: OptimizerBalances,
   strategy: WaterfallConfig,
   policyOverride?: OptimizerPolicyOverride,
+  bedIsaGains?: { p1IndivGain: number; p2IndivGain: number; jointGain: number },
 ): CandidateEvaluation {
   // Treat required spending as a net cash target. Gross withdrawals are
   // iteratively increased until the after-tax result matches the target or
   // the candidate runs out of assets.
   const spendingTarget = getSpendingTarget(state, row, policyOverride);
   let grossTarget = spendingTarget;
-  let evaluation = simulateCandidatePass(state, row, balances, strategy, grossTarget, policyOverride);
+  let evaluation = simulateCandidatePass(state, row, balances, strategy, grossTarget, policyOverride, bedIsaGains);
 
   for (let grossIter = 0; grossIter < GROSS_UP_MAX_ITERATIONS; grossIter += 1) {
     // Use income shortfall only — capital-floor/bequest gaps must not drive
@@ -956,7 +1058,7 @@ function evaluateCandidate(
       break;
     }
 
-    const nextEvaluation = simulateCandidatePass(state, row, balances, strategy, newTarget, policyOverride);
+    const nextEvaluation = simulateCandidatePass(state, row, balances, strategy, newTarget, policyOverride, bedIsaGains);
     const nextIncomeGap = Math.max(0, spendingTarget - nextEvaluation.result.netIncome);
     const noMeaningfulIncomeIncrease =
       nextEvaluation.result.totalIncome <= evaluation.result.totalIncome + FEASIBILITY_TOLERANCE_GBP;
@@ -1048,6 +1150,11 @@ function simulateStrategies(
     recordRuleProvenance(provenance, calendarYear);
     balances = applyGrowth(balances, growth);
 
+    // Track ISA allowance consumed by PCLS reinvestment in this year, so that
+    // the subsequent Bed & ISA pass only uses the remaining allowance.
+    let p1IsaAllowanceUsed = 0;
+    let p2IsaAllowanceUsed = 0;
+
     // PCLS + Bed & ISA: fire the crystallisation event at resolvedPclsAge.
     // Mirrors projectionEngine logic: happens after growth, before drawdown.
     // Moves the tax-free lump sum from DC into ISA (up to annual allowance)
@@ -1068,6 +1175,8 @@ function simulateStrategies(
           ? Math.min(afterP1Isa, pclsSnapshot.isaAnnualAllowance)
           : 0;
         const toGia = afterP1Isa - p2ToIsa;
+        p1IsaAllowanceUsed = p1ToIsa;
+        p2IsaAllowanceUsed = p2ToIsa;
         balances = {
           ...balances,
           p1Dc: balances.p1Dc - pclsAmount,
@@ -1081,17 +1190,72 @@ function simulateStrategies(
       }
     }
 
+    // General Bed & ISA — shelter GIA into ISA wrappers up to each person's
+    // remaining annual ISA allowance. Applies to ALL strategies every FI year.
+    // Holding GIA while ISA allowance is unused is suboptimal: GIA growth is
+    // subject to CGT; ISA growth is tax-free.
+    const yearSnapshot = getSnapshotForYear(calendarYear);
+    const bedIsaGains = { p1IndivGain: 0, p2IndivGain: 0, jointGain: 0 };
+
+    // p1 individual GIA → p1 ISA (remaining p1 allowance)
+    const p1BedIsaAllow = yearSnapshot.isaAnnualAllowance - p1IsaAllowanceUsed;
+    if (balances.p1GiaValue > 0 && p1BedIsaAllow > 0) {
+      const r = drawFromGIA(balances.p1GiaValue, balances.p1GiaBaseCost, Math.min(balances.p1GiaValue, p1BedIsaAllow));
+      if (r.drawn > 0) {
+        bedIsaGains.p1IndivGain += r.capitalGain;
+        balances = { ...balances, p1GiaValue: r.newValue, p1GiaBaseCost: r.newBaseCost, p1Isa: balances.p1Isa + r.drawn };
+        p1IsaAllowanceUsed += r.drawn;
+      }
+    }
+
+    // p2 individual GIA → p2 ISA (remaining p2 allowance, couple only)
+    if (state.mode === 'couple') {
+      const p2BedIsaAllow = yearSnapshot.isaAnnualAllowance - p2IsaAllowanceUsed;
+      if (balances.p2GiaValue > 0 && p2BedIsaAllow > 0) {
+        const r = drawFromGIA(balances.p2GiaValue, balances.p2GiaBaseCost, Math.min(balances.p2GiaValue, p2BedIsaAllow));
+        if (r.drawn > 0) {
+          bedIsaGains.p2IndivGain += r.capitalGain;
+          balances = { ...balances, p2GiaValue: r.newValue, p2GiaBaseCost: r.newBaseCost, p2Isa: balances.p2Isa + r.drawn };
+          p2IsaAllowanceUsed += r.drawn;
+        }
+      }
+    }
+
+    // joint GIA → p1 ISA (remaining p1 allowance)
+    const p1JointAllow = yearSnapshot.isaAnnualAllowance - p1IsaAllowanceUsed;
+    if (balances.jointGiaValue > 0 && p1JointAllow > 0) {
+      const r = drawFromGIA(balances.jointGiaValue, balances.jointGiaBaseCost, Math.min(balances.jointGiaValue, p1JointAllow));
+      if (r.drawn > 0) {
+        bedIsaGains.jointGain += r.capitalGain;
+        balances = { ...balances, jointGiaValue: r.newValue, jointGiaBaseCost: r.newBaseCost, p1Isa: balances.p1Isa + r.drawn };
+        p1IsaAllowanceUsed += r.drawn;
+      }
+    }
+
+    // joint GIA → p2 ISA (remaining p2 allowance, couple only)
+    if (state.mode === 'couple') {
+      const p2JointAllow = yearSnapshot.isaAnnualAllowance - p2IsaAllowanceUsed;
+      if (balances.jointGiaValue > 0 && p2JointAllow > 0) {
+        const r = drawFromGIA(balances.jointGiaValue, balances.jointGiaBaseCost, Math.min(balances.jointGiaValue, p2JointAllow));
+        if (r.drawn > 0) {
+          bedIsaGains.jointGain += r.capitalGain;
+          balances = { ...balances, jointGiaValue: r.newValue, jointGiaBaseCost: r.newBaseCost, p2Isa: balances.p2Isa + r.drawn };
+          p2IsaAllowanceUsed += r.drawn;
+        }
+      }
+    }
+
     const startingBalances = cloneBalances(balances);
 
     const evaluated = strategies.map((strategy) =>
-      evaluateCandidate(state, row, balances, strategy, strategySelector === 'optimized' ? policyOverride : undefined),
+      evaluateCandidate(state, row, balances, strategy, strategySelector === 'optimized' ? policyOverride : undefined, bedIsaGains),
     );
     // Reuse the baseline candidate when it was already evaluated; only recompute
     // it when candidate filtering excluded the baseline strategy.
     const baselineStrategyIndex = strategies.indexOf(BASELINE_STRATEGY);
     const baselineResult = baselineStrategyIndex >= 0
       ? evaluated[baselineStrategyIndex].result
-      : evaluateCandidate(state, row, startingBalances, BASELINE_STRATEGY).result;
+      : evaluateCandidate(state, row, startingBalances, BASELINE_STRATEGY, undefined, bedIsaGains).result;
     const winner = strategySelector === 'baseline'
       ? evaluated[0]
       : selectWinner(evaluated);

@@ -59,15 +59,15 @@ function toChartData(p: YearlyProjection) {
 }
 
 const BARS = [
-  { key: 'statePension',  label: 'State Pension',     color: '#2563eb' },
-  { key: 'dbPension',     label: 'DB Pension',        color: '#7c3aed' },
-  { key: 'workIncome',    label: 'Work / Consulting', color: '#059669' },
-  { key: 'propertyRent',  label: 'Rental Income',     color: '#0891b2' },
-  { key: 'otherIncome',   label: 'Other Income',      color: '#06b6d4' },
-  { key: 'isaDrawdown',   label: 'ISA',               color: '#10b981' },
-  { key: 'giaDrawdown',   label: 'Investments (GIA)', color: '#84cc16' },
-  { key: 'cashDrawdown',  label: 'Cash Savings',      color: '#f59e0b' },
-  { key: 'dcDrawdown',    label: 'DC Pension',        color: '#f97316' },
+  { key: 'statePension',  label: 'State Pension',     color: '#2563eb' }, // blue
+  { key: 'dbPension',     label: 'DB Pension',        color: '#7c3aed' }, // purple
+  { key: 'workIncome',    label: 'Work / Consulting', color: '#059669' }, // dark emerald
+  { key: 'propertyRent',  label: 'Rental Income',     color: '#0891b2' }, // cyan-700
+  { key: 'otherIncome',   label: 'Other Income',      color: '#f43f5e' }, // rose (was cyan-500, too close to rental)
+  { key: 'isaDrawdown',   label: 'ISA',               color: '#10b981' }, // emerald
+  { key: 'giaDrawdown',   label: 'Investments (GIA)', color: '#8b5cf6' }, // violet (was lime, too close to emerald)
+  { key: 'cashDrawdown',  label: 'Cash Savings',      color: '#f59e0b' }, // amber
+  { key: 'dcDrawdown',    label: 'DC Pension',        color: '#ef4444' }, // red (was orange, too close to amber)
 ];
 
 const TAX_COLOR      = '#94a3b8'; // slate-400

@@ -142,21 +142,26 @@ describe('Step 1 — DC within personal allowance', () => {
 // ─── Step 2: GIA within CGT budget ────────────────────────────────────────────
 
 describe('Step 2 — GIA within CGT budget', () => {
-  test('GIA drawn before ISA when spending is within CGT budget', () => {
-    // GIA £20k / BC £10k (50% gain fraction) → maxForCgt = 3,000/0.5 = £6,000
-    // ISA £100k. Spending £5,000 — fully covered by GIA
+  test('Bed & ISA shelters GIA into ISA wrapper before the waterfall runs', () => {
+    // General Bed & ISA: GIA is sold and re-bought inside the ISA each year up to
+    // the annual ISA allowance (£20k). The waterfall then draws from ISA for spending.
+    // GIA £20k / BC £10k (50% gain fraction). ISA £100k. Spending £5,000.
     const state = isaAndGiaState(65, 100_000, 20_000, 10_000, 5_000);
     const row   = calculateProjections(state)[0];
-    expect(row.p1GiaDrawdown).toBeCloseTo(5_000, 0);
-    expect(row.p1IsaDrawdown).toBeCloseTo(0, 0);
+    // All GIA is sheltered into ISA via Bed & ISA — no waterfall draw from GIA.
+    expect(row.p1GiaDrawdown).toBeCloseTo(0, 0);
+    // ISA is drawn for spending (grossed up for B&I CGT).
+    expect(row.p1IsaDrawdown).toBeGreaterThan(0);
+    // B&I triggers CGT: gain = £10k, exempt = £3k → CGT on £7k.
+    expect(row.totalCgtPaid).toBeGreaterThan(0);
   });
 
-  test('GIA drawn first, ISA drawn for remainder beyond CGT budget', () => {
-    // GIA max CGT draw = £6,000; spending = £15,000 → GIA £6k + ISA £9k
+  test('After Bed & ISA, all spending is covered by ISA even when spending exceeds former CGT budget', () => {
+    // GIA £20k fully sheltered via B&I; ISA absorbs all spending.
     const state = isaAndGiaState(65, 100_000, 20_000, 10_000, 15_000);
     const row   = calculateProjections(state)[0];
-    expect(row.p1GiaDrawdown).toBeCloseTo(6_000, -1);
-    expect(row.p1IsaDrawdown).toBeCloseTo(9_000, -1);
+    expect(row.p1GiaDrawdown).toBeCloseTo(0, 0);
+    expect(row.p1IsaDrawdown).toBeGreaterThan(0);
   });
 
   test('no GIA drawn before fiAge', () => {
@@ -167,12 +172,14 @@ describe('Step 2 — GIA within CGT budget', () => {
     preFi.forEach(p => expect(p.p1GiaDrawdown).toBe(0));
   });
 
-  test('CGT paid = 0 when all GIA gain ≤ annual exempt', () => {
-    // GIA 50% gain fraction, spending £5,000 → gain = 5,000 * 0.5 = £2,500 < £3,000 exempt
-    const state = isaAndGiaState(65, 0, 20_000, 10_000, 5_000);
+  test('CGT paid = 0 when GIA gain fraction is low enough to stay within annual exempt', () => {
+    // GIA £20k / BC £18k (10% gain fraction) → full B&I transfer → gain = £2,000 < £3,000 exempt.
+    // DC = 0, ISA = 0 initially (created by Bed & ISA transfer).
+    const state = isaAndGiaState(65, 0, 20_000, 18_000, 5_000);
     const row   = calculateProjections(state)[0];
     expect(row.totalCgtPaid).toBe(0);
-    expect(row.p1GiaDrawdown).toBeGreaterThan(0);
+    // ISA drawn for spending (GIA was sheltered into ISA).
+    expect(row.p1IsaDrawdown).toBeGreaterThan(0);
   });
 
   test('CGT paid > 0 when GIA gain exceeds annual exempt (step 4)', () => {
@@ -187,11 +194,10 @@ describe('Step 2 — GIA within CGT budget', () => {
 // ─── Step 3: ISA ──────────────────────────────────────────────────────────────
 
 describe('Step 3 — ISA', () => {
-  test('ISA drawn after DC step-1 and GIA step-2', () => {
-    // DC £200k, GIA £10k/BC £5k (50% gain), ISA £100k, spending £25,000
-    // Step 1: DC up to PA headroom (£16,760)
-    // Step 2: GIA up to CGT budget (£6,000); remaining = 25,000 - 16,760 - 6,000 = 2,240
-    // Step 3: ISA £2,240
+  test('ISA drawn after DC step-1; Bed & ISA shelters GIA before the waterfall', () => {
+    // DC £200k, GIA £10k/BC £5k (50% gain), ISA £100k, spending £25,000.
+    // Bed & ISA shelters GIA into ISA before the waterfall runs.
+    // Waterfall: Step 1 draws DC within PA headroom; Step 3 draws ISA for the rest.
     const base = withSpending(bareState(65), 25_000);
     const state: PlannerState = {
       ...base,
@@ -210,7 +216,8 @@ describe('Step 3 — ISA', () => {
     };
     const row = calculateProjections(state)[0];
     expect(row.p1DcDrawdown).toBeGreaterThan(0);
-    expect(row.p1GiaDrawdown).toBeGreaterThan(0);
+    // GIA is fully sheltered into ISA via Bed & ISA; not drawn by the waterfall.
+    expect(row.p1GiaDrawdown).toBe(0);
     expect(row.p1IsaDrawdown).toBeGreaterThan(0);
   });
 

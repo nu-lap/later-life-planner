@@ -69,11 +69,11 @@ export default function AssetChart({ projections }: Props) {
       <AreaChart data={data} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
         <defs>
           {[
-            { id: 'isaGrad',       color: '#10b981' },
-            { id: 'giaGrad',       color: '#84cc16' },
-            { id: 'cashGrad',      color: '#f59e0b' },
-            { id: 'dcGrad',        color: '#ef4444' },
-            { id: 'careGrad',      color: '#0d9488' },
+            { id: 'isaGrad',       color: '#10b981' }, // emerald  – ISA
+            { id: 'giaGrad',       color: '#8b5cf6' }, // violet   – Investments (was lime, too close to emerald)
+            { id: 'cashGrad',      color: '#f59e0b' }, // amber    – Cash
+            { id: 'dcGrad',        color: '#ef4444' }, // red      – DC Pension
+            { id: 'careGrad',      color: '#06b6d4' }, // cyan     – Care Reserve (was teal, too close to emerald)
           ].map(({ id, color }) => (
             <linearGradient key={id} id={id} x1="0" y1="0" x2="0" y2="1">
               <stop offset="5%"  stopColor={color} stopOpacity={0.3} />
@@ -93,10 +93,10 @@ export default function AssetChart({ projections }: Props) {
         <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '12px' }} iconType="square" iconSize={10} />
 
         {hasISA         && <Area type="monotone" dataKey="isaBalance"  name="ISA"          stroke="#10b981" fill="url(#isaGrad)"  strokeWidth={2} />}
-        {hasGIA         && <Area type="monotone" dataKey="giaBalance"  name="Investments"  stroke="#84cc16" fill="url(#giaGrad)"  strokeWidth={2} />}
+        {hasGIA         && <Area type="monotone" dataKey="giaBalance"  name="Investments"  stroke="#8b5cf6" fill="url(#giaGrad)"  strokeWidth={2} />}
         {hasCash        && <Area type="monotone" dataKey="cashBalance" name="Cash"         stroke="#f59e0b" fill="url(#cashGrad)" strokeWidth={2} />}
         {hasDC          && <Area type="monotone" dataKey="dcBalance"   name="DC Pension"   stroke="#ef4444" fill="url(#dcGrad)"   strokeWidth={2} />}
-        {hasCareReserve && <Area type="monotone" dataKey="careReserve" name="Care Reserve" stroke="#0d9488" fill="url(#careGrad)" strokeWidth={2} strokeDasharray="5 3" />}
+        {hasCareReserve && <Area type="monotone" dataKey="careReserve" name="Care Reserve" stroke="#06b6d4" fill="url(#careGrad)" strokeWidth={2} strokeDasharray="5 3" />}
         <Area
           type="monotone"
           dataKey="totalAssets"
