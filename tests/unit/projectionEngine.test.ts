@@ -627,3 +627,69 @@ describe('calculateProjections — pcls-bed-isa: CGT on Bed & ISA gains', () => 
   });
 });
 
+describe('calculateProjections — pcls-bed-isa: couple-mode crystallisation reinvestment', () => {
+  /** Build a couple state for pcls-bed-isa crystallisation tests (zero spending, zero growth). */
+  function couplePclsState(p1DcValue: number): PlannerState {
+    const base = bareCoupleState(55, 55);
+    return withSpending({
+      ...base,
+      fiAge: 55,
+      drawdownStrategy: 'pcls-bed-isa',
+      assumptions: { ...base.assumptions, investmentGrowth: 0, inflation: 0, lifeExpectancy: 85 },
+      person1: {
+        ...base.person1,
+        incomeSources: {
+          ...base.person1.incomeSources,
+          dcPension: { enabled: true, totalValue: p1DcValue, growthRate: 0 },
+        },
+      },
+    }, 0);
+  }
+
+  test('PCLS proceeds fill p1 ISA then p2 ISA up to one annual allowance each, remainder to joint GIA', () => {
+    // DC pot £500k → PCLS = 25% = £125k
+    // p1 ISA gets £20k (full allowance), p2 ISA gets £20k (full allowance), joint GIA gets £85k
+    const state = couplePclsState(500_000);
+    const projections = calculateProjections(state);
+    const eventRow = projections.find(p => p.p1PclsEvent > 0)!;
+    expect(eventRow).toBeDefined();
+    expect(eventRow.p1IsaBalance).toBeCloseTo(20_000, -2);
+    expect(eventRow.p2IsaBalance).toBeCloseTo(20_000, -2);
+    expect(eventRow.jointGiaValue).toBeCloseTo(85_000, -2);
+  });
+
+  test('PCLS proceeds fill p1 ISA partially when PCLS < annual allowance, p2 ISA receives nothing, no joint GIA', () => {
+    // DC pot £60k → PCLS = 25% = £15k — below the £20k ISA annual allowance
+    // p1 ISA gets full £15k, p2 ISA = 0, joint GIA = 0
+    const state = couplePclsState(60_000);
+    const projections = calculateProjections(state);
+    const eventRow = projections.find(p => p.p1PclsEvent > 0)!;
+    expect(eventRow).toBeDefined();
+    expect(eventRow.p1IsaBalance).toBeCloseTo(15_000, -2);
+    expect(eventRow.p2IsaBalance).toBeCloseTo(0, -2);
+    expect(eventRow.jointGiaValue).toBeCloseTo(0, -2);
+  });
+
+  test('neither p1 nor p2 ISA balance exceeds annual allowance in crystallisation year (no ISA over-subscription)', () => {
+    // DC pot £500k → PCLS = £125k. PCLS uses full £20k capacity for both p1 and p2.
+    // The subsequent Bed & ISA transfer for joint GIA (which would normally use p2's
+    // full £20k allowance) must be suppressed because the capacity is already exhausted.
+    const state = couplePclsState(500_000);
+    const projections = calculateProjections(state);
+    const eventRow = projections.find(p => p.p1PclsEvent > 0)!;
+    expect(eventRow).toBeDefined();
+    // ISA annual allowance is £20,000; neither balance should exceed it in this year
+    expect(eventRow.p1IsaBalance).toBeLessThanOrEqual(20_000 + 1);
+    expect(eventRow.p2IsaBalance).toBeLessThanOrEqual(20_000 + 1);
+  });
+
+  test('joint GIA base cost equals joint GIA value on crystallisation year (no embedded gain)', () => {
+    // PCLS proceeds reinvested into GIA have base cost = reinvested amount (no gain at acquisition)
+    const state = couplePclsState(500_000);
+    const projections = calculateProjections(state);
+    const eventRow = projections.find(p => p.p1PclsEvent > 0)!;
+    expect(eventRow).toBeDefined();
+    expect(eventRow.jointGiaValue).toBeCloseTo(eventRow.jointGiaBaseCost, -2);
+  });
+});
+
