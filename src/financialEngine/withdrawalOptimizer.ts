@@ -517,6 +517,64 @@ function attributeCapitalGainsTax(
   };
 }
 
+type GainAttribution = ReturnType<typeof attributeCapitalGainsTax>;
+
+type GainAttributionWithSources = GainAttribution & {
+  // Waterfall-draw-only attribution — used for the breakdown so that
+  // grossAmount/taxableAmount/taxDue on the GIA line items reconcile with
+  // the actual waterfall GIA disposal amounts.
+  drawdown: GainAttribution;
+  // Bed & ISA attribution — the remainder after removing the drawdown slice.
+  // Available for explicit breakdown surfacing without double-counting.
+  bedAndIsa: Pick<GainAttribution, 'personalTaxableGain' | 'personalTaxDue' | 'jointTaxableGain' | 'jointTaxDue'>;
+};
+
+/**
+ * Compute CGT attribution split between waterfall GIA draws and pre-waterfall
+ * Bed & ISA transfers. The top-level fields (personalTaxDue, jointTaxDue …)
+ * represent the combined total so that the annual exempt amount is applied once
+ * across all disposals. The nested `drawdown` fields attribute only the
+ * waterfall-driven portion, and `bedAndIsa` holds the remainder.
+ */
+function buildCapitalGainsAttribution(
+  drawdownPersonalGain: number,
+  bedAndIsaPersonalGain: number,
+  jointGainEach: number,         // waterfall joint-GIA gain per person
+  biJointGainEach: number,       // Bed & ISA joint-GIA gain per person
+  higherRate: boolean,
+  calendarYear: number,
+  exemptAmount: number,
+): GainAttributionWithSources {
+  const totalPersonalGain = drawdownPersonalGain + bedAndIsaPersonalGain;
+  const totalJointGainEach = jointGainEach + biJointGainEach;
+
+  const total = attributeCapitalGainsTax(
+    totalPersonalGain,
+    totalJointGainEach,
+    higherRate,
+    calendarYear,
+    exemptAmount,
+  );
+  const drawdown = attributeCapitalGainsTax(
+    drawdownPersonalGain,
+    jointGainEach,
+    higherRate,
+    calendarYear,
+    exemptAmount,
+  );
+
+  return {
+    ...total,
+    drawdown,
+    bedAndIsa: {
+      personalTaxableGain: Math.max(0, total.personalTaxableGain - drawdown.personalTaxableGain),
+      personalTaxDue:      Math.max(0, total.personalTaxDue      - drawdown.personalTaxDue),
+      jointTaxableGain:    Math.max(0, total.jointTaxableGain    - drawdown.jointTaxableGain),
+      jointTaxDue:         Math.max(0, total.jointTaxDue         - drawdown.jointTaxDue),
+    },
+  };
+}
+
 function buildYearDrawdownBreakdown(
   mode: PlannerState['mode'],
   drawdowns: DrawdownBreakdown,
@@ -856,56 +914,47 @@ function simulateCandidatePass(
   const biGains = bedIsaGains ?? { p1IndivGain: 0, p2IndivGain: 0, jointGain: 0 };
   const jointBiGainEach = mode === 'couple' ? biGains.jointGain / 2 : biGains.jointGain;
 
-  // Total CGT: drawdown gains + Bed & ISA gains combined. Using the full exempt
-  // amount on the combined total is the correct treatment (one exemption per person
-  // per year covers all GIA disposals).
-  const p1Gains = attributeCapitalGainsTax(
-    drawdowns.p1CapitalGain + biGains.p1IndivGain,
-    jointGainEach + jointBiGainEach,
+  // Combined CGT attribution: total = drawdown gains + Bed & ISA gains.
+  // The top-level fields (personalTaxDue/jointTaxDue) capture the combined CGT so
+  // the annual exempt amount is applied once across all disposals for the year.
+  // The nested `drawdown` sub-fields attribute only the waterfall-driven portion —
+  // used for the breakdown so that GIA grossAmount/taxableAmount/taxDue reconcile
+  // with actual waterfall GIA disposals.  The `bedAndIsa` fields hold the remainder.
+  const p1Gains = buildCapitalGainsAttribution(
+    drawdowns.p1CapitalGain,
+    biGains.p1IndivGain,
+    jointGainEach,
+    jointBiGainEach,
     p1HigherRate,
     calendarYear,
     snapshot.cgt.exemptAmount,
   );
   const p2Gains = mode === 'couple'
-    ? attributeCapitalGainsTax(
-      drawdowns.p2CapitalGain + biGains.p2IndivGain,
-      jointGainEach + jointBiGainEach,
-      p2HigherRate,
-      calendarYear,
-      snapshot.cgt.exemptAmount,
-    )
-    : { personalTaxableGain: 0, personalTaxDue: 0, jointTaxableGain: 0, jointTaxDue: 0 };
-
-  // Drawdown-only CGT: used solely for the taxDominated heuristic. Bed & ISA
-  // CGT should not trigger taxDominated because the transfer improves future
-  // tax efficiency regardless of which withdrawal strategy is active.
-  const p1DrawdownGains = attributeCapitalGainsTax(
-    drawdowns.p1CapitalGain,
-    jointGainEach,
-    p1HigherRate,
-    calendarYear,
-    snapshot.cgt.exemptAmount,
-  );
-  const p2DrawdownGains = mode === 'couple'
-    ? attributeCapitalGainsTax(
+    ? buildCapitalGainsAttribution(
       drawdowns.p2CapitalGain,
+      biGains.p2IndivGain,
       jointGainEach,
+      jointBiGainEach,
       p2HigherRate,
       calendarYear,
       snapshot.cgt.exemptAmount,
     )
-    : { personalTaxableGain: 0, personalTaxDue: 0, jointTaxableGain: 0, jointTaxDue: 0 };
+    : {
+      personalTaxableGain: 0, personalTaxDue: 0, jointTaxableGain: 0, jointTaxDue: 0,
+      drawdown: { personalTaxableGain: 0, personalTaxDue: 0, jointTaxableGain: 0, jointTaxDue: 0 },
+      bedAndIsa: { personalTaxableGain: 0, personalTaxDue: 0, jointTaxableGain: 0, jointTaxDue: 0 },
+    };
 
   const p1CgtPaid = p1Gains.personalTaxDue + p1Gains.jointTaxDue;
   const p2CgtPaid = p2Gains.personalTaxDue + p2Gains.jointTaxDue;
-  const p1DrawdownCgtPaid = p1DrawdownGains.personalTaxDue + p1DrawdownGains.jointTaxDue;
-  const p2DrawdownCgtPaid = p2DrawdownGains.personalTaxDue + p2DrawdownGains.jointTaxDue;
-  const incomeTax = p1IncomeTax + p2IncomeTax;
-  const cgtPaid = p1CgtPaid + p2CgtPaid;
-  const totalTax = incomeTax + cgtPaid;
   // Exclude Bed & ISA CGT from withdrawalTax — it is not driven by the waterfall
   // strategy choice, and including it would incorrectly mark ISA-now strategies
   // as taxDominated on years when GIA is sheltered but ISA is not drawn from.
+  const p1DrawdownCgtPaid = p1Gains.drawdown.personalTaxDue + p1Gains.drawdown.jointTaxDue;
+  const p2DrawdownCgtPaid = p2Gains.drawdown.personalTaxDue + p2Gains.drawdown.jointTaxDue;
+  const incomeTax = p1IncomeTax + p2IncomeTax;
+  const cgtPaid = p1CgtPaid + p2CgtPaid;
+  const totalTax = incomeTax + cgtPaid;
   const withdrawalTax = p1PensionTaxDue + p2PensionTaxDue + p1DrawdownCgtPaid + p2DrawdownCgtPaid;
   const remainingIsaCapacity = working.p1Isa + (mode === 'couple' ? working.p2Isa : 0);
   const totalDrawn = drawdowns.p1Dc + drawdowns.p1Isa + drawdowns.p1Gia + drawdowns.p1Cash
@@ -918,15 +967,19 @@ function simulateCandidatePass(
   const incomeGap = Math.max(0, spendingTarget - netIncome);
   const capitalGap = Math.max(0, capitalFloor - terminalAssets);
 
+  // Use drawdown-only CGT sub-fields for the breakdown so that each GIA line's
+  // grossAmount/taxableAmount/taxDue reconcile with the actual waterfall disposal.
+  // Bed & ISA CGT (p1Gains.bedAndIsa / p2Gains.bedAndIsa) is included in the
+  // total cgtPaid / p1CgtPaid above but is not attributed to waterfall GIA draws.
   const breakdown = buildYearDrawdownBreakdown(mode, drawdowns, {
     p1PensionTaxDue,
     p2PensionTaxDue,
-    p1GiaTaxableAmount: p1Gains.personalTaxableGain,
-    p1GiaTaxDue: p1Gains.personalTaxDue,
-    p2GiaTaxableAmount: p2Gains.personalTaxableGain,
-    p2GiaTaxDue: p2Gains.personalTaxDue,
-    jointGiaTaxableAmount: p1Gains.jointTaxableGain + p2Gains.jointTaxableGain,
-    jointGiaTaxDue: p1Gains.jointTaxDue + p2Gains.jointTaxDue,
+    p1GiaTaxableAmount: p1Gains.drawdown.personalTaxableGain,
+    p1GiaTaxDue: p1Gains.drawdown.personalTaxDue,
+    p2GiaTaxableAmount: p2Gains.drawdown.personalTaxableGain,
+    p2GiaTaxDue: p2Gains.drawdown.personalTaxDue,
+    jointGiaTaxableAmount: p1Gains.drawdown.jointTaxableGain + p2Gains.drawdown.jointTaxableGain,
+    jointGiaTaxDue: p1Gains.drawdown.jointTaxDue + p2Gains.drawdown.jointTaxDue,
   });
 
   return {

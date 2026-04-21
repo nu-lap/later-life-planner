@@ -470,8 +470,14 @@ export function calculateProjections(state: PlannerState): YearlyProjection[] {
         // Per-person budgets are tracked so that joint GIA gains (split 50/50) don't
         // push either person above their exempt amount — individual GIA is drawn first,
         // then joint GIA is capped by whichever person has less budget remaining.
-        let p1CgBudget = CGT.ANNUAL_EXEMPT;
-        let p2CgBudget = mode === 'couple' ? CGT.ANNUAL_EXEMPT : 0;
+        // Bed & ISA transfers earlier in the year may have already consumed part of
+        // each person's annual CGT exempt amount — subtract those gains so the
+        // waterfall doesn't over-use an allowance that is already committed.
+        const biJointGainEach = p2BedIsaCg / 2;
+        let p1CgBudget = Math.max(0, CGT.ANNUAL_EXEMPT - p1BedIsaCg - biJointGainEach);
+        let p2CgBudget = mode === 'couple'
+          ? Math.max(0, CGT.ANNUAL_EXEMPT - p2IndivBedIsaCg - biJointGainEach)
+          : 0;
         if (remaining > 0 && p1GiaV > 0 && householdFiStarted) {
           const gainFrac = p1GiaV > p1GiaBC ? (p1GiaV - p1GiaBC) / p1GiaV : 0;
           const maxForCgt = gainFrac > 0 ? p1CgBudget / gainFrac : p1GiaV;

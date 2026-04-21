@@ -225,8 +225,14 @@ describe('optimizeWithdrawals', () => {
     // 100% embedded gain on all disposals (Bed & ISA + waterfall draw).
     expect(jointGia?.taxableAmount).toBeGreaterThan(0);
     expect(jointGia?.taxDue).toBeGreaterThan(0);
-    // All CGT comes from joint GIA (no individual GIA / DC in this scenario).
-    expect(jointGia?.taxDue).toBeCloseTo(firstYear.winner.cgtPaid, 2);
+    // After the fix, the breakdown GIA taxDue covers only waterfall draws.
+    // Bed & ISA also crystallises joint GIA gains (£40k at 100% gain), so
+    // total cgtPaid is higher than the breakdown GIA line alone.
+    // Waterfall draw taxDue must be strictly less than total cgtPaid because
+    // B&I gains push combined CGT above the waterfall-draw-only CGT.
+    expect(jointGia?.taxDue).toBeLessThan(firstYear.winner.cgtPaid);
+    // grossAmount on the breakdown must equal the waterfall joint GIA draw.
+    expect(jointGia?.grossAmount).toBeCloseTo(firstYear.winner.drawdowns.jointGia, 2);
   });
 
   test('inflates spending-floor targets from today money each year', () => {
