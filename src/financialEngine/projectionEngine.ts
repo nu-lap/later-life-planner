@@ -127,14 +127,15 @@ export function calculateProjections(state: PlannerState): YearlyProjection[] {
   const drawdownStrategy = state.drawdownStrategy ?? 'standard-ufpls';
   const isPclsBedIsa = drawdownStrategy === 'pcls-bed-isa';
 
-  // Resolve the PCLS crystallisation age: user-specified (≥ NMPA), else fiAge.
+  // Resolve the PCLS crystallisation age: user-specified (≥ current age and NMPA), else fiAge.
   // NMPA is 55 before calendar year 2028, rising to 57 from 2028 onwards.
   const rawPclsAge = state.pclsAge ?? fiAge;
   const pclsCalendarYear = CURRENT_TAX_YEAR_START + (rawPclsAge - person1.currentAge);
   const nmpa = pclsCalendarYear >= PENSION_RULES.NMPA_RISE_YEAR
     ? PENSION_RULES.MIN_ACCESS_AGE_POST_2028
     : PENSION_RULES.MIN_ACCESS_AGE;
-  const resolvedPclsAge = Math.max(rawPclsAge, nmpa);
+  // Prevent the crystallisation event from being scheduled in the past.
+  const resolvedPclsAge = Math.max(rawPclsAge, nmpa, person1.currentAge);
 
   // ── Initialise asset balances ──────────────────────────────────────────────
   let p1Isa   = person1.assets.isaInvestments.enabled     ? person1.assets.isaInvestments.totalValue     : 0;
@@ -254,11 +255,14 @@ export function calculateProjections(state: PlannerState): YearlyProjection[] {
     if (isPclsBedIsa) {
       // ── PCLS crystallisation at resolvedPclsAge ───────────────────────
       if (p1Age === resolvedPclsAge && p1Dc > 0 && dc1.enabled) {
-        const pclsAmount = Math.min(p1Dc * yearUfplsFrac, yearPensionLsa);
+        const remainingPensionLsa = Math.max(0, yearPensionLsa - p1LifetimePcls);
+        const pclsAmount = Math.min(p1Dc * yearUfplsFrac, remainingPensionLsa);
         if (pclsAmount > 0) {
           p1Dc -= pclsAmount;
-          // Exhaust the LSA so all future p1 DC draws are 100% taxable (no UFPLS TF%)
-          p1LifetimePcls = yearPensionLsa;
+          // Advance the lifetime PCLS usage by the amount actually crystallised,
+          // clamping at the year's LSA so future p1 DC draws become fully taxable
+          // once the allowance has been exhausted.
+          p1LifetimePcls = Math.min(yearPensionLsa, p1LifetimePcls + pclsAmount);
           // Reinvest: up to the annual ISA allowance into ISA, remainder into GIA
           const toIsa = Math.min(pclsAmount, yearSnapshot.isaAnnualAllowance);
           const toGia = pclsAmount - toIsa;
@@ -550,8 +554,11 @@ export function calculateProjections(state: PlannerState): YearlyProjection[] {
       p1IncomeTax      = calcIncomeTax(p1TaxBasis, calendarYear);
       p2IncomeTax      = calcIncomeTax(p2TaxBasis, calendarYear);
       incomeTaxPaid    = p1IncomeTax + p2IncomeTax;
-      p1TotalCG        = p1GiaCG + jointGainEach + p1BedIsaCg;
-      p2TotalCG        = p2GiaCG + jointGainEach + p2BedIsaCg;
+      // Joint GIA Bed & ISA gains follow the same 50/50 CGT split as other joint
+      // GIA disposals, rather than being attributed wholly to p2.
+      const jointBedIsaGainEach = p2BedIsaCg / 2;
+      p1TotalCG        = p1GiaCG + jointGainEach + p1BedIsaCg + jointBedIsaGainEach;
+      p2TotalCG        = p2GiaCG + jointGainEach + jointBedIsaGainEach;
       p1CgtPaid        = calcCGT(p1TotalCG, isHigherRateTaxpayer(p1TaxBasis, calendarYear), calendarYear);
       p2CgtPaid        = calcCGT(p2TotalCG, isHigherRateTaxpayer(p2TaxBasis, calendarYear), calendarYear);
       totalCgtPaid     = p1CgtPaid + p2CgtPaid;

@@ -937,13 +937,23 @@ export default function Step4Dashboard({ onBack }: Props) {
       {/* PCLS + Bed & ISA strategy selector — shown when person 1 has a DC pension */}
       {person1.incomeSources.dcPension.enabled && (() => {
         const activeStrategy = drawdownStrategy ?? 'standard-ufpls';
+        // Helper: clamp a candidate age to max(person1.currentAge, NMPA for that year).
+        // Persisting this clamped value keeps the store in sync with what the engine uses.
+        const resolvePclsAge = (candidate: number) => {
+          const calYear = CURRENT_TAX_YEAR_START + (candidate - person1.currentAge);
+          const nmpaForAge = calYear >= PENSION_RULES.NMPA_RISE_YEAR
+            ? PENSION_RULES.MIN_ACCESS_AGE_POST_2028
+            : PENSION_RULES.MIN_ACCESS_AGE;
+          return Math.max(candidate, nmpaForAge, person1.currentAge);
+        };
+
         // Compute effective NMPA for the age currently set
         const rawAge = pclsAge ?? fiAge;
         const pclsCalYear = CURRENT_TAX_YEAR_START + (rawAge - person1.currentAge);
         const nmpa = pclsCalYear >= PENSION_RULES.NMPA_RISE_YEAR
           ? PENSION_RULES.MIN_ACCESS_AGE_POST_2028
           : PENSION_RULES.MIN_ACCESS_AGE;
-        const effectivePclsAge = Math.max(rawAge, nmpa);
+        const effectivePclsAge = Math.max(rawAge, nmpa, person1.currentAge);
 
         const selectorContent = (
           <div className="rounded-2xl bg-slate-50 border border-slate-200 p-4">
@@ -1003,7 +1013,7 @@ export default function Step4Dashboard({ onBack }: Props) {
                 </label>
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={() => setPclsAge(Math.max(effectivePclsAge - 1, nmpa))}
+                    onClick={() => setPclsAge(resolvePclsAge(effectivePclsAge - 1))}
                     className="w-7 h-7 rounded-lg bg-white border border-slate-300 text-slate-600 font-bold text-sm hover:border-orange-400 transition-colors"
                     aria-label="Decrease PCLS age"
                   >−</button>
@@ -1011,7 +1021,7 @@ export default function Step4Dashboard({ onBack }: Props) {
                     {effectivePclsAge}
                   </span>
                   <button
-                    onClick={() => setPclsAge(Math.min(effectivePclsAge + 1, state.assumptions.lifeExpectancy - 1))}
+                    onClick={() => setPclsAge(Math.min(resolvePclsAge(effectivePclsAge + 1), state.assumptions.lifeExpectancy - 1))}
                     className="w-7 h-7 rounded-lg bg-white border border-slate-300 text-slate-600 font-bold text-sm hover:border-orange-400 transition-colors"
                     aria-label="Increase PCLS age"
                   >+</button>

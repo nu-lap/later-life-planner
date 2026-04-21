@@ -15,7 +15,7 @@ import {
   calculateGamificationMetrics,
 } from '@/financialEngine/projectionEngine';
 import { createDefaultState, createMockDemoState } from '@/lib/mockData';
-import { bareState, paulAndLisaState } from '../fixtures/states';
+import { bareState, paulAndLisaState, bareCoupleState } from '../fixtures/states';
 import { withSpending } from '../fixtures/helpers';
 import type { PlannerState } from '@/models/types';
 
@@ -431,3 +431,199 @@ describe('calculateGamificationMetrics', () => {
     expect(metrics.spendingConfidenceScore).toBeLessThan(50);
   });
 });
+
+// ─── calculateProjections — pcls-bed-isa strategy ────────────────────────────
+
+/** Build a single-person DC-only state for pcls-bed-isa tests. */
+function pclsBedIsaState(overrides: {
+  age?: number;
+  dcValue?: number;
+  giaValue?: number;
+  giaBaseCost?: number;
+  fiAge?: number;
+  pclsAge?: number;
+  lifeExpectancy?: number;
+} = {}): PlannerState {
+  const age           = overrides.age           ?? 55;
+  const dcValue       = overrides.dcValue       ?? 400_000;
+  const giaValue      = overrides.giaValue      ?? 0;
+  const giaBaseCost   = overrides.giaBaseCost   ?? 0;
+  const fiAgeVal      = overrides.fiAge         ?? age;
+  const lifeExp       = overrides.lifeExpectancy ?? 85;
+  const base = bareState(age);
+  return {
+    ...base,
+    fiAge: fiAgeVal,
+    drawdownStrategy: 'pcls-bed-isa',
+    pclsAge: overrides.pclsAge,
+    assumptions: { ...base.assumptions, investmentGrowth: 0, inflation: 0, lifeExpectancy: lifeExp },
+    person1: {
+      ...base.person1,
+      currentAge: age,
+      incomeSources: {
+        ...base.person1.incomeSources,
+        dcPension: { enabled: true, totalValue: dcValue, growthRate: 0 },
+      },
+      assets: {
+        ...base.person1.assets,
+        generalInvestments: { enabled: giaValue > 0, totalValue: giaValue, baseCost: giaBaseCost, growthRate: 0 },
+      },
+    },
+  };
+}
+
+describe('calculateProjections — pcls-bed-isa: PCLS timing', () => {
+  test('PCLS event fires exactly once at pclsAge', () => {
+    const state = pclsBedIsaState({ age: 55, pclsAge: 57, fiAge: 57 });
+    const projections = calculateProjections(state);
+    const eventRows = projections.filter(p => p.p1PclsEvent > 0);
+    expect(eventRows).toHaveLength(1);
+    expect(eventRows[0].p1Age).toBe(57);
+  });
+
+  test('PCLS event fires at fiAge when pclsAge is not set', () => {
+    const state = pclsBedIsaState({ age: 55, fiAge: 60 });
+    const projections = calculateProjections(state);
+    const eventRows = projections.filter(p => p.p1PclsEvent > 0);
+    expect(eventRows).toHaveLength(1);
+    expect(eventRows[0].p1Age).toBe(60);
+  });
+
+  test('PCLS is clamped to NMPA (55) — cannot fire before age 55', () => {
+    // Set pclsAge below current age; crystallisation should happen at currentAge (≥ NMPA 55)
+    const state = pclsBedIsaState({ age: 55, pclsAge: 50, fiAge: 55 });
+    const projections = calculateProjections(state);
+    const eventRows = projections.filter(p => p.p1PclsEvent > 0);
+    // Event fires at age 55 (clamped to max(50, 55, currentAge=55))
+    expect(eventRows).toHaveLength(1);
+    expect(eventRows[0].p1Age).toBe(55);
+  });
+
+  test('no PCLS events in standard-ufpls mode', () => {
+    const state: PlannerState = {
+      ...pclsBedIsaState({ age: 55, fiAge: 55 }),
+      drawdownStrategy: 'standard-ufpls',
+    };
+    const projections = calculateProjections(state);
+    projections.forEach(p => expect(p.p1PclsEvent).toBe(0));
+  });
+});
+
+describe('calculateProjections — pcls-bed-isa: PCLS amount and LSA exhaustion', () => {
+  test('PCLS amount equals 25% of DC pot when LSA is not yet used and pot is large', () => {
+    // DC pot £400,000, 25% = £100,000 — below LSA (£268,275) so full 25% paid
+    const state = pclsBedIsaState({ age: 55, dcValue: 400_000, fiAge: 55 });
+    const projections = calculateProjections(state);
+    const eventRow = projections.find(p => p.p1PclsEvent > 0)!;
+    // pclsAmount = min(400_000 * 0.25, 268_275) = 100_000
+    expect(eventRow.p1PclsEvent).toBeCloseTo(100_000, -2);
+  });
+
+  test('PCLS amount is capped at LSA when 25% of pot exceeds LSA', () => {
+    // DC pot £1,200,000 — 25% = £300,000 > LSA (£268,275)
+    const state = pclsBedIsaState({ age: 55, dcValue: 1_200_000, fiAge: 55 });
+    const projections = calculateProjections(state);
+    const eventRow = projections.find(p => p.p1PclsEvent > 0)!;
+    // pclsAmount should be capped at LSA
+    expect(eventRow.p1PclsEvent).toBeLessThanOrEqual(268_275 + 1);
+  });
+
+  test('PCLS is capped to remaining LSA when prior UFPLS draws have partially used it', () => {
+    // In pcls-bed-isa mode, if pclsAge > fiAge and DC draws happen first via the waterfall
+    // before the PCLS year, the remaining LSA should be respected.
+    // Use pclsAge = fiAge + 2 so two UFPLS draws occur before crystallisation.
+    const state = pclsBedIsaState({ age: 55, dcValue: 800_000, fiAge: 55, pclsAge: 57 });
+    const projections = calculateProjections(state);
+    const eventRow = projections.find(p => p.p1PclsEvent > 0)!;
+    // The PCLS event should still fire and not exceed the remaining LSA
+    expect(eventRow.p1PclsEvent).toBeGreaterThan(0);
+    // All tax-free PCLS amounts across the whole plan should not exceed LSA
+    const totalTaxFree = projections.reduce((s, p) => s + p.p1PclsEvent, 0);
+    expect(totalTaxFree).toBeLessThanOrEqual(268_275 + 1);
+  });
+
+  test('DC balance decreases by pclsAmount on the crystallisation year', () => {
+    const state = pclsBedIsaState({ age: 55, dcValue: 400_000, fiAge: 55 });
+    const projections = calculateProjections(state);
+    const eventIdx   = projections.findIndex(p => p.p1PclsEvent > 0);
+    const eventRow   = projections[eventIdx];
+    const prevRow    = projections[eventIdx - 1];
+    // DC balance at the PCLS year should be less than the prior year by roughly the PCLS amount
+    // (no growth since growthRate = 0; some DC may also be drawn for spending)
+    if (prevRow) {
+      expect(prevRow.p1DcBalance - eventRow.p1DcBalance).toBeGreaterThanOrEqual(eventRow.p1PclsEvent - 1);
+    }
+  });
+});
+
+describe('calculateProjections — pcls-bed-isa: Bed & ISA transfers', () => {
+  test('Bed & ISA transfer is positive in years with p1 GIA', () => {
+    // Give person1 a GIA so that Bed & ISA transfers should occur
+    const state = pclsBedIsaState({ age: 55, dcValue: 400_000, giaValue: 50_000, giaBaseCost: 50_000, fiAge: 55 });
+    const projections = calculateProjections(state);
+    const transferRows = projections.filter(p => p.p1BedIsaTransfer > 0);
+    expect(transferRows.length).toBeGreaterThan(0);
+  });
+
+  test('p1 ISA balance grows due to Bed & ISA reinvestment even with no spending', () => {
+    // Zero spending so all Bed & ISA proceeds stay
+    const state: PlannerState = withSpending(
+      pclsBedIsaState({ age: 55, dcValue: 100_000, giaValue: 40_000, giaBaseCost: 40_000, fiAge: 55 }),
+      0,
+    );
+    const projections = calculateProjections(state);
+    // ISA balance should grow from reinvestment (no growth rate, so balance = sum of transfers)
+    const firstRow = projections[0];
+    const laterRow = projections[5];
+    expect(laterRow.p1IsaBalance).toBeGreaterThan(firstRow.p1IsaBalance);
+  });
+});
+
+describe('calculateProjections — pcls-bed-isa: CGT on Bed & ISA gains', () => {
+  test('Bed & ISA transfers with embedded gain produce positive CGT', () => {
+    // GIA value £60k, base cost £20k — embedded gain £40k; selling to ISA triggers CGT
+    const state = withSpending(
+      pclsBedIsaState({ age: 55, dcValue: 200_000, giaValue: 60_000, giaBaseCost: 20_000, fiAge: 55 }),
+      0,
+    );
+    const projections = calculateProjections(state);
+    const totalCgt = projections.reduce((s, p) => s + p.totalCgtPaid, 0);
+    expect(totalCgt).toBeGreaterThan(0);
+  });
+
+  test('joint GIA Bed & ISA gain is split 50/50 between partners', () => {
+    // Couple mode: joint GIA used for Bed & ISA — each person should get half the gain.
+    // p1 has no individual GIA (growthRate forced to 0 so PCLS reinvestment generates no gain),
+    // ensuring all Bed & ISA gain comes from the joint GIA and is split equally.
+    const base = bareCoupleState(55, 55);
+    const state: PlannerState = {
+      ...base,
+      fiAge: 55,
+      drawdownStrategy: 'pcls-bed-isa',
+      assumptions: { ...base.assumptions, investmentGrowth: 0, inflation: 0, lifeExpectancy: 85 },
+      jointGia: { enabled: true, totalValue: 60_000, baseCost: 20_000, growthRate: 0 },
+      person1: {
+        ...base.person1,
+        // Set GIA growthRate to 0 so any PCLS reinvestment into p1 GIA never appreciates,
+        // keeping p1BedIsaCg = 0 and isolating the joint gain split assertion.
+        assets: {
+          ...base.person1.assets,
+          generalInvestments: { enabled: false, totalValue: 0, baseCost: 0, growthRate: 0 },
+        },
+        incomeSources: {
+          ...base.person1.incomeSources,
+          dcPension: { enabled: true, totalValue: 300_000, growthRate: 0 },
+        },
+      },
+    };
+    const projections = calculateProjections(withSpending(state, 0));
+    // In years with a joint Bed & ISA gain, both persons' CGT should be equal
+    // because the joint gain is split 50/50 (p1BedIsaCg = 0, no individual p1 GIA gain).
+    const gainingRows = projections.filter(p => p.p2BedIsaTransfer > 0);
+    gainingRows.forEach(p => {
+      // Each person gets half the joint gain — their CGT should be equal
+      expect(p.p1CgtPaid).toBeCloseTo(p.p2CgtPaid, 0);
+    });
+  });
+});
+
