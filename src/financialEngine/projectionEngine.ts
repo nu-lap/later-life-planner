@@ -269,6 +269,11 @@ export function calculateProjections(state: PlannerState): YearlyProjection[] {
     let p2IsaAllowanceUsed = 0;
 
     if (isPclsBedIsa) {
+      // Track remaining ISA capacity per person to prevent over-subscription
+      // when PCLS reinvestment and Bed & ISA both fire in the same tax year.
+      let p1IsaCapacity = yearSnapshot.isaAnnualAllowance;
+      let p2IsaCapacity = yearSnapshot.isaAnnualAllowance;
+
       // ── PCLS crystallisation at resolvedPclsAge ───────────────────────
       if (p1Age === resolvedPclsAge && p1Dc > 0 && dc1.enabled) {
         const remainingPensionLsa = Math.max(0, yearPensionLsa - p1LifetimePcls);
@@ -282,12 +287,16 @@ export function calculateProjections(state: PlannerState): YearlyProjection[] {
           // Reinvest: up to the annual ISA allowance per person into ISA wrappers,
           // remainder into GIA (joint for couple, p1 for single).
           // Base cost = reinvested amount; no embedded gain at acquisition.
-          const p1ToIsa = Math.min(pclsAmount, yearSnapshot.isaAnnualAllowance);
+          const p1ToIsa = Math.min(pclsAmount, p1IsaCapacity);
           const afterP1Isa = pclsAmount - p1ToIsa;
           const p2ToIsa = (mode === 'couple' && afterP1Isa > 0)
-            ? Math.min(afterP1Isa, yearSnapshot.isaAnnualAllowance)
+            ? Math.min(afterP1Isa, p2IsaCapacity)
             : 0;
           const toGia = afterP1Isa - p2ToIsa;
+          // Reduce remaining capacity so Bed & ISA later in the same year
+          // cannot cause total ISA subscriptions to exceed the annual cap.
+          p1IsaCapacity -= p1ToIsa;
+          p2IsaCapacity -= p2ToIsa;
           p1Isa += p1ToIsa;
           p1IsaAllowanceUsed = p1ToIsa;
           if (p2ToIsa > 0) { p2Isa += p2ToIsa; p2IsaAllowanceUsed = p2ToIsa; }
