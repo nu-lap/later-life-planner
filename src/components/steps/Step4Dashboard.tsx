@@ -965,9 +965,9 @@ export default function Step4Dashboard({ onBack }: Props) {
               {([
                 {
                   id: 'standard-ufpls' as DrawdownStrategy,
-                  label: 'Standard UFPLS',
+                  label: 'Flexible pension drawdown',
                   icon: '💧',
-                  description: 'Draw from DC pension using Uncrystallised Funds Pension Lump Sum — 25% tax-free, 75% taxable on each withdrawal.',
+                  description: 'Draw flexibly from your pension — each withdrawal is 25% tax-free and 75% taxable, using your tax-free entitlement gradually over time.',
                 },
                 {
                   id: 'pcls-bed-isa' as DrawdownStrategy,
@@ -1005,17 +1005,17 @@ export default function Step4Dashboard({ onBack }: Props) {
               })}
             </div>
 
-            {/* PCLS age selector — only visible when pcls-bed-isa is active */}
+            {/* Lump sum age selector — only visible when pcls-bed-isa is active */}
             {activeStrategy === 'pcls-bed-isa' && (
               <div className="mt-3 pt-3 border-t border-slate-200 flex flex-wrap items-center gap-3">
                 <label className="text-xs font-bold text-slate-600 flex-shrink-0">
-                  PCLS age
+                  Age to take lump sum
                 </label>
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => setPclsAge(resolvePclsAge(effectivePclsAge - 1))}
                     className="w-7 h-7 rounded-lg bg-white border border-slate-300 text-slate-600 font-bold text-sm hover:border-orange-400 transition-colors"
-                    aria-label="Decrease PCLS age"
+                    aria-label="Decrease lump sum age"
                   >−</button>
                   <span className="text-base font-black text-slate-900 min-w-[2.5rem] text-center">
                     {effectivePclsAge}
@@ -1023,13 +1023,13 @@ export default function Step4Dashboard({ onBack }: Props) {
                   <button
                     onClick={() => setPclsAge(Math.min(resolvePclsAge(effectivePclsAge + 1), state.assumptions.lifeExpectancy - 1))}
                     className="w-7 h-7 rounded-lg bg-white border border-slate-300 text-slate-600 font-bold text-sm hover:border-orange-400 transition-colors"
-                    aria-label="Increase PCLS age"
+                    aria-label="Increase lump sum age"
                   >+</button>
                 </div>
                 <p className="text-xs text-slate-500">
-                  Min {nmpa} (NMPA{pclsCalYear >= PENSION_RULES.NMPA_RISE_YEAR ? ' from 2028' : ''}) ·{' '}
+                  Min {nmpa} (min pension access age{pclsCalYear >= PENSION_RULES.NMPA_RISE_YEAR ? ' from 2028' : ''}) ·{' '}
                   {effectivePclsAge < fiAge
-                    ? `${fiAge - effectivePclsAge} yr${fiAge - effectivePclsAge !== 1 ? 's' : ''} before FI — proceeds grow in ISA & GIA until then`
+                    ? `${fiAge - effectivePclsAge} yr${fiAge - effectivePclsAge !== 1 ? 's' : ''} before FI — proceeds grow in ISA & investment account until then`
                     : effectivePclsAge === fiAge
                       ? 'taken at FI age'
                       : `${effectivePclsAge - fiAge} yr${effectivePclsAge - fiAge !== 1 ? 's' : ''} after FI`}

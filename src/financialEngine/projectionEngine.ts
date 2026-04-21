@@ -253,6 +253,11 @@ export function calculateProjections(state: PlannerState): YearlyProjection[] {
     let p2BedIsaTransfer = 0, p2BedIsaCg = 0;
 
     if (isPclsBedIsa) {
+      // Track remaining ISA capacity per person to prevent over-subscription
+      // when PCLS reinvestment and Bed & ISA both fire in the same tax year.
+      let p1IsaCapacity = yearSnapshot.isaAnnualAllowance;
+      let p2IsaCapacity = yearSnapshot.isaAnnualAllowance;
+
       // ── PCLS crystallisation at resolvedPclsAge ───────────────────────
       if (p1Age === resolvedPclsAge && p1Dc > 0 && dc1.enabled) {
         const remainingPensionLsa = Math.max(0, yearPensionLsa - p1LifetimePcls);
@@ -264,21 +269,32 @@ export function calculateProjections(state: PlannerState): YearlyProjection[] {
           // for this calendar year — see `yearPensionLsa` above) so future p1 DC draws
           // become fully taxable once the allowance has been exhausted.
           p1LifetimePcls = Math.min(yearPensionLsa, p1LifetimePcls + pclsAmount);
-          // Reinvest: up to the annual ISA allowance into ISA, remainder into GIA
-          const toIsa = Math.min(pclsAmount, yearSnapshot.isaAnnualAllowance);
-          const toGia = pclsAmount - toIsa;
-          p1Isa += toIsa;
+          // Reinvest: up to the annual ISA allowance per person into ISA wrappers,
+          // remainder into GIA (joint for couple, p1 for single).
+          // Base cost = reinvested amount; no embedded gain at acquisition.
+          const p1ToIsa = Math.min(pclsAmount, p1IsaCapacity);
+          const afterP1Isa = pclsAmount - p1ToIsa;
+          const p2ToIsa = (mode === 'couple' && afterP1Isa > 0)
+            ? Math.min(afterP1Isa, p2IsaCapacity)
+            : 0;
+          const toGia = afterP1Isa - p2ToIsa;
+          // Reduce remaining capacity so Bed & ISA later in the same year
+          // cannot cause total ISA subscriptions to exceed the annual cap.
+          p1IsaCapacity -= p1ToIsa;
+          p2IsaCapacity -= p2ToIsa;
+          p1Isa += p1ToIsa;
+          if (p2ToIsa > 0) p2Isa += p2ToIsa;
           if (toGia > 0) {
-            p1GiaV  += toGia;
-            p1GiaBC += toGia; // Base cost = reinvested amount; no embedded gain at acquisition
+            if (mode === 'couple') { jointGiaV += toGia; jointGiaBC += toGia; }
+            else                   { p1GiaV    += toGia; p1GiaBC    += toGia; }
           }
           p1PclsEvent = pclsAmount;
         }
       }
 
       // ── Annual Bed & ISA: p1 GIA → p1 ISA ────────────────────────────
-      if (p1GiaV > 0) {
-        const biAmount = Math.min(p1GiaV, yearSnapshot.isaAnnualAllowance);
+      if (p1GiaV > 0 && p1IsaCapacity > 0) {
+        const biAmount = Math.min(p1GiaV, p1IsaCapacity);
         if (biAmount > 0) {
           const r = drawFromGIA(p1GiaV, p1GiaBC, biAmount);
           p1BedIsaTransfer = r.drawn;
@@ -290,8 +306,8 @@ export function calculateProjections(state: PlannerState): YearlyProjection[] {
       }
 
       // ── Annual Bed & ISA: joint GIA → p2 ISA (post-FI, couple only) ──
-      if (householdFiStarted && mode === 'couple' && p2Age !== null && jointGiaV > 0) {
-        const biAmount = Math.min(jointGiaV, yearSnapshot.isaAnnualAllowance);
+      if (householdFiStarted && mode === 'couple' && p2Age !== null && jointGiaV > 0 && p2IsaCapacity > 0) {
+        const biAmount = Math.min(jointGiaV, p2IsaCapacity);
         if (biAmount > 0) {
           const r = drawFromGIA(jointGiaV, jointGiaBC, biAmount);
           p2BedIsaTransfer = r.drawn;
