@@ -363,4 +363,56 @@ describe('optimizeWithdrawals', () => {
     expect(baseline?.terminalAssets).toBeGreaterThanOrEqual(119_000);
     expect(baseline?.feasible).toBe(true);
   });
+
+  test('pcls-bed-isa: pre-FI crystallisation seeds LSA exhaustion so all FI-year DC draws are 100% taxable', () => {
+    // pclsAge (57) is before fiAge (60): the projection engine fires the PCLS in
+    // the pre-FI phase and the optimizer must seed p1LifetimePcls = LSA so that
+    // every post-FI DC withdrawal is treated as fully taxable.
+    const base = dcOnlyState(55, 300_000, 60);
+    const state = withSpending(
+      {
+        ...base,
+        drawdownStrategy: 'pcls-bed-isa',
+        pclsAge: 57,
+      },
+      20_000,
+    );
+
+    const result = optimizeWithdrawals(state);
+
+    // Every year where DC is actually drawn must have zero tax-free component.
+    const dcYears = result.yearRecords.filter((r) => r.winner.drawdowns.p1Dc > 0);
+    expect(dcYears.length).toBeGreaterThan(0);
+    for (const record of dcYears) {
+      expect(record.winner.drawdowns.p1DcTaxFree).toBe(0);
+      // Pension breakdown must show pcls = 0, which means the UI suppresses the
+      // "25% Tax Free" breakdown field (breakdown.pcls > 0 guard in OptimizerPanel).
+      expect(record.winner.breakdown.person1.pension?.pcls).toBe(0);
+    }
+  });
+
+  test('pcls-bed-isa: at-FI crystallisation exhausts LSA in-loop so all subsequent DC draws are 100% taxable', () => {
+    // pclsAge defaults to fiAge (60): the PCLS fires inside the optimizer loop at
+    // age 60 (after growth, before drawdown). From that point on, p1LifetimePcls
+    // equals the LSA so all DC draws must have zero tax-free fraction.
+    const base = dcOnlyState(60, 300_000);
+    const state = withSpending(
+      {
+        ...base,
+        drawdownStrategy: 'pcls-bed-isa',
+        // pclsAge intentionally omitted — defaults to fiAge inside the engine.
+      },
+      20_000,
+    );
+
+    const result = optimizeWithdrawals(state);
+
+    // Every year where DC is drawn must be fully taxable.
+    const dcYears = result.yearRecords.filter((r) => r.winner.drawdowns.p1Dc > 0);
+    expect(dcYears.length).toBeGreaterThan(0);
+    for (const record of dcYears) {
+      expect(record.winner.drawdowns.p1DcTaxFree).toBe(0);
+      expect(record.winner.breakdown.person1.pension?.pcls).toBe(0);
+    }
+  });
 });
