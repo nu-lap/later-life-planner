@@ -1032,7 +1032,7 @@ export default function Step4Dashboard({ onBack }: Props) {
         return proEnabled ? selectorContent : (
           <ProUpgradeOverlay
             headline="Advanced withdrawal strategies"
-            description="PCLS + Bed & ISA crystallises your tax-free lump sum and shelters growth inside your ISA wrapper — a Pro-only planning strategy."
+            description="Take your pension tax-free lump sum upfront and move money into your ISA each year — sheltering future growth from tax."
             ctaLabel="Unlock with Pro →"
             onCta={() => setProModalSource('pcls-strategy')}
           >
