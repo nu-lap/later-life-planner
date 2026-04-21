@@ -961,9 +961,9 @@ export default function Step4Dashboard({ onBack }: Props) {
                 },
                 {
                   id: 'pcls-bed-isa' as DrawdownStrategy,
-                  label: 'PCLS + Bed & ISA',
+                  label: 'Tax-free lump sum + ISA transfer',
                   icon: '🚀',
-                  description: `Take ${person1.name || 'person 1'}'s maximum tax-free lump sum (PCLS) at a chosen age and reinvest into ISA and GIA. Then transfer up to the ISA allowance from GIA each year — sheltering growth from future tax.`,
+                  description: `Once your pension pot is large enough that any further growth would be fully taxable on withdrawal, it makes sense to take your entire tax-free entitlement now and move it into an ISA — where future growth is sheltered from tax. Each subsequent year, up to the ISA annual allowance is transferred from your investment account into your ISA wrapper.`,
                 },
               ] as const).map(option => {
                 const isActive = activeStrategy === option.id;
@@ -1032,7 +1032,7 @@ export default function Step4Dashboard({ onBack }: Props) {
         return proEnabled ? selectorContent : (
           <ProUpgradeOverlay
             headline="Advanced withdrawal strategies"
-            description="Take your pension tax-free lump sum upfront and move money into your ISA each year — sheltering future growth from tax."
+            description="When your pension pot is large enough that further growth would be fully taxable, taking your tax-free entitlement now and sheltering it in an ISA can significantly reduce lifetime tax."
             ctaLabel="Unlock with Pro →"
             onCta={() => setProModalSource('pcls-strategy')}
           >
