@@ -1042,7 +1042,7 @@ export default function Step4Dashboard({ onBack }: Props) {
         return proEnabled ? selectorContent : (
           <ProUpgradeOverlay
             headline="Advanced withdrawal strategies"
-            description="When your pension pot is large enough that further growth would be fully taxable, taking your tax-free entitlement now and sheltering it in an ISA can significantly reduce lifetime tax."
+            description="When your pension pot is large enough that further growth would be fully taxable, taking your tax-free entitlement now and sheltering it in an ISA could significantly reduce lifetime tax."
             ctaLabel="Unlock with Pro →"
             onCta={() => setProModalSource('pcls-strategy')}
           >
