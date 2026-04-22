@@ -12,7 +12,7 @@ import type {
 } from '@/financialEngine/types';
 import { explainOptimizerResult, getCachedOptimizerExplanation } from '@/lib/optimizerExplainClient';
 import { getStrategyDefinitions, getStrategyDisplayLabel } from '@/lib/strategyDefinitions';
-import type { PlannerState } from '@/models/types';
+import type { PlannerState, YearlyProjection } from '@/models/types';
 
 interface Props {
   plannerState: PlannerState;
@@ -270,6 +270,7 @@ export default function OptimizerPanel({ plannerState, result, proEnabled, onPro
   const [isLoadingCachedExplanation, setIsLoadingCachedExplanation] = useState(false);
   const [explanation, setExplanation] = useState<string | null>(null);
   const [explainError, setExplainError] = useState<string | null>(null);
+  const [selectedActionPlanYear, setSelectedActionPlanYear] = useState(0);
   const rows = useMemo(
     () => (proEnabled && showAll ? result.yearRecords : result.yearRecords.slice(0, 5)),
     [result.yearRecords, showAll, proEnabled],
@@ -283,6 +284,21 @@ export default function OptimizerPanel({ plannerState, result, proEnabled, onPro
   const hasAnyBedIsa = result.baselineProjections.some(
     p => p.p1BedIsaTransfer > 0 || p.p2BedIsaTransfer > 0,
   );
+  const apRecord = result.yearRecords[selectedActionPlanYear] ?? result.yearRecords[0]!;
+  const apProj: YearlyProjection = result.baselineProjections[selectedActionPlanYear] ?? result.baselineProjections[0]!;
+  const apBd = proEnabled ? apRecord.drawdownBreakdown : apRecord.baseline.breakdown;
+  const apIsFirstYear = selectedActionPlanYear === 0;
+  const apIsLastYear = selectedActionPlanYear === result.yearRecords.length - 1;
+  const apFixedIncomeItems = [
+    { label: 'State Pension', p1: apProj.p1StatePension, p2: isCouple ? apProj.p2StatePension : 0 },
+    { label: 'DB Pension', p1: apProj.p1DbPension, p2: isCouple ? apProj.p2DbPension : 0 },
+    { label: 'Part-time work', p1: apProj.p1PartTimeWork, p2: isCouple ? apProj.p2PartTimeWork : 0 },
+    { label: 'Other income', p1: apProj.p1OtherIncome, p2: isCouple ? apProj.p2OtherIncome : 0 },
+    { label: 'Property rent', p1: apProj.p1PropertyRent, p2: isCouple ? apProj.p2PropertyRent : 0 },
+  ].filter(item => item.p1 + item.p2 > 0);
+  const apHasIsaAction = apProj.p1BedIsaTransfer > 0 || apProj.p2BedIsaTransfer > 0;
+  const apHasPensionAction = (apBd.person1.pension?.grossAmount ?? 0) > 0 || (apBd.person2?.pension?.grossAmount ?? 0) > 0;
+  const apHasIsaSpend = (apBd.person1.isa?.grossAmount ?? 0) > 0 || (apBd.person2?.isa?.grossAmount ?? 0) > 0;
   const allStrategyGuideEntries = useMemo(
     () => getStrategyDefinitions(plannerState.mode, person1Label, isCouple ? person2Label : undefined),
     [isCouple, person1Label, person2Label, plannerState.mode],
@@ -564,6 +580,194 @@ export default function OptimizerPanel({ plannerState, result, proEnabled, onPro
               </div>
             </div>
         )}
+
+        {/* ── Option B: Your action plan ── */}
+        <div className="mt-6 rounded-2xl border border-emerald-200 bg-white p-4 shadow-sm" data-testid="action-plan-section">
+          {/* Header + year navigator */}
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h4 className="text-sm font-black uppercase tracking-wide text-slate-700">
+                Your action plan
+              </h4>
+              <p className="mt-1 text-xs text-slate-500">
+                What to do with your money, year by year.
+                {!proEnabled && <span className="ml-1 font-semibold text-orange-600">First year shown free — upgrade to Pro to step through all years.</span>}
+              </p>
+            </div>
+            <div className="flex shrink-0 items-center gap-2" aria-label="Year selector">
+              <button
+                type="button"
+                onClick={() => setSelectedActionPlanYear(y => Math.max(0, y - 1))}
+                disabled={apIsFirstYear}
+                className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-100 disabled:opacity-30"
+                aria-label="Previous year"
+              >
+                ◀
+              </button>
+              <div className="min-w-[9rem] text-center">
+                <p className="text-sm font-semibold text-slate-800">{apRecord.taxYear}</p>
+                <p className="text-xs text-slate-500">
+                  Age {apRecord.p1Age}{apRecord.p2Age !== null ? ` / ${apRecord.p2Age}` : ''}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!proEnabled) { onProCta?.(); return; }
+                  setSelectedActionPlanYear(y => Math.min(result.yearRecords.length - 1, y + 1));
+                }}
+                disabled={proEnabled && apIsLastYear}
+                className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-100 disabled:opacity-30"
+                aria-label={proEnabled ? 'Next year' : 'Unlock all years with Pro'}
+              >
+                {proEnabled ? '▶' : '🔓'}
+              </button>
+            </div>
+          </div>
+
+          {/* Action cards grid */}
+          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+
+            {/* ISA action (Bed & ISA) */}
+            {apHasIsaAction && (
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-3">
+                <p className="mb-2 text-xs font-bold uppercase tracking-wide text-emerald-700">
+                  🗓️ Before 5 April — Move to ISA
+                </p>
+                {apProj.p1BedIsaTransfer > 0 && (
+                  <div className={clsx('mb-2', isCouple && 'pb-2 border-b border-emerald-100')}>
+                    {isCouple && <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">{person1Label}</p>}
+                    <p className="text-sm font-semibold text-slate-800">
+                      Move{' '}
+                      <span className="font-black text-emerald-700">{formatCurrency(apProj.p1BedIsaTransfer, true)}</span>
+                      {' '}from your GIA to your ISA
+                    </p>
+                    {apProj.p1CgtPaid > 0 && (
+                      <p className="mt-0.5 text-xs text-orange-600">CGT due this year: ~{formatCurrency(apProj.p1CgtPaid, true)}</p>
+                    )}
+                  </div>
+                )}
+                {isCouple && apProj.p2BedIsaTransfer > 0 && (
+                  <div>
+                    <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">{person2Label}</p>
+                    <p className="text-sm font-semibold text-slate-800">
+                      Move{' '}
+                      <span className="font-black text-emerald-700">{formatCurrency(apProj.p2BedIsaTransfer, true)}</span>
+                      {' '}from your GIA to your ISA
+                    </p>
+                    {apProj.p2CgtPaid > 0 && (
+                      <p className="mt-0.5 text-xs text-orange-600">CGT due this year: ~{formatCurrency(apProj.p2CgtPaid, true)}</p>
+                    )}
+                  </div>
+                )}
+                <p className="mt-2 text-xs text-slate-500">
+                  Sell GIA investments and repurchase inside your ISA — your platform may offer this as a &ldquo;Bed &amp; ISA&rdquo; service.
+                </p>
+              </div>
+            )}
+
+            {/* Pension withdrawals */}
+            {apHasPensionAction && (
+              <div className="rounded-xl border border-sky-200 bg-sky-50/60 p-3">
+                <p className="mb-2 text-xs font-bold uppercase tracking-wide text-sky-700">
+                  Pension withdrawals
+                </p>
+                {(apBd.person1.pension?.grossAmount ?? 0) > 0 && (
+                  <div className={clsx('mb-2', isCouple && (apBd.person2?.pension?.grossAmount ?? 0) > 0 && 'pb-2 border-b border-sky-100')}>
+                    {isCouple && <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">{person1Label}</p>}
+                    <p className="text-sm font-semibold text-slate-800">
+                      Withdraw{' '}
+                      <span className="font-black text-sky-700">{formatCurrency(apBd.person1.pension!.grossAmount, true)}</span>
+                      {' '}from your pension
+                    </p>
+                    {apBd.person1.pension!.pcls > 0 && (
+                      <p className="mt-0.5 text-xs text-slate-500">Tax-free: {formatCurrency(apBd.person1.pension!.pcls, true)}</p>
+                    )}
+                    <p className="mt-0.5 text-xs text-slate-500">
+                      Taxable: {formatCurrency(apBd.person1.pension!.taxableAmount, true)}
+                      {' '}· Income tax: ~{formatCurrency(apBd.person1.pension!.taxDue, true)}
+                    </p>
+                  </div>
+                )}
+                {isCouple && (apBd.person2?.pension?.grossAmount ?? 0) > 0 && (
+                  <div>
+                    <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">{person2Label}</p>
+                    <p className="text-sm font-semibold text-slate-800">
+                      Withdraw{' '}
+                      <span className="font-black text-sky-700">{formatCurrency(apBd.person2!.pension!.grossAmount, true)}</span>
+                      {' '}from your pension
+                    </p>
+                    {apBd.person2!.pension!.pcls > 0 && (
+                      <p className="mt-0.5 text-xs text-slate-500">Tax-free: {formatCurrency(apBd.person2!.pension!.pcls, true)}</p>
+                    )}
+                    <p className="mt-0.5 text-xs text-slate-500">
+                      Taxable: {formatCurrency(apBd.person2!.pension!.taxableAmount, true)}
+                      {' '}· Income tax: ~{formatCurrency(apBd.person2!.pension!.taxDue, true)}
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ISA spending */}
+            {apHasIsaSpend && (
+              <div className="rounded-xl border border-indigo-200 bg-indigo-50/60 p-3">
+                <p className="mb-2 text-xs font-bold uppercase tracking-wide text-indigo-700">
+                  Spend from your ISA
+                </p>
+                {(apBd.person1.isa?.grossAmount ?? 0) > 0 && (
+                  <div className={clsx('mb-2', isCouple && (apBd.person2?.isa?.grossAmount ?? 0) > 0 && 'pb-2 border-b border-indigo-100')}>
+                    {isCouple && <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">{person1Label}</p>}
+                    <p className="text-sm font-semibold text-slate-800">
+                      Draw{' '}
+                      <span className="font-black text-indigo-700">{formatCurrency(apBd.person1.isa!.grossAmount, true)}</span>
+                      {' '}tax-free from your ISA
+                    </p>
+                  </div>
+                )}
+                {isCouple && (apBd.person2?.isa?.grossAmount ?? 0) > 0 && (
+                  <div>
+                    <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">{person2Label}</p>
+                    <p className="text-sm font-semibold text-slate-800">
+                      Draw{' '}
+                      <span className="font-black text-indigo-700">{formatCurrency(apBd.person2!.isa!.grossAmount, true)}</span>
+                      {' '}tax-free from your ISA
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Income arriving automatically */}
+            {apFixedIncomeItems.length > 0 && (
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-600">
+                  Income arriving automatically
+                </p>
+                <ul className="space-y-1">
+                  {apFixedIncomeItems.map(item => (
+                    <li key={item.label} className="flex justify-between text-xs text-slate-700">
+                      <span>{item.label}</span>
+                      <span className="font-semibold">{formatCurrency(item.p1 + item.p2, true)}</span>
+                    </li>
+                  ))}
+                </ul>
+                <p className="mt-2 text-xs text-slate-500">
+                  No action needed — these payments arrive automatically.
+                </p>
+              </div>
+            )}
+
+            {/* Spending target summary */}
+            <div className="rounded-xl border border-violet-200 bg-violet-50/60 p-3">
+              <p className="mb-1 text-xs font-bold uppercase tracking-wide text-violet-700">
+                Spending this year
+              </p>
+              <p className="text-2xl font-black text-violet-900">{formatCurrency(apRecord.spending, true)}</p>
+              <p className="mt-0.5 text-xs text-violet-700">target net spending for the year</p>
+            </div>
+          </div>
+        </div>
 
         <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-4">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
