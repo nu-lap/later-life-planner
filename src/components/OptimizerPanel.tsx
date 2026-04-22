@@ -648,26 +648,50 @@ export default function OptimizerPanel({ plannerState, result, proEnabled, onPro
                 {apProj.p1BedIsaTransfer > 0 && (
                   <div className={clsx('mb-2', isCouple && 'pb-2 border-b border-emerald-100')}>
                     {isCouple && <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">{person1Label}</p>}
-                    <p className="text-sm font-semibold text-slate-800">
+                    <p className="mb-1 text-sm font-semibold text-slate-800">
                       Move{' '}
                       <span className="font-black text-emerald-700">{formatCurrency(apProj.p1BedIsaTransfer, true)}</span>
-                      {' '}from your GIA to your ISA
+                      {' '}into your ISA:
                     </p>
+                    {apProj.p1IndivBedIsaTransfer > 0 && (
+                      <p className="text-xs text-slate-600">
+                        · <span className="font-semibold">{formatCurrency(apProj.p1IndivBedIsaTransfer, true)}</span>{' '}
+                        from {isCouple ? `${person1Label}'s` : 'your'} own portfolio
+                      </p>
+                    )}
+                    {apProj.p1JointBedIsaTransfer > 0 && (
+                      <p className="text-xs text-slate-600">
+                        · <span className="font-semibold">{formatCurrency(apProj.p1JointBedIsaTransfer, true)}</span>{' '}
+                        from joint portfolio
+                      </p>
+                    )}
                     {apProj.p1CgtPaid > 0 && (
-                      <p className="mt-0.5 text-xs text-orange-600">CGT due this year: ~{formatCurrency(apProj.p1CgtPaid, true)}</p>
+                      <p className="mt-1 text-xs text-orange-600">CGT due this year: ~{formatCurrency(apProj.p1CgtPaid, true)}</p>
                     )}
                   </div>
                 )}
                 {isCouple && apProj.p2BedIsaTransfer > 0 && (
                   <div>
                     <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">{person2Label}</p>
-                    <p className="text-sm font-semibold text-slate-800">
+                    <p className="mb-1 text-sm font-semibold text-slate-800">
                       Move{' '}
                       <span className="font-black text-emerald-700">{formatCurrency(apProj.p2BedIsaTransfer, true)}</span>
-                      {' '}from your GIA to your ISA
+                      {' '}into your ISA:
                     </p>
+                    {apProj.p2IndivBedIsaTransfer > 0 && (
+                      <p className="text-xs text-slate-600">
+                        · <span className="font-semibold">{formatCurrency(apProj.p2IndivBedIsaTransfer, true)}</span>{' '}
+                        from {person2Label}&apos;s own portfolio
+                      </p>
+                    )}
+                    {apProj.p2JointBedIsaTransfer > 0 && (
+                      <p className="text-xs text-slate-600">
+                        · <span className="font-semibold">{formatCurrency(apProj.p2JointBedIsaTransfer, true)}</span>{' '}
+                        from joint portfolio
+                      </p>
+                    )}
                     {apProj.p2CgtPaid > 0 && (
-                      <p className="mt-0.5 text-xs text-orange-600">CGT due this year: ~{formatCurrency(apProj.p2CgtPaid, true)}</p>
+                      <p className="mt-1 text-xs text-orange-600">CGT due this year: ~{formatCurrency(apProj.p2CgtPaid, true)}</p>
                     )}
                   </div>
                 )}
