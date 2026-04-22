@@ -128,6 +128,26 @@ function TaxFreeBreakdownCell({ breakdown }: { breakdown?: TaxFreeWithdrawalBrea
   );
 }
 
+function BedIsaCell({ amount, cgt }: { amount: number; cgt: number }) {
+  if (amount <= 0) {
+    return <span className="text-slate-400">—</span>;
+  }
+  return (
+    <div className="space-y-1.5 rounded-xl border border-emerald-100 bg-emerald-50/60 p-2 shadow-sm">
+      <div className="flex flex-col gap-0.5">
+        <span className="text-[10px] font-semibold uppercase tracking-wide text-emerald-600">Move to ISA</span>
+        <span className="text-sm font-semibold text-emerald-800">{formatCurrency(amount, true)}</span>
+      </div>
+      {cgt > 0 && (
+        <div className="flex flex-col gap-0.5">
+          <span className="text-[10px] font-semibold uppercase tracking-wide text-orange-500">CGT due</span>
+          <span className="text-xs font-semibold text-orange-700">~{formatCurrency(cgt, true)}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function formatSignedCurrency(value: number): string {
   if (value === 0) return formatCurrency(0, true);
   return `${value > 0 ? '+' : '-'}${formatCurrency(Math.abs(value), true)}`;
@@ -260,6 +280,9 @@ export default function OptimizerPanel({ plannerState, result, proEnabled, onPro
   const providerLabel = getProviderLabel();
   const baselineTerminalAssets = result.baselineProjections.at(-1)?.totalAssets ?? 0;
   const terminalAssetDelta = result.terminalAssets - baselineTerminalAssets;
+  const hasAnyBedIsa = result.baselineProjections.some(
+    p => p.p1BedIsaTransfer > 0 || p.p2BedIsaTransfer > 0,
+  );
   const allStrategyGuideEntries = useMemo(
     () => getStrategyDefinitions(plannerState.mode, person1Label, isCouple ? person2Label : undefined),
     [isCouple, person1Label, person2Label, plannerState.mode],
@@ -571,6 +594,7 @@ export default function OptimizerPanel({ plannerState, result, proEnabled, onPro
           </div>
 
           {(!proEnabled || showDrawdownBreakdown) ? (
+            <>
             <div id="drawdown-breakdown-panel" className="mt-4 max-h-[36rem] overflow-auto rounded-2xl border border-slate-200 bg-white shadow-sm" data-testid="optimizer-drawdown-breakdown-table">
               <table className="min-w-full text-xs">
                 <thead>
@@ -579,6 +603,11 @@ export default function OptimizerPanel({ plannerState, result, proEnabled, onPro
                     <th scope="colgroup" colSpan={4} className="border-b border-sky-100 bg-sky-50 px-3 py-3 text-center font-bold text-sky-800">{person1Label}</th>
                     {isCouple ? <th scope="colgroup" colSpan={4} className="border-b border-amber-100 bg-amber-50 px-3 py-3 text-center font-bold text-amber-800">{person2Label}</th> : null}
                     {isCouple ? <th scope="colgroup" colSpan={1} className="border-b border-violet-100 bg-violet-50 px-3 py-3 text-center font-bold text-violet-800">Joint</th> : null}
+                    {hasAnyBedIsa ? (
+                      <th scope="colgroup" colSpan={isCouple ? 2 : 1} className="border-b border-emerald-200 bg-emerald-50 px-3 py-3 text-center font-bold text-emerald-800">
+                        Annual ISA action
+                      </th>
+                    ) : null}
                   </tr>
                   <tr className="border-b border-slate-100 text-left text-slate-500">
                     <th scope="col" className="border-b border-sky-100 bg-sky-50 px-3 py-2 font-bold text-sky-700">Pension</th>
@@ -590,6 +619,8 @@ export default function OptimizerPanel({ plannerState, result, proEnabled, onPro
                     {isCouple ? <th scope="col" className="border-b border-amber-100 bg-amber-50 px-3 py-2 font-bold text-amber-700">GIA</th> : null}
                     {isCouple ? <th scope="col" className="border-b border-amber-100 bg-amber-50 px-3 py-2 font-bold text-amber-700">Cash</th> : null}
                     {isCouple ? <th scope="col" className="border-b border-violet-100 bg-violet-50 px-3 py-2 font-bold text-violet-700">GIA</th> : null}
+                    {hasAnyBedIsa ? <th scope="col" className="border-b border-emerald-200 bg-emerald-50 px-3 py-2 font-bold text-emerald-700">{person1Label}</th> : null}
+                    {hasAnyBedIsa && isCouple ? <th scope="col" className="border-b border-emerald-200 bg-emerald-50 px-3 py-2 font-bold text-emerald-700">{person2Label}</th> : null}
                   </tr>
                 </thead>
                 <tbody>
@@ -651,12 +682,34 @@ export default function OptimizerPanel({ plannerState, result, proEnabled, onPro
                           <TaxableBreakdownCell breakdown={bd.joint?.gia} taxableLabel="Taxable gain" />
                         </td>
                       ) : null}
+                      {hasAnyBedIsa ? (() => {
+                        const proj = result.baselineProjections[record.yearIndex];
+                        return (
+                          <td className="px-3 py-3">
+                            <BedIsaCell amount={proj?.p1BedIsaTransfer ?? 0} cgt={proj?.p1CgtPaid ?? 0} />
+                          </td>
+                        );
+                      })() : null}
+                      {hasAnyBedIsa && isCouple ? (() => {
+                        const proj = result.baselineProjections[record.yearIndex];
+                        return (
+                          <td className="px-3 py-3">
+                            <BedIsaCell amount={proj?.p2BedIsaTransfer ?? 0} cgt={proj?.p2CgtPaid ?? 0} />
+                          </td>
+                        );
+                      })() : null}
                     </tr>
                     );
                   })}
                 </tbody>
               </table>
             </div>
+            {hasAnyBedIsa && (
+              <p className="mt-3 text-xs text-slate-500">
+                <span className="font-semibold text-emerald-700">Annual ISA action:</span> Each year before 5 April, sell the amount shown from your general investment account and immediately repurchase the same investments inside your ISA wrapper. Your investment platform may offer this as a &ldquo;Bed &amp; ISA&rdquo; service. Any capital gains tax shown is due on the sale.
+              </p>
+            )}
+            </>
           ) : null}
         </div>
 
