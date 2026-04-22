@@ -538,12 +538,12 @@ describe('OptimizerPanel — Pro gating (proEnabled=false)', () => {
 
 describe('OptimizerPanel — Bed & ISA action columns', () => {
   test('shows "Annual ISA action" column headers when plan has GIA to shelter', async () => {
-    const plannerState = paulAndLisaState();
+    // pcls-bed-isa strategy is required to trigger Bed & ISA transfers
+    const plannerState = { ...paulAndLisaState(), drawdownStrategy: 'pcls-bed-isa' as const };
     const result = optimizeWithdrawals(plannerState);
 
-    // Only show columns if any projection has a non-zero B&I transfer
     const hasAnyBedIsa = result.baselineProjections.some(p => p.p1BedIsaTransfer > 0 || p.p2BedIsaTransfer > 0);
-    if (!hasAnyBedIsa) return;
+    expect(hasAnyBedIsa).toBe(true);
 
     render(<OptimizerPanel plannerState={plannerState} result={result} proEnabled={true} />);
     await userEvent.click(screen.getByRole('button', { name: '▼ Show breakdown' }));
@@ -552,11 +552,12 @@ describe('OptimizerPanel — Bed & ISA action columns', () => {
   });
 
   test('shows ISA transfer footnote when Bed & ISA columns are present', async () => {
-    const plannerState = paulAndLisaState();
+    // pcls-bed-isa strategy is required to trigger Bed & ISA transfers
+    const plannerState = { ...paulAndLisaState(), drawdownStrategy: 'pcls-bed-isa' as const };
     const result = optimizeWithdrawals(plannerState);
 
     const hasAnyBedIsa = result.baselineProjections.some(p => p.p1BedIsaTransfer > 0 || p.p2BedIsaTransfer > 0);
-    if (!hasAnyBedIsa) return;
+    expect(hasAnyBedIsa).toBe(true);
 
     render(<OptimizerPanel plannerState={plannerState} result={result} proEnabled={true} />);
     await userEvent.click(screen.getByRole('button', { name: '▼ Show breakdown' }));
@@ -566,27 +567,42 @@ describe('OptimizerPanel — Bed & ISA action columns', () => {
   });
 
   test('does not show "Annual ISA action" column when no GIA exists to shelter', () => {
-    // dcOnlyState has no GIA so B&I transfers should be zero
+    // dcOnlyState has no GIA and uses the default standard-ufpls strategy, so B&I transfers are zero
     const plannerState = dcOnlyState(65, 250_000);
     const result = optimizeWithdrawals(plannerState);
 
-    render(<OptimizerPanel plannerState={plannerState} result={result} proEnabled={true} />);
+    // Render in non-Pro mode so the table is always visible without needing to expand it
+    render(<OptimizerPanel plannerState={plannerState} result={result} proEnabled={false} />);
 
+    const table = screen.getByTestId('optimizer-drawdown-breakdown-table');
+    expect(table).toBeInTheDocument();
     expect(screen.queryByText('Annual ISA action')).not.toBeInTheDocument();
   });
 
   test('Bed & ISA cells show dash when no transfer needed that year', async () => {
-    const plannerState = paulAndLisaState();
+    // pcls-bed-isa strategy is required to trigger Bed & ISA transfers
+    const plannerState = { ...paulAndLisaState(), drawdownStrategy: 'pcls-bed-isa' as const };
     const result = optimizeWithdrawals(plannerState);
 
     const hasAnyBedIsa = result.baselineProjections.some(p => p.p1BedIsaTransfer > 0 || p.p2BedIsaTransfer > 0);
-    if (!hasAnyBedIsa) return;
+    expect(hasAnyBedIsa).toBe(true);
+
+    // Find a row within the first 5 displayed rows where p1 transfer is zero
+    const displayedProjections = result.baselineProjections.slice(0, 5);
+    const zeroRowIndex = displayedProjections.findIndex(p => p.p1BedIsaTransfer === 0);
+    expect(zeroRowIndex).toBeGreaterThanOrEqual(0);
 
     render(<OptimizerPanel plannerState={plannerState} result={result} proEnabled={true} />);
     await userEvent.click(screen.getByRole('button', { name: '▼ Show breakdown' }));
 
-    // Last year of plan typically has no GIA left to shelter
+    // Locate the target row and assert the Annual ISA action cell shows the dash placeholder
     const table = screen.getByTestId('optimizer-drawdown-breakdown-table');
-    expect(table).toBeInTheDocument();
+    const bodyRows = table.querySelectorAll('tbody tr');
+    const targetRow = bodyRows[zeroRowIndex];
+    const cells = targetRow.querySelectorAll('td');
+    // For a couple plan: columns are P1×4 + P2×4 + Joint×1 + BedIsa-P1 + BedIsa-P2
+    // BedIsa P1 is the second-to-last td
+    const bedIsaP1Cell = cells[cells.length - 2];
+    expect(bedIsaP1Cell.textContent).toContain('—');
   });
 });
