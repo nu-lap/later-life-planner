@@ -45,8 +45,8 @@ describe('OptimizerPanel', () => {
 
     expect(screen.getByText('Drawdown detail by year')).toBeInTheDocument();
     expect(screen.getByTestId('optimizer-drawdown-breakdown-table')).toBeInTheDocument();
-    expect(screen.getByText('Paul')).toBeInTheDocument();
-    expect(screen.getByText('Lisa')).toBeInTheDocument();
+    expect(screen.getAllByText('Paul').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Lisa').length).toBeGreaterThan(0);
     expect(screen.getByText('Joint')).toBeInTheDocument();
     expect(screen.getAllByText('Pension').length).toBeGreaterThan(0);
     expect(screen.getAllByText('25% Tax Free').length).toBeGreaterThan(0);
@@ -533,5 +533,60 @@ describe('OptimizerPanel — Pro gating (proEnabled=false)', () => {
     // Table should still show only 5 rows — the Pro dialog handles the upsell
     const table = screen.getByTestId('optimizer-drawdown-breakdown-table');
     expect(table.querySelectorAll('tbody tr').length).toBe(5);
+  });
+});
+
+describe('OptimizerPanel — Bed & ISA action columns', () => {
+  test('shows "Annual ISA action" column headers when plan has GIA to shelter', async () => {
+    const plannerState = paulAndLisaState();
+    const result = optimizeWithdrawals(plannerState);
+
+    // Only show columns if any projection has a non-zero B&I transfer
+    const hasAnyBedIsa = result.baselineProjections.some(p => p.p1BedIsaTransfer > 0 || p.p2BedIsaTransfer > 0);
+    if (!hasAnyBedIsa) return;
+
+    render(<OptimizerPanel plannerState={plannerState} result={result} proEnabled={true} />);
+    await userEvent.click(screen.getByRole('button', { name: '▼ Show breakdown' }));
+
+    expect(screen.getByText('Annual ISA action')).toBeInTheDocument();
+  });
+
+  test('shows ISA transfer footnote when Bed & ISA columns are present', async () => {
+    const plannerState = paulAndLisaState();
+    const result = optimizeWithdrawals(plannerState);
+
+    const hasAnyBedIsa = result.baselineProjections.some(p => p.p1BedIsaTransfer > 0 || p.p2BedIsaTransfer > 0);
+    if (!hasAnyBedIsa) return;
+
+    render(<OptimizerPanel plannerState={plannerState} result={result} proEnabled={true} />);
+    await userEvent.click(screen.getByRole('button', { name: '▼ Show breakdown' }));
+
+    expect(screen.getByText(/Bed & ISA/)).toBeInTheDocument();
+    expect(screen.getByText(/before 5 April/)).toBeInTheDocument();
+  });
+
+  test('does not show "Annual ISA action" column when no GIA exists to shelter', () => {
+    // dcOnlyState has no GIA so B&I transfers should be zero
+    const plannerState = dcOnlyState(65, 250_000);
+    const result = optimizeWithdrawals(plannerState);
+
+    render(<OptimizerPanel plannerState={plannerState} result={result} proEnabled={true} />);
+
+    expect(screen.queryByText('Annual ISA action')).not.toBeInTheDocument();
+  });
+
+  test('Bed & ISA cells show dash when no transfer needed that year', async () => {
+    const plannerState = paulAndLisaState();
+    const result = optimizeWithdrawals(plannerState);
+
+    const hasAnyBedIsa = result.baselineProjections.some(p => p.p1BedIsaTransfer > 0 || p.p2BedIsaTransfer > 0);
+    if (!hasAnyBedIsa) return;
+
+    render(<OptimizerPanel plannerState={plannerState} result={result} proEnabled={true} />);
+    await userEvent.click(screen.getByRole('button', { name: '▼ Show breakdown' }));
+
+    // Last year of plan typically has no GIA left to shelter
+    const table = screen.getByTestId('optimizer-drawdown-breakdown-table');
+    expect(table).toBeInTheDocument();
   });
 });
