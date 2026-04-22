@@ -606,3 +606,138 @@ describe('OptimizerPanel — Bed & ISA action columns', () => {
     expect(bedIsaP1Cell.textContent).toContain('—');
   });
 });
+
+describe('OptimizerPanel — Your action plan (Option B)', () => {
+  test('renders the action plan section with the first year showing', () => {
+    const plannerState = paulAndLisaState();
+    const result = optimizeWithdrawals(plannerState);
+
+    render(<OptimizerPanel plannerState={plannerState} result={result} proEnabled={true} />);
+
+    const section = screen.getByTestId('action-plan-section');
+    expect(section).toBeInTheDocument();
+    expect(within(section).getByText('Your action plan')).toBeInTheDocument();
+    // Year selector shows first year's tax year
+    expect(within(section).getByText(result.yearRecords[0]!.taxYear)).toBeInTheDocument();
+  });
+
+  test('shows year selector with prev and next navigation', () => {
+    const plannerState = paulAndLisaState();
+    const result = optimizeWithdrawals(plannerState);
+
+    render(<OptimizerPanel plannerState={plannerState} result={result} proEnabled={true} />);
+
+    const section = screen.getByTestId('action-plan-section');
+    expect(within(section).getByRole('button', { name: 'Previous year' })).toBeInTheDocument();
+    expect(within(section).getByRole('button', { name: 'Next year' })).toBeInTheDocument();
+  });
+
+  test('advances to the next year when Next is clicked in Pro mode', async () => {
+    const plannerState = paulAndLisaState();
+    const result = optimizeWithdrawals(plannerState);
+
+    render(<OptimizerPanel plannerState={plannerState} result={result} proEnabled={true} />);
+
+    const section = screen.getByTestId('action-plan-section');
+    const firstYearLabel = result.yearRecords[0]!.taxYear;
+    const secondYearLabel = result.yearRecords[1]!.taxYear;
+
+    expect(within(section).getByText(firstYearLabel)).toBeInTheDocument();
+
+    await userEvent.click(within(section).getByRole('button', { name: 'Next year' }));
+
+    expect(within(section).getByText(secondYearLabel)).toBeInTheDocument();
+    expect(within(section).queryByText(firstYearLabel)).not.toBeInTheDocument();
+  });
+
+  test('shows spending target for the selected year', async () => {
+    const plannerState = paulAndLisaState();
+    const result = optimizeWithdrawals(plannerState);
+
+    render(<OptimizerPanel plannerState={plannerState} result={result} proEnabled={true} />);
+
+    const section = screen.getByTestId('action-plan-section');
+    expect(within(section).getByText('Spending this year')).toBeInTheDocument();
+    expect(within(section).getByText('target net spending for the year')).toBeInTheDocument();
+  });
+
+  test('shows ISA action card when plan has B&I transfers', async () => {
+    const plannerState = { ...paulAndLisaState(), drawdownStrategy: 'pcls-bed-isa' as const };
+    const result = optimizeWithdrawals(plannerState);
+
+    // Precondition: at least one year must have a B&I transfer
+    const firstBedIsaYear = result.baselineProjections.findIndex(
+      p => p.p1BedIsaTransfer > 0 || p.p2BedIsaTransfer > 0,
+    );
+    expect(firstBedIsaYear).toBeGreaterThanOrEqual(0);
+
+    render(<OptimizerPanel plannerState={plannerState} result={result} proEnabled={true} />);
+
+    const section = screen.getByTestId('action-plan-section');
+    // Navigate forward to the first year that actually has a B&I transfer
+    for (let i = 0; i < firstBedIsaYear; i++) {
+      await userEvent.click(within(section).getByRole('button', { name: 'Next year' }));
+    }
+
+    expect(within(section).getByText(/Before 5 April — Move to ISA/i)).toBeInTheDocument();
+    expect(within(section).getAllByText(/from your GIA to your ISA/).length).toBeGreaterThan(0);
+  });
+
+  test('shows pension withdrawal card when DC draw is non-zero', () => {
+    const plannerState = paulAndLisaState();
+    const result = optimizeWithdrawals(plannerState);
+
+    // Precondition: year 0 must have a DC pension draw in the baseline
+    const bd = result.yearRecords[0]!.baseline.breakdown;
+    expect((bd.person1.pension?.grossAmount ?? 0)).toBeGreaterThan(0);
+
+    render(<OptimizerPanel plannerState={plannerState} result={result} proEnabled={true} />);
+
+    const section = screen.getByTestId('action-plan-section');
+    expect(within(section).getByText(/Pension withdrawals/i)).toBeInTheDocument();
+    expect(within(section).getAllByText(/from your pension/).length).toBeGreaterThan(0);
+  });
+
+  test('in non-Pro mode clicking Next year triggers onProCta', async () => {
+    const plannerState = paulAndLisaState();
+    const result = optimizeWithdrawals(plannerState);
+    const onProCta = vi.fn();
+
+    render(<OptimizerPanel plannerState={plannerState} result={result} proEnabled={false} onProCta={onProCta} />);
+
+    const section = screen.getByTestId('action-plan-section');
+    await userEvent.click(within(section).getByRole('button', { name: 'Unlock all years with Pro' }));
+
+    expect(onProCta).toHaveBeenCalledTimes(1);
+    // Should still show first year (not advanced)
+    expect(within(section).getByText(result.yearRecords[0]!.taxYear)).toBeInTheDocument();
+  });
+
+  test('in non-Pro mode shows first year free hint', () => {
+    const plannerState = paulAndLisaState();
+    const result = optimizeWithdrawals(plannerState);
+
+    render(<OptimizerPanel plannerState={plannerState} result={result} proEnabled={false} />);
+
+    const section = screen.getByTestId('action-plan-section');
+    expect(within(section).getByText(/First year shown free/i)).toBeInTheDocument();
+  });
+
+  test('resets to year 0 when proEnabled flips from true to false', async () => {
+    const plannerState = paulAndLisaState();
+    const result = optimizeWithdrawals(plannerState);
+
+    const { rerender } = render(
+      <OptimizerPanel plannerState={plannerState} result={result} proEnabled={true} />,
+    );
+
+    const section = screen.getByTestId('action-plan-section');
+    // Advance to year 1 in Pro mode
+    await userEvent.click(within(section).getByRole('button', { name: 'Next year' }));
+    expect(within(section).getByText(result.yearRecords[1]!.taxYear)).toBeInTheDocument();
+
+    // Downgrade to non-Pro — should snap back to year 0
+    rerender(<OptimizerPanel plannerState={plannerState} result={result} proEnabled={false} />);
+    expect(within(section).getByText(result.yearRecords[0]!.taxYear)).toBeInTheDocument();
+  });
+});
