@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import clsx from 'clsx';
 import { formatCurrency } from '@/financialEngine/projectionEngine';
 import type {
@@ -271,6 +271,14 @@ export default function OptimizerPanel({ plannerState, result, proEnabled, onPro
   const [explanation, setExplanation] = useState<string | null>(null);
   const [explainError, setExplainError] = useState<string | null>(null);
   const [selectedActionPlanYear, setSelectedActionPlanYear] = useState(0);
+  // Reset to year 0 when Pro is disabled; clamp within bounds when result changes.
+  useEffect(() => {
+    if (!proEnabled) {
+      setSelectedActionPlanYear(0);
+    } else {
+      setSelectedActionPlanYear(y => Math.min(y, result.yearRecords.length - 1));
+    }
+  }, [proEnabled, result.yearRecords.length]);
   const rows = useMemo(
     () => (proEnabled && showAll ? result.yearRecords : result.yearRecords.slice(0, 5)),
     [result.yearRecords, showAll, proEnabled],
@@ -284,11 +292,14 @@ export default function OptimizerPanel({ plannerState, result, proEnabled, onPro
   const hasAnyBedIsa = result.baselineProjections.some(
     p => p.p1BedIsaTransfer > 0 || p.p2BedIsaTransfer > 0,
   );
-  const apRecord = result.yearRecords[selectedActionPlanYear] ?? result.yearRecords[0]!;
-  const apProj: YearlyProjection = result.baselineProjections[selectedActionPlanYear] ?? result.baselineProjections[0]!;
+  const clampedActionPlanYear = !proEnabled
+    ? 0
+    : Math.min(selectedActionPlanYear, result.yearRecords.length - 1);
+  const apRecord = result.yearRecords[clampedActionPlanYear] ?? result.yearRecords[0]!;
+  const apProj: YearlyProjection = result.baselineProjections[clampedActionPlanYear] ?? result.baselineProjections[0]!;
   const apBd = proEnabled ? apRecord.drawdownBreakdown : apRecord.baseline.breakdown;
-  const apIsFirstYear = selectedActionPlanYear === 0;
-  const apIsLastYear = selectedActionPlanYear === result.yearRecords.length - 1;
+  const apIsFirstYear = clampedActionPlanYear === 0;
+  const apIsLastYear = clampedActionPlanYear === result.yearRecords.length - 1;
   const apFixedIncomeItems = [
     { label: 'State Pension', p1: apProj.p1StatePension, p2: isCouple ? apProj.p2StatePension : 0 },
     { label: 'DB Pension', p1: apProj.p1DbPension, p2: isCouple ? apProj.p2DbPension : 0 },
