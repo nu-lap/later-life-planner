@@ -261,7 +261,14 @@ function formatExplanationBlocks(text: string): ExplanationBlock[] {
 
 export default function OptimizerPanel({ plannerState, result, proEnabled, onProCta }: Props) {
   const [showAll, setShowAll] = useState(false);
-  const [showStrategyComparison, setShowStrategyComparison] = useState(true);
+  const [showStrategyComparison, setShowStrategyComparison] = useState(() => {
+    try {
+      const stored = localStorage.getItem('llp:showStrategyComparison');
+      return stored === null ? true : stored === 'true';
+    } catch {
+      return true;
+    }
+  });
   const [showAllStrategyDefinitions, setShowAllStrategyDefinitions] = useState(false);
   const [showDrawdownBreakdown, setShowDrawdownBreakdown] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -271,6 +278,10 @@ export default function OptimizerPanel({ plannerState, result, proEnabled, onPro
   const [explanation, setExplanation] = useState<string | null>(null);
   const [explainError, setExplainError] = useState<string | null>(null);
   const [selectedActionPlanYear, setSelectedActionPlanYear] = useState(0);
+  // Persist strategy comparison toggle across remounts.
+  useEffect(() => {
+    try { localStorage.setItem('llp:showStrategyComparison', String(showStrategyComparison)); } catch { /* ignore */ }
+  }, [showStrategyComparison]);
   // Reset to year 0 when Pro is disabled; clamp within bounds when result changes.
   useEffect(() => {
     if (!proEnabled) {
@@ -296,7 +307,10 @@ export default function OptimizerPanel({ plannerState, result, proEnabled, onPro
     ? 0
     : Math.min(selectedActionPlanYear, result.yearRecords.length - 1);
   const apRecord = result.yearRecords[clampedActionPlanYear] ?? result.yearRecords[0]!;
-  const apProj: YearlyProjection = result.baselineProjections[clampedActionPlanYear] ?? result.baselineProjections[0]!;
+  // apRecord.yearIndex is the absolute index into baselineProjections (which starts at
+  // currentAge, not fiAge). clampedActionPlanYear is the post-FI–relative offset, so
+  // we must look up by yearIndex to avoid reading data from the wrong simulation year.
+  const apProj: YearlyProjection = result.baselineProjections[apRecord.yearIndex] ?? result.baselineProjections[0]!;
   const apBd = proEnabled ? apRecord.drawdownBreakdown : apRecord.baseline.breakdown;
   const apIsFirstYear = clampedActionPlanYear === 0;
   const apIsLastYear = clampedActionPlanYear === result.yearRecords.length - 1;
