@@ -702,12 +702,12 @@ export function calculateProjections(state: PlannerState): YearlyProjection[] {
 
       // PCLS + Bed & ISA strategy tracking (zero in standard-ufpls mode)
       p1PclsEvent: Math.round(p1PclsEvent),
-      p1BedIsaTransfer:      Math.round(p1BedIsaTransfer),
       p1IndivBedIsaTransfer: Math.round(p1IndivBedIsaTransfer),
       p1JointBedIsaTransfer: Math.round(p1JointBedIsaTransfer),
-      p2BedIsaTransfer:      Math.round(p2BedIsaTransfer),
+      p1BedIsaTransfer:      Math.round(p1IndivBedIsaTransfer) + Math.round(p1JointBedIsaTransfer),
       p2IndivBedIsaTransfer: Math.round(p2IndivBedIsaTransfer),
       p2JointBedIsaTransfer: Math.round(p2JointBedIsaTransfer),
+      p2BedIsaTransfer:      Math.round(p2IndivBedIsaTransfer) + Math.round(p2JointBedIsaTransfer),
     });
   }
 

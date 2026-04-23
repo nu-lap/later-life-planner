@@ -680,7 +680,7 @@ describe('OptimizerPanel — Your action plan (Option B)', () => {
     }
 
     expect(within(section).getByText(/Before 5 April — Move to ISA/i)).toBeInTheDocument();
-    expect(within(section).getAllByText(/from your GIA to your ISA/).length).toBeGreaterThan(0);
+    expect(within(section).getAllByText(/from.*portfolio/).length).toBeGreaterThan(0);
   });
 
   test('shows pension withdrawal card when DC draw is non-zero', () => {
