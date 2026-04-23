@@ -261,14 +261,8 @@ function formatExplanationBlocks(text: string): ExplanationBlock[] {
 
 export default function OptimizerPanel({ plannerState, result, proEnabled, onProCta }: Props) {
   const [showAll, setShowAll] = useState(false);
-  const [showStrategyComparison, setShowStrategyComparison] = useState(() => {
-    try {
-      const stored = localStorage.getItem('llp:showStrategyComparison');
-      return stored === null ? true : stored === 'true';
-    } catch {
-      return true;
-    }
-  });
+  // Initialise with a stable server-safe default; read localStorage after mount to avoid hydration mismatch.
+  const [showStrategyComparison, setShowStrategyComparison] = useState(true);
   const [showAllStrategyDefinitions, setShowAllStrategyDefinitions] = useState(false);
   const [showDrawdownBreakdown, setShowDrawdownBreakdown] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -278,8 +272,17 @@ export default function OptimizerPanel({ plannerState, result, proEnabled, onPro
   const [explanation, setExplanation] = useState<string | null>(null);
   const [explainError, setExplainError] = useState<string | null>(null);
   const [selectedActionPlanYear, setSelectedActionPlanYear] = useState(0);
+  // Read persisted toggle from localStorage after mount (client-only) to avoid SSR hydration mismatch.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const stored = localStorage.getItem('llp:showStrategyComparison');
+      if (stored !== null) setShowStrategyComparison(stored === 'true');
+    } catch { /* ignore */ }
+  }, []);
   // Persist strategy comparison toggle across remounts.
   useEffect(() => {
+    if (typeof window === 'undefined') return;
     try { localStorage.setItem('llp:showStrategyComparison', String(showStrategyComparison)); } catch { /* ignore */ }
   }, [showStrategyComparison]);
   // Reset to year 0 when Pro is disabled; clamp within bounds when result changes.
