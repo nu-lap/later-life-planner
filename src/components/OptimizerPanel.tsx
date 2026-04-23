@@ -261,6 +261,7 @@ function formatExplanationBlocks(text: string): ExplanationBlock[] {
 
 export default function OptimizerPanel({ plannerState, result, proEnabled, onProCta }: Props) {
   const [showAll, setShowAll] = useState(false);
+  // Initialise with a stable server-safe default; read localStorage after mount to avoid hydration mismatch.
   const [showStrategyComparison, setShowStrategyComparison] = useState(true);
   const [showAllStrategyDefinitions, setShowAllStrategyDefinitions] = useState(false);
   const [showDrawdownBreakdown, setShowDrawdownBreakdown] = useState(false);
@@ -271,6 +272,19 @@ export default function OptimizerPanel({ plannerState, result, proEnabled, onPro
   const [explanation, setExplanation] = useState<string | null>(null);
   const [explainError, setExplainError] = useState<string | null>(null);
   const [selectedActionPlanYear, setSelectedActionPlanYear] = useState(0);
+  // Read persisted toggle from localStorage after mount (client-only) to avoid SSR hydration mismatch.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const stored = localStorage.getItem('llp:showStrategyComparison');
+      if (stored !== null) setShowStrategyComparison(stored === 'true');
+    } catch { /* ignore */ }
+  }, []);
+  // Persist strategy comparison toggle across remounts.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try { localStorage.setItem('llp:showStrategyComparison', String(showStrategyComparison)); } catch { /* ignore */ }
+  }, [showStrategyComparison]);
   // Reset to year 0 when Pro is disabled; clamp within bounds when result changes.
   useEffect(() => {
     if (!proEnabled) {
@@ -296,7 +310,10 @@ export default function OptimizerPanel({ plannerState, result, proEnabled, onPro
     ? 0
     : Math.min(selectedActionPlanYear, result.yearRecords.length - 1);
   const apRecord = result.yearRecords[clampedActionPlanYear] ?? result.yearRecords[0]!;
-  const apProj: YearlyProjection = result.baselineProjections[clampedActionPlanYear] ?? result.baselineProjections[0]!;
+  // apRecord.yearIndex is the absolute index into baselineProjections (which starts at
+  // currentAge, not fiAge). clampedActionPlanYear is the post-FI–relative offset, so
+  // we must look up by yearIndex to avoid reading data from the wrong simulation year.
+  const apProj: YearlyProjection = result.baselineProjections[apRecord.yearIndex] ?? result.baselineProjections[0]!;
   const apBd = proEnabled ? apRecord.drawdownBreakdown : apRecord.baseline.breakdown;
   const apIsFirstYear = clampedActionPlanYear === 0;
   const apIsLastYear = clampedActionPlanYear === result.yearRecords.length - 1;

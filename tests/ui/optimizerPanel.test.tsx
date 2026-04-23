@@ -296,7 +296,8 @@ describe('OptimizerPanel', () => {
       expect(screen.getByTestId('optimizer-explanation-list')).toBeInTheDocument();
     });
 
-    expect(screen.getByRole('list')).toBeInTheDocument();
+    const explanationList = screen.getByTestId('optimizer-explanation-list');
+    expect(explanationList).toBeInTheDocument();
     expect(screen.getByText('Item one')).toBeInTheDocument();
     expect(screen.getByText('Item two')).toBeInTheDocument();
   });
@@ -380,7 +381,8 @@ describe('OptimizerPanel', () => {
       expect(screen.getByTestId('optimizer-explanation-list')).toBeInTheDocument();
     });
 
-    const listItems = screen.getAllByRole('listitem');
+    const explanationList = screen.getByTestId('optimizer-explanation-list');
+    const listItems = within(explanationList).getAllByRole('listitem');
     expect(listItems).toHaveLength(3);
     expect(listItems[0]).toHaveTextContent('Use ISA first for tax-free withdrawals.');
     expect(listItems[1]).toHaveTextContent('Draw DC within the personal allowance.');
