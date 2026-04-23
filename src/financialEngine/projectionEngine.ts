@@ -260,8 +260,8 @@ export function calculateProjections(state: PlannerState): YearlyProjection[] {
     // p1BedIsaTransfer / p1BedIsaCg: transfers into p1 ISA and their capital gains (individual p1 GIA).
     // p2BedIsaTransfer / p2IndivBedIsaCg: transfers into p2 ISA and individual p2 GIA gains (100% p2).
     // p2BedIsaCg: total joint GIA Bed & ISA gains (split 50/50 between persons for CGT).
-    let p1BedIsaTransfer = 0, p1BedIsaCg = 0;
-    let p2BedIsaTransfer = 0, p2IndivBedIsaCg = 0, p2BedIsaCg = 0;
+    let p1BedIsaTransfer = 0, p1IndivBedIsaTransfer = 0, p1JointBedIsaTransfer = 0, p1BedIsaCg = 0;
+    let p2BedIsaTransfer = 0, p2IndivBedIsaTransfer = 0, p2JointBedIsaTransfer = 0, p2IndivBedIsaCg = 0, p2BedIsaCg = 0;
 
     // Track how much of each person's ISA annual allowance has already been used
     // in this year (PCLS reinvestment counts toward the same subscription limit).
@@ -319,7 +319,8 @@ export function calculateProjections(state: PlannerState): YearlyProjection[] {
         const biAmount = Math.min(p1GiaV, p1Allowance);
         if (biAmount > 0) {
           const r = drawFromGIA(p1GiaV, p1GiaBC, biAmount);
-          p1BedIsaTransfer += r.drawn;
+          p1BedIsaTransfer      += r.drawn;
+          p1IndivBedIsaTransfer += r.drawn;
           p1BedIsaCg       += r.capitalGain;
           p1GiaV    = r.newValue;
           p1GiaBC   = r.newBaseCost;
@@ -334,7 +335,8 @@ export function calculateProjections(state: PlannerState): YearlyProjection[] {
         const biAmount = Math.min(p2GiaV, p2Allowance);
         if (biAmount > 0) {
           const r = drawFromGIA(p2GiaV, p2GiaBC, biAmount);
-          p2BedIsaTransfer  += r.drawn;
+          p2BedIsaTransfer      += r.drawn;
+          p2IndivBedIsaTransfer += r.drawn;
           p2IndivBedIsaCg   += r.capitalGain;
           p2GiaV    = r.newValue;
           p2GiaBC   = r.newBaseCost;
@@ -349,7 +351,8 @@ export function calculateProjections(state: PlannerState): YearlyProjection[] {
         const biAmount = Math.min(jointGiaV, p1JointAllow);
         if (biAmount > 0) {
           const r = drawFromGIA(jointGiaV, jointGiaBC, biAmount);
-          p1BedIsaTransfer += r.drawn;
+          p1BedIsaTransfer      += r.drawn;
+          p1JointBedIsaTransfer += r.drawn;
           p2BedIsaCg       += r.capitalGain;   // joint disposal → 50/50 CGT split
           jointGiaV    = r.newValue;
           jointGiaBC   = r.newBaseCost;
@@ -365,7 +368,8 @@ export function calculateProjections(state: PlannerState): YearlyProjection[] {
           const biAmount = Math.min(jointGiaV, p2JointAllow);
           if (biAmount > 0) {
             const r = drawFromGIA(jointGiaV, jointGiaBC, biAmount);
-            p2BedIsaTransfer += r.drawn;
+            p2BedIsaTransfer      += r.drawn;
+            p2JointBedIsaTransfer += r.drawn;
             p2BedIsaCg       += r.capitalGain;  // joint disposal → 50/50 CGT split
             jointGiaV    = r.newValue;
             jointGiaBC   = r.newBaseCost;
@@ -698,8 +702,12 @@ export function calculateProjections(state: PlannerState): YearlyProjection[] {
 
       // PCLS + Bed & ISA strategy tracking (zero in standard-ufpls mode)
       p1PclsEvent: Math.round(p1PclsEvent),
-      p1BedIsaTransfer: Math.round(p1BedIsaTransfer),
-      p2BedIsaTransfer: Math.round(p2BedIsaTransfer),
+      p1IndivBedIsaTransfer: Math.round(p1IndivBedIsaTransfer),
+      p1JointBedIsaTransfer: Math.round(p1JointBedIsaTransfer),
+      p1BedIsaTransfer:      Math.round(p1IndivBedIsaTransfer) + Math.round(p1JointBedIsaTransfer),
+      p2IndivBedIsaTransfer: Math.round(p2IndivBedIsaTransfer),
+      p2JointBedIsaTransfer: Math.round(p2JointBedIsaTransfer),
+      p2BedIsaTransfer:      Math.round(p2IndivBedIsaTransfer) + Math.round(p2JointBedIsaTransfer),
     });
   }
 

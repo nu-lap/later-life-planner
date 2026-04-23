@@ -367,10 +367,18 @@ export interface YearlyProjection {
   // PCLS + Bed & ISA strategy tracking (zero when strategy = 'standard-ufpls')
   /** PCLS lump sum taken at plan start (person1 only, year 0 event). */
   p1PclsEvent: number;
-  /** Amount transferred from person1 GIA to person1 ISA via Bed & ISA this year. */
+  /** Total transferred into person1 ISA via Bed & ISA this year (individual + joint GIA). */
   p1BedIsaTransfer: number;
-  /** Amount transferred from joint GIA to person2 ISA via Bed & ISA this year. */
+  /** Amount from person1's own individual GIA → person1 ISA (subset of p1BedIsaTransfer). */
+  p1IndivBedIsaTransfer: number;
+  /** Amount from the joint GIA → person1 ISA (subset of p1BedIsaTransfer). */
+  p1JointBedIsaTransfer: number;
+  /** Total transferred into person2 ISA via Bed & ISA this year (individual + joint GIA). */
   p2BedIsaTransfer: number;
+  /** Amount from person2's own individual GIA → person2 ISA (subset of p2BedIsaTransfer). */
+  p2IndivBedIsaTransfer: number;
+  /** Amount from the joint GIA → person2 ISA (subset of p2BedIsaTransfer). */
+  p2JointBedIsaTransfer: number;
 }
 
 // ─── Simulation result (dashboard summary) ───────────────────────────────────
