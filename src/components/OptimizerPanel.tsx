@@ -261,8 +261,8 @@ function formatExplanationBlocks(text: string): ExplanationBlock[] {
 
 export default function OptimizerPanel({ plannerState, result, proEnabled, onProCta }: Props) {
   const [showAll, setShowAll] = useState(false);
-  // Initialise with a stable server-safe default; read localStorage after mount to avoid hydration mismatch.
-  const [showStrategyComparison, setShowStrategyComparison] = useState(true);
+  // Initialise collapsed by default; read localStorage after mount to avoid hydration mismatch.
+  const [showStrategyComparison, setShowStrategyComparison] = useState(false);
   const [showAllStrategyDefinitions, setShowAllStrategyDefinitions] = useState(false);
   const [showDrawdownBreakdown, setShowDrawdownBreakdown] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -438,179 +438,9 @@ export default function OptimizerPanel({ plannerState, result, proEnabled, onPro
         </div>
         )}
 
-        {proEnabled ? (
-          <>
-            <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
-              <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
-                <p className="text-xs font-bold text-emerald-700">Tax impact vs standard approach</p>
-                <p className="mt-1 text-2xl font-black text-emerald-900">
-                  {formatCurrency(result.lifetimeTaxSaving, true)}
-                </p>
-                <p className="mt-1 text-xs text-emerald-700">
-                  Optimized tax: {formatCurrency(result.lifetimeTaxPaid, true)} · standard: {formatCurrency(result.baselineLifetimeTaxPaid, true)}
-                </p>
-              </div>
-              <div className="rounded-2xl border border-sky-100 bg-sky-50 p-4">
-                <p className="text-xs font-bold text-sky-700">Plan durability vs standard approach</p>
-                <p className="mt-1 text-2xl font-black text-sky-900">
-                  {formatDurabilityHeadline(result.assetDepletionAge, result.baselineAssetDepletionAge)}
-                </p>
-                <p className="mt-1 text-xs text-sky-700">
-                  {formatDurabilityDetail(result.assetDepletionAge, result.baselineAssetDepletionAge)}
-                </p>
-              </div>
-              <div className="rounded-2xl border border-violet-100 bg-violet-50 p-4">
-                <p className="text-xs font-bold text-violet-700">End-of-plan assets vs standard approach</p>
-                <p className="mt-1 text-2xl font-black text-violet-900">
-                  {formatSignedCurrency(terminalAssetDelta)}
-                </p>
-                <p className="mt-1 text-xs text-violet-700">
-                  Optimized: {formatCurrency(result.terminalAssets, true)} · standard: {formatCurrency(baselineTerminalAssets, true)}
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <h4 className="text-sm font-black uppercase tracking-wide text-slate-700">
-                    Strategy comparison by year
-                  </h4>
-                  <p className="mt-1 text-xs text-slate-500">
-                    Secondary detail showing the best and runner-up options for each year. Showing {shownYearCount} of {result.yearRecords.length} years.
-                  </p>
-                </div>
-                <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-                  <button
-                    type="button"
-                    onClick={() => setShowStrategyComparison((current) => !current)}
-                    className="text-sm font-semibold text-orange-600 hover:text-orange-700"
-                  >
-                    {showStrategyComparison ? '▲ Hide comparison' : '▼ Show comparison'}
-                  </button>
-                </div>
-              </div>
-
-              {showStrategyComparison ? (
-                <div className="mt-4 overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b border-slate-100 text-left text-slate-500">
-                        <th className="w-24 pb-2 pr-3 font-bold sm:w-32">Age</th>
-                        <th className="pb-2 pr-3 font-bold">Best</th>
-                        <th className="pb-2 pr-0 font-bold">Runner-up</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {rows.map((record) => {
-                        const [best, runnerUp] = record.topStrategies;
-                        return (
-                          <tr key={record.p1Age} className="border-b border-slate-50 align-top">
-                            <td className="w-24 py-3 pr-3 text-slate-700 sm:w-32">
-                              {record.p1Age}
-                              {record.p2Age !== null ? ` / ${record.p2Age}` : ''}
-                            </td>
-                            <td className="py-3 pr-3">
-                              <StrategyRow label="Best" result={best ?? record.winner} accent="emerald" mode={plannerState.mode} />
-                            </td>
-                            <td className="py-3 pr-0">
-                              {runnerUp ? (
-                                <StrategyRow label="Runner-up" result={runnerUp} accent="amber" mode={plannerState.mode} />
-                              ) : (
-                                <div className="rounded-2xl border border-slate-100 bg-white p-3 text-xs text-slate-500">
-                                  No alternative strategy for this year.
-                                </div>
-                              )}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              ) : null}
-            </div>
-          </>
-        ) : (
-            <div>
-              <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
-                <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
-                  <p className="text-xs font-bold text-emerald-700">Tax impact vs standard approach</p>
-                  <p className="mt-1 text-2xl font-black text-emerald-900">
-                    {formatCurrency(result.lifetimeTaxSaving, true)}
-                  </p>
-                  <p className="mt-1 text-xs text-emerald-700">
-                    Optimized tax: {formatCurrency(result.lifetimeTaxPaid, true)} · standard: {formatCurrency(result.baselineLifetimeTaxPaid, true)}
-                  </p>
-                </div>
-                <div className="rounded-2xl border border-sky-100 bg-sky-50 p-4">
-                  <p className="text-xs font-bold text-sky-700">Plan durability vs standard approach</p>
-                  <p className="mt-1 text-2xl font-black text-sky-900">
-                    {formatDurabilityHeadline(result.assetDepletionAge, result.baselineAssetDepletionAge)}
-                  </p>
-                  <p className="mt-1 text-xs text-sky-700">
-                    {formatDurabilityDetail(result.assetDepletionAge, result.baselineAssetDepletionAge)}
-                  </p>
-                </div>
-                <div className="rounded-2xl border border-violet-100 bg-violet-50 p-4">
-                  <p className="text-xs font-bold text-violet-700">End-of-plan assets vs standard approach</p>
-                  <p className="mt-1 text-2xl font-black text-violet-900">
-                    {formatSignedCurrency(terminalAssetDelta)}
-                  </p>
-                  <p className="mt-1 text-xs text-violet-700">
-                    Optimized: {formatCurrency(result.terminalAssets, true)} · standard: {formatCurrency(baselineTerminalAssets, true)}
-                  </p>
-                </div>
-              </div>
-
-              <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                <h4 className="text-sm font-black uppercase tracking-wide text-slate-700">
-                  Baseline waterfall by year (first 5 years)
-                </h4>
-                <p className="mt-1 text-xs text-slate-500">
-                  Non-Pro shows your LaterLifePlan baseline strategy for the first 5 years.
-                </p>
-                <p className="mt-1 text-xs font-semibold text-slate-700">
-                  Same strategy as the <span className="font-black">Simplified tax-efficient withdrawal strategy</span> panel above.
-                </p>
-                <div className="mt-4 overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b border-slate-100 text-left text-slate-500">
-                        <th className="w-24 pb-2 pr-3 font-bold sm:w-32">Age</th>
-                        <th className="pb-2 pr-3 font-bold">Baseline</th>
-                        <th className="pb-2 pr-0 font-bold">Alternative</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {rows.map((record) => {
-                        const baseline = record.baseline;
-                        return (
-                          <tr key={record.p1Age} className="border-b border-slate-50 align-top">
-                            <td className="w-24 py-3 pr-3 text-slate-700 sm:w-32">
-                              {record.p1Age}
-                              {record.p2Age !== null ? ` / ${record.p2Age}` : ''}
-                            </td>
-                            <td className="py-3 pr-3">
-                              <StrategyRow label="Baseline" result={baseline} accent="emerald" mode={plannerState.mode} />
-                            </td>
-                            <td className="py-3 pr-0">
-                              <div className="rounded-2xl border border-slate-100 bg-white p-3 text-xs text-slate-500">
-                                Upgrade to Pro to compare optimised alternatives.
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-        )}
 
         {/* ── Option B: Your action plan ── */}
-        <div className="mt-6 rounded-2xl border border-emerald-200 bg-white p-4 shadow-sm" data-testid="action-plan-section">
+        <div id="section-action" className="mt-6 rounded-2xl border border-emerald-200 bg-white p-4 shadow-sm" data-testid="action-plan-section">
           {/* Header + year navigator */}
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
@@ -664,7 +494,7 @@ export default function OptimizerPanel({ plannerState, result, proEnabled, onPro
                 </p>
                 {apProj.p1BedIsaTransfer > 0 && (
                   <div className={clsx('mb-2', isCouple && 'pb-2 border-b border-emerald-100')}>
-                    {isCouple && <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">{person1Label}</p>}
+                    {isCouple && <p className="mb-0.5 text-xs font-semibold uppercase tracking-wide text-slate-500">{person1Label}</p>}
                     <p className="mb-1 text-sm font-semibold text-slate-800">
                       Move{' '}
                       <span className="font-black text-emerald-700">{formatCurrency(apProj.p1BedIsaTransfer, true)}</span>
@@ -689,7 +519,7 @@ export default function OptimizerPanel({ plannerState, result, proEnabled, onPro
                 )}
                 {isCouple && apProj.p2BedIsaTransfer > 0 && (
                   <div>
-                    <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">{person2Label}</p>
+                    <p className="mb-0.5 text-xs font-semibold uppercase tracking-wide text-slate-500">{person2Label}</p>
                     <p className="mb-1 text-sm font-semibold text-slate-800">
                       Move{' '}
                       <span className="font-black text-emerald-700">{formatCurrency(apProj.p2BedIsaTransfer, true)}</span>
@@ -726,7 +556,7 @@ export default function OptimizerPanel({ plannerState, result, proEnabled, onPro
                 </p>
                 {(apBd.person1.pension?.grossAmount ?? 0) > 0 && (
                   <div className={clsx('mb-2', isCouple && (apBd.person2?.pension?.grossAmount ?? 0) > 0 && 'pb-2 border-b border-sky-100')}>
-                    {isCouple && <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">{person1Label}</p>}
+                    {isCouple && <p className="mb-0.5 text-xs font-semibold uppercase tracking-wide text-slate-500">{person1Label}</p>}
                     <p className="text-sm font-semibold text-slate-800">
                       Withdraw{' '}
                       <span className="font-black text-sky-700">{formatCurrency(apBd.person1.pension!.grossAmount, true)}</span>
@@ -743,7 +573,7 @@ export default function OptimizerPanel({ plannerState, result, proEnabled, onPro
                 )}
                 {isCouple && (apBd.person2?.pension?.grossAmount ?? 0) > 0 && (
                   <div>
-                    <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">{person2Label}</p>
+                    <p className="mb-0.5 text-xs font-semibold uppercase tracking-wide text-slate-500">{person2Label}</p>
                     <p className="text-sm font-semibold text-slate-800">
                       Withdraw{' '}
                       <span className="font-black text-sky-700">{formatCurrency(apBd.person2!.pension!.grossAmount, true)}</span>
@@ -769,7 +599,7 @@ export default function OptimizerPanel({ plannerState, result, proEnabled, onPro
                 </p>
                 {(apBd.person1.isa?.grossAmount ?? 0) > 0 && (
                   <div className={clsx('mb-2', isCouple && (apBd.person2?.isa?.grossAmount ?? 0) > 0 && 'pb-2 border-b border-indigo-100')}>
-                    {isCouple && <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">{person1Label}</p>}
+                    {isCouple && <p className="mb-0.5 text-xs font-semibold uppercase tracking-wide text-slate-500">{person1Label}</p>}
                     <p className="text-sm font-semibold text-slate-800">
                       Draw{' '}
                       <span className="font-black text-indigo-700">{formatCurrency(apBd.person1.isa!.grossAmount, true)}</span>
@@ -779,7 +609,7 @@ export default function OptimizerPanel({ plannerState, result, proEnabled, onPro
                 )}
                 {isCouple && (apBd.person2?.isa?.grossAmount ?? 0) > 0 && (
                   <div>
-                    <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">{person2Label}</p>
+                    <p className="mb-0.5 text-xs font-semibold uppercase tracking-wide text-slate-500">{person2Label}</p>
                     <p className="text-sm font-semibold text-slate-800">
                       Draw{' '}
                       <span className="font-black text-indigo-700">{formatCurrency(apBd.person2!.isa!.grossAmount, true)}</span>
@@ -978,6 +808,178 @@ export default function OptimizerPanel({ plannerState, result, proEnabled, onPro
             {proEnabled && showAll ? '▲ Show fewer years' : '▼ Show all optimiser years'}
           </button>
         )}
+
+        {proEnabled ? (
+          <>
+            <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+                <p className="text-xs font-bold text-slate-600">Tax vs standard approach</p>
+                <p className="mt-1 text-2xl font-black text-slate-900">
+                  {formatCurrency(result.lifetimeTaxSaving, true)}
+                </p>
+                <p className="mt-1 text-xs text-slate-500">
+                  Optimised: {formatCurrency(result.lifetimeTaxPaid, true)} · standard: {formatCurrency(result.baselineLifetimeTaxPaid, true)}. A higher tax figure here may reflect a better drawdown sequence — not a worse outcome.
+                </p>
+              </div>
+              <div className="rounded-2xl border border-sky-100 bg-sky-50 p-4">
+                <p className="text-xs font-bold text-sky-700">Plan durability vs standard approach</p>
+                <p className="mt-1 text-2xl font-black text-sky-900">
+                  {formatDurabilityHeadline(result.assetDepletionAge, result.baselineAssetDepletionAge)}
+                </p>
+                <p className="mt-1 text-xs text-sky-700">
+                  {formatDurabilityDetail(result.assetDepletionAge, result.baselineAssetDepletionAge)}
+                </p>
+              </div>
+              <div className="rounded-2xl border border-violet-100 bg-violet-50 p-4">
+                <p className="text-xs font-bold text-violet-700">End-of-plan assets vs standard approach</p>
+                <p className="mt-1 text-2xl font-black text-violet-900">
+                  {formatSignedCurrency(terminalAssetDelta)}
+                </p>
+                <p className="mt-1 text-xs text-violet-700">
+                  Optimized: {formatCurrency(result.terminalAssets, true)} · standard: {formatCurrency(baselineTerminalAssets, true)}
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h4 className="text-sm font-black uppercase tracking-wide text-slate-700">
+                    Strategy comparison by year
+                  </h4>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Secondary detail showing the best and runner-up options for each year. Showing {shownYearCount} of {result.yearRecords.length} years.
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setShowStrategyComparison((current) => !current)}
+                    className="text-sm font-semibold text-orange-600 hover:text-orange-700"
+                  >
+                    {showStrategyComparison ? '▲ Hide comparison' : '▼ Show comparison'}
+                  </button>
+                </div>
+              </div>
+
+              {showStrategyComparison ? (
+                <div className="mt-4 overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-slate-100 text-left text-slate-500">
+                        <th className="w-24 pb-2 pr-3 font-bold sm:w-32">Age</th>
+                        <th className="pb-2 pr-3 font-bold">Best</th>
+                        <th className="pb-2 pr-0 font-bold">Runner-up</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {rows.map((record) => {
+                        const [best, runnerUp] = record.topStrategies;
+                        return (
+                          <tr key={record.p1Age} className="border-b border-slate-50 align-top">
+                            <td className="w-24 py-3 pr-3 text-slate-700 sm:w-32">
+                              {record.p1Age}
+                              {record.p2Age !== null ? ` / ${record.p2Age}` : ''}
+                            </td>
+                            <td className="py-3 pr-3">
+                              <StrategyRow label="Best" result={best ?? record.winner} accent="emerald" mode={plannerState.mode} />
+                            </td>
+                            <td className="py-3 pr-0">
+                              {runnerUp ? (
+                                <StrategyRow label="Runner-up" result={runnerUp} accent="amber" mode={plannerState.mode} />
+                              ) : (
+                                <div className="rounded-2xl border border-slate-100 bg-white p-3 text-xs text-slate-500">
+                                  No alternative strategy for this year.
+                                </div>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              ) : null}
+            </div>
+          </>
+        ) : (
+            <div>
+              <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+                <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+                  <p className="text-xs font-bold text-slate-600">Tax vs standard approach</p>
+                  <p className="mt-1 text-2xl font-black text-slate-900">
+                    {formatCurrency(result.lifetimeTaxSaving, true)}
+                  </p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Optimised: {formatCurrency(result.lifetimeTaxPaid, true)} · standard: {formatCurrency(result.baselineLifetimeTaxPaid, true)}. A higher tax figure here may reflect a better drawdown sequence — not a worse outcome.
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-sky-100 bg-sky-50 p-4">
+                  <p className="text-xs font-bold text-sky-700">Plan durability vs standard approach</p>
+                  <p className="mt-1 text-2xl font-black text-sky-900">
+                    {formatDurabilityHeadline(result.assetDepletionAge, result.baselineAssetDepletionAge)}
+                  </p>
+                  <p className="mt-1 text-xs text-sky-700">
+                    {formatDurabilityDetail(result.assetDepletionAge, result.baselineAssetDepletionAge)}
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-violet-100 bg-violet-50 p-4">
+                  <p className="text-xs font-bold text-violet-700">End-of-plan assets vs standard approach</p>
+                  <p className="mt-1 text-2xl font-black text-violet-900">
+                    {formatSignedCurrency(terminalAssetDelta)}
+                  </p>
+                  <p className="mt-1 text-xs text-violet-700">
+                    Optimized: {formatCurrency(result.terminalAssets, true)} · standard: {formatCurrency(baselineTerminalAssets, true)}
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <h4 className="text-sm font-black uppercase tracking-wide text-slate-700">
+                  Baseline waterfall by year (first 5 years)
+                </h4>
+                <p className="mt-1 text-xs text-slate-500">
+                  Non-Pro shows your LaterLifePlan baseline strategy for the first 5 years.
+                </p>
+                <p className="mt-1 text-xs font-semibold text-slate-700">
+                  Same strategy as the <span className="font-black">Simplified tax-efficient withdrawal strategy</span> panel above.
+                </p>
+                <div className="mt-4 overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-slate-100 text-left text-slate-500">
+                        <th className="w-24 pb-2 pr-3 font-bold sm:w-32">Age</th>
+                        <th className="pb-2 pr-3 font-bold">Baseline</th>
+                        <th className="pb-2 pr-0 font-bold">Alternative</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {rows.map((record) => {
+                        const baseline = record.baseline;
+                        return (
+                          <tr key={record.p1Age} className="border-b border-slate-50 align-top">
+                            <td className="w-24 py-3 pr-3 text-slate-700 sm:w-32">
+                              {record.p1Age}
+                              {record.p2Age !== null ? ` / ${record.p2Age}` : ''}
+                            </td>
+                            <td className="py-3 pr-3">
+                              <StrategyRow label="Baseline" result={baseline} accent="emerald" mode={plannerState.mode} />
+                            </td>
+                            <td className="py-3 pr-0">
+                              <div className="rounded-2xl border border-slate-100 bg-white p-3 text-xs text-slate-500">
+                                Upgrade to Pro to compare optimised alternatives.
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+        )}
+
       </div>
 
       {isDialogOpen ? (

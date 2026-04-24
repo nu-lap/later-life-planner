@@ -934,6 +934,25 @@ export default function Step4Dashboard({ onBack }: Props) {
         </p>
       </div>
 
+      {/* Section anchor navigation */}
+      <nav aria-label="Dashboard sections" className="flex flex-wrap gap-2 justify-center">
+        {([
+          { id: 'section-overview',  label: 'Overview' },
+          { id: 'section-action',    label: '📋 Action Plan' },
+          { id: 'section-optimiser', label: 'Optimiser' },
+          { id: 'section-charts',    label: 'Charts' },
+          { id: 'section-iht',       label: 'IHT' },
+        ] as const).map(({ id, label }) => (
+          <a
+            key={id}
+            href={`#${id}`}
+            className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-600 hover:border-orange-300 hover:text-orange-700 transition-colors"
+          >
+            {label}
+          </a>
+        ))}
+      </nav>
+
       {/* PCLS + Bed & ISA strategy selector — shown when person 1 has a DC pension */}
       {person1.incomeSources.dcPension.enabled && (() => {
         const activeStrategy = drawdownStrategy ?? 'standard-ufpls';
@@ -1066,7 +1085,7 @@ export default function Step4Dashboard({ onBack }: Props) {
       )}
 
       {/* KPI stat cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div id="section-overview" className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <StatCard icon="💰" label="Required net spending" value={formatCurrency(annualSpend, true)}
           sub={rlssStandard ? `${RLSS_STANDARDS[mode][rlssStandard].label} lifestyle` : "today's £"}
           accent="slate" />
@@ -1160,6 +1179,7 @@ export default function Step4Dashboard({ onBack }: Props) {
       </div>
 
       {/* Combined Pro-gated panel: Goal priorities + IHT estate planning */}
+      <div id="section-iht">
       {proEnabled ? (
         <>
           {optimizerEnabled && (
@@ -1255,9 +1275,10 @@ export default function Step4Dashboard({ onBack }: Props) {
           </div>
         </ProUpgradeOverlay>
       )}
+      </div>
 
       {/* Charts */}
-      <div className="game-card">
+      <div id="section-charts" className="game-card">
         <div className="flex items-start justify-between mb-1">
           <h3 className="section-heading mb-0">
             {optimizerEnabled && proEnabled ? 'Gross income vs required spending — optimiser view' : 'Gross income vs required spending — lifetime view'}
@@ -1269,6 +1290,9 @@ export default function Step4Dashboard({ onBack }: Props) {
             : 'Stacked bars = gross income sources. Dashed line = required spending — the cash need the plan must meet after tax. Tax reduces spendable cash, so gross income can be higher than spending in a given year.'}
         </p>
         <LifetimeChart projections={chartProjections} mode={mode} p1Name={p1Name} p2Name={p2Name} />
+        <p className="mt-3 text-xs text-slate-400 text-center">
+          Bars above the dashed line indicate surplus income; bars below indicate a shortfall.
+        </p>
       </div>
 
       <div className="game-card">
@@ -1288,7 +1312,9 @@ export default function Step4Dashboard({ onBack }: Props) {
       )}
 
       {optimizerEnabled && optimizerResult && (
-        <OptimizerPanel plannerState={deferredState} result={optimizerResult} proEnabled={proEnabled} onProCta={() => setProModalSource('optimizer-explain')} />
+        <div id="section-optimiser">
+          <OptimizerPanel plannerState={deferredState} result={optimizerResult} proEnabled={proEnabled} onProCta={() => setProModalSource('optimizer-explain')} />
+        </div>
       )}
 
       {/* Tax strategy */}

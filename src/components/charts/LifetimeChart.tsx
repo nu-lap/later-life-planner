@@ -155,7 +155,7 @@ export default function LifetimeChart({ projections }: Props) {
         <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
         <XAxis dataKey="age" tick={{ fontSize: 12, fill: '#64748b' }} tickLine={false}
           label={{ value: 'Age', position: 'insideBottom', offset: -2, fontSize: 12, fill: '#94a3b8' }} />
-        <YAxis tickFormatter={formatY} tick={{ fontSize: 12, fill: '#64748b' }} tickLine={false} axisLine={false} width={55} />
+        <YAxis tickFormatter={formatY} tick={{ fontSize: 12, fill: '#64748b' }} tickLine={false} axisLine={false} width={55} tickCount={6} allowDecimals={false} />
         <Tooltip content={<CustomTooltip />} />
         <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '12px' }} iconType="square" iconSize={10} />
         {activeBars.map(b => (

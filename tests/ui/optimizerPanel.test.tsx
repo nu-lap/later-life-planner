@@ -21,14 +21,14 @@ describe('OptimizerPanel', () => {
 
     expect(screen.getByText('Withdrawal plan optimisation')).toBeInTheDocument();
     expect(screen.queryByText('Recommended')).not.toBeInTheDocument();
-    expect(screen.getByText('Tax impact vs standard approach')).toBeInTheDocument();
+    expect(screen.getByText('Tax vs standard approach')).toBeInTheDocument();
     expect(screen.getByText('Plan durability vs standard approach')).toBeInTheDocument();
     expect(screen.getByText('End-of-plan assets vs standard approach')).toBeInTheDocument();
     expect(screen.getByText('Strategy guide')).toBeInTheDocument();
     expect(screen.getByText('LLP baseline waterfall', { selector: '#strategy-guide-panel p.text-sm.font-semibold.text-slate-900' })).toBeInTheDocument();
     expect(screen.getByText(/These are the strategy definitions for the best option shown in the comparison table below\./)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Show all strategy definitions' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '▲ Hide comparison' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '▼ Show comparison' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '▼ Show breakdown' })).toBeInTheDocument();
     expect(screen.queryByTestId('optimizer-drawdown-breakdown-table')).not.toBeInTheDocument();
   });
@@ -80,11 +80,16 @@ describe('OptimizerPanel', () => {
     expect(firstAgeCell!.className).toContain('border-r');
   });
 
-  test('shows the first five comparison years by default', () => {
+  test('shows the first five comparison years by default', async () => {
     const plannerState = paulAndLisaState();
     const result = optimizeWithdrawals(plannerState);
 
     render(<OptimizerPanel plannerState={plannerState} result={result} proEnabled={true} />);
+
+    // Strategy comparison is collapsed by default — expand it first
+    const showBtn = screen.getByRole('button', { name: '▼ Show comparison' });
+    expect(showBtn).toBeInTheDocument();
+    await userEvent.click(showBtn);
 
     expect(screen.getByRole('button', { name: '▲ Hide comparison' })).toBeInTheDocument();
     expect(screen.getAllByText('Runner-up').length).toBeGreaterThanOrEqual(5);
@@ -476,7 +481,7 @@ describe('OptimizerPanel — Pro gating (proEnabled=false)', () => {
 
     render(<OptimizerPanel plannerState={plannerState} result={result} proEnabled={false} />);
 
-    expect(screen.getByText('Tax impact vs standard approach')).toBeInTheDocument();
+    expect(screen.getByText('Tax vs standard approach')).toBeInTheDocument();
     expect(screen.getByText('Plan durability vs standard approach')).toBeInTheDocument();
     expect(screen.getByText('End-of-plan assets vs standard approach')).toBeInTheDocument();
     expect(screen.getByText('Explain this recommendation')).toBeInTheDocument();
