@@ -29,10 +29,10 @@ export default function ProFeatureBanner({
     <div className="flex flex-col sm:flex-row sm:items-center gap-3 rounded-2xl border border-violet-200 bg-violet-50/60 px-5 py-4">
       <span className="text-2xl flex-shrink-0 hidden sm:block">{icon}</span>
       <div className="flex-1 min-w-0">
-        <p className="font-bold text-slate-800 text-sm leading-snug">
+        <h3 className="font-bold text-slate-800 text-sm leading-snug">
           <span className="sm:hidden mr-1.5">{icon}</span>
           {headline}
-        </p>
+        </h3>
         <p className="text-xs text-slate-500 mt-0.5 leading-snug">{description}</p>
       </div>
       <button

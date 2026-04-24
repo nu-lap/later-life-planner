@@ -1061,7 +1061,7 @@ export default function Step4Dashboard({ onBack }: Props) {
         return proEnabled ? selectorContent : (
           <ProFeatureBanner
             headline="Advanced withdrawal strategies"
-            description="Save thousands in lifetime tax by drawing from your pension and investments in the right order at the right time."
+            description="See strategies that could help reduce lifetime tax by drawing from your pension and investments in a more tax-efficient order."
             ctaLabel="Unlock with Pro →"
             onCta={() => setProModalSource('pcls-strategy')}
           />
