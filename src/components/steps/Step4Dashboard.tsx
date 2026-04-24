@@ -938,6 +938,7 @@ export default function Step4Dashboard({ onBack }: Props) {
       <nav aria-label="Dashboard sections" className="flex flex-wrap gap-2 justify-center">
         {([
           { id: 'section-overview',  label: '📊 Overview' },
+          { id: 'section-action',    label: '📋 Action Plan' },
           { id: 'section-optimiser', label: '⚡ Optimiser' },
           { id: 'section-charts',    label: '📈 Charts' },
           { id: 'section-iht',       label: '🏠 IHT' },
@@ -950,14 +951,6 @@ export default function Step4Dashboard({ onBack }: Props) {
             {label}
           </a>
         ))}
-        {proEnabled && (
-          <a
-            href="#section-action"
-            className="rounded-full border border-slate-300 bg-white px-4 py-1.5 text-sm font-semibold text-slate-700 shadow-sm hover:border-orange-400 hover:text-orange-700 hover:shadow transition-colors"
-          >
-            📋 Action Plan
-          </a>
-        )}
       </nav>
 
       {/* PCLS + Bed & ISA strategy selector — shown when person 1 has a DC pension */}

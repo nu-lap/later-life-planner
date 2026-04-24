@@ -506,40 +506,29 @@ describe('OptimizerPanel — Pro gating (proEnabled=false)', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  test('shows baseline drawdown breakdown table immediately for non-Pro', () => {
+  test('does not show drawdown breakdown table in non-Pro mode', () => {
     const plannerState = paulAndLisaState();
     const result = optimizeWithdrawals(plannerState);
 
     render(<OptimizerPanel plannerState={plannerState} result={result} proEnabled={false} />);
-    const table = screen.getByTestId('optimizer-drawdown-breakdown-table');
-    expect(table).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: '▼ Show breakdown' })).not.toBeInTheDocument();
-
-    const bodyRows = table.querySelectorAll('tbody tr');
-    expect(bodyRows.length).toBe(5);
-    expect(bodyRows[0]?.className).not.toContain('blur-[2px]');
-    expect(bodyRows[1]?.className).toContain('blur-[2px]');
-    expect(bodyRows[2]?.className).toContain('blur-[2px]');
-    expect(bodyRows[3]?.className).toContain('blur-[2px]');
-    expect(bodyRows[4]?.className).toContain('blur-[2px]');
+    expect(screen.queryByTestId('optimizer-drawdown-breakdown-table')).not.toBeInTheDocument();
+    expect(screen.queryByText('Drawdown detail by year')).not.toBeInTheDocument();
   });
 
-  test('clicking "Show all optimiser years" in non-Pro mode triggers onProCta', async () => {
+  test('clicking "Show all optimiser years" in Pro mode expands beyond 5 rows', async () => {
     const plannerState = paulAndLisaState();
     const result = optimizeWithdrawals(plannerState);
-    const onProCta = vi.fn();
 
-    render(<OptimizerPanel plannerState={plannerState} result={result} proEnabled={false} onProCta={onProCta} />);
+    render(<OptimizerPanel plannerState={plannerState} result={result} proEnabled={true} />);
 
+    await userEvent.click(screen.getByRole('button', { name: '▼ Show breakdown' }));
     const showAllBtn = screen.getByRole('button', { name: '▼ Show all optimiser years' });
     expect(showAllBtn).toBeInTheDocument();
 
     await userEvent.click(showAllBtn);
 
-    expect(onProCta).toHaveBeenCalledTimes(1);
-    // Table should still show only 5 rows — the Pro dialog handles the upsell
     const table = screen.getByTestId('optimizer-drawdown-breakdown-table');
-    expect(table.querySelectorAll('tbody tr').length).toBe(5);
+    expect(table.querySelectorAll('tbody tr').length).toBeGreaterThan(5);
   });
 });
 
@@ -573,13 +562,13 @@ describe('OptimizerPanel — Bed & ISA action columns', () => {
     expect(screen.getByText(/before 5 April/)).toBeInTheDocument();
   });
 
-  test('does not show "Annual ISA action" column when no GIA exists to shelter', () => {
+  test('does not show "Annual ISA action" column when no GIA exists to shelter', async () => {
     // dcOnlyState has no GIA and uses the default standard-ufpls strategy, so B&I transfers are zero
     const plannerState = dcOnlyState(65, 250_000);
     const result = optimizeWithdrawals(plannerState);
 
-    // Render in non-Pro mode so the table is always visible without needing to expand it
-    render(<OptimizerPanel plannerState={plannerState} result={result} proEnabled={false} />);
+    render(<OptimizerPanel plannerState={plannerState} result={result} proEnabled={true} />);
+    await userEvent.click(screen.getByRole('button', { name: '▼ Show breakdown' }));
 
     const table = screen.getByTestId('optimizer-drawdown-breakdown-table');
     expect(table).toBeInTheDocument();
@@ -705,16 +694,32 @@ describe('OptimizerPanel — Your action plan (Option B)', () => {
     expect(within(section).getAllByText(/from your pension/).length).toBeGreaterThan(0);
   });
 
-  test('in non-Pro mode the action plan section is not rendered', () => {
+  test('in non-Pro mode clicking Next year triggers onProCta', async () => {
+    const plannerState = paulAndLisaState();
+    const result = optimizeWithdrawals(plannerState);
+    const onProCta = vi.fn();
+
+    render(<OptimizerPanel plannerState={plannerState} result={result} proEnabled={false} onProCta={onProCta} />);
+
+    const section = screen.getByTestId('action-plan-section');
+    await userEvent.click(within(section).getByRole('button', { name: 'Unlock all years with Pro' }));
+
+    expect(onProCta).toHaveBeenCalledTimes(1);
+    // Should still show first year (not advanced)
+    expect(within(section).getByText(result.yearRecords[0]!.taxYear)).toBeInTheDocument();
+  });
+
+  test('in non-Pro mode shows first year free hint', () => {
     const plannerState = paulAndLisaState();
     const result = optimizeWithdrawals(plannerState);
 
     render(<OptimizerPanel plannerState={plannerState} result={result} proEnabled={false} />);
 
-    expect(screen.queryByTestId('action-plan-section')).not.toBeInTheDocument();
+    const section = screen.getByTestId('action-plan-section');
+    expect(within(section).getByText(/First year shown free/i)).toBeInTheDocument();
   });
 
-  test('resets to year 0 when result changes in Pro mode', async () => {
+  test('resets to year 0 when proEnabled flips from true to false', async () => {
     const plannerState = paulAndLisaState();
     const result = optimizeWithdrawals(plannerState);
 
@@ -727,8 +732,8 @@ describe('OptimizerPanel — Your action plan (Option B)', () => {
     await userEvent.click(within(section).getByRole('button', { name: 'Next year' }));
     expect(within(section).getByText(result.yearRecords[1]!.taxYear)).toBeInTheDocument();
 
-    // Re-render with same result (simulates result change clamping) — year stays clamped within bounds
-    rerender(<OptimizerPanel plannerState={plannerState} result={result} proEnabled={true} />);
-    expect(within(section).getByText(result.yearRecords[1]!.taxYear)).toBeInTheDocument();
+    // Downgrade to non-Pro — should snap back to year 0
+    rerender(<OptimizerPanel plannerState={plannerState} result={result} proEnabled={false} />);
+    expect(within(section).getByText(result.yearRecords[0]!.taxYear)).toBeInTheDocument();
   });
 });
