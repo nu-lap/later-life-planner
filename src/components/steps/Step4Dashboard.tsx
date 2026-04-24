@@ -937,18 +937,18 @@ export default function Step4Dashboard({ onBack }: Props) {
       {/* Section anchor navigation — only link to sections that are rendered */}
       <nav aria-label="Dashboard sections" className="flex flex-wrap gap-2 justify-center">
         {([
-          { id: 'section-overview',  label: 'Overview',          always: true },
-          { id: 'section-action',    label: '📋 Action Plan',    always: false },
-          { id: 'section-optimiser', label: 'Optimiser',         always: false },
-          { id: 'section-charts',    label: 'Charts',            always: true },
-          { id: 'section-iht',       label: 'IHT',               always: true },
+          { id: 'section-overview',  label: '📊 Overview',    always: true },
+          { id: 'section-action',    label: '📋 Action Plan', always: false },
+          { id: 'section-optimiser', label: '⚡ Optimiser',   always: false },
+          { id: 'section-charts',    label: '📈 Charts',      always: true },
+          { id: 'section-iht',       label: '🏠 IHT',         always: true },
         ] as const)
           .filter(({ always }) => always || optimizerEnabled)
           .map(({ id, label }) => (
           <a
             key={id}
             href={`#${id}`}
-            className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-600 hover:border-orange-300 hover:text-orange-700 transition-colors"
+            className="rounded-full border border-slate-300 bg-white px-4 py-1.5 text-sm font-semibold text-slate-700 shadow-sm hover:border-orange-400 hover:text-orange-700 hover:shadow transition-colors"
           >
             {label}
           </a>
