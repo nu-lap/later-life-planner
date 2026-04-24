@@ -72,7 +72,7 @@ export default function Header({
 	              </button>
 	            ) : null}
 	            {authControls}
-	            {showPlannerActions ? (
+	            {showPlannerActions && process.env.NODE_ENV === 'development' ? (
 	              <>
                 <button
                   onClick={() => setPending('demo')}

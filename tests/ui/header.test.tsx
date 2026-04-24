@@ -25,8 +25,9 @@ describe('Header', () => {
       />,
     );
 
-    expect(screen.getByText('Reset')).toBeInTheDocument();
-    expect(screen.getByText(/demo/i)).toBeInTheDocument();
+    // Demo and Reset are only shown in development mode; in the test environment they are hidden.
+    expect(screen.queryByText('Reset')).toBeNull();
+    expect(screen.queryByText(/demo/i)).toBeNull();
   });
 });
 

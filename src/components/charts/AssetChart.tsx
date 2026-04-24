@@ -88,7 +88,7 @@ export default function AssetChart({ projections }: Props) {
           tickLine={false}
           label={{ value: 'Age', position: 'insideBottom', offset: -2, fontSize: 12, fill: '#94a3b8' }}
         />
-        <YAxis tickFormatter={formatY} tick={{ fontSize: 12, fill: '#64748b' }} tickLine={false} axisLine={false} width={60} />
+        <YAxis tickFormatter={formatY} tick={{ fontSize: 12, fill: '#64748b' }} tickLine={false} axisLine={false} width={60} tickCount={6} allowDecimals={false} />
         <Tooltip content={<CustomTooltip />} />
         <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '12px' }} iconType="square" iconSize={10} />
 
