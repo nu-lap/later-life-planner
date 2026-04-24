@@ -934,15 +934,17 @@ export default function Step4Dashboard({ onBack }: Props) {
         </p>
       </div>
 
-      {/* Section anchor navigation */}
+      {/* Section anchor navigation — only link to sections that are rendered */}
       <nav aria-label="Dashboard sections" className="flex flex-wrap gap-2 justify-center">
         {([
-          { id: 'section-overview',  label: '📊 Overview' },
-          { id: 'section-action',    label: '📋 Action Plan' },
-          { id: 'section-optimiser', label: '⚡ Optimiser' },
-          { id: 'section-charts',    label: '📈 Charts' },
-          { id: 'section-iht',       label: '🏠 IHT' },
-        ] as const).map(({ id, label }) => (
+          { id: 'section-overview',  label: '📊 Overview',    always: true },
+          { id: 'section-action',    label: '📋 Action Plan', always: false },
+          { id: 'section-optimiser', label: '⚡ Optimiser',   always: false },
+          { id: 'section-charts',    label: '📈 Charts',      always: true },
+          { id: 'section-iht',       label: '🏠 IHT',         always: true },
+        ] as const)
+          .filter(({ always }) => always || optimizerEnabled)
+          .map(({ id, label }) => (
           <a
             key={id}
             href={`#${id}`}
@@ -1085,7 +1087,7 @@ export default function Step4Dashboard({ onBack }: Props) {
       )}
 
       {/* KPI stat cards */}
-      <div id="section-overview" className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div id="section-overview" className="scroll-mt-32 grid grid-cols-2 sm:grid-cols-4 gap-3">
         <StatCard icon="💰" label="Required net spending" value={formatCurrency(annualSpend, true)}
           sub={rlssStandard ? `${RLSS_STANDARDS[mode][rlssStandard].label} lifestyle` : "today's £"}
           accent="slate" />
@@ -1179,7 +1181,7 @@ export default function Step4Dashboard({ onBack }: Props) {
       </div>
 
       {/* Combined Pro-gated panel: Goal priorities + IHT estate planning */}
-      <div id="section-iht">
+      <div id="section-iht" className="scroll-mt-32">
       {proEnabled ? (
         <>
           {optimizerEnabled && (
@@ -1278,7 +1280,7 @@ export default function Step4Dashboard({ onBack }: Props) {
       </div>
 
       {/* Charts */}
-      <div id="section-charts" className="game-card">
+      <div id="section-charts" className="scroll-mt-32 game-card">
         <div className="flex items-start justify-between mb-1">
           <h3 className="section-heading mb-0">
             {optimizerEnabled && proEnabled ? 'Gross income vs required spending — optimiser view' : 'Gross income vs required spending — lifetime view'}
@@ -1312,7 +1314,7 @@ export default function Step4Dashboard({ onBack }: Props) {
       )}
 
       {optimizerEnabled && optimizerResult && (
-        <div id="section-optimiser">
+        <div id="section-optimiser" className="scroll-mt-32">
           <OptimizerPanel plannerState={deferredState} result={optimizerResult} proEnabled={proEnabled} onProCta={() => setProModalSource('optimizer-explain')} />
         </div>
       )}

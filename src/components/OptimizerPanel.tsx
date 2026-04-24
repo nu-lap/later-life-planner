@@ -440,7 +440,7 @@ export default function OptimizerPanel({ plannerState, result, proEnabled, onPro
 
 
         {/* ── Option B: Your action plan ── */}
-        <div id="section-action" className="mt-6 rounded-2xl border border-emerald-200 bg-white p-4 shadow-sm" data-testid="action-plan-section">
+        <div id="section-action" className="scroll-mt-32 mt-6 rounded-2xl border border-emerald-200 bg-white p-4 shadow-sm" data-testid="action-plan-section">
           {/* Header + year navigator */}
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>

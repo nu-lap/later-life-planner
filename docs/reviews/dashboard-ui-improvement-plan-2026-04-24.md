@@ -233,14 +233,14 @@ The three highest-leverage improvements are:
 
 **Issues**
 - **It is at ~4500px.** This is the most actionable section and most users will never reach it without a specific anchor link.
-- The "PAUL" / "LISA" person labels within cards use 8–9px all-caps grey text. This is well below the minimum recommended font size (13px) and fails accessibility guidelines (WCAG AA requires 4.5:1 contrast ratio for text this small).
+- The "PAUL" / "LISA" person labels within cards use 8–9px all-caps grey text. At that size they are very hard to read, especially in a dense dashboard, and the text/background contrast should be verified to meet WCAG AA for normal text (≥ 4.5:1).
 - The card for "Spending this year" shows the spending target and life stage multiplier — but gives no indication of whether this amount is funded (surplus) or a deficit.
 - The first-year-free / Pro gate message ("First year shown free — upgrade to Pro to step through all years") uses an inline `<span>` in orange, mixing the Pro upsell into the section description. This feels cramped and slightly aggressive.
 - The "🔓" emoji used as the next-year button when Pro is not enabled is playful but slightly inconsistent with the otherwise professional aesthetic.
 
 **Improvements**
 - Add a **sticky "Jump to Action Plan"** button or section anchor link near the top of the dashboard — this is the section users should see first.
-- Increase "PAUL" / "LISA" labels to `text-xs` (12px minimum), use `font-semibold`, and ensure contrast ≥ 4.5:1.
+- Increase "PAUL" / "LISA" labels to at least `text-xs`, use `font-semibold`, and ensure contrast ≥ 4.5:1.
 - On the Spending card, add a coloured indicator: green if fully funded, amber if marginal, red if shortfall.
 - Move the Pro upsell for year navigation out of the descriptor text — instead, show a clean "🔓 Upgrade to see all years" button below the year navigator, separate from the section description.
 
