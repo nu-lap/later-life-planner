@@ -651,7 +651,7 @@ export default function OptimizerPanel({ plannerState, result, proEnabled, onPro
           </div>
         </div>
 
-        <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+        {proEnabled && <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-4">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <h4 className="text-sm font-black uppercase tracking-wide text-slate-700">
@@ -797,7 +797,7 @@ export default function OptimizerPanel({ plannerState, result, proEnabled, onPro
             )}
             </>
           ) : null}
-        </div>
+        </div>}
 
         {result.yearRecords.length > 5 && (proEnabled || !!onProCta) && (
           <button

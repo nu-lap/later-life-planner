@@ -506,25 +506,16 @@ describe('OptimizerPanel — Pro gating (proEnabled=false)', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  test('shows baseline drawdown breakdown table immediately for non-Pro', () => {
+  test('does not show drawdown breakdown table in non-Pro mode', () => {
     const plannerState = paulAndLisaState();
     const result = optimizeWithdrawals(plannerState);
 
     render(<OptimizerPanel plannerState={plannerState} result={result} proEnabled={false} />);
-    const table = screen.getByTestId('optimizer-drawdown-breakdown-table');
-    expect(table).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: '▼ Show breakdown' })).not.toBeInTheDocument();
-
-    const bodyRows = table.querySelectorAll('tbody tr');
-    expect(bodyRows.length).toBe(5);
-    expect(bodyRows[0]?.className).not.toContain('blur-[2px]');
-    expect(bodyRows[1]?.className).toContain('blur-[2px]');
-    expect(bodyRows[2]?.className).toContain('blur-[2px]');
-    expect(bodyRows[3]?.className).toContain('blur-[2px]');
-    expect(bodyRows[4]?.className).toContain('blur-[2px]');
+    expect(screen.queryByTestId('optimizer-drawdown-breakdown-table')).not.toBeInTheDocument();
+    expect(screen.queryByText('Drawdown detail by year')).not.toBeInTheDocument();
   });
 
-  test('clicking "Show all optimiser years" in non-Pro mode triggers onProCta', async () => {
+  test('clicking "Show all optimiser years" in non-Pro mode triggers onProCta and keeps years limited', async () => {
     const plannerState = paulAndLisaState();
     const result = optimizeWithdrawals(plannerState);
     const onProCta = vi.fn();
@@ -537,9 +528,27 @@ describe('OptimizerPanel — Pro gating (proEnabled=false)', () => {
     await userEvent.click(showAllBtn);
 
     expect(onProCta).toHaveBeenCalledTimes(1);
-    // Table should still show only 5 rows — the Pro dialog handles the upsell
+
+    // Year rows in the baseline table should remain limited (≤ 5) — not expanded
+    const baselineSection = screen.getByText('Baseline waterfall by year (first 5 years)').closest('div');
+    const table = baselineSection?.querySelector('table');
+    expect(table?.querySelectorAll('tbody tr').length).toBeLessThanOrEqual(5);
+  });
+
+  test('clicking "Show all optimiser years" in Pro mode expands beyond 5 rows', async () => {
+    const plannerState = paulAndLisaState();
+    const result = optimizeWithdrawals(plannerState);
+
+    render(<OptimizerPanel plannerState={plannerState} result={result} proEnabled={true} />);
+
+    await userEvent.click(screen.getByRole('button', { name: '▼ Show breakdown' }));
+    const showAllBtn = screen.getByRole('button', { name: '▼ Show all optimiser years' });
+    expect(showAllBtn).toBeInTheDocument();
+
+    await userEvent.click(showAllBtn);
+
     const table = screen.getByTestId('optimizer-drawdown-breakdown-table');
-    expect(table.querySelectorAll('tbody tr').length).toBe(5);
+    expect(table.querySelectorAll('tbody tr').length).toBeGreaterThan(5);
   });
 });
 
@@ -573,13 +582,13 @@ describe('OptimizerPanel — Bed & ISA action columns', () => {
     expect(screen.getByText(/before 5 April/)).toBeInTheDocument();
   });
 
-  test('does not show "Annual ISA action" column when no GIA exists to shelter', () => {
+  test('does not show "Annual ISA action" column when no GIA exists to shelter', async () => {
     // dcOnlyState has no GIA and uses the default standard-ufpls strategy, so B&I transfers are zero
     const plannerState = dcOnlyState(65, 250_000);
     const result = optimizeWithdrawals(plannerState);
 
-    // Render in non-Pro mode so the table is always visible without needing to expand it
-    render(<OptimizerPanel plannerState={plannerState} result={result} proEnabled={false} />);
+    render(<OptimizerPanel plannerState={plannerState} result={result} proEnabled={true} />);
+    await userEvent.click(screen.getByRole('button', { name: '▼ Show breakdown' }));
 
     const table = screen.getByTestId('optimizer-drawdown-breakdown-table');
     expect(table).toBeInTheDocument();
