@@ -515,6 +515,26 @@ describe('OptimizerPanel — Pro gating (proEnabled=false)', () => {
     expect(screen.queryByText('Drawdown detail by year')).not.toBeInTheDocument();
   });
 
+  test('clicking "Show all optimiser years" in non-Pro mode triggers onProCta and keeps years limited', async () => {
+    const plannerState = paulAndLisaState();
+    const result = optimizeWithdrawals(plannerState);
+    const onProCta = vi.fn();
+
+    render(<OptimizerPanel plannerState={plannerState} result={result} proEnabled={false} onProCta={onProCta} />);
+
+    const showAllBtn = screen.getByRole('button', { name: '▼ Show all optimiser years' });
+    expect(showAllBtn).toBeInTheDocument();
+
+    await userEvent.click(showAllBtn);
+
+    expect(onProCta).toHaveBeenCalledTimes(1);
+
+    // Year rows in the baseline table should remain limited (≤ 5) — not expanded
+    const baselineSection = screen.getByText('Baseline waterfall by year (first 5 years)').closest('div');
+    const table = baselineSection?.querySelector('table');
+    expect(table?.querySelectorAll('tbody tr').length).toBeLessThanOrEqual(5);
+  });
+
   test('clicking "Show all optimiser years" in Pro mode expands beyond 5 rows', async () => {
     const plannerState = paulAndLisaState();
     const result = optimizeWithdrawals(plannerState);
