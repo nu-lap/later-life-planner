@@ -112,6 +112,33 @@ describe('Step4Dashboard', () => {
     ).toBe(true);
   });
 
+  test('shows Advanced withdrawal strategies ProFeatureBanner with CTA in non-Pro mode', () => {
+    vi.stubEnv('NEXT_PUBLIC_PRO_ENABLED', 'false');
+
+    render(<Step4Dashboard onBack={vi.fn()} />);
+
+    expect(screen.getByRole('heading', { name: /Advanced withdrawal strategies/ })).toBeInTheDocument();
+    const ctaButton = screen.getByRole('button', { name: 'Unlock with Pro →' });
+    expect(ctaButton).toBeInTheDocument();
+
+    fireEvent.click(ctaButton);
+    expect(screen.getByText('Your plan is good.')).toBeInTheDocument();
+  });
+
+  test('shows LaterLifePlan Pro ProFeatureBanner in place of goal/IHT panels in non-Pro mode', () => {
+    vi.stubEnv('NEXT_PUBLIC_PRO_ENABLED', 'false');
+
+    render(<Step4Dashboard onBack={vi.fn()} />);
+
+    expect(screen.getByRole('heading', { name: /LaterLifePlan Pro/ })).toBeInTheDocument();
+    const ctaButton = screen.getByRole('button', { name: 'Tell me more about Pro →' });
+    expect(ctaButton).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Goal priorities' })).not.toBeInTheDocument();
+
+    fireEvent.click(ctaButton);
+    expect(screen.getByText('Your plan is good.')).toBeInTheDocument();
+  });
+
   test('feeds optimizer-adjusted projections into the asset chart when optimizer mode is enabled', () => {
     const state = paulAndLisaState();
     const optimizerResult = optimizeWithdrawals(state);

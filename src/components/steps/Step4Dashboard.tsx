@@ -11,7 +11,7 @@ import {
 } from '@/lib/calculations';
 import OptimizerPanel from '@/components/OptimizerPanel';
 import ProInterestModal from '@/components/ProInterestModal';
-import ProUpgradeOverlay from '@/components/ProUpgradeOverlay';
+import ProFeatureBanner from '@/components/ProFeatureBanner';
 import { CARE_RESERVE, CGT, CURRENT_TAX_YEAR_START, INCOME_TAX, PENSION_RULES } from '@/config/financialConstants';
 import { optimizeWithdrawals } from '@/financialEngine/withdrawalOptimizer';
 import { RLSS_STANDARDS } from '@/lib/mockData';
@@ -1061,14 +1061,12 @@ export default function Step4Dashboard({ onBack }: Props) {
         );
 
         return proEnabled ? selectorContent : (
-          <ProUpgradeOverlay
+          <ProFeatureBanner
             headline="Advanced withdrawal strategies"
-            description="When your pension pot is large enough that further growth would be fully taxable, taking your tax-free entitlement now and sheltering it in an ISA could significantly reduce lifetime tax."
+            description="See strategies that could help reduce lifetime tax by drawing from your pension and investments in a more tax-efficient order."
             ctaLabel="Unlock with Pro →"
             onCta={() => setProModalSource('pcls-strategy')}
-          >
-            {selectorContent}
-          </ProUpgradeOverlay>
+          />
         );
       })()}
 
@@ -1197,85 +1195,12 @@ export default function Step4Dashboard({ onBack }: Props) {
           <IHTOutlookPanel state={deferredState} projections={projections} />
         </>
       ) : (
-        <ProUpgradeOverlay
+        <ProFeatureBanner
           headline="LaterLifePlan Pro"
-          description="Unlock AI-powered tax explanation, goal-priority optimisation, and IHT estate planning — personalised to your numbers."
+          description="Unlock AI-powered tax optimisation, goal prioritisation, and inheritance planning — all personalised to your numbers."
           ctaLabel="Tell me more about Pro →"
           onCta={() => setProModalSource('pro-features')}
-        >
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {optimizerEnabled && (
-              <GoalPriorityPanel
-                goalRegistry={goalRegistry}
-                onChange={() => {/* inert when locked */}}
-                careReserve={careReserve}
-                onCareReserveChange={() => {/* inert when locked */}}
-                isApplying={false}
-                targetControlConfig={goalTargetControlConfig}
-              />
-            )}
-            {(() => {
-              const residence = state.primaryResidence.enabled
-                ? Math.max(0, state.primaryResidence.currentValue - state.primaryResidence.mortgageOutstanding)
-                : 0;
-              const p1Savings = (state.person1.assets.isaInvestments.enabled ? state.person1.assets.isaInvestments.totalValue : 0)
-                + (state.person1.assets.cashSavings.enabled ? state.person1.assets.cashSavings.totalValue : 0)
-                + (state.person1.assets.generalInvestments.enabled ? state.person1.assets.generalInvestments.totalValue : 0);
-              const p2Savings = mode === 'couple'
-                ? (state.person2.assets.isaInvestments.enabled ? state.person2.assets.isaInvestments.totalValue : 0)
-                  + (state.person2.assets.cashSavings.enabled ? state.person2.assets.cashSavings.totalValue : 0)
-                  + (state.person2.assets.generalInvestments.enabled ? state.person2.assets.generalInvestments.totalValue : 0)
-                : 0;
-              const p1Pension = state.person1.incomeSources.dcPension.enabled ? state.person1.incomeSources.dcPension.totalValue : 0;
-              const p2Pension = mode === 'couple' && state.person2.incomeSources.dcPension.enabled
-                ? state.person2.incomeSources.dcPension.totalValue : 0;
-              const jointGiaVal = state.jointGia.enabled ? state.jointGia.totalValue : 0;
-              const totalEstate = residence + p1Savings + p2Savings + p1Pension + p2Pension + jointGiaVal;
-              const estateRows = [
-                { label: 'Primary residence (net of mortgage)', value: residence },
-                { label: 'Savings, ISAs & investments', value: p1Savings + p2Savings + jointGiaVal },
-                { label: 'DC pension pots (from April 2027)', value: p1Pension + p2Pension },
-              ].filter(r => r.value > 0);
-              return (
-                <div className="game-card">
-                  <div className="flex items-center gap-2 mb-4">
-                    <span className="text-xl">🏛️</span>
-                    <h3 className="font-black text-slate-900 text-base">IHT Estate Planning</h3>
-                  </div>
-                  <div className="mb-3 rounded-xl bg-amber-50 border border-amber-200 p-3">
-                    <p className="text-xs font-bold text-amber-800 mb-1">⚠️ Important change from April 2027</p>
-                    <p className="text-xs text-amber-700">
-                      Under the Finance Act 2025, unused DC pension pots will form part of your taxable estate.
-                      This may significantly increase your IHT exposure.
-                    </p>
-                  </div>
-                  {estateRows.length > 0 && (
-                    <div className="space-y-2 mb-4">
-                      {estateRows.map(row => (
-                        <div key={row.label} className="flex justify-between items-center text-sm py-1.5 border-b border-slate-100">
-                          <span className="text-slate-600">{row.label}</span>
-                          <span className="font-bold text-slate-900">{formatCurrency(row.value, true)}</span>
-                        </div>
-                      ))}
-                      <div className="flex justify-between items-center text-sm py-1.5 font-bold">
-                        <span className="text-slate-800">Gross estate</span>
-                        <span className="text-slate-900">{formatCurrency(totalEstate, true)}</span>
-                      </div>
-                    </div>
-                  )}
-                  <div className="grid grid-cols-3 gap-2">
-                    {(['NRB relief', 'RNRB relief', 'Potential IHT'] as const).map(label => (
-                      <div key={label} className="rounded-xl bg-slate-100 p-3 text-center">
-                        <p className="text-xs text-slate-500 mb-1">{label}</p>
-                        <p className="text-lg font-black text-slate-300">——</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              );
-            })()}
-          </div>
-        </ProUpgradeOverlay>
+        />
       )}
       </div>
 
