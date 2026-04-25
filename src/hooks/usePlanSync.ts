@@ -403,7 +403,7 @@ export function usePlanSync(): UsePlanSyncResult {
         return false;
       }
     },
-    [ensureKeyStorageAvailable, userId],
+    [buildPlanSyncHeaders, ensureKeyStorageAvailable, userId],
   );
 
   const refreshDevices = useCallback(async (): Promise<void> => {
@@ -836,7 +836,7 @@ export function usePlanSync(): UsePlanSyncResult {
         blockedByConflictRef.current = false;
       }
     },
-    [ensureKeyStorageAvailable, hydrateCanonicalPlan, refreshDevices, userId],
+    [buildAuthHeaders, ensureKeyStorageAvailable, hydrateCanonicalPlan, refreshDevices, userId],
   );
 
   useEffect(() => {
