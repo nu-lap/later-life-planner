@@ -46,7 +46,21 @@ However, some upstream packages contain vulnerabilities that we cannot fully rem
   - Not in production build output
 - **Action**: Test and upgrade vitest to 4.1.5 in upcoming release
 
-### 4. **xlsx** (High) - Prototype Pollution + ReDoS
+### 4. **undici** (High) - WebSocket & HTTP Parsing Issues
+- **CVE**: GHSA-f269-vfmq-vjvj, GHSA-2mjp-6q6p-2qxm, GHSA-vrm6-8vpv-qv8q, GHSA-v9p9-hfj2-hcw8, GHSA-4992-7rv2-5pvq, GHSA-phc3-fgpg-7m6h
+- **Status**: Available fix via `npm audit fix`
+- **Reason**: Transitive via jsdom devDependency (test framework)
+- **Usage**: jsdom provides DOM simulation for vitest tests
+- **Impact**: WebSocket/HTTP parsing issues in Node.js client; only in development environment
+- **Mitigation**:
+  - Not in production code or build output
+  - Development-only test dependency
+  - Vulnerabilities only manifest during test execution
+- **Action**: 
+  - Upgrade available; will apply in next maintenance release
+  - Monitor undici releases for stable patches
+
+### 5. **xlsx** (High) - Prototype Pollution + ReDoS
 - **CVE**: GHSA-4r6h-8v6p-xvw6, GHSA-5pgg-2g8v-p4x9
 - **Status**: No patch available from sheetjs maintainers
 - **Reason**: Vulnerabilities in XLSX parsing; no upstream fix released
@@ -88,7 +102,8 @@ If you discover a security vulnerability in Later-Life Planner:
 
 ## Future Actions
 
-### Next Quarter (Q2 2026)
+### Next Maintenance Release
+- [ ] Upgrade undici via `npm audit fix` (high-severity dev dependency)
 - [ ] Test and upgrade vitest to 4.1.5 (esbuild fix)
 - [ ] Evaluate sheetjs alternatives if needed
 - [ ] Monitor Next.js 15.6+ for postcss resolution
@@ -100,3 +115,4 @@ If you discover a security vulnerability in Later-Life Planner:
 
 ## Last Updated
 April 25, 2026 - Post dependency remediation PR #290
+Updated April 26, 2026 - Added missing undici vulnerability documentation
