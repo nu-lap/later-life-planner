@@ -64,7 +64,19 @@ Always use the Playwright MCP tools (`playwright-browser_navigate`,
 `playwright-browser_snapshot`, `playwright-browser_click`,
 `playwright-browser_type`) — never Node.js scripts.
 
-Steps:
+### If all Playwright MCP tools return "Target page, context or browser has been closed"
+
+The MCP server browser context is in a broken state. `playwright-browser_navigate`
+alone will not recover it. Ask the user to restart the Playwright MCP server:
+
+> "The Playwright MCP server's browser context has been closed and can't reopen
+> automatically. Please restart the Playwright MCP server in VS Code
+> (Cmd+Shift+P → 'MCP: Restart Server' → 'playwright'), then let me know
+> when it's ready."
+
+Once the user confirms the server is restarted, retry `playwright-browser_navigate`.
+
+### Normal startup steps
 
 1. Call `playwright-browser_navigate` with the live app URL. The MCP server will
    open or reuse a browser tab automatically.
