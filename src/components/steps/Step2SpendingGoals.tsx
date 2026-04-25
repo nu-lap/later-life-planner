@@ -573,6 +573,11 @@ interface EventFormProps {
 function EventForm({ event, minAge, maxAge, onChange, onSave, onCancel }: EventFormProps) {
   const isValid = event.name.trim().length > 0 && event.amount > 0 && event.p1Age >= minAge && event.p1Age <= maxAge;
 
+  function toggleInflation() { onChange({ ...event, inflationLinked: !event.inflationLinked }); }
+  function handleInflationKeyDown(e: React.KeyboardEvent) {
+    if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); toggleInflation(); }
+  }
+
   return (
     <div className="rounded-xl border border-purple-200 bg-white p-4 mb-4 space-y-3">
       {/* Emoji picker */}
@@ -646,8 +651,8 @@ function EventForm({ event, minAge, maxAge, onChange, onSave, onCancel }: EventF
           type="button"
           role="switch"
           aria-checked={event.inflationLinked}
-          onClick={() => onChange({ ...event, inflationLinked: !event.inflationLinked })}
-          onKeyDown={(e) => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); onChange({ ...event, inflationLinked: !event.inflationLinked }); } }}
+          onClick={toggleInflation}
+          onKeyDown={handleInflationKeyDown}
           className={clsx(
             'relative w-10 h-5 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-purple-400 focus:ring-offset-1',
             event.inflationLinked ? 'bg-purple-500' : 'bg-slate-200',
