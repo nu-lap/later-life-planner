@@ -6,7 +6,7 @@ This document tracks known security vulnerabilities in Later-Life Planner depend
 
 Later-Life Planner uses security-conscious practices including:
 - Regular dependency updates
-- Automated `npm audit` checks in CI/CD
+- Automated security scanning (Semgrep, gitleaks, and CodeQL) in CI/CD
 - Browser-side encryption for sensitive financial data
 - Read-only API access to Azure resources
 - No file upload functionality in production
@@ -14,6 +14,8 @@ Later-Life Planner uses security-conscious practices including:
 However, some upstream packages contain vulnerabilities that we cannot fully remediate without introducing instability or breaking changes. These are documented below.
 
 ## Known Vulnerabilities (as of April 2026)
+
+`npm audit` reports **11 vulnerabilities** (10 moderate, 1 high) across 4 root packages. npm counts each affected package in the transitive dependency chain separately, so the 11 count includes packages such as vite, vite-node, next, and @clerk/nextjs that indirectly depend on a vulnerable root. The 4 root packages and their CVEs are documented below.
 
 ### 1. **postcss** (Moderate) - XSS via Unescaped `</style>`
 - **CVE**: GHSA-qx2v-qp2m-jg93
@@ -28,8 +30,8 @@ However, some upstream packages contain vulnerabilities that we cannot fully rem
 
 ### 2. **uuid** (Moderate) - Buffer Bounds Check Missing
 - **CVE**: GHSA-w5hq-g745-h8pq
-- **Status**: Blocked by @azure/identity dependency
-- **Reason**: Upgrading uuid breaks @azure/identity < 4.x which have even more vulns
+- **Status**: Blocked by @azure/msal-node dependency
+- **Reason**: uuid ^8.3.0 is required by @azure/msal-node; forcing an upgrade would downgrade @azure/identity to 1.1.0, introducing far greater risk
 - **Impact**: Only if uuid is called with specific buffer parameters
 - **Mitigation**: 
   - UUID usage is within Azure authentication (trusted context)
@@ -39,28 +41,14 @@ However, some upstream packages contain vulnerabilities that we cannot fully rem
 ### 3. **esbuild** (Moderate) - HTTP Request Smuggling
 - **CVE**: GHSA-67mh-4wv8-2f99
 - **Status**: Part of vitest dev dependency
-- **Reason**: vitest 2.x uses vulnerable esbuild; upgrade to 4.x requires testing
+- **Reason**: vitest 1.x uses vulnerable esbuild (<=0.24.2); upgrade to vitest 4.x requires testing and is a breaking change
 - **Impact**: Only in development environment; affects dev server connection handling
 - **Mitigation**:
   - Dev server not exposed to production traffic
   - Not in production build output
 - **Action**: Test and upgrade vitest to 4.1.5 in upcoming release
 
-### 4. **undici** (High) - WebSocket & HTTP Parsing Issues
-- **CVE**: GHSA-f269-vfmq-vjvj, GHSA-2mjp-6q6p-2qxm, GHSA-vrm6-8vpv-qv8q, GHSA-v9p9-hfj2-hcw8, GHSA-4992-7rv2-5pvq, GHSA-phc3-fgpg-7m6h
-- **Status**: Available fix via `npm audit fix`
-- **Reason**: Transitive via jsdom devDependency (test framework)
-- **Usage**: jsdom provides DOM simulation for vitest tests
-- **Impact**: WebSocket/HTTP parsing issues in Node.js client; only in development environment
-- **Mitigation**:
-  - Not in production code or build output
-  - Development-only test dependency
-  - Vulnerabilities only manifest during test execution
-- **Action**: 
-  - Upgrade available; will apply in next maintenance release
-  - Monitor undici releases for stable patches
-
-### 5. **xlsx** (High) - Prototype Pollution + ReDoS
+### 4. **xlsx** (High) - Prototype Pollution + ReDoS
 - **CVE**: GHSA-4r6h-8v6p-xvw6, GHSA-5pgg-2g8v-p4x9
 - **Status**: No patch available from sheetjs maintainers
 - **Reason**: Vulnerabilities in XLSX parsing; no upstream fix released
@@ -91,7 +79,7 @@ These factors further reduce exploitability of known vulnerabilities.
 
 ## Security Monitoring
 
-- `npm audit` runs on every CI/CD build
+- Semgrep, gitleaks, and CodeQL run on every CI/CD build (see `.github/workflows/security-scans.yml` and `.github/workflows/codeql.yml`)
 - Dependabot monitors for new vulnerabilities
 - Quarterly security review of transitive dependencies
 - Upstream package monitoring (Next.js, @clerk, @azure)
@@ -100,22 +88,21 @@ These factors further reduce exploitability of known vulnerabilities.
 
 If you discover a security vulnerability in Later-Life Planner:
 1. DO NOT open a public GitHub issue
-2. Email security concerns to the development team
+2. Use GitHub's private security advisory reporting flow for this repository ("Security" tab → "Report a vulnerability")
 3. Provide detailed reproduction steps and impact assessment
 
 ## Future Actions
 
 ### Next Maintenance Release
-- [ ] Upgrade undici via `npm audit fix` (high-severity dev dependency)
-- [ ] Test and upgrade vitest to 4.1.5 (esbuild fix)
+- [ ] Test and upgrade vitest to 4.1.5 (resolves esbuild vulnerability)
 - [ ] Evaluate sheetjs alternatives if needed
 - [ ] Monitor Next.js 15.6+ for postcss resolution
 
 ### When Available
-- [ ] Upgrade @azure/identity when stable 4.x path available
+- [ ] Upgrade @azure/msal-node when a version compatible with uuid >=14 is available
 - [ ] Re-evaluate all transitive dependencies
 - [ ] Consider ESLint v10 upgrade (plugin ecosystem dependent)
 
 ## Last Updated
 April 25, 2026 - Post dependency remediation PR #290
-Updated April 26, 2026 - Added missing undici vulnerability documentation
+Updated April 26, 2026 - Resolved undici vulnerabilities via @azure/msal-node upgrade; corrected CI/CD security scan references, uuid dependency chain, vitest version, and reporting channel
