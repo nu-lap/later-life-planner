@@ -111,9 +111,10 @@ A 5000–6000 px page typically needs offsets of 0, 900, 1800, 2700, 3600, 4500,
 Use `playwright-browser_evaluate` to scroll to each offset then
 `playwright-browser_take_screenshot`:
 
-```javascript
-// example scroll + screenshot pattern
-await page.evaluate(() => window.scrollTo(0, 900));
+```text
+# example scroll + screenshot pattern
+playwright-browser_evaluate function="() => window.scrollTo(0, 900)"
+playwright-browser_take_screenshot path="docs/ui-reference-images/review-YYYY-MM-DD-0900px.png"
 ```
 
 Save each screenshot with a descriptive name, e.g.:
@@ -132,8 +133,8 @@ Create the review document at:
 docs/reviews/<component>-ui-improvement-plan-YYYY-MM-DD.md
 ```
 
-Structure the document as follows (see `dashboard-ui-improvement-plan-2026-04-24.md`
-as a reference):
+Structure the document as follows (see
+`docs/reviews/dashboard-ui-improvement-plan-2026-04-24.md` as a reference):
 
 1. **Header** — component reviewed, date, reviewer, method, scope
 2. **Executive Summary** — 3–5 top findings
