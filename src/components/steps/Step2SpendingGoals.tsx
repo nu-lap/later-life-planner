@@ -111,14 +111,14 @@ export default function Step2SpendingGoals({ onNext, onBack }: Props) {
   }
 
   const currentP1Age = person1.currentAge;
-  const maxP1Age = 95;
+  const maxP1Age = state.assumptions.lifeExpectancy;
 
   function openNewEvent(preset?: { emoji: string; name: string; amount: number }) {
     setEditingEvent({
       id: newId(),
       name: preset?.name ?? '',
       emoji: preset?.emoji ?? '🎯',
-      p1Age: Math.max(currentP1Age, (plannedEvents[plannedEvents.length - 1]?.p1Age ?? currentP1Age) + 1),
+      p1Age: Math.min(maxP1Age, Math.max(currentP1Age, (plannedEvents[plannedEvents.length - 1]?.p1Age ?? currentP1Age) + 1)),
       amount: preset?.amount ?? 10000,
       inflationLinked: true,
     });
@@ -571,7 +571,7 @@ interface EventFormProps {
 }
 
 function EventForm({ event, minAge, maxAge, onChange, onSave, onCancel }: EventFormProps) {
-  const isValid = event.name.trim().length > 0 && event.amount > 0 && event.p1Age >= minAge;
+  const isValid = event.name.trim().length > 0 && event.amount > 0 && event.p1Age >= minAge && event.p1Age <= maxAge;
 
   return (
     <div className="rounded-xl border border-purple-200 bg-white p-4 mb-4 space-y-3">
@@ -582,6 +582,9 @@ function EventForm({ event, minAge, maxAge, onChange, onSave, onCancel }: EventF
           {EMOJI_OPTIONS.map((emoji) => (
             <button
               key={emoji}
+              type="button"
+              aria-pressed={event.emoji === emoji}
+              aria-label={emoji}
               onClick={() => onChange({ ...event, emoji })}
               className={clsx(
                 'w-9 h-9 rounded-lg text-lg transition-all',
@@ -639,18 +642,23 @@ function EventForm({ event, minAge, maxAge, onChange, onSave, onCancel }: EventF
 
       {/* Inflation toggle */}
       <label className="flex items-center gap-2 cursor-pointer text-sm text-slate-700">
-        <div
+        <button
+          type="button"
+          role="switch"
+          aria-checked={event.inflationLinked}
           onClick={() => onChange({ ...event, inflationLinked: !event.inflationLinked })}
+          onKeyDown={(e) => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); onChange({ ...event, inflationLinked: !event.inflationLinked }); } }}
           className={clsx(
-            'relative w-10 h-5 rounded-full transition-colors cursor-pointer',
+            'relative w-10 h-5 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-purple-400 focus:ring-offset-1',
             event.inflationLinked ? 'bg-purple-500' : 'bg-slate-200',
           )}
+          aria-label="Adjust for inflation"
         >
           <span className={clsx(
             'absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform',
             event.inflationLinked ? 'translate-x-5' : 'translate-x-0.5',
           )} />
-        </div>
+        </button>
         Adjust for inflation between now and when you spend it
       </label>
 
