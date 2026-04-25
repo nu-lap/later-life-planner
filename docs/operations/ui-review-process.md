@@ -42,7 +42,12 @@ through which findings are identified and written up.
 
 ## 1. Prerequisites
 
-- Playwright MCP browser tools must be available in the session.
+- The Playwright MCP server **must** be used for all browser interaction.
+  Always use the `playwright-browser_*` MCP tools directly — never fall back to
+  Node.js scripts or bash-level Playwright invocations.
+  If a `playwright-browser_*` call returns `Target page, context or browser has
+  been closed`, call `playwright-browser_navigate` with the target URL to
+  reopen a page; the MCP server will reopen the browser automatically.
 - The live app must be running at the target URL.
 - The reviewer must be signed in to the app before taking screenshots (the app
   redirects to `/sign-in` in headless / unauthenticated mode).
@@ -53,25 +58,30 @@ through which findings are identified and written up.
 
 ---
 
-## 2. Sign in via Playwright
+## 2. Sign in via Playwright MCP
 
-Launch a headful persistent-context browser so auth state survives across
-Playwright calls:
+Always use the Playwright MCP tools (`playwright-browser_navigate`,
+`playwright-browser_snapshot`, `playwright-browser_click`,
+`playwright-browser_type`) — never Node.js scripts.
 
-1. Use `playwright-browser_navigate` to open the live app URL.
-2. If redirected to `/sign-in`, use `playwright-browser_snapshot` to read the
-   page and `playwright-browser_click` / `playwright-browser_type` to complete
-   sign-in.
-3. Once signed in, navigate to the page under review (e.g. the planner root `/`
-   and advance to Step 5 via the planner nav).
+Steps:
+
+1. Call `playwright-browser_navigate` with the live app URL. The MCP server will
+   open or reuse a browser tab automatically.
+2. Call `playwright-browser_snapshot` to read the current page state.
+3. If the snapshot shows a sign-in page, use `playwright-browser_click` and
+   `playwright-browser_type` to complete sign-in, then wait for redirect with
+   `playwright-browser_wait_for`.
+4. Once signed in, navigate to the page under review and confirm with another
+   `playwright-browser_snapshot`.
 
 > **Key facts for LLP:**
 > - Live URL: `https://ca-later-life-planner.salmonstone-6e18fbe9.uksouth.azurecontainerapps.io/`
 > - The planner is at the root `/`, not `/planner`.
 > - localStorage key: `life-planner-v6`; Zustand persist format:
 >   `{state: {...plan, currentStep: 4, maxVisitedStep: 4}, version: 0}`
-> - To reach Step 5 (Dashboard), inject plan data via `playwright-browser_evaluate`
->   if needed, then navigate to `/`.
+> - To reach a specific wizard step, inject plan data via `playwright-browser_evaluate`
+>   and then navigate to `/`.
 
 ---
 
