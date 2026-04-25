@@ -6,8 +6,19 @@ import { getStageTotals, getStageTotalSpending, formatCurrency } from '@/lib/cal
 import { RLSS_STANDARDS } from '@/lib/mockData';
 import { syncCareReserveGoal } from '@/lib/goalOrchestration';
 import { CARE_RESERVE } from '@/config/financialConstants';
-import type { SpendingTier, RlssStandard } from '@/models/types';
+import type { SpendingTier, RlssStandard, PlannedEvent } from '@/models/types';
 import clsx from 'clsx';
+
+// ─── Planned Events helpers ───────────────────────────────────────────────────
+
+const QUICK_ADD_EVENTS: Array<{ emoji: string; name: string; amount: number }> = [
+  { emoji: '🏠', name: 'Home renovation',  amount: 20000 },
+  { emoji: '🚗', name: 'New car',           amount: 25000 },
+  { emoji: '✈️', name: 'Dream holiday',    amount: 10000 },
+  { emoji: '💍', name: "Child's wedding",  amount: 15000 },
+  { emoji: '🎓', name: 'Education gift',   amount: 10000 },
+  { emoji: '🛥️', name: 'Boat / campervan', amount: 30000 },
+];
 
 interface Props { onNext: () => void; onBack: () => void }
 
@@ -47,11 +58,20 @@ export default function Step2SpendingGoals({ onNext, onBack }: Props) {
     goalRegistry,
     setCareReserve,
     setGoalRegistry,
+    plannedEvents,
+    addPlannedEvent,
+    updatePlannedEvent,
+    removePlannedEvent,
+    person1,
   } = state;
 
   const [activeStageId, setActiveStageId] = useState(lifeStages[0]?.id ?? 'active');
   const [openTiers, setOpenTiers] = useState<Record<string, boolean>>({ essential: true, moderate: true, aspirational: false, variable: false });
   const [showAdvanced, setShowAdvanced] = useState(false);
+
+  // Planned Events editor state
+  const [editingEvent, setEditingEvent] = useState<PlannedEvent | null>(null);
+  const [showEventForm, setShowEventForm] = useState(false);
 
   const activeStage = lifeStages.find(s => s.id === activeStageId) ?? lifeStages[0];
   const totalSpend  = getStageTotalSpending(state, activeStageId);
@@ -87,6 +107,32 @@ export default function Step2SpendingGoals({ onNext, onBack }: Props) {
 
     setCareReserve(clamped);
     setGoalRegistry(syncCareReserveGoal(goalRegistry, clamped));
+  }
+
+  const currentP1Age = person1.currentAge;
+  const maxP1Age = 95;
+
+  function openNewEvent(preset?: { emoji: string; name: string; amount: number }) {
+    setEditingEvent({
+      id: crypto.randomUUID(),
+      name: preset?.name ?? '',
+      emoji: preset?.emoji ?? '🎯',
+      p1Age: Math.max(currentP1Age, (plannedEvents[plannedEvents.length - 1]?.p1Age ?? currentP1Age) + 1),
+      amount: preset?.amount ?? 10000,
+      inflationLinked: true,
+    });
+    setShowEventForm(true);
+  }
+
+  function saveEvent(event: PlannedEvent) {
+    const existing = plannedEvents.find((e) => e.id === event.id);
+    if (existing) {
+      updatePlannedEvent(event.id, event);
+    } else {
+      addPlannedEvent(event);
+    }
+    setShowEventForm(false);
+    setEditingEvent(null);
   }
 
   return (
@@ -412,10 +458,214 @@ export default function Step2SpendingGoals({ onNext, onBack }: Props) {
       )}
       </div>
 
+      {/* ── Planned Events ──────────────────────────────────────────────── */}
+      <div className="rounded-2xl border border-purple-100 bg-purple-50 p-5">
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <h3 className="section-heading mb-0">🎯 Planned big purchases</h3>
+            <p className="text-xs text-purple-700 mt-0.5">
+              One-off expenses layered on top of your regular spending — the plan shows which investment bucket to use.
+            </p>
+          </div>
+          <button
+            onClick={() => openNewEvent()}
+            className="shrink-0 ml-3 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold px-3 py-1.5 transition-colors"
+          >
+            + Add
+          </button>
+        </div>
+
+        {/* Quick-add chips */}
+        {!showEventForm && (
+          <div className="flex flex-wrap gap-2 mb-4">
+            {QUICK_ADD_EVENTS.map((preset) => (
+              <button
+                key={preset.name}
+                onClick={() => openNewEvent(preset)}
+                className="rounded-full border border-purple-200 bg-white hover:bg-purple-100 text-purple-800 text-xs font-medium px-3 py-1 transition-colors"
+              >
+                {preset.emoji} {preset.name}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Inline event form */}
+        {showEventForm && editingEvent && (
+          <EventForm
+            event={editingEvent}
+            minAge={currentP1Age}
+            maxAge={maxP1Age}
+            onChange={setEditingEvent}
+            onSave={saveEvent}
+            onCancel={() => { setShowEventForm(false); setEditingEvent(null); }}
+          />
+        )}
+
+        {/* Event list */}
+        {plannedEvents.length > 0 && (
+          <div className="space-y-2 mt-2">
+            {[...plannedEvents]
+              .sort((a, b) => a.p1Age - b.p1Age)
+              .map((event) => (
+                <div
+                  key={event.id}
+                  className="flex items-center gap-3 rounded-xl border border-purple-100 bg-white px-4 py-3"
+                >
+                  <span className="text-xl">{event.emoji}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold text-slate-800 truncate">{event.name}</p>
+                    <p className="text-xs text-slate-500">
+                      Age {event.p1Age} · {formatCurrency(event.amount, true)} today
+                      {event.inflationLinked && <span className="ml-1 text-purple-600">· inflation-adjusted</span>}
+                    </p>
+                  </div>
+                  <div className="flex gap-2 shrink-0">
+                    <button
+                      onClick={() => { setEditingEvent({ ...event }); setShowEventForm(true); }}
+                      className="text-xs text-slate-500 hover:text-purple-700 font-medium transition-colors"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => removePlannedEvent(event.id)}
+                      className="text-xs text-red-400 hover:text-red-600 font-medium transition-colors"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              ))}
+          </div>
+        )}
+
+        {plannedEvents.length === 0 && !showEventForm && (
+          <p className="text-xs text-purple-500 text-center py-2">
+            No planned events yet — use the chips above or click + Add.
+          </p>
+        )}
+      </div>
+
       <div className="flex justify-between pt-4">
         <button onClick={onBack} className="btn-secondary">← Back</button>
         <button onClick={onNext} className="btn-primary px-10 text-base">
           Add income & assets →
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Inline Event Form ────────────────────────────────────────────────────────
+
+const EMOJI_OPTIONS = ['🎯', '🏠', '🚗', '✈️', '💍', '🎓', '🛥️', '🎸', '🏡', '💻', '🌍', '🎁'];
+
+interface EventFormProps {
+  event: PlannedEvent;
+  minAge: number;
+  maxAge: number;
+  onChange: (event: PlannedEvent) => void;
+  onSave: (event: PlannedEvent) => void;
+  onCancel: () => void;
+}
+
+function EventForm({ event, minAge, maxAge, onChange, onSave, onCancel }: EventFormProps) {
+  const isValid = event.name.trim().length > 0 && event.amount > 0 && event.p1Age >= minAge;
+
+  return (
+    <div className="rounded-xl border border-purple-200 bg-white p-4 mb-4 space-y-3">
+      {/* Emoji picker */}
+      <div>
+        <p className="text-xs font-semibold text-slate-600 mb-1.5">Icon</p>
+        <div className="flex flex-wrap gap-1.5">
+          {EMOJI_OPTIONS.map((emoji) => (
+            <button
+              key={emoji}
+              onClick={() => onChange({ ...event, emoji })}
+              className={clsx(
+                'w-9 h-9 rounded-lg text-lg transition-all',
+                event.emoji === emoji
+                  ? 'bg-purple-100 ring-2 ring-purple-400 scale-110'
+                  : 'bg-slate-50 hover:bg-purple-50',
+              )}
+            >
+              {emoji}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Name */}
+      <div>
+        <label className="text-xs font-semibold text-slate-600 block mb-1">What is it?</label>
+        <input
+          type="text"
+          value={event.name}
+          onChange={(e) => onChange({ ...event, name: e.target.value })}
+          placeholder="e.g. Kitchen renovation"
+          className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-300"
+          maxLength={60}
+        />
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        {/* Age */}
+        <div>
+          <label className="text-xs font-semibold text-slate-600 block mb-1">Your age when you spend it</label>
+          <input
+            type="number"
+            min={minAge}
+            max={maxAge}
+            value={event.p1Age}
+            onChange={(e) => onChange({ ...event, p1Age: Math.min(maxAge, Math.max(minAge, Number(e.target.value))) })}
+            className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-300"
+          />
+        </div>
+
+        {/* Amount */}
+        <div>
+          <label className="text-xs font-semibold text-slate-600 block mb-1">Amount (today&apos;s £)</label>
+          <input
+            type="number"
+            min={100}
+            step={500}
+            value={event.amount}
+            onChange={(e) => onChange({ ...event, amount: Math.max(0, Number(e.target.value)) })}
+            className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-300"
+          />
+        </div>
+      </div>
+
+      {/* Inflation toggle */}
+      <label className="flex items-center gap-2 cursor-pointer text-sm text-slate-700">
+        <div
+          onClick={() => onChange({ ...event, inflationLinked: !event.inflationLinked })}
+          className={clsx(
+            'relative w-10 h-5 rounded-full transition-colors cursor-pointer',
+            event.inflationLinked ? 'bg-purple-500' : 'bg-slate-200',
+          )}
+        >
+          <span className={clsx(
+            'absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform',
+            event.inflationLinked ? 'translate-x-5' : 'translate-x-0.5',
+          )} />
+        </div>
+        Adjust for inflation between now and when you spend it
+      </label>
+
+      <div className="flex gap-2 pt-1">
+        <button
+          onClick={() => isValid && onSave(event)}
+          disabled={!isValid}
+          className="flex-1 rounded-xl bg-purple-600 hover:bg-purple-700 disabled:opacity-40 text-white text-sm font-bold py-2 transition-colors"
+        >
+          Save
+        </button>
+        <button
+          onClick={onCancel}
+          className="flex-1 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-600 text-sm font-medium py-2 transition-colors"
+        >
+          Cancel
         </button>
       </div>
     </div>

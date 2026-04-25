@@ -5,7 +5,7 @@ import { persist } from 'zustand/middleware';
 import type {
   PlannerState, PlanningMode, LifeStage, GIAAsset, CareReserve, PrimaryResidenceAsset,
   PersonIncomeSources, PersonAssets, Assumptions, AspirationTag, RlssStandard, PersistedPlannerState,
-  GoalRegistry, DrawdownStrategy,
+  GoalRegistry, DrawdownStrategy, PlannedEvent,
 } from '@/models/types';
 import {
   createDefaultState, createMockDemoState, buildDefaultLifeStages,
@@ -43,6 +43,9 @@ type Actions = {
   setPrimaryResidence: (updates: Partial<PrimaryResidenceAsset>) => void;
   setDrawdownStrategy: (strategy: DrawdownStrategy) => void;
   setPclsAge: (age: number | undefined) => void;
+  addPlannedEvent: (event: PlannedEvent) => void;
+  updatePlannedEvent: (id: string, updates: Partial<PlannedEvent>) => void;
+  removePlannedEvent: (id: string) => void;
 
   setLifeVision: (vision: string) => void;
   toggleAspiration: (tag: AspirationTag) => void;
@@ -286,6 +289,15 @@ export const usePlannerStore = create<PlannerState & Actions>()(
 
       setDrawdownStrategy: (strategy) => set({ drawdownStrategy: strategy }),
       setPclsAge: (age) => set({ pclsAge: age }),
+
+      addPlannedEvent: (event) =>
+        set((s) => ({ plannedEvents: [...s.plannedEvents, event] })),
+      updatePlannedEvent: (id, updates) =>
+        set((s) => ({
+          plannedEvents: s.plannedEvents.map((e) => (e.id === id ? { ...e, ...updates } : e)),
+        })),
+      removePlannedEvent: (id) =>
+        set((s) => ({ plannedEvents: s.plannedEvents.filter((e) => e.id !== id) })),
 
       setLifeVision: (lifeVision) => set({ lifeVision }),
       toggleAspiration: (tag) =>

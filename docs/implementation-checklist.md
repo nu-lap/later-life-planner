@@ -381,3 +381,91 @@ Simulated against Paul and Lisa's plan (lifeplan.json, FI age 56 → life expect
 #### Outstanding
 - [ ] Expose `p1PclsEvent`, `p1BedIsaTransfer`, `p2BedIsaTransfer` in a yearly breakdown view (e.g. expandable table row or tooltip) within the dashboard
 - [ ] Consider a "Tax comparison" summary card surfacing PCLS vs standard UFPLS lifetime tax difference for the user's specific plan numbers
+
+---
+
+## Phase 10 — Planned Events (One-Off Expenditures)
+
+### Goal
+
+Allow users to model timed, one-off larger expenditures (e.g. a new car at age 62, a home
+renovation at age 67, or a family gift at age 64) on top of their regular life-stage spending.
+The engine inflation-adjusts each event to its target year and folds it into the spending target,
+so the normal drawdown waterfall automatically funds the spike from the most tax-efficient bucket
+available in that year. The Action Plan card for the event year reports which bucket funded it
+and why.
+
+This is "Option A" from the April 2025 one-off expenditure design review — the lightweight
+implementation that delivers maximum clarity with minimal engine risk.
+
+### Data model
+
+Add a new `PlannedEvent` interface and `plannedEvents` array to `PlannerState`:
+
+```typescript
+// src/models/types.ts
+export interface PlannedEvent {
+  id: string;
+  name: string;          // User-supplied label e.g. "Kitchen renovation"
+  emoji: string;         // Single emoji chosen from a preset list
+  p1Age: number;         // Person 1's age when the expense falls
+  amount: number;        // Amount in today's £
+  inflationLinked: boolean; // Default true; false for nominal fixed amounts
+}
+// Added to PlannerState:
+plannedEvents: PlannedEvent[];
+```
+
+Add `plannedEventSpend: number` to `YearlyProjection` (sum of inflation-adjusted events in that
+year) so the Action Plan can display event detail without re-filtering the original list.
+
+### Engine change
+
+In `projectionEngine.ts`, after computing `baseSpending`, add:
+
+```typescript
+const eventSpend = (state.plannedEvents ?? [])
+  .filter(e => e.p1Age === p1Age)
+  .reduce((s, e) => s + (e.inflationLinked ? e.amount * inflFactor : e.amount), 0);
+const spending = baseSpending + eventSpend;
+```
+
+No changes to the drawdown waterfall — the existing ISA → GIA → Cash → DC order naturally
+funds from the cheapest-tax bucket. Output `plannedEventSpend: eventSpend` in the year record.
+
+### Implementation checklist
+
+#### Data model & persistence
+- [ ] Add `PlannedEvent` interface to `src/models/types.ts`
+- [ ] Add `plannedEvents: PlannedEvent[]` to `PlannerState` in `src/models/types.ts`
+- [ ] Add `plannedEventSpend: number` to `YearlyProjection` in `src/models/types.ts`
+- [ ] Set `plannedEvents: []` default in `createDefaultState()` in `src/lib/mockData.ts`
+- [ ] Add `?? []` backward-compat fallback in `normalizePlannerState()` in `src/lib/mockData.ts`
+- [ ] Add `'plannedEvents'` to `PERSISTED_PLANNER_KEYS` in `src/lib/persistedPlan.ts`
+
+#### Store
+- [ ] Add `addPlannedEvent`, `updatePlannedEvent`, `removePlannedEvent` actions to `src/store/plannerStore.ts`
+
+#### Projection engine (`src/financialEngine/projectionEngine.ts`)
+- [ ] Compute `eventSpend` from `state.plannedEvents` filtered to `p1Age` for the current year
+- [ ] Add `eventSpend` to `baseSpending` to derive final `spending`
+- [ ] Output `plannedEventSpend: eventSpend` in each `YearlyProjection` push
+
+#### UI — Step 2 (Spending)
+- [ ] Add "Planned big purchases" panel below the life-stage spending sliders in `src/components/steps/Step2SpendingGoals.tsx`
+- [ ] Quick-add emoji chips: 🚗 Car · 🏠 Home improvement · ✈️ Holiday · 👶 Family gift · 🎓 Education · 🎁 Other
+- [ ] Each event card: emoji display + name text field + age stepper (min: currentAge, max: lifeExpectancy) + £ amount field + inflation-linked toggle
+- [ ] Add / remove event controls
+- [ ] Validation: amount > 0, age within plan horizon
+
+#### UI — Step 4 Action Plan
+- [ ] In `OptimizerPanel.tsx` action plan section, when `apProj.plannedEventSpend > 0`, render a purple "🎯 Big purchase this year" card showing event names, total amount, and the bucket(s) that funded it (derived from `apBd`)
+- [ ] Add event milestone markers on the spending chart (vertical dashed lines at event ages) in `src/components/steps/Step4Dashboard.tsx`
+
+#### Tests
+- [ ] Unit test: `plannedEventSpend` is zero when no events (`tests/unit/projectionEngine.test.ts`)
+- [ ] Unit test: single event — spending increases by inflation-adjusted amount in the target year only
+- [ ] Unit test: `inflationLinked: false` — event amount is nominal (not adjusted)
+- [ ] Unit test: two events in the same year — amounts are summed
+- [ ] Unit test: event before FI age — added to building-phase spending correctly
+- [ ] UI test: add an event card, verify it appears and can be removed (`tests/ui/`)

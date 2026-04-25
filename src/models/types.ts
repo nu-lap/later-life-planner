@@ -112,6 +112,26 @@ export interface SpendingCategory {
   amounts: Record<string, number>; // Keyed by life-stage id
 }
 
+/**
+ * A one-off timed expenditure that sits on top of regular life-stage spending.
+ * The engine inflation-adjusts each event to its target year and adds it to the
+ * spending target, so the normal drawdown waterfall funds the spike from the most
+ * tax-efficient bucket available in that year.
+ */
+export interface PlannedEvent {
+  id: string;
+  /** User-supplied label e.g. "Kitchen renovation" */
+  name: string;
+  /** Single emoji chosen from a preset list */
+  emoji: string;
+  /** Person 1's age when the expense falls */
+  p1Age: number;
+  /** Amount in today's £ */
+  amount: number;
+  /** When true (default), amount is inflation-adjusted to the target year */
+  inflationLinked: boolean;
+}
+
 // ─── Income sources (per person) ─────────────────────────────────────────────
 
 export interface StatePensionSource {
@@ -282,6 +302,12 @@ export interface PlannerState {
    * Defaults to `fiAge` when not set.
    */
   pclsAge?: number;
+  /**
+   * One-off timed expenditures layered on top of regular life-stage spending.
+   * Each event is inflation-adjusted (if inflationLinked) and added to the
+   * spending target in the year it falls.
+   */
+  plannedEvents: PlannedEvent[];
 }
 
 export type PlannerUiState = Pick<PlannerState, 'currentStep' | 'maxVisitedStep'>;
@@ -379,6 +405,8 @@ export interface YearlyProjection {
   p2IndivBedIsaTransfer: number;
   /** Amount from the joint GIA → person2 ISA (subset of p2BedIsaTransfer). */
   p2JointBedIsaTransfer: number;
+  /** Sum of all PlannedEvent amounts (inflation-adjusted) falling in this year. Zero when no events. */
+  plannedEventSpend: number;
 }
 
 // ─── Simulation result (dashboard summary) ───────────────────────────────────
