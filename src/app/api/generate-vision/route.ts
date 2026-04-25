@@ -23,7 +23,6 @@ Rules:
 
 export async function POST(req: NextRequest) {
   const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
-    ?? req.ip
     ?? 'unknown';
   const rl = rateLimit(`vision:${ip}`, { windowMs: 60_000, max: 10 });
   if (!rl.ok) {

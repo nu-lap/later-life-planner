@@ -403,6 +403,7 @@ export function usePlanSync(): UsePlanSyncResult {
         return false;
       }
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- buildAuthHeaders has empty dependencies and is stable
     [buildPlanSyncHeaders, ensureKeyStorageAvailable, userId],
   );
 
@@ -836,6 +837,7 @@ export function usePlanSync(): UsePlanSyncResult {
         blockedByConflictRef.current = false;
       }
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- buildAuthHeaders has empty dependencies and is stable
     [buildAuthHeaders, ensureKeyStorageAvailable, hydrateCanonicalPlan, refreshDevices, userId],
   );
 
