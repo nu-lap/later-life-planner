@@ -403,8 +403,7 @@ export function usePlanSync(): UsePlanSyncResult {
         return false;
       }
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- buildAuthHeaders is stable (empty deps), so it's safe to omit
-    [ensureKeyStorageAvailable, userId],
+    [buildPlanSyncHeaders, ensureKeyStorageAvailable, userId],
   );
 
   const refreshDevices = useCallback(async (): Promise<void> => {
