@@ -693,3 +693,91 @@ describe('calculateProjections — pcls-bed-isa: couple-mode crystallisation rei
   });
 });
 
+
+// ─── Planned Events ───────────────────────────────────────────────────────────
+
+describe('calculateProjections — plannedEvents', () => {
+  function stateWithEvents(state: PlannerState, events: PlannerState['plannedEvents']): PlannerState {
+    return { ...state, plannedEvents: events };
+  }
+
+  test('plannedEventSpend is 0 when no events are defined', () => {
+    const state = createDefaultState(57);
+    const projections = calculateProjections(state);
+    expect(projections.every(p => p.plannedEventSpend === 0)).toBe(true);
+  });
+
+  test('plannedEventSpend is 0 when plannedEvents is undefined (backward compat)', () => {
+    const state = { ...createDefaultState(57) } as PlannerState;
+    // @ts-expect-error deliberately testing missing field for backward compat
+    delete state.plannedEvents;
+    const projections = calculateProjections(state);
+    expect(projections.every(p => p.plannedEventSpend === 0)).toBe(true);
+  });
+
+  test('single inflation-linked event appears in the correct year', () => {
+    const base = createDefaultState(57);
+    // Place event at currentAge — y=0, inflFactor=1, so plannedEventSpend === amount
+    const targetAge = base.person1.currentAge;
+    const state = stateWithEvents(base, [{
+      id: 'ev1', name: 'Test', emoji: '🎯', p1Age: targetAge, amount: 10_000, inflationLinked: true,
+    }]);
+    const projections = calculateProjections(state);
+    const row = projections.find(p => p.p1Age === targetAge)!;
+    expect(row).toBeDefined();
+    expect(row.plannedEventSpend).toBeGreaterThan(0);
+    // y=0 → inflFactor=1 → amount unchanged
+    expect(row.plannedEventSpend).toBe(10_000);
+  });
+
+  test('non-inflation-linked event uses exact amount regardless of year', () => {
+    const base = createDefaultState(57);
+    const targetAge = base.person1.currentAge + 5;
+    const state = stateWithEvents(base, [{
+      id: 'ev2', name: 'Fixed cost', emoji: '🏠', p1Age: targetAge, amount: 20_000, inflationLinked: false,
+    }]);
+    const projections = calculateProjections(state);
+    const row = projections.find(p => p.p1Age === targetAge)!;
+    expect(row).toBeDefined();
+    expect(row.plannedEventSpend).toBe(20_000);
+  });
+
+  test('inflation-linked event is adjusted upward in a future year', () => {
+    const base = { ...createDefaultState(57), assumptions: { ...createDefaultState(57).assumptions, inflation: 3 } };
+    // 10 years from currentAge → y=10, inflFactor = 1.03^10 ≈ 1.3439
+    const targetAge = base.person1.currentAge + 10;
+    const state = stateWithEvents(base, [{
+      id: 'ev3', name: 'Future cost', emoji: '🚗', p1Age: targetAge, amount: 10_000, inflationLinked: true,
+    }]);
+    const projections = calculateProjections(state);
+    const row = projections.find(p => p.p1Age === targetAge)!;
+    expect(row).toBeDefined();
+    // 10 years at 3% inflation → 10000 * 1.03^10 ≈ 13439
+    expect(row.plannedEventSpend).toBeGreaterThan(13_000);
+    expect(row.plannedEventSpend).toBeLessThan(14_000);
+  });
+
+  test('two events in the same year are summed', () => {
+    const base = createDefaultState(57);
+    const targetAge = base.person1.currentAge + 2;
+    const state = stateWithEvents(base, [
+      { id: 'ev4a', name: 'Event A', emoji: '✈️', p1Age: targetAge, amount: 8_000,  inflationLinked: false },
+      { id: 'ev4b', name: 'Event B', emoji: '💍', p1Age: targetAge, amount: 12_000, inflationLinked: false },
+    ]);
+    const projections = calculateProjections(state);
+    const row = projections.find(p => p.p1Age === targetAge)!;
+    expect(row).toBeDefined();
+    expect(row.plannedEventSpend).toBe(20_000);
+  });
+
+  test('event in a year outside projection range produces no row with plannedEventSpend', () => {
+    const base = createDefaultState(57);
+    // Place at age 150 — well beyond any projection
+    const state = stateWithEvents(base, [{
+      id: 'ev5', name: 'Never happens', emoji: '🎁', p1Age: 150, amount: 5_000, inflationLinked: false,
+    }]);
+    const projections = calculateProjections(state);
+    // No row should have plannedEventSpend > 0
+    expect(projections.every(p => p.plannedEventSpend === 0)).toBe(true);
+  });
+});

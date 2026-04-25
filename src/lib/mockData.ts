@@ -234,6 +234,7 @@ export function createDefaultState(primaryAge: number = DEFAULT_ASSUMPTIONS.DEFA
     careReserve: { enabled: false, amount: CARE_RESERVE.DEFAULT_AMOUNT },
     primaryResidence: { ...defaultPrimaryResidence },
     drawdownStrategy: 'standard-ufpls',
+    plannedEvents: [],
   };
 }
 
@@ -310,6 +311,7 @@ export function normalizePlannerState(state: PlannerState): PlannerState {
     drawdownStrategy: state.drawdownStrategy ?? 'standard-ufpls',
     // pclsAge is optional — undefined means "default to fiAge" in the engine
     pclsAge: state.pclsAge,
+    plannedEvents: state.plannedEvents ?? [],
   };
 }
 

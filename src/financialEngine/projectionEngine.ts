@@ -193,8 +193,12 @@ export function calculateProjections(state: PlannerState): YearlyProjection[] {
     const yearUfplsFrac  = yearSnapshot.pension.ufplsTaxFreeFraction;
 
     // ── Spending (inflation-adjusted from today's £) ───────────────────────
-    const stage    = getStageForAge(lifeStages, p1Age);
-    const spending = spendingCategories.reduce((s, c) => s + (c.amounts[stage.id] ?? 0), 0) * inflFactor;
+    const stage       = getStageForAge(lifeStages, p1Age);
+    const baseSpend   = spendingCategories.reduce((s, c) => s + (c.amounts[stage.id] ?? 0), 0) * inflFactor;
+    const eventSpend  = (state.plannedEvents ?? [])
+      .filter((e) => e.p1Age === p1Age)
+      .reduce((s, e) => s + (e.inflationLinked ? e.amount * inflFactor : e.amount), 0);
+    const spending    = baseSpend + eventSpend;
 
     // ── Fixed income ──────────────────────────────────────────────────────
     const p1Inc = personIncome(person1.incomeSources, person1.assets, p1Age, y, inflation);
@@ -708,6 +712,7 @@ export function calculateProjections(state: PlannerState): YearlyProjection[] {
       p2IndivBedIsaTransfer: Math.round(p2IndivBedIsaTransfer),
       p2JointBedIsaTransfer: Math.round(p2JointBedIsaTransfer),
       p2BedIsaTransfer:      Math.round(p2IndivBedIsaTransfer) + Math.round(p2JointBedIsaTransfer),
+      plannedEventSpend:     Math.round(eventSpend),
     });
   }
 

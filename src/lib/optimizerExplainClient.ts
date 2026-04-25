@@ -2,6 +2,7 @@ import type { OptimizationResult } from '@/financialEngine/types';
 import type { OptimizerExplainRequest } from '@/lib/optimizerExplain';
 import { buildOptimizerExplainRequest, REQUIRED_EXPLAIN_CONSENT_SCOPES } from '@/lib/optimizerExplain';
 import type { PlannerState } from '@/models/types';
+import { newId } from '@/lib/ids';
 
 const EXPLANATION_CACHE_PREFIX = 'llp.optimizer-explanation:';
 const EXPLANATION_CACHE_VERSION = '2';
@@ -80,7 +81,7 @@ async function derivePlanRevision(
 async function buildRequestWithDerivedRevision(
   args: ExplainOptimizerResultArgs,
 ): Promise<OptimizerExplainRequest> {
-  const requestId = crypto.randomUUID();
+  const requestId = newId();
   const grantedAt = new Date().toISOString();
 
   const tempRequest = buildOptimizerExplainRequest({

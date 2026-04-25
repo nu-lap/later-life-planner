@@ -548,6 +548,22 @@ export default function OptimizerPanel({ plannerState, result, proEnabled, onPro
               </div>
             )}
 
+            {/* Planned event */}
+            {(apProj.plannedEventSpend ?? 0) > 0 && (
+              <div className="rounded-xl border border-purple-200 bg-purple-50/60 p-3 sm:col-span-2">
+                <p className="mb-1 text-xs font-bold uppercase tracking-wide text-purple-700">
+                  🎯 Planned big purchase this year
+                </p>
+                <p className="text-sm font-semibold text-slate-800">
+                  Extra spend:{' '}
+                  <span className="font-black text-purple-700">{formatCurrency(apProj.plannedEventSpend, true)}</span>
+                </p>
+                <p className="mt-1 text-xs text-slate-600">
+                  This is built into the drawdown plan — the withdrawal strategy above already accounts for funding this expense from a source that is designed to be tax-efficient.
+                </p>
+              </div>
+            )}
+
             {/* Pension withdrawals */}
             {apHasPensionAction && (
               <div className="rounded-xl border border-sky-200 bg-sky-50/60 p-3">

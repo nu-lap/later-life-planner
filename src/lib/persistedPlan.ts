@@ -18,6 +18,7 @@ export const PERSISTED_PLANNER_KEYS = [
   'primaryResidence',
   'drawdownStrategy',
   'pclsAge',
+  'plannedEvents',
 ] as const satisfies readonly (keyof PersistedPlannerState)[];
 
 function isRecord(value: unknown): value is Record<string, unknown> {

@@ -1,13 +1,10 @@
+import { newId } from '@/lib/ids';
+
 export const PLAN_SYNC_TRACE_HEADER = 'x-plan-sync-trace-id';
 export const PLAN_SYNC_DEBUG_HEADER = 'x-plan-sync-debug';
 
 export function createPlanSyncTraceId(): string {
-  if (typeof globalThis.crypto?.randomUUID === 'function') {
-    return globalThis.crypto.randomUUID();
-  }
-
-  const randomPart = Math.random().toString(36).slice(2, 10);
-  return `plan-sync-${Date.now().toString(36)}-${randomPart}`;
+  return newId();
 }
 
 export function readPlanSyncRequestDebugMetadata(headers?: Headers | null): {
