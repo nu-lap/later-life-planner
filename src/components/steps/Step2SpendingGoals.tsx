@@ -646,26 +646,31 @@ function EventForm({ event, minAge, maxAge, onChange, onSave, onCancel }: EventF
       </div>
 
       {/* Inflation toggle */}
-      <label className="flex items-center gap-2 cursor-pointer text-sm text-slate-700">
+      <div className="flex items-center gap-3">
         <button
+          id={`inflation-toggle-${event.id}`}
           type="button"
           role="switch"
           aria-checked={event.inflationLinked}
           onClick={toggleInflation}
           onKeyDown={handleInflationKeyDown}
           className={clsx(
-            'relative w-10 h-5 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-purple-400 focus:ring-offset-1',
+            'relative shrink-0 w-10 h-6 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-purple-300',
             event.inflationLinked ? 'bg-purple-500' : 'bg-slate-200',
           )}
-          aria-label="Adjust for inflation"
         >
           <span className={clsx(
-            'absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform',
-            event.inflationLinked ? 'translate-x-5' : 'translate-x-0.5',
+            'absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-transform',
+            event.inflationLinked ? 'translate-x-5' : 'translate-x-1',
           )} />
         </button>
-        Adjust for inflation between now and when you spend it
-      </label>
+        <label
+          htmlFor={`inflation-toggle-${event.id}`}
+          className="text-sm text-slate-700 cursor-pointer"
+        >
+          Adjust for inflation between now and when you spend it
+        </label>
+      </div>
 
       <div className="flex gap-2 pt-1">
         <button
