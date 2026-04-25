@@ -64,16 +64,19 @@ However, some upstream packages contain vulnerabilities that we cannot fully rem
 - **CVE**: GHSA-4r6h-8v6p-xvw6, GHSA-5pgg-2g8v-p4x9
 - **Status**: No patch available from sheetjs maintainers
 - **Reason**: Vulnerabilities in XLSX parsing; no upstream fix released
-- **Usage**: Only in `scripts/generate-tax-comparison.ts` (development utility)
-- **Impact**: Only exploitable if untrusted .xlsx files are parsed
+- **Usage**: devDependency only — used in local development utility scripts:
+  - `scripts/generate-tax-comparison.ts` — generate tax optimization examples
+  - `scripts/update-tax-comparison-from-template.ts` — update existing comparisons
+- **Impact**: Only exploitable if untrusted .xlsx files are parsed by these local scripts
 - **Mitigation**:
-  - Script is development-only, not runtime
+  - Scripts are development-only, not in production code or build output
+  - Not bundled into Next.js application
   - No user file upload in production
-  - All input to the script is internally generated
+  - All input to scripts is internally generated test data
 - **Action**: 
-  - Monitor sheetjs releases
-  - Consider alternative library (papaparse, csv-parse) if functionality needed in production
-  - Document as accepted risk for dev utilities
+  - Monitor sheetjs releases for patches
+  - Consider alternative library (papaparse, csv-parse) if needed
+  - Accept as risk for local development utilities
 
 ## Deployment Context
 
