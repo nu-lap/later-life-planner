@@ -192,34 +192,7 @@ export default function Step2SpendingGoals({ onNext, onBack }: Props) {
         </p>
       </div>
 
-      {/* Stage tabs */}
-      <div className="flex gap-2">
-        {lifeStages.map(stage => (
-          <button
-            key={stage.id}
-            onClick={() => setActiveStageId(stage.id)}
-            className={clsx(
-              'flex-1 py-2.5 px-3 rounded-2xl font-semibold text-sm transition-all border-2',
-              activeStageId === stage.id ? 'text-white border-transparent shadow-sm' : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
-            )}
-            style={activeStageId === stage.id ? { backgroundColor: stage.color, borderColor: stage.color } : {}}
-          >
-            {stage.label}
-            <span className="ml-1.5 text-xs opacity-75">{stage.startAge}–{stage.endAge}</span>
-          </button>
-        ))}
-      </div>
-
-      {/* Total + benchmark */}
-      <div className="bg-slate-800 text-white rounded-2xl p-4 flex items-center justify-between">
-        <div>
-          <p className="text-xs text-slate-400 mb-1">Annual spending · {activeStage?.label}</p>
-          <p className="text-3xl font-black">{formatCurrency(totalSpend, true)}</p>
-        </div>
-        <p className={clsx('text-sm font-semibold', benchmarkColor)}>{benchmarkLabel}</p>
-      </div>
-
-      {/* Spending Smile explanation */}
+      {/* Spending Smile explanation — QW4: moved above life-stage tabs */}
       <div className="game-card-sm bg-gradient-to-br from-violet-50 to-indigo-50 border border-violet-100">
         <div className="flex items-start gap-3">
           <span className="text-2xl flex-shrink-0">📉</span>
@@ -234,6 +207,33 @@ export default function Step2SpendingGoals({ onNext, onBack }: Props) {
             </p>
           </div>
         </div>
+      </div>
+
+      {/* Stage tabs — QW3: active colour unified to brand orange */}
+      <div className="flex gap-2">
+        {lifeStages.map(stage => (
+          <button
+            key={stage.id}
+            onClick={() => setActiveStageId(stage.id)}
+            className={clsx(
+              'flex-1 py-2.5 px-3 rounded-2xl font-semibold text-sm transition-all border-2',
+              activeStageId === stage.id ? 'text-white border-transparent shadow-sm' : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
+            )}
+            style={activeStageId === stage.id ? { backgroundColor: '#f97316', borderColor: '#f97316' } : {}}
+          >
+            {stage.label}
+            <span className="ml-1.5 text-xs opacity-75">{stage.startAge}–{stage.endAge}</span>
+          </button>
+        ))}
+      </div>
+
+      {/* Total + benchmark */}
+      <div className="bg-slate-800 text-white rounded-2xl p-4 flex items-center justify-between">
+        <div>
+          <p className="text-xs text-slate-400 mb-1">Annual spending · {activeStage?.label}</p>
+          <p className="text-3xl font-black">{formatCurrency(totalSpend, true)}</p>
+        </div>
+        <p className={clsx('text-sm font-semibold', benchmarkColor)}>{benchmarkLabel}</p>
       </div>
 
       {/* Advanced planning toggle */}
@@ -470,7 +470,7 @@ export default function Step2SpendingGoals({ onNext, onBack }: Props) {
           </div>
           <button
             onClick={() => openNewEvent()}
-            className="shrink-0 ml-3 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold px-3 py-1.5 transition-colors"
+            className="shrink-0 ml-3 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold px-3 py-1.5 transition-colors"
           >
             + Add
           </button>
@@ -517,7 +517,7 @@ export default function Step2SpendingGoals({ onNext, onBack }: Props) {
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-bold text-slate-800 truncate">{event.name}</p>
                     <p className="text-xs text-slate-500">
-                      Age {event.p1Age} · {formatCurrency(event.amount, true)} today
+                      Age {event.p1Age} · {formatCurrency(event.amount, true)} (today&apos;s money)
                       {event.inflationLinked && <span className="ml-1 text-purple-600">· inflation-adjusted</span>}
                     </p>
                   </div>
@@ -550,7 +550,7 @@ export default function Step2SpendingGoals({ onNext, onBack }: Props) {
       <div className="flex justify-between pt-4">
         <button onClick={onBack} className="btn-secondary">← Back</button>
         <button onClick={onNext} className="btn-primary px-10 text-base">
-          Add income & assets →
+          Next: Income & Assets →
         </button>
       </div>
     </div>
@@ -645,8 +645,8 @@ function EventForm({ event, minAge, maxAge, onChange, onSave, onCancel }: EventF
         </div>
       </div>
 
-      {/* Inflation toggle */}
-      <label className="flex items-center gap-2 cursor-pointer text-sm text-slate-700">
+      {/* Inflation toggle — QW1: fixed label/button structure to prevent first-character clip */}
+      <div className="flex items-center gap-2">
         <button
           type="button"
           role="switch"
@@ -654,7 +654,7 @@ function EventForm({ event, minAge, maxAge, onChange, onSave, onCancel }: EventF
           onClick={toggleInflation}
           onKeyDown={handleInflationKeyDown}
           className={clsx(
-            'relative w-10 h-5 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-purple-400 focus:ring-offset-1',
+            'relative shrink-0 w-10 h-5 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-purple-400 focus:ring-offset-1',
             event.inflationLinked ? 'bg-purple-500' : 'bg-slate-200',
           )}
           aria-label="Adjust for inflation"
@@ -664,14 +664,16 @@ function EventForm({ event, minAge, maxAge, onChange, onSave, onCancel }: EventF
             event.inflationLinked ? 'translate-x-5' : 'translate-x-0.5',
           )} />
         </button>
-        Adjust for inflation between now and when you spend it
-      </label>
+        <span className="cursor-pointer text-sm text-slate-700" onClick={toggleInflation}>
+          Adjust for inflation between now and when you spend it
+        </span>
+      </div>
 
       <div className="flex gap-2 pt-1">
         <button
           onClick={() => isValid && onSave(event)}
           disabled={!isValid}
-          className="flex-1 rounded-xl bg-purple-600 hover:bg-purple-700 disabled:opacity-40 text-white text-sm font-bold py-2 transition-colors"
+          className="flex-1 rounded-xl bg-orange-500 hover:bg-orange-600 disabled:opacity-40 text-white text-sm font-bold py-2 transition-colors"
         >
           Save
         </button>

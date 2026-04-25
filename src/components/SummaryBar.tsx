@@ -8,7 +8,7 @@ import { RLSS_STANDARDS } from '@/lib/mockData';
 export default function SummaryBar() {
   const state = usePlannerStore();
   const deferredState = useDeferredValue(state);
-  const { mode, person1, person2, lifeStages, rlssStandard } = state;
+  const { mode, person1, person2, lifeStages, rlssStandard, currentStep } = state;
   const firstStage     = lifeStages[0];
   const annualSpending = getStageTotalSpending(state, firstStage?.id ?? 'active');
   const projections    = useMemo(() => calculateProjections(deferredState), [deferredState]);
@@ -34,7 +34,10 @@ export default function SummaryBar() {
 
       <div className="flex items-center gap-1 shrink-0">
         <span className="text-slate-500 text-xs">Gross income</span>
-        <span className="font-bold text-slate-800 text-xs">{formatCurrency(totalIncome)}</span>
+        {totalIncome === 0 && currentStep < 3
+          ? <span className="font-bold text-slate-400 text-xs">— set in step 3</span>
+          : <span className="font-bold text-slate-800 text-xs">{formatCurrency(totalIncome)}</span>
+        }
       </div>
 
       <span className="w-px h-4 bg-slate-200 shrink-0" />
