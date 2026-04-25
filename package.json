@@ -42,7 +42,7 @@
     "@vitest/runner": "^1.6.0",
     "autoprefixer": "^10.0.1",
     "eslint": "^8.57.1",
-    "eslint-config-next": "^16.2.4",
+    "eslint-config-next": "^15.5.15",
     "fake-indexeddb": "^6.2.2",
     "jsdom": "^28.1.0",
     "postcss": "^8",
