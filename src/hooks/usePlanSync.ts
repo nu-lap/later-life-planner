@@ -836,8 +836,7 @@ export function usePlanSync(): UsePlanSyncResult {
         blockedByConflictRef.current = false;
       }
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- buildAuthHeaders is stable (empty deps), so it's safe to omit
-    [ensureKeyStorageAvailable, hydrateCanonicalPlan, refreshDevices, userId],
+    [buildAuthHeaders, ensureKeyStorageAvailable, hydrateCanonicalPlan, refreshDevices, userId],
   );
 
   useEffect(() => {
