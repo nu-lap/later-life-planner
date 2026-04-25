@@ -27,7 +27,7 @@ function responseForKnownError(error: unknown): Response {
 
 export async function GET(
   request: Request,
-  context: { params: { deviceId: string } },
+  { params }: { params: Promise<{ deviceId: string }> },
 ) {
   try {
     const { userId } = await requireUser();
@@ -38,7 +38,8 @@ export async function GET(
     if (!requestId) {
       return jsonError('Invalid request payload.', 400);
     }
-    const deviceIdParsed = DeviceIdSchema.safeParse(context.params.deviceId);
+    const { deviceId } = await params;
+    const deviceIdParsed = DeviceIdSchema.safeParse(deviceId);
     const requestIdParsed = RequestIdSchema.safeParse(requestId);
     if (!deviceIdParsed.success || !requestIdParsed.success) {
       return jsonError('Invalid request payload.', 400);
@@ -62,7 +63,7 @@ export async function GET(
 
 export async function POST(
   request: Request,
-  context: { params: { deviceId: string } },
+  { params }: { params: Promise<{ deviceId: string }> },
 ) {
   try {
     const { userId } = await requireUser();
@@ -74,7 +75,8 @@ export async function POST(
       return jsonError('Invalid request payload.', 400);
     }
 
-    const deviceIdParsed = DeviceIdSchema.safeParse(context.params.deviceId);
+    const { deviceId } = await params;
+    const deviceIdParsed = DeviceIdSchema.safeParse(deviceId);
     if (!deviceIdParsed.success) {
       return jsonError('Invalid request payload.', 400);
     }

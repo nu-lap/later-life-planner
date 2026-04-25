@@ -64,7 +64,7 @@ function responseForKnownError(error: unknown): Response {
 
 export async function POST(
   request: Request,
-  context: { params: { deviceId: string } },
+  { params }: { params: Promise<{ deviceId: string }> },
 ) {
   try {
     const { userId } = await requireUser();
@@ -74,7 +74,7 @@ export async function POST(
     const parsed = PostPayloadSchema.safeParse(body);
     if (!parsed.success) return jsonError('Invalid request payload.', 400);
 
-    const deviceId = context.params.deviceId;
+    const { deviceId } = await params;
     if (parsed.data.wrappedKeyPackage.deviceId !== deviceId) {
       return jsonError('Invalid request payload.', 400);
     }
