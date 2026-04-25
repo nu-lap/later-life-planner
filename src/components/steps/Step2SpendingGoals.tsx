@@ -8,6 +8,7 @@ import { syncCareReserveGoal } from '@/lib/goalOrchestration';
 import { CARE_RESERVE } from '@/config/financialConstants';
 import type { SpendingTier, RlssStandard, PlannedEvent } from '@/models/types';
 import clsx from 'clsx';
+import { newId } from '@/lib/ids';
 
 // ─── Planned Events helpers ───────────────────────────────────────────────────
 
@@ -114,7 +115,7 @@ export default function Step2SpendingGoals({ onNext, onBack }: Props) {
 
   function openNewEvent(preset?: { emoji: string; name: string; amount: number }) {
     setEditingEvent({
-      id: crypto.randomUUID(),
+      id: newId(),
       name: preset?.name ?? '',
       emoji: preset?.emoji ?? '🎯',
       p1Age: Math.max(currentP1Age, (plannedEvents[plannedEvents.length - 1]?.p1Age ?? currentP1Age) + 1),

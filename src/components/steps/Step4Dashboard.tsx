@@ -13,6 +13,7 @@ import OptimizerPanel from '@/components/OptimizerPanel';
 import ProInterestModal from '@/components/ProInterestModal';
 import ProFeatureBanner from '@/components/ProFeatureBanner';
 import { CARE_RESERVE, CGT, CURRENT_TAX_YEAR_START, INCOME_TAX, PENSION_RULES } from '@/config/financialConstants';
+import { newId } from '@/lib/ids';
 import { optimizeWithdrawals } from '@/financialEngine/withdrawalOptimizer';
 import { RLSS_STANDARDS } from '@/lib/mockData';
 import {
@@ -774,7 +775,7 @@ export default function Step4Dashboard({ onBack }: Props) {
         request = buildGoalOrchestrateRequest({
           plannerState: deferredState,
           goalRegistry,
-          requestId: `goal-ui:${globalThis.crypto?.randomUUID?.() ?? Date.now().toString()}`,
+          requestId: `goal-ui:${newId()}`,
           schemaVersion: DEFAULT_GOAL_ORCHESTRATION_SCHEMA_VERSION,
         });
       } catch {

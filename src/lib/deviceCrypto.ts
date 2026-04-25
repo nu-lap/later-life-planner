@@ -4,6 +4,7 @@ import {
   bytesToBase64,
 } from '@/lib/crypto';
 import { idbGet, idbSet } from '@/lib/indexedDbKv';
+import { newId } from '@/lib/ids';
 
 const DEVICE_ID_KEY_PREFIX = 'llp.deviceId.p256.';
 const USER_KEK_KEY_PREFIX = 'llp.userKek.';
@@ -119,7 +120,7 @@ export async function getOrCreateDeviceId(userId: string): Promise<string> {
   const key = `${DEVICE_ID_KEY_PREFIX}${userId}`;
   const existing = await idbGet<string>(key);
   if (existing) return existing;
-  const created = crypto.randomUUID();
+  const created = newId();
   await idbSet(key, created);
   return created;
 }
@@ -159,7 +160,7 @@ export async function getOrCreateDeviceKeyPair(userId: string): Promise<HpkeDevi
 }
 
 export function createApprovalRequest(ttlMs: number): DeviceApprovalRequest {
-  const requestId = crypto.randomUUID();
+  const requestId = newId();
   const expiresAt = new Date(Date.now() + ttlMs).toISOString();
   return { requestId, expiresAt };
 }
