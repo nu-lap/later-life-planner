@@ -97,10 +97,10 @@ export function auditLog(event: string, details: Record<string, unknown>): void 
       event,
       ...sanitizeAuditDetails(details),
     };
-    // eslint-disable-next-line no-console
+     
     console.info(JSON.stringify(entry));
   } catch {
-    // eslint-disable-next-line no-console
+     
     console.info(JSON.stringify({ ts: new Date().toISOString(), event }));
   }
 }
