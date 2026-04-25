@@ -16,7 +16,7 @@
     "@anthropic-ai/sdk": "^0.78.0",
     "@azure/cosmos": "^4.9.2",
     "@azure/identity": "^4.13.1",
-    "@clerk/nextjs": "^6.10.0",
+    "@clerk/nextjs": "^6.39.3",
     "@hpke/common": "^1.10.1",
     "@hpke/core": "^1.9.0",
     "@hpke/dhkem-x25519": "^1.8.0",
