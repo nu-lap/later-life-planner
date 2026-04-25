@@ -34,8 +34,8 @@ export default function SummaryBar() {
 
       <div className="flex items-center gap-1 shrink-0">
         <span className="text-slate-500 text-xs">Gross income</span>
-        {totalIncome === 0 && currentStep < 3
-          ? <span className="font-bold text-slate-400 text-xs">— set in step 3</span>
+        {totalIncome === 0 && currentStep < 4
+          ? <span className="font-bold text-slate-400 text-xs">— set in step 4</span>
           : <span className="font-bold text-slate-800 text-xs">{formatCurrency(totalIncome)}</span>
         }
       </div>
