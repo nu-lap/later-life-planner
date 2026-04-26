@@ -84,3 +84,34 @@ See `.env.example`. Required for local dev:
 ## Path Aliases
 
 `@/*` resolves to `src/*` (configured in `tsconfig.json` baseUrl/paths).
+
+## Multi-Agent Isolation (CRITICAL for Copilot Instances)
+
+**Multiple Copilot instances often work on this repo concurrently.** Use git worktrees to work on different branches simultaneously without interference.
+
+### Quick Start
+
+```bash
+# Create an isolated worktree for your task
+./scripts/setup-copilot-worktree.sh llp-myname feature/my-task
+
+# Switch to it
+cd ../llp-llp-myname
+
+# Work normally
+npm run dev
+git commit -m "fix: ..."
+git push origin feature/my-task
+
+# Clean up when done
+cd /Users/pauldurbin/github/later-life-planner
+git worktree remove ../llp-llp-myname
+```
+
+### Key Practices
+- **Always use worktrees** for concurrent work — don't share the main checkout
+- **Never force-push** — create new commits instead of amending pushed commits
+- **Create PRs immediately** after first push to signal your intent
+- **Clean up temp files** at session end
+
+**See `docs/COPILOT-ISOLATION.md` for full guidelines and worktree details.**

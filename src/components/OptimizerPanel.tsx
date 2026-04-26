@@ -615,23 +615,40 @@ export default function OptimizerPanel({ plannerState, result, proEnabled, onPro
               </div>
             )}
 
-            {/* ISA spending */}
+            {/* ISA and GIA spending (with BED context) */}
             {apHasIsaSpend && (
               <div className="rounded-xl border border-indigo-200 bg-indigo-50/60 p-3">
                 <p className="mb-2 text-xs font-bold uppercase tracking-wide text-indigo-700">
-                  Spend from your ISA
+                  How you&apos;ll fund your spending
                 </p>
                 {(apBd.person1.isa?.grossAmount ?? 0) > 0 && (
                   <div className={clsx('mb-2', isCouple && (apBd.person2?.isa?.grossAmount ?? 0) > 0 && 'pb-2 border-b border-indigo-100')}>
                     {isCouple && <p className="mb-0.5 text-xs font-semibold uppercase tracking-wide text-slate-500">{person1Label}</p>}
                     <p className="text-sm font-semibold text-slate-800">
-                      Draw{' '}
+                      ISA-funded spending:{' '}
                       <span className="font-black text-indigo-700">{formatCurrency(apBd.person1.isa!.grossAmount, true)}</span>
-                      {' '}tax-free from your ISA
                     </p>
-                    {!p1ShowBed && apProj.p1BedIsaTransfer > 0 && (
-                      <p className="mt-1 text-xs text-slate-500">
-                        (Includes {formatCurrency(apProj.p1BedIsaTransfer, true)} from tax-efficient transfer of GIA investments)
+                    <div className="mt-2 space-y-1.5 rounded-lg bg-white/50 p-2">
+                      {!p1ShowBed && apProj.p1BedIsaTransfer > 0 && (
+                        <div className="flex justify-between text-xs">
+                          <span className="text-slate-600">
+                            From GIA (via Bed & ISA):
+                          </span>
+                          <span className="font-semibold text-slate-800">{formatCurrency(apProj.p1BedIsaTransfer, true)}</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between text-xs">
+                        <span className="text-slate-600">
+                          Tax-free from ISA:
+                        </span>
+                        <span className="font-semibold text-indigo-700">
+                          {formatCurrency(apBd.person1.isa!.grossAmount - (p1ShowBed ? 0 : apProj.p1BedIsaTransfer), true)}
+                        </span>
+                      </div>
+                    </div>
+                    {!p1ShowBed && apProj.p1CgtPaid > 0 && (
+                      <p className="mt-1.5 text-xs text-orange-600">
+                        Capital gains tax on GIA sale: ~{formatCurrency(apProj.p1CgtPaid, true)}
                       </p>
                     )}
                   </div>
@@ -640,13 +657,30 @@ export default function OptimizerPanel({ plannerState, result, proEnabled, onPro
                   <div>
                     <p className="mb-0.5 text-xs font-semibold uppercase tracking-wide text-slate-500">{person2Label}</p>
                     <p className="text-sm font-semibold text-slate-800">
-                      Draw{' '}
+                      ISA-funded spending:{' '}
                       <span className="font-black text-indigo-700">{formatCurrency(apBd.person2!.isa!.grossAmount, true)}</span>
-                      {' '}tax-free from your ISA
                     </p>
-                    {!p2ShowBed && apProj.p2BedIsaTransfer > 0 && (
-                      <p className="mt-1 text-xs text-slate-500">
-                        (Includes {formatCurrency(apProj.p2BedIsaTransfer, true)} from tax-efficient transfer of GIA investments)
+                    <div className="mt-2 space-y-1.5 rounded-lg bg-white/50 p-2">
+                      {!p2ShowBed && apProj.p2BedIsaTransfer > 0 && (
+                        <div className="flex justify-between text-xs">
+                          <span className="text-slate-600">
+                            From GIA (via Bed & ISA):
+                          </span>
+                          <span className="font-semibold text-slate-800">{formatCurrency(apProj.p2BedIsaTransfer, true)}</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between text-xs">
+                        <span className="text-slate-600">
+                          Tax-free from ISA:
+                        </span>
+                        <span className="font-semibold text-indigo-700">
+                          {formatCurrency(apBd.person2!.isa!.grossAmount - (p2ShowBed ? 0 : apProj.p2BedIsaTransfer), true)}
+                        </span>
+                      </div>
+                    </div>
+                    {!p2ShowBed && apProj.p2CgtPaid > 0 && (
+                      <p className="mt-1.5 text-xs text-orange-600">
+                        Capital gains tax on GIA sale: ~{formatCurrency(apProj.p2CgtPaid, true)}
                       </p>
                     )}
                   </div>

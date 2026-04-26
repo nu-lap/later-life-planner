@@ -757,3 +757,100 @@ describe('OptimizerPanel — Your action plan (Option B)', () => {
     expect(within(section).getByText(result.yearRecords[0]!.taxYear)).toBeInTheDocument();
   });
 });
+
+describe('OptimizerPanel — ISA/GIA funding breakdown', () => {
+  test('shows ISA-funded spending label and Bed & ISA split when ISA withdrawal covers transfer (person 1)', async () => {
+    // With pcls-bed-isa, year 5 has p1ShowBed=false (p1Isa=39,413 >= p1Bed=27,371)
+    // so the full breakdown renders inside "How you'll fund your spending"
+    const plannerState = { ...paulAndLisaState(), drawdownStrategy: 'pcls-bed-isa' as const };
+    const result = optimizeWithdrawals(plannerState);
+
+    // Precondition: year 5 must have p1 ISA withdrawal > p1 Bed transfer
+    const record5 = result.yearRecords[5]!;
+    const proj5 = result.baselineProjections[record5.yearIndex]!;
+    const p1Isa = record5.drawdownBreakdown.person1.isa?.grossAmount ?? 0;
+    const p1Bed = proj5.p1BedIsaTransfer;
+    expect(p1Isa).toBeGreaterThan(0);
+    expect(p1Bed).toBeGreaterThan(0);
+    expect(p1Isa).toBeGreaterThanOrEqual(p1Bed); // ensures p1ShowBed=false
+
+    render(<OptimizerPanel plannerState={plannerState} result={result} proEnabled={true} />);
+
+    const section = screen.getByTestId('action-plan-section');
+    // Navigate forward to year 5
+    for (let i = 0; i < 5; i++) {
+      await userEvent.click(within(section).getByRole('button', { name: 'Next year' }));
+    }
+    expect(within(section).getByText(record5.taxYear)).toBeInTheDocument();
+
+    // The funding breakdown card should be visible
+    expect(within(section).getByText("How you'll fund your spending")).toBeInTheDocument();
+    // Accurate label for the ISA withdrawal amount
+    expect(within(section).getByText('ISA-funded spending:')).toBeInTheDocument();
+    // Breakdown lines
+    expect(within(section).getByText('From GIA (via Bed & ISA):')).toBeInTheDocument();
+    expect(within(section).getByText('Tax-free from ISA:')).toBeInTheDocument();
+  });
+
+  test('shows CGT line in ISA/GIA breakdown when CGT is due', async () => {
+    // Year 5 (pcls-bed-isa) has p1CgtPaid=778 and p1ShowBed=false
+    const plannerState = { ...paulAndLisaState(), drawdownStrategy: 'pcls-bed-isa' as const };
+    const result = optimizeWithdrawals(plannerState);
+
+    const record5 = result.yearRecords[5]!;
+    const proj5 = result.baselineProjections[record5.yearIndex]!;
+    expect(proj5.p1CgtPaid).toBeGreaterThan(0);
+    const p1Isa = record5.drawdownBreakdown.person1.isa?.grossAmount ?? 0;
+    expect(p1Isa).toBeGreaterThanOrEqual(proj5.p1BedIsaTransfer); // ensures p1ShowBed=false
+
+    render(<OptimizerPanel plannerState={plannerState} result={result} proEnabled={true} />);
+
+    const section = screen.getByTestId('action-plan-section');
+    for (let i = 0; i < 5; i++) {
+      await userEvent.click(within(section).getByRole('button', { name: 'Next year' }));
+    }
+
+    expect(within(section).getByText(/Capital gains tax on GIA sale:/)).toBeInTheDocument();
+  });
+
+  test('shows ISA/GIA breakdown for person 2 in couple mode', async () => {
+    // Year 7 (pcls-bed-isa) has p2ShowBed=false (p2Isa=23,865 >= p2Bed=12,478)
+    const plannerState = { ...paulAndLisaState(), drawdownStrategy: 'pcls-bed-isa' as const };
+    const result = optimizeWithdrawals(plannerState);
+
+    const record7 = result.yearRecords[7]!;
+    const proj7 = result.baselineProjections[record7.yearIndex]!;
+    const p2Isa = record7.drawdownBreakdown.person2?.isa?.grossAmount ?? 0;
+    const p2Bed = proj7.p2BedIsaTransfer;
+    expect(p2Isa).toBeGreaterThan(0);
+    expect(p2Bed).toBeGreaterThan(0);
+    expect(p2Isa).toBeGreaterThanOrEqual(p2Bed); // ensures p2ShowBed=false
+
+    render(<OptimizerPanel plannerState={plannerState} result={result} proEnabled={true} />);
+
+    const section = screen.getByTestId('action-plan-section');
+    for (let i = 0; i < 7; i++) {
+      await userEvent.click(within(section).getByRole('button', { name: 'Next year' }));
+    }
+    expect(within(section).getByText(record7.taxYear)).toBeInTheDocument();
+
+    // Both persons should have ISA-funded spending labels
+    const isaFundedLabels = within(section).getAllByText('ISA-funded spending:');
+    expect(isaFundedLabels.length).toBeGreaterThanOrEqual(1);
+    // Person 2's breakdown should show the Bed & ISA split
+    expect(within(section).getAllByText('From GIA (via Bed & ISA):').length).toBeGreaterThanOrEqual(1);
+    expect(within(section).getAllByText('Tax-free from ISA:').length).toBeGreaterThanOrEqual(1);
+  });
+
+  test('does not show ISA funding section when no ISA withdrawal exists', () => {
+    // dcOnlyState has no ISA asset, so no ISA withdrawal
+    const plannerState = dcOnlyState(65, 250_000);
+    const result = optimizeWithdrawals(plannerState);
+
+    render(<OptimizerPanel plannerState={plannerState} result={result} proEnabled={true} />);
+
+    const section = screen.getByTestId('action-plan-section');
+    expect(within(section).queryByText("How you'll fund your spending")).not.toBeInTheDocument();
+    expect(within(section).queryByText('ISA-funded spending:')).not.toBeInTheDocument();
+  });
+});
