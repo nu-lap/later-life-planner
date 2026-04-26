@@ -12,12 +12,10 @@ import clsx from 'clsx';
 
 interface Props { onNext: () => void; onBack: () => void }
 
-// Glossary definitions for financial terms
+// Glossary definitions for financial terms shown in InfoIcon tooltips
 const GLOSSARY: Record<string, string> = {
-  LSA: 'Lump Sum Allowance (SIPP) — tax-free element of pension withdrawals',
   CGT: 'Capital Gains Tax — tax on investment growth (up to £3,000 annual exempt)',
   RNRB: 'Residence Nil-Rate Band — IHT allowance for primary residence',
-  UFPLS: 'Uncrystallised Funds Pension Lump Sum — tax-free pension withdrawal option',
   SIPP: 'Self-Invested Personal Pension — flexible pension pot you manage',
 };
 
@@ -29,10 +27,10 @@ function InfoIcon({ term, tooltip }: { term: string; tooltip: string }) {
         type="button"
         onClick={() => setShow(!show)}
         onBlur={() => setShow(false)}
-        title={tooltip}
+        aria-label={`What is ${term}?`}
         className="inline-flex items-center justify-center w-5 h-5 ml-1 rounded-full bg-slate-200 hover:bg-slate-300 text-slate-600 hover:text-slate-800 text-xs font-bold flex-shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
       >
-        ℹ
+        <span aria-hidden="true">ℹ</span>
       </button>
       {show && (
         <div className="absolute z-10 left-0 mt-1 w-48 p-2 text-xs text-slate-700 bg-white border border-slate-200 rounded-lg shadow-lg">
@@ -50,7 +48,7 @@ function FieldRow({ label, hint, children, labelExtra }: { label: string; hint?:
     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 py-3 border-b border-slate-100 last:border-0">
       <div className="flex-1">
         <div className="flex items-center gap-1">
-          <label className="text-sm font-semibold text-slate-700">{label}</label>
+          <span className="text-sm font-semibold text-slate-700">{label}</span>
           {labelExtra}
         </div>
         {hint && <p className="text-xs text-slate-500 mt-0.5">{hint}</p>}
