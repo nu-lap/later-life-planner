@@ -4,6 +4,7 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import OptimizerPanel from '@/components/OptimizerPanel';
 import { optimizeWithdrawals } from '@/financialEngine/withdrawalOptimizer';
+import { formatCurrency } from '@/financialEngine/projectionEngine';
 import { dcOnlyState, paulAndLisaState } from '../fixtures/states';
 
 afterEach(() => {
@@ -852,5 +853,50 @@ describe('OptimizerPanel — ISA/GIA funding breakdown', () => {
     const section = screen.getByTestId('action-plan-section');
     expect(within(section).queryByText("ISA withdrawal")).not.toBeInTheDocument();
     expect(within(section).queryByText('ISA-funded spending:')).not.toBeInTheDocument();
+  });
+
+  test('shows gross BED transfer headline with net-additional note when ISA withdrawal is between 0 and BED transfer (person 1)', async () => {
+    // pcls-bed-isa strategy generates BED transfers; find a year where p1 ISA withdrawal > 0 but < BED transfer
+    const plannerState = { ...paulAndLisaState(), drawdownStrategy: 'pcls-bed-isa' as const };
+    const result = optimizeWithdrawals(plannerState);
+
+    // Find the first year where p1ShowBed=true (p1BedIsaTransfer > p1IsaWithdrawal > 0)
+    const targetRecordIndex = result.yearRecords.findIndex(record => {
+      const proj = result.baselineProjections[record.yearIndex]!;
+      const p1Isa = record.drawdownBreakdown.person1.isa?.grossAmount ?? 0;
+      return proj.p1BedIsaTransfer > 0 && p1Isa > 0 && p1Isa < proj.p1BedIsaTransfer;
+    });
+    expect(targetRecordIndex).toBeGreaterThanOrEqual(0); // fixture must contain such a year
+
+    const targetRecord = result.yearRecords[targetRecordIndex]!;
+    const proj = result.baselineProjections[targetRecord.yearIndex]!;
+    const p1Isa = targetRecord.drawdownBreakdown.person1.isa?.grossAmount ?? 0;
+    const p1Bed = proj.p1BedIsaTransfer;
+    const netAmount = Math.max(0, p1Bed - p1Isa);
+
+    render(<OptimizerPanel plannerState={plannerState} result={result} proEnabled={true} />);
+
+    const section = screen.getByTestId('action-plan-section');
+    for (let i = 0; i < targetRecordIndex; i++) {
+      await userEvent.click(within(section).getByRole('button', { name: 'Next year' }));
+    }
+    expect(within(section).getByText(targetRecord.taxYear)).toBeInTheDocument();
+
+    // The headline must show the GROSS BED transfer amount (not just the net)
+    const grossText = formatCurrency(p1Bed, true);
+    const grossSpans = within(section).getAllByText((_, node) =>
+      node?.tagName === 'SPAN' && node.textContent?.trim() === grossText && node.className.includes('text-emerald-700')
+    );
+    expect(grossSpans.length).toBeGreaterThanOrEqual(1);
+
+    // The net-additional note must be visible for at least one person's card
+    expect(within(section).getAllByText(/net additional ISA funding/).length).toBeGreaterThanOrEqual(1);
+
+    // The net amount must appear in the note
+    const netText = formatCurrency(netAmount, true);
+    const netSpans = within(section).getAllByText((_, node) =>
+      node?.tagName === 'SPAN' && node.textContent?.trim() === netText && node.className.includes('font-semibold')
+    );
+    expect(netSpans.length).toBeGreaterThanOrEqual(1);
   });
 });

@@ -505,9 +505,18 @@ export default function OptimizerPanel({ plannerState, result, proEnabled, onPro
                     {isCouple && <p className="mb-0.5 text-xs font-semibold uppercase tracking-wide text-slate-500">{person1Label}</p>}
                     <p className="mb-1 text-sm font-semibold text-slate-800">
                       Move{' '}
-                      <span className="font-black text-emerald-700">{formatCurrency(Math.max(0, apProj.p1BedIsaTransfer - p1IsaWithdrawal), true)}</span>
+                      <span className="font-black text-emerald-700">{formatCurrency(apProj.p1BedIsaTransfer, true)}</span>
                       {' '}into your ISA:
                     </p>
+                    {p1IsaWithdrawal > 0 && (
+                      <p className="mb-1 text-xs text-slate-600">
+                        Includes{' '}
+                        <span className="font-semibold">{formatCurrency(p1IsaWithdrawal, true)}</span>{' '}
+                        replaced after an ISA withdrawal, so the net additional ISA funding is{' '}
+                        <span className="font-semibold">{formatCurrency(Math.max(0, apProj.p1BedIsaTransfer - p1IsaWithdrawal), true)}</span>
+                        .
+                      </p>
+                    )}
                     {apProj.p1IndivBedIsaTransfer > 0 && (
                       <p className="text-xs text-slate-600">
                         · <span className="font-semibold">{formatCurrency(apProj.p1IndivBedIsaTransfer, true)}</span>{' '}
@@ -530,9 +539,18 @@ export default function OptimizerPanel({ plannerState, result, proEnabled, onPro
                     <p className="mb-0.5 text-xs font-semibold uppercase tracking-wide text-slate-500">{person2Label}</p>
                     <p className="mb-1 text-sm font-semibold text-slate-800">
                       Move{' '}
-                      <span className="font-black text-emerald-700">{formatCurrency(Math.max(0, apProj.p2BedIsaTransfer - p2IsaWithdrawal), true)}</span>
+                      <span className="font-black text-emerald-700">{formatCurrency(apProj.p2BedIsaTransfer, true)}</span>
                       {' '}into your ISA:
                     </p>
+                    {p2IsaWithdrawal > 0 && (
+                      <p className="mb-1 text-xs text-slate-600">
+                        Includes{' '}
+                        <span className="font-semibold">{formatCurrency(p2IsaWithdrawal, true)}</span>{' '}
+                        replaced after an ISA withdrawal, so the net additional ISA funding is{' '}
+                        <span className="font-semibold">{formatCurrency(Math.max(0, apProj.p2BedIsaTransfer - p2IsaWithdrawal), true)}</span>
+                        .
+                      </p>
+                    )}
                     {apProj.p2IndivBedIsaTransfer > 0 && (
                       <p className="text-xs text-slate-600">
                         · <span className="font-semibold">{formatCurrency(apProj.p2IndivBedIsaTransfer, true)}</span>{' '}
