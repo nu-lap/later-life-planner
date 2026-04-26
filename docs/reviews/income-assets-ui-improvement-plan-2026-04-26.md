@@ -142,7 +142,7 @@ The Income & Assets page presents a well-structured wizard step with clear secti
 
 **Recommendation:**
 1. Add info icon (ℹ️) next to each acronym, with tooltip on hover
-2. Tooltip text: "LSA: Lifetime Savings Allowance (SIPP)", "CGT: Capital Gains Tax", "RNRB: Residence Nil-Rate Band", "UFPLS: Uncrystallised Funds Pension Lump Sum"
+2. Tooltip text: "LSA: Lump Sum Allowance (SIPP)", "CGT: Capital Gains Tax", "RNRB: Residence Nil-Rate Band", "UFPLS: Uncrystallised Funds Pension Lump Sum"
 3. Or create a single glossary card at the bottom of Model assumptions section
 
 ---
