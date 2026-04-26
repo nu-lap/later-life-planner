@@ -503,6 +503,7 @@ export default function OptimizerPanel({ plannerState, result, proEnabled, onPro
                 {p1ShowBed && apProj.p1BedIsaTransfer > 0 && (
                   <div className={clsx('mb-2', isCouple && p2ShowBed && apProj.p2BedIsaTransfer > 0 && 'pb-2 border-b border-emerald-100')}>
                     {isCouple && <p className="mb-0.5 text-xs font-semibold uppercase tracking-wide text-slate-500">{person1Label}</p>}
+
                     {p1IsaWithdrawal > 0 && p1IsaWithdrawal <= apProj.p1BedIsaTransfer && (
                       <p className="mb-1.5 text-xs text-slate-600">
                         From GIA: <strong>{formatCurrency(p1IsaWithdrawal, true)}</strong> funds your spending, <strong>{formatCurrency(apProj.p1BedIsaTransfer - p1IsaWithdrawal, true)}</strong> is added to your ISA.
@@ -528,6 +529,7 @@ export default function OptimizerPanel({ plannerState, result, proEnabled, onPro
                 {isCouple && p2ShowBed && apProj.p2BedIsaTransfer > 0 && (
                   <div>
                     <p className="mb-0.5 text-xs font-semibold uppercase tracking-wide text-slate-500">{person2Label}</p>
+
                     {p2IsaWithdrawal > 0 && p2IsaWithdrawal <= apProj.p2BedIsaTransfer && (
                       <p className="mb-1.5 text-xs text-slate-600">
                         From GIA: <strong>{formatCurrency(p2IsaWithdrawal, true)}</strong> funds your spending, <strong>{formatCurrency(apProj.p2BedIsaTransfer - p2IsaWithdrawal, true)}</strong> is added to your ISA.
