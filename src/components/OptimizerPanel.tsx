@@ -504,13 +504,13 @@ export default function OptimizerPanel({ plannerState, result, proEnabled, onPro
                   <div className={clsx('mb-2', isCouple && p2ShowBed && apProj.p2BedIsaTransfer > 0 && 'pb-2 border-b border-emerald-100')}>
                     {isCouple && <p className="mb-0.5 text-xs font-semibold uppercase tracking-wide text-slate-500">{person1Label}</p>}
                     <p className="mb-1 text-sm font-semibold text-slate-800">
-                      Move{' '}
-                      <span className="font-black text-emerald-700">{formatCurrency(apProj.p1BedIsaTransfer, true)}</span>
-                      {' '}into your ISA:
+                      Use BED transfer to fund{' '}
+                      <span className="font-black text-emerald-700">{formatCurrency(p1IsaWithdrawal, true)}</span>
+                      {' '}of spending
                     </p>
                     {p1IsaWithdrawal > 0 && p1IsaWithdrawal <= apProj.p1BedIsaTransfer && (
-                      <p className="mb-1.5 text-xs text-slate-600">
-                        Of this {formatCurrency(apProj.p1BedIsaTransfer, true)}: <span className="font-semibold">{formatCurrency(p1IsaWithdrawal, true)}</span> funds your spending, <span className="font-semibold">{formatCurrency(apProj.p1BedIsaTransfer - p1IsaWithdrawal, true)}</span> is added to your ISA.
+                      <p className="mb-1.5 text-xs font-semibold text-emerald-700">
+                        Transfer {formatCurrency(apProj.p1BedIsaTransfer, true)} from your portfolio, with <span className="font-black">{formatCurrency(apProj.p1BedIsaTransfer - p1IsaWithdrawal, true)}</span> added to your ISA.
                       </p>
                     )}
                     {apProj.p1IndivBedIsaTransfer > 0 && (
@@ -534,13 +534,13 @@ export default function OptimizerPanel({ plannerState, result, proEnabled, onPro
                   <div>
                     <p className="mb-0.5 text-xs font-semibold uppercase tracking-wide text-slate-500">{person2Label}</p>
                     <p className="mb-1 text-sm font-semibold text-slate-800">
-                      Move{' '}
-                      <span className="font-black text-emerald-700">{formatCurrency(apProj.p2BedIsaTransfer, true)}</span>
-                      {' '}into your ISA:
+                      Use BED transfer to fund{' '}
+                      <span className="font-black text-emerald-700">{formatCurrency(p2IsaWithdrawal, true)}</span>
+                      {' '}of spending
                     </p>
                     {p2IsaWithdrawal > 0 && p2IsaWithdrawal <= apProj.p2BedIsaTransfer && (
-                      <p className="mb-1.5 text-xs text-slate-600">
-                        Of this {formatCurrency(apProj.p2BedIsaTransfer, true)}: <span className="font-semibold">{formatCurrency(p2IsaWithdrawal, true)}</span> funds your spending, <span className="font-semibold">{formatCurrency(apProj.p2BedIsaTransfer - p2IsaWithdrawal, true)}</span> is added to your ISA.
+                      <p className="mb-1.5 text-xs font-semibold text-emerald-700">
+                        Transfer {formatCurrency(apProj.p2BedIsaTransfer, true)} from your portfolio, with <span className="font-black">{formatCurrency(apProj.p2BedIsaTransfer - p2IsaWithdrawal, true)}</span> added to your ISA.
                       </p>
                     )}
                     {apProj.p2IndivBedIsaTransfer > 0 && (
