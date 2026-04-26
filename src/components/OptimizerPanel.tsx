@@ -505,7 +505,7 @@ export default function OptimizerPanel({ plannerState, result, proEnabled, onPro
                     {isCouple && <p className="mb-0.5 text-xs font-semibold uppercase tracking-wide text-slate-500">{person1Label}</p>}
                     <p className="mb-1 text-sm font-semibold text-slate-800">
                       Move{' '}
-                      <span className="font-black text-emerald-700">{formatCurrency(apProj.p1BedIsaTransfer, true)}</span>
+                      <span className="font-black text-emerald-700">{formatCurrency(Math.max(0, apProj.p1BedIsaTransfer - p1IsaWithdrawal), true)}</span>
                       {' '}into your ISA:
                     </p>
                     {apProj.p1IndivBedIsaTransfer > 0 && (
@@ -530,7 +530,7 @@ export default function OptimizerPanel({ plannerState, result, proEnabled, onPro
                     <p className="mb-0.5 text-xs font-semibold uppercase tracking-wide text-slate-500">{person2Label}</p>
                     <p className="mb-1 text-sm font-semibold text-slate-800">
                       Move{' '}
-                      <span className="font-black text-emerald-700">{formatCurrency(apProj.p2BedIsaTransfer, true)}</span>
+                      <span className="font-black text-emerald-700">{formatCurrency(Math.max(0, apProj.p2BedIsaTransfer - p2IsaWithdrawal), true)}</span>
                       {' '}into your ISA:
                     </p>
                     {apProj.p2IndivBedIsaTransfer > 0 && (
