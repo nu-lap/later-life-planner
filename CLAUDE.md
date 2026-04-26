@@ -84,3 +84,34 @@ See `.env.example`. Required for local dev:
 ## Path Aliases
 
 `@/*` resolves to `src/*` (configured in `tsconfig.json` baseUrl/paths).
+
+## Multi-Agent Isolation (CRITICAL for Copilot Instances)
+
+**Multiple Copilot instances often work on this repo concurrently.** Always follow isolation practices:
+
+### Before Starting Work
+```bash
+git fetch origin
+git status
+git pull origin <branch-name>  # if on existing branch
+```
+
+### During Work
+- **Always create a new feature branch** (`feature/xyz`, `fix/xyz`, `docs/xyz`)
+- **Never force-push** — create new commits instead of amending pushed commits
+- **Commit incrementally** with clear messages to help other instances track progress
+- **Create PR immediately** after first push to signal your intent
+
+### After Finishing
+- Verify no uncommitted changes: `git status`
+- Clean up temporary files (screenshots, scripts, artifacts)
+- Note branch name in session summary
+
+### Forbidden Practices
+- ❌ `git push --force` or `git push -f`
+- ❌ `git commit --amend` or `git rebase` on pushed branches
+- ❌ Edit `.env*` files or secrets
+- ❌ Leave uncommitted changes
+- ❌ Assume commit history is stable without pulling
+
+**See `docs/COPILOT-ISOLATION.md` for full guidelines.**
