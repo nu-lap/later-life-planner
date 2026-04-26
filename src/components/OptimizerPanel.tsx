@@ -625,7 +625,7 @@ export default function OptimizerPanel({ plannerState, result, proEnabled, onPro
                   <div className={clsx('mb-2', isCouple && (apBd.person2?.isa?.grossAmount ?? 0) > 0 && 'pb-2 border-b border-indigo-100')}>
                     {isCouple && <p className="mb-0.5 text-xs font-semibold uppercase tracking-wide text-slate-500">{person1Label}</p>}
                     <p className="text-sm font-semibold text-slate-800">
-                      Total spending need:{' '}
+                      ISA-funded spending:{' '}
                       <span className="font-black text-indigo-700">{formatCurrency(apBd.person1.isa!.grossAmount, true)}</span>
                     </p>
                     <div className="mt-2 space-y-1.5 rounded-lg bg-white/50 p-2">
@@ -657,7 +657,7 @@ export default function OptimizerPanel({ plannerState, result, proEnabled, onPro
                   <div>
                     <p className="mb-0.5 text-xs font-semibold uppercase tracking-wide text-slate-500">{person2Label}</p>
                     <p className="text-sm font-semibold text-slate-800">
-                      Total spending need:{' '}
+                      ISA-funded spending:{' '}
                       <span className="font-black text-indigo-700">{formatCurrency(apBd.person2!.isa!.grossAmount, true)}</span>
                     </p>
                     <div className="mt-2 space-y-1.5 rounded-lg bg-white/50 p-2">
