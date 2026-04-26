@@ -15,11 +15,14 @@ interface Props { onNext: () => void; onBack: () => void }
 // Glossary definitions for financial terms
 const GLOSSARY: Record<string, string> = {
   LSA: 'Lump Sum Allowance (SIPP) — tax-free element of pension withdrawals',
-  CGT: 'Capital Gains Tax — tax on investment growth (up to £3,000 annual exempt)',
   RNRB: 'Residence Nil-Rate Band — IHT allowance for primary residence',
   UFPLS: 'Uncrystallised Funds Pension Lump Sum — tax-free pension withdrawal option',
   SIPP: 'Self-Invested Personal Pension — flexible pension pot you manage',
 };
+
+function getCGTTooltip(): string {
+  return `Capital Gains Tax — tax on investment growth (up to £${CGT.ANNUAL_EXEMPT.toLocaleString('en-GB')} annual exempt)`;
+}
 
 function InfoIcon({ term, tooltip }: { term: string; tooltip: string }) {
   const [show, setShow] = useState(false);
@@ -461,7 +464,7 @@ function AssetsSection({ assets, set, mode, p1Label, p2Label, sharedGia, onShare
         <FieldRow label="Current market value">
           <CurrencyInput value={generalInvestments.totalValue} onChange={(v) => set('generalInvestments', { totalValue: v })} max={2000000} step={1000} />
         </FieldRow>
-        <FieldRow label="Purchase price / base cost" hint="Original cost — for CGT calculation" labelExtra={<InfoIcon term="CGT" tooltip={GLOSSARY.CGT} />}>
+        <FieldRow label="Purchase price / base cost" hint="Original cost — for CGT calculation" labelExtra={<InfoIcon term="CGT" tooltip={getCGTTooltip()} />}>
           <CurrencyInput value={generalInvestments.baseCost} onChange={(v) => set('generalInvestments', { baseCost: v })} max={2000000} step={1000} />
         </FieldRow>
         <FieldRow label="Annual growth rate">
@@ -483,7 +486,7 @@ function AssetsSection({ assets, set, mode, p1Label, p2Label, sharedGia, onShare
           <FieldRow label="Current market value">
             <CurrencyInput value={sharedGia.totalValue} onChange={(v) => onSharedGiaChange({ totalValue: v })} max={2000000} step={1000} />
           </FieldRow>
-          <FieldRow label="Purchase price / base cost" hint="Original cost — for CGT calculation" labelExtra={<InfoIcon term="CGT" tooltip={GLOSSARY.CGT} />}>
+          <FieldRow label="Purchase price / base cost" hint="Original cost — for CGT calculation" labelExtra={<InfoIcon term="CGT" tooltip={getCGTTooltip()} />}>
             <CurrencyInput value={sharedGia.baseCost} onChange={(v) => onSharedGiaChange({ baseCost: v })} max={2000000} step={1000} />
           </FieldRow>
           <FieldRow label="Annual growth rate">
@@ -504,7 +507,7 @@ function AssetsSection({ assets, set, mode, p1Label, p2Label, sharedGia, onShare
         <FieldRow label="Current property value">
           <CurrencyInput value={property.propertyValue} onChange={(v) => set('property', { propertyValue: v })} max={5000000} step={5000} />
         </FieldRow>
-        <FieldRow label="Purchase price / base cost" hint="For CGT planning" labelExtra={<InfoIcon term="CGT" tooltip={GLOSSARY.CGT} />}>
+        <FieldRow label="Purchase price / base cost" hint="For CGT planning" labelExtra={<InfoIcon term="CGT" tooltip={getCGTTooltip()} />}>
           <CurrencyInput value={property.baseCost} onChange={(v) => set('property', { baseCost: v })} max={5000000} step={5000} />
         </FieldRow>
         <FieldRow label="Annual net rental income" hint="After allowable expenses">
