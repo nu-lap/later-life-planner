@@ -853,4 +853,79 @@ describe('OptimizerPanel — ISA/GIA funding breakdown', () => {
     expect(within(section).queryByText("ISA withdrawal")).not.toBeInTheDocument();
     expect(within(section).queryByText('ISA-funded spending:')).not.toBeInTheDocument();
   });
+
+  test('hides ISA withdrawal card and shows BED explanatory text when ISA withdrawal < BED transfer', async () => {
+    // Year 1 (pcls-bed-isa) has p1Isa=18,351 < p1Bed=23,397 and p2Isa=18,351 < p2Bed=23,397
+    // so p1ShowBed=true and p2ShowBed=true: BED section shown, ISA withdrawal hidden
+    const plannerState = { ...paulAndLisaState(), drawdownStrategy: 'pcls-bed-isa' as const };
+    const result = optimizeWithdrawals(plannerState);
+
+    // Preconditions: year 1 must have both persons' ISA withdrawal < BED transfer
+    const record1 = result.yearRecords[1]!;
+    const proj1 = result.baselineProjections[record1.yearIndex]!;
+    const p1Isa = record1.drawdownBreakdown.person1.isa?.grossAmount ?? 0;
+    const p1Bed = proj1.p1BedIsaTransfer;
+    const p2Isa = record1.drawdownBreakdown.person2?.isa?.grossAmount ?? 0;
+    const p2Bed = proj1.p2BedIsaTransfer;
+    expect(p1Isa).toBeGreaterThan(0);
+    expect(p1Bed).toBeGreaterThan(0);
+    expect(p1Isa).toBeLessThan(p1Bed);
+    expect(p2Isa).toBeLessThan(p2Bed);
+
+    render(<OptimizerPanel plannerState={plannerState} result={result} proEnabled={true} />);
+
+    const section = screen.getByTestId('action-plan-section');
+    await userEvent.click(within(section).getByRole('button', { name: 'Next year' }));
+    expect(within(section).getByText(record1.taxYear)).toBeInTheDocument();
+
+    // BED section IS shown with explanatory text for person 1
+    expect(within(section).getByText('🗓️ Before 5 April — Move to ISA')).toBeInTheDocument();
+    expect(within(section).getAllByText(/This BED transfer funds/).length).toBeGreaterThanOrEqual(1);
+
+    // ISA withdrawal card is NOT shown
+    expect(within(section).queryByText('ISA withdrawal')).not.toBeInTheDocument();
+    expect(within(section).queryByText('ISA-funded spending:')).not.toBeInTheDocument();
+  });
+
+  test('hides ISA withdrawal card and shows BED explanatory text when ISA withdrawal equals BED transfer', async () => {
+    // Patch year 1 so that person 1's ISA withdrawal exactly equals the BED transfer amount
+    // (the equality case must also suppress the ISA withdrawal card)
+    const plannerState = { ...paulAndLisaState(), drawdownStrategy: 'pcls-bed-isa' as const };
+    const result = optimizeWithdrawals(plannerState);
+
+    const record1 = result.yearRecords[1]!;
+    const proj1 = result.baselineProjections[record1.yearIndex]!;
+    const p1Bed = proj1.p1BedIsaTransfer;
+    expect(p1Bed).toBeGreaterThan(0);
+
+    // Clone the result with person 1's ISA withdrawal set exactly equal to their BED transfer
+    const patchedRecord1: typeof record1 = {
+      ...record1,
+      drawdownBreakdown: {
+        ...record1.drawdownBreakdown,
+        person1: {
+          ...record1.drawdownBreakdown.person1,
+          isa: { grossAmount: p1Bed },
+        },
+      },
+    };
+    const patchedResult = {
+      ...result,
+      yearRecords: result.yearRecords.map((r, i) => (i === 1 ? patchedRecord1 : r)),
+    };
+
+    render(<OptimizerPanel plannerState={plannerState} result={patchedResult} proEnabled={true} />);
+
+    const section = screen.getByTestId('action-plan-section');
+    await userEvent.click(within(section).getByRole('button', { name: 'Next year' }));
+    expect(within(section).getByText(record1.taxYear)).toBeInTheDocument();
+
+    // BED section IS shown with explanatory text (equality case: residual = £0)
+    expect(within(section).getByText('🗓️ Before 5 April — Move to ISA')).toBeInTheDocument();
+    expect(within(section).getAllByText(/This BED transfer funds/).length).toBeGreaterThanOrEqual(1);
+
+    // ISA withdrawal card is NOT shown
+    expect(within(section).queryByText('ISA withdrawal')).not.toBeInTheDocument();
+    expect(within(section).queryByText('ISA-funded spending:')).not.toBeInTheDocument();
+  });
 });
