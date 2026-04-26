@@ -520,7 +520,7 @@ export default function OptimizerPanel({ plannerState, result, proEnabled, onPro
                     </p>
                     {p1IsaWithdrawal > 0 && p1IsaWithdrawal <= apProj.p1BedIsaTransfer && (
                       <p className="mb-1.5 text-xs text-slate-600">
-                        Of this {formatCurrency(apProj.p1BedIsaTransfer, true)}: <strong>{formatCurrency(p1IsaWithdrawal, true)}</strong> funds your spending, <strong>{formatCurrency(apProj.p1BedIsaTransfer - p1IsaWithdrawal, true)}</strong> is added to your ISA.
+                        From GIA: <strong>{formatCurrency(p1IsaWithdrawal, true)}</strong> funds your spending, <strong>{formatCurrency(apProj.p1BedIsaTransfer - p1IsaWithdrawal, true)}</strong> is added to your ISA.
                       </p>
                     )}
                     {apProj.p1IndivBedIsaTransfer > 0 && (
@@ -560,7 +560,7 @@ export default function OptimizerPanel({ plannerState, result, proEnabled, onPro
                     </p>
                     {p2IsaWithdrawal > 0 && p2IsaWithdrawal <= apProj.p2BedIsaTransfer && (
                       <p className="mb-1.5 text-xs text-slate-600">
-                        Of this {formatCurrency(apProj.p2BedIsaTransfer, true)}: <strong>{formatCurrency(p2IsaWithdrawal, true)}</strong> funds your spending, <strong>{formatCurrency(apProj.p2BedIsaTransfer - p2IsaWithdrawal, true)}</strong> is added to your ISA.
+                        From GIA: <strong>{formatCurrency(p2IsaWithdrawal, true)}</strong> funds your spending, <strong>{formatCurrency(apProj.p2BedIsaTransfer - p2IsaWithdrawal, true)}</strong> is added to your ISA.
                       </p>
                     )}
                     {apProj.p2IndivBedIsaTransfer > 0 && (
