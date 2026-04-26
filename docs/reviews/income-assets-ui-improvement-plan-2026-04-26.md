@@ -1,10 +1,8 @@
 # Income & Assets UI Review — April 2026
 
-**Reviewer Persona:** Senior fintech product designer, 15 years SaaS, specialized in information hierarchy, accessibility, UK financial UX, and complex form patterns.
-
-**Date:** 26 April 2026  
-**Page:** Step 4 — Income & Assets (Live: `ca-later-life-planner.salmonstone-6e18fbe9.uksouth.azurecontainerapps.io`)  
-**Viewport:** 1440×900  
+**Reviewed:** 26 April 2026  
+**Reviewer:** Senior fintech product designer, 15 years SaaS, specialized in information hierarchy, accessibility, UK financial UX, and complex form patterns.  
+**Method:** Live UI review of Step 4 — Income & Assets (`ca-later-life-planner.salmonstone-6e18fbe9.uksouth.azurecontainerapps.io`) at 1440×900 viewport.  
 **Scope:** Visual hierarchy, accessibility, form usability, UK financial terminology clarity, visual consistency.
 
 ---
