@@ -12,16 +12,48 @@ import clsx from 'clsx';
 
 interface Props { onNext: () => void; onBack: () => void }
 
+// Glossary definitions for financial terms shown in InfoIcon tooltips
+const GLOSSARY: Record<string, string> = {
+  CGT: 'Capital Gains Tax — tax on investment growth (up to £3,000 annual exempt)',
+  RNRB: 'Residence Nil-Rate Band — IHT allowance for primary residence',
+  SIPP: 'Self-Invested Personal Pension — flexible pension pot you manage',
+};
+
+function InfoIcon({ term, tooltip }: { term: string; tooltip: string }) {
+  const [show, setShow] = useState(false);
+  return (
+    <div className="relative inline-block">
+      <button
+        type="button"
+        onClick={() => setShow(!show)}
+        onBlur={() => setShow(false)}
+        aria-label={`What is ${term}?`}
+        className="inline-flex items-center justify-center w-5 h-5 ml-1 rounded-full bg-slate-200 hover:bg-slate-300 text-slate-600 hover:text-slate-800 text-xs font-bold flex-shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
+      >
+        <span aria-hidden="true">ℹ</span>
+      </button>
+      {show && (
+        <div className="absolute z-10 left-0 mt-1 w-48 p-2 text-xs text-slate-700 bg-white border border-slate-200 rounded-lg shadow-lg">
+          {tooltip}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Primitives ───────────────────────────────────────────────────────────────
 
-function FieldRow({ label, hint, children }: { label: string; hint?: React.ReactNode; children: React.ReactNode }) {
+function FieldRow({ label, hint, children, labelExtra }: { label: string; hint?: React.ReactNode; children: React.ReactNode; labelExtra?: React.ReactNode }) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 py-3 border-b border-slate-100 last:border-0">
-      <div>
-        <span className="text-sm font-semibold text-slate-700">{label}</span>
-        {hint && <p className="text-xs text-slate-400 mt-0.5">{hint}</p>}
+    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 py-3 border-b border-slate-100 last:border-0">
+      <div className="flex-1">
+        <div className="flex items-center gap-1">
+          <span className="text-sm font-semibold text-slate-700">{label}</span>
+          {labelExtra}
+        </div>
+        {hint && <p className="text-xs text-slate-500 mt-0.5">{hint}</p>}
       </div>
-      <div className="flex-shrink-0">{children}</div>
+      <div className="flex-shrink-0 self-start sm:self-center">{children}</div>
     </div>
   );
 }
@@ -34,12 +66,14 @@ function AgeStepper({ value, onChange, min, max, label }: {
       {label && <span className="text-sm text-slate-500">{label}</span>}
       <button type="button" onClick={() => onChange(Math.max(min, value - 1))}
         disabled={value <= min}
-        className="w-9 h-9 rounded-xl bg-slate-200 hover:bg-slate-300 active:bg-slate-400 disabled:opacity-30 disabled:cursor-not-allowed font-bold text-lg leading-none flex items-center justify-center transition-colors select-none"
+        aria-label={`Decrease age (current: ${value})`}
+        className="w-11 h-11 rounded-xl bg-slate-200 hover:bg-slate-300 active:bg-slate-400 disabled:opacity-30 disabled:cursor-not-allowed font-bold text-lg leading-none flex items-center justify-center transition-colors select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-1"
       >−</button>
       <span className="w-10 text-center font-black text-slate-800 tabular-nums text-sm">{value}</span>
       <button type="button" onClick={() => onChange(Math.min(max, value + 1))}
         disabled={value >= max}
-        className="w-9 h-9 rounded-xl bg-slate-200 hover:bg-slate-300 active:bg-slate-400 disabled:opacity-30 disabled:cursor-not-allowed font-bold text-lg leading-none flex items-center justify-center transition-colors select-none"
+        aria-label={`Increase age (current: ${value})`}
+        className="w-11 h-11 rounded-xl bg-slate-200 hover:bg-slate-300 active:bg-slate-400 disabled:opacity-30 disabled:cursor-not-allowed font-bold text-lg leading-none flex items-center justify-center transition-colors select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-1"
       >+</button>
     </div>
   );
@@ -62,8 +96,8 @@ function PctInput({
       <div className="relative">
         <input type="number" min={0} max={max} step={0.5} value={value}
           onChange={(e) => { const v = parseFloat(e.target.value); if (!isNaN(v)) onChange(v); }}
-          className="w-20 input-base text-center py-1.5 text-sm pr-6" />
-        <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm">%</span>
+          className="w-24 input-base text-center py-1.5 text-sm pr-8" />
+        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm pointer-events-none">%</span>
       </div>
     </div>
   );
@@ -139,7 +173,7 @@ function PriorityGroup({ number, title, subtitle, badge, badgeClass, children }:
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex flex-wrap items-center gap-2 mb-0.5">
-            <span className="font-black text-slate-800">{title}</span>
+            <h3 className="font-black text-slate-800 text-base">{title}</h3>
             {badge && (
               <span className={clsx('text-xs font-bold px-2.5 py-0.5 rounded-full', badgeClass)}>
                 {badge}
@@ -176,7 +210,7 @@ function IncomeSection({ currentAge, fiAge, lifeExpectancy, src, assets, set }: 
           desc="Guaranteed income from an employer scheme — indexed to inflation"
           enabled={src.dbPension.enabled} onToggle={(v) => set('dbPension', { enabled: v })}
         >
-          <FieldRow label="Annual income (today's £)">
+          <FieldRow label="Annual income (in today's money)">
             <CurrencyInput value={src.dbPension.annualIncome} onChange={(v) => set('dbPension', { annualIncome: v })} max={100000} step={100} />
           </FieldRow>
           <FieldRow label="Start age">
@@ -288,6 +322,7 @@ function IncomeSection({ currentAge, fiAge, lifeExpectancy, src, assets, set }: 
           <FieldRow
             label="SIPP contribution (gross / year)"
             hint="Gross annual amount before basic-rate tax relief, increased with inflation until FI age."
+            labelExtra={<InfoIcon term="SIPP" tooltip={GLOSSARY.SIPP} />}
           >
             <CurrencyInput
               value={src.dcPension.sippContributionAnnualGross ?? 0}
@@ -424,14 +459,14 @@ function AssetsSection({ assets, set, mode, p1Label, p2Label, sharedGia, onShare
         <FieldRow label="Current market value">
           <CurrencyInput value={generalInvestments.totalValue} onChange={(v) => set('generalInvestments', { totalValue: v })} max={2000000} step={1000} />
         </FieldRow>
-        <FieldRow label="Purchase price / base cost" hint="Original cost — for CGT calculation">
+        <FieldRow label="Purchase price / base cost" hint="Original cost — for CGT calculation" labelExtra={<InfoIcon term="CGT" tooltip={GLOSSARY.CGT} />}>
           <CurrencyInput value={generalInvestments.baseCost} onChange={(v) => set('generalInvestments', { baseCost: v })} max={2000000} step={1000} />
         </FieldRow>
         <FieldRow label="Annual growth rate">
           <PctInput value={generalInvestments.growthRate} onChange={(v) => set('generalInvestments', { growthRate: v })} />
         </FieldRow>
         {giaGain > 0 && (
-          <div className="py-2 text-xs text-amber-700 bg-amber-50 rounded-xl px-3">
+          <div className="py-2 text-xs text-amber-700 bg-amber-50 rounded-xl px-3 border-l-4 border-amber-600">
             Unrealised gain: <strong>£{giaGain.toLocaleString('en-GB')}</strong> · CGT applies on gains above the £{CGT.ANNUAL_EXEMPT.toLocaleString('en-GB')} annual exempt amount.
           </div>
         )}
@@ -446,14 +481,14 @@ function AssetsSection({ assets, set, mode, p1Label, p2Label, sharedGia, onShare
           <FieldRow label="Current market value">
             <CurrencyInput value={sharedGia.totalValue} onChange={(v) => onSharedGiaChange({ totalValue: v })} max={2000000} step={1000} />
           </FieldRow>
-          <FieldRow label="Purchase price / base cost" hint="Original cost — for CGT calculation">
+          <FieldRow label="Purchase price / base cost" hint="Original cost — for CGT calculation" labelExtra={<InfoIcon term="CGT" tooltip={GLOSSARY.CGT} />}>
             <CurrencyInput value={sharedGia.baseCost} onChange={(v) => onSharedGiaChange({ baseCost: v })} max={2000000} step={1000} />
           </FieldRow>
           <FieldRow label="Annual growth rate">
             <PctInput value={sharedGia.growthRate} onChange={(v) => onSharedGiaChange({ growthRate: v })} />
           </FieldRow>
           {jointGiaGain > 0 && (
-            <div className="py-2 text-xs text-amber-700 bg-amber-50 rounded-xl px-3">
+            <div className="py-2 text-xs text-amber-700 bg-amber-50 rounded-xl px-3 border-l-4 border-amber-600">
               Unrealised gain: <strong>£{jointGiaGain.toLocaleString('en-GB')}</strong> · Gains split equally across both persons&apos; CGT allowances.
             </div>
           )}
@@ -467,7 +502,7 @@ function AssetsSection({ assets, set, mode, p1Label, p2Label, sharedGia, onShare
         <FieldRow label="Current property value">
           <CurrencyInput value={property.propertyValue} onChange={(v) => set('property', { propertyValue: v })} max={5000000} step={5000} />
         </FieldRow>
-        <FieldRow label="Purchase price / base cost" hint="For CGT planning">
+        <FieldRow label="Purchase price / base cost" hint="For CGT planning" labelExtra={<InfoIcon term="CGT" tooltip={GLOSSARY.CGT} />}>
           <CurrencyInput value={property.baseCost} onChange={(v) => set('property', { baseCost: v })} max={5000000} step={5000} />
         </FieldRow>
         <FieldRow label="Annual net rental income" hint="After allowable expenses">
@@ -489,7 +524,7 @@ function AssetsSection({ assets, set, mode, p1Label, p2Label, sharedGia, onShare
           </FieldRow>
         )}
         {propGain > 0 && (
-          <div className="py-2 text-xs text-sky-700 bg-sky-50 rounded-xl px-3">
+          <div className="py-2 text-xs text-sky-700 bg-sky-50 rounded-xl px-3 border-l-4 border-sky-600">
             Unrealised gain: <strong>£{propGain.toLocaleString('en-GB')}</strong> · Base cost captured for future CGT planning.
           </div>
         )}
@@ -515,7 +550,7 @@ function AssetsSection({ assets, set, mode, p1Label, p2Label, sharedGia, onShare
               className="w-4 h-4 rounded accent-emerald-500"
               aria-label="Passes to direct descendants"
             />
-            <span className="text-sm text-slate-600">Yes — required to claim the Residence Nil-Rate Band (RNRB)</span>
+            <span className="text-sm text-slate-600">Yes — required to claim the <span className="inline-flex items-center gap-0.5">Residence Nil-Rate Band <InfoIcon term="RNRB" tooltip={GLOSSARY.RNRB} /></span></span>
           </label>
         </FieldRow>
         {primaryResidence.enabled && primaryResidence.currentValue > 0 && (
