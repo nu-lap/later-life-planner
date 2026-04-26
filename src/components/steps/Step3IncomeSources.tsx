@@ -29,8 +29,9 @@ function InfoIcon({ term, tooltip }: { term: string; tooltip: string }) {
     <div className="relative inline-block">
       <button
         type="button"
-        onClick={() => setShow(!show)}
-        onBlur={() => setShow(false)}
+        onMouseEnter={() => setShow(true)}
+        onMouseLeave={() => setShow(false)}
+        title={tooltip}
         aria-label={`What is ${term}?`}
         className="inline-flex items-center justify-center w-5 h-5 ml-1 rounded-full bg-slate-200 hover:bg-slate-300 text-slate-600 hover:text-slate-800 text-xs font-bold flex-shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
       >
