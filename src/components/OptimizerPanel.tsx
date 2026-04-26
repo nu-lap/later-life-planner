@@ -508,6 +508,11 @@ export default function OptimizerPanel({ plannerState, result, proEnabled, onPro
                       <span className="font-black text-emerald-700">{formatCurrency(apProj.p1BedIsaTransfer, true)}</span>
                       {' '}into your ISA:
                     </p>
+                    {p1IsaWithdrawal > 0 && p1IsaWithdrawal <= apProj.p1BedIsaTransfer && (
+                      <p className="mb-1.5 text-xs text-slate-600">
+                        This BED transfer funds {formatCurrency(p1IsaWithdrawal, true)} of spending, leaving {formatCurrency(apProj.p1BedIsaTransfer - p1IsaWithdrawal, true)} added to your ISA.
+                      </p>
+                    )}
                     {apProj.p1IndivBedIsaTransfer > 0 && (
                       <p className="text-xs text-slate-600">
                         · <span className="font-semibold">{formatCurrency(apProj.p1IndivBedIsaTransfer, true)}</span>{' '}
@@ -533,6 +538,11 @@ export default function OptimizerPanel({ plannerState, result, proEnabled, onPro
                       <span className="font-black text-emerald-700">{formatCurrency(apProj.p2BedIsaTransfer, true)}</span>
                       {' '}into your ISA:
                     </p>
+                    {p2IsaWithdrawal > 0 && p2IsaWithdrawal <= apProj.p2BedIsaTransfer && (
+                      <p className="mb-1.5 text-xs text-slate-600">
+                        This BED transfer funds {formatCurrency(p2IsaWithdrawal, true)} of spending, leaving {formatCurrency(apProj.p2BedIsaTransfer - p2IsaWithdrawal, true)} added to your ISA.
+                      </p>
+                    )}
                     {apProj.p2IndivBedIsaTransfer > 0 && (
                       <p className="text-xs text-slate-600">
                         · <span className="font-semibold">{formatCurrency(apProj.p2IndivBedIsaTransfer, true)}</span>{' '}
@@ -616,12 +626,12 @@ export default function OptimizerPanel({ plannerState, result, proEnabled, onPro
             )}
 
             {/* ISA and GIA spending (with BED context) */}
-            {apHasIsaSpend && (
+            {apHasIsaSpend && (!p1ShowBed || (isCouple && !p2ShowBed)) && (
               <div className="rounded-xl border border-indigo-200 bg-indigo-50/60 p-3">
                 <p className="mb-2 text-xs font-bold uppercase tracking-wide text-indigo-700">
                   ISA withdrawal
                 </p>
-                {(apBd.person1.isa?.grossAmount ?? 0) > 0 && (
+                {(apBd.person1.isa?.grossAmount ?? 0) > 0 && !p1ShowBed && (
                   <div className={clsx('mb-2', isCouple && (apBd.person2?.isa?.grossAmount ?? 0) > 0 && 'pb-2 border-b border-indigo-100')}>
                     {isCouple && <p className="mb-0.5 text-xs font-semibold uppercase tracking-wide text-slate-500">{person1Label}</p>}
                     <p className="text-sm font-semibold text-slate-800">
@@ -653,7 +663,7 @@ export default function OptimizerPanel({ plannerState, result, proEnabled, onPro
                     )}
                   </div>
                 )}
-                {isCouple && (apBd.person2?.isa?.grossAmount ?? 0) > 0 && (
+                {isCouple && (apBd.person2?.isa?.grossAmount ?? 0) > 0 && !p2ShowBed && (
                   <div>
                     <p className="mb-0.5 text-xs font-semibold uppercase tracking-wide text-slate-500">{person2Label}</p>
                     <p className="text-sm font-semibold text-slate-800">
