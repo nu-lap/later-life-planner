@@ -560,9 +560,11 @@ export default function OptimizerPanel({ plannerState, result, proEnabled, onPro
                     )}
                   </div>
                 )}
-                <p className="mt-2 text-xs text-slate-500">
-                  Sell GIA investments and repurchase inside your ISA — your platform may offer this as a &ldquo;Bed &amp; ISA&rdquo; service.
-                </p>
+                {(p1ShowBed || (isCouple && p2ShowBed)) && (
+                  <p className="mt-2 text-xs text-slate-500">
+                    Sell GIA investments and repurchase inside your ISA — your platform may offer this as a &ldquo;Bed &amp; ISA&rdquo; service.
+                  </p>
+                )}
               </div>
             )}
 

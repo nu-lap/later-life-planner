@@ -475,7 +475,7 @@ function AssetsSection({ assets, set, mode, p1Label, p2Label, sharedGia, onShare
           <PctInput value={generalInvestments.growthRate} onChange={(v) => set('generalInvestments', { growthRate: v })} />
         </FieldRow>
         {giaGain > 0 && (
-          <div className="py-2 text-xs text-amber-700 bg-amber-50 rounded-xl px-3 border-l-4 border-amber-600">
+          <div className="py-2 text-xs text-amber-700 bg-amber-50 rounded-xl px-3">
             Unrealised gain: <strong>£{giaGain.toLocaleString('en-GB')}</strong> · CGT applies on gains above the £{CGT.ANNUAL_EXEMPT.toLocaleString('en-GB')} annual exempt amount.
           </div>
         )}
@@ -497,7 +497,7 @@ function AssetsSection({ assets, set, mode, p1Label, p2Label, sharedGia, onShare
             <PctInput value={sharedGia.growthRate} onChange={(v) => onSharedGiaChange({ growthRate: v })} />
           </FieldRow>
           {jointGiaGain > 0 && (
-            <div className="py-2 text-xs text-amber-700 bg-amber-50 rounded-xl px-3 border-l-4 border-amber-600">
+            <div className="py-2 text-xs text-amber-700 bg-amber-50 rounded-xl px-3">
               Unrealised gain: <strong>£{jointGiaGain.toLocaleString('en-GB')}</strong> · Gains split equally across both persons&apos; CGT allowances.
             </div>
           )}
@@ -533,7 +533,7 @@ function AssetsSection({ assets, set, mode, p1Label, p2Label, sharedGia, onShare
           </FieldRow>
         )}
         {propGain > 0 && (
-          <div className="py-2 text-xs text-sky-700 bg-sky-50 rounded-xl px-3 border-l-4 border-sky-600">
+          <div className="py-2 text-xs text-sky-700 bg-sky-50 rounded-xl px-3">
             Unrealised gain: <strong>£{propGain.toLocaleString('en-GB')}</strong> · Base cost captured for future CGT planning.
           </div>
         )}
