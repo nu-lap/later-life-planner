@@ -880,7 +880,7 @@ describe('OptimizerPanel — ISA/GIA funding breakdown', () => {
 
     // BED section IS shown with explanatory text for person 1
     expect(within(section).getByText('🗓️ Before 5 April — Move to ISA')).toBeInTheDocument();
-    expect(within(section).getAllByText(/This BED transfer funds/).length).toBeGreaterThanOrEqual(1);
+    expect(within(section).getAllByText(/Of this.*funds your spending/).length).toBeGreaterThanOrEqual(1);
 
     // ISA withdrawal card is NOT shown
     expect(within(section).queryByText('ISA withdrawal')).not.toBeInTheDocument();
@@ -922,7 +922,7 @@ describe('OptimizerPanel — ISA/GIA funding breakdown', () => {
 
     // BED section IS shown with explanatory text (equality case: residual = £0)
     expect(within(section).getByText('🗓️ Before 5 April — Move to ISA')).toBeInTheDocument();
-    expect(within(section).getAllByText(/This BED transfer funds/).length).toBeGreaterThanOrEqual(1);
+    expect(within(section).getAllByText(/Of this.*funds your spending/).length).toBeGreaterThanOrEqual(1);
 
     // ISA withdrawal card is NOT shown
     expect(within(section).queryByText('ISA withdrawal')).not.toBeInTheDocument();
