@@ -4,7 +4,6 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import OptimizerPanel from '@/components/OptimizerPanel';
 import { optimizeWithdrawals } from '@/financialEngine/withdrawalOptimizer';
-import { formatCurrency } from '@/financialEngine/projectionEngine';
 import { dcOnlyState, paulAndLisaState } from '../fixtures/states';
 
 afterEach(() => {
@@ -855,48 +854,78 @@ describe('OptimizerPanel — ISA/GIA funding breakdown', () => {
     expect(within(section).queryByText('ISA-funded spending:')).not.toBeInTheDocument();
   });
 
-  test('shows gross BED transfer headline with net-additional note when ISA withdrawal is between 0 and BED transfer (person 1)', async () => {
-    // pcls-bed-isa strategy generates BED transfers; find a year where p1 ISA withdrawal > 0 but < BED transfer
+  test('hides ISA withdrawal card and shows BED explanatory text when ISA withdrawal < BED transfer', async () => {
+    // Year 1 (pcls-bed-isa) has p1Isa=18,351 < p1Bed=23,397 and p2Isa=18,351 < p2Bed=23,397
+    // so p1ShowBed=true and p2ShowBed=true: BED section shown, ISA withdrawal hidden
     const plannerState = { ...paulAndLisaState(), drawdownStrategy: 'pcls-bed-isa' as const };
     const result = optimizeWithdrawals(plannerState);
 
-    // Find the first year where p1ShowBed=true (p1BedIsaTransfer > p1IsaWithdrawal > 0)
-    const targetRecordIndex = result.yearRecords.findIndex(record => {
-      const proj = result.baselineProjections[record.yearIndex]!;
-      const p1Isa = record.drawdownBreakdown.person1.isa?.grossAmount ?? 0;
-      return proj.p1BedIsaTransfer > 0 && p1Isa > 0 && p1Isa < proj.p1BedIsaTransfer;
-    });
-    expect(targetRecordIndex).toBeGreaterThanOrEqual(0); // fixture must contain such a year
-
-    const targetRecord = result.yearRecords[targetRecordIndex]!;
-    const proj = result.baselineProjections[targetRecord.yearIndex]!;
-    const p1Isa = targetRecord.drawdownBreakdown.person1.isa?.grossAmount ?? 0;
-    const p1Bed = proj.p1BedIsaTransfer;
-    const netAmount = Math.max(0, p1Bed - p1Isa);
+    // Preconditions: year 1 must have both persons' ISA withdrawal < BED transfer
+    const record1 = result.yearRecords[1]!;
+    const proj1 = result.baselineProjections[record1.yearIndex]!;
+    const p1Isa = record1.drawdownBreakdown.person1.isa?.grossAmount ?? 0;
+    const p1Bed = proj1.p1BedIsaTransfer;
+    const p2Isa = record1.drawdownBreakdown.person2?.isa?.grossAmount ?? 0;
+    const p2Bed = proj1.p2BedIsaTransfer;
+    expect(p1Isa).toBeGreaterThan(0);
+    expect(p1Bed).toBeGreaterThan(0);
+    expect(p1Isa).toBeLessThan(p1Bed);
+    expect(p2Isa).toBeLessThan(p2Bed);
 
     render(<OptimizerPanel plannerState={plannerState} result={result} proEnabled={true} />);
 
     const section = screen.getByTestId('action-plan-section');
-    for (let i = 0; i < targetRecordIndex; i++) {
-      await userEvent.click(within(section).getByRole('button', { name: 'Next year' }));
-    }
-    expect(within(section).getByText(targetRecord.taxYear)).toBeInTheDocument();
+    await userEvent.click(within(section).getByRole('button', { name: 'Next year' }));
+    expect(within(section).getByText(record1.taxYear)).toBeInTheDocument();
 
-    // The headline must show the GROSS BED transfer amount (not just the net)
-    const grossText = formatCurrency(p1Bed, true);
-    const grossSpans = within(section).getAllByText((_, node) =>
-      node?.tagName === 'SPAN' && node.textContent?.trim() === grossText && node.className.includes('text-emerald-700')
-    );
-    expect(grossSpans.length).toBeGreaterThanOrEqual(1);
+    // BED section IS shown with explanatory text for person 1
+    expect(within(section).getByText('🗓️ Before 5 April — Move to ISA')).toBeInTheDocument();
+    expect(within(section).getAllByText(/This BED transfer funds/).length).toBeGreaterThanOrEqual(1);
 
-    // The net-additional note must be visible for at least one person's card
-    expect(within(section).getAllByText(/net additional ISA funding/).length).toBeGreaterThanOrEqual(1);
+    // ISA withdrawal card is NOT shown
+    expect(within(section).queryByText('ISA withdrawal')).not.toBeInTheDocument();
+    expect(within(section).queryByText('ISA-funded spending:')).not.toBeInTheDocument();
+  });
 
-    // The net amount must appear in the note
-    const netText = formatCurrency(netAmount, true);
-    const netSpans = within(section).getAllByText((_, node) =>
-      node?.tagName === 'SPAN' && node.textContent?.trim() === netText && node.className.includes('font-semibold')
-    );
-    expect(netSpans.length).toBeGreaterThanOrEqual(1);
+  test('hides ISA withdrawal card and shows BED explanatory text when ISA withdrawal equals BED transfer', async () => {
+    // Patch year 1 so that person 1's ISA withdrawal exactly equals the BED transfer amount
+    // (the equality case must also suppress the ISA withdrawal card)
+    const plannerState = { ...paulAndLisaState(), drawdownStrategy: 'pcls-bed-isa' as const };
+    const result = optimizeWithdrawals(plannerState);
+
+    const record1 = result.yearRecords[1]!;
+    const proj1 = result.baselineProjections[record1.yearIndex]!;
+    const p1Bed = proj1.p1BedIsaTransfer;
+    expect(p1Bed).toBeGreaterThan(0);
+
+    // Clone the result with person 1's ISA withdrawal set exactly equal to their BED transfer
+    const patchedRecord1: typeof record1 = {
+      ...record1,
+      drawdownBreakdown: {
+        ...record1.drawdownBreakdown,
+        person1: {
+          ...record1.drawdownBreakdown.person1,
+          isa: { grossAmount: p1Bed },
+        },
+      },
+    };
+    const patchedResult = {
+      ...result,
+      yearRecords: result.yearRecords.map((r, i) => (i === 1 ? patchedRecord1 : r)),
+    };
+
+    render(<OptimizerPanel plannerState={plannerState} result={patchedResult} proEnabled={true} />);
+
+    const section = screen.getByTestId('action-plan-section');
+    await userEvent.click(within(section).getByRole('button', { name: 'Next year' }));
+    expect(within(section).getByText(record1.taxYear)).toBeInTheDocument();
+
+    // BED section IS shown with explanatory text (equality case: residual = £0)
+    expect(within(section).getByText('🗓️ Before 5 April — Move to ISA')).toBeInTheDocument();
+    expect(within(section).getAllByText(/This BED transfer funds/).length).toBeGreaterThanOrEqual(1);
+
+    // ISA withdrawal card is NOT shown
+    expect(within(section).queryByText('ISA withdrawal')).not.toBeInTheDocument();
+    expect(within(section).queryByText('ISA-funded spending:')).not.toBeInTheDocument();
   });
 });
