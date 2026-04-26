@@ -619,7 +619,7 @@ export default function OptimizerPanel({ plannerState, result, proEnabled, onPro
             {apHasIsaSpend && (
               <div className="rounded-xl border border-indigo-200 bg-indigo-50/60 p-3">
                 <p className="mb-2 text-xs font-bold uppercase tracking-wide text-indigo-700">
-                  How you&apos;ll fund your spending
+                  ISA withdrawal
                 </p>
                 {(apBd.person1.isa?.grossAmount ?? 0) > 0 && (
                   <div className={clsx('mb-2', isCouple && (apBd.person2?.isa?.grossAmount ?? 0) > 0 && 'pb-2 border-b border-indigo-100')}>
