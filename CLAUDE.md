@@ -87,31 +87,31 @@ See `.env.example`. Required for local dev:
 
 ## Multi-Agent Isolation (CRITICAL for Copilot Instances)
 
-**Multiple Copilot instances often work on this repo concurrently.** Always follow isolation practices:
+**Multiple Copilot instances often work on this repo concurrently.** Use git worktrees to work on different branches simultaneously without interference.
 
-### Before Starting Work
+### Quick Start
+
 ```bash
-git fetch origin
-git status
-git pull origin <branch-name>  # if on existing branch
+# Create an isolated worktree for your task
+./scripts/setup-copilot-worktree.sh llp-myname feature/my-task
+
+# Switch to it
+cd ../llp-llp-myname
+
+# Work normally
+npm run dev
+git commit -m "fix: ..."
+git push origin feature/my-task
+
+# Clean up when done
+cd /Users/pauldurbin/github/later-life-planner
+git worktree remove ../llp-llp-myname
 ```
 
-### During Work
-- **Always create a new feature branch** (`feature/xyz`, `fix/xyz`, `docs/xyz`)
+### Key Practices
+- **Always use worktrees** for concurrent work — don't share the main checkout
 - **Never force-push** — create new commits instead of amending pushed commits
-- **Commit incrementally** with clear messages to help other instances track progress
-- **Create PR immediately** after first push to signal your intent
+- **Create PRs immediately** after first push to signal your intent
+- **Clean up temp files** at session end
 
-### After Finishing
-- Verify no uncommitted changes: `git status`
-- Clean up temporary files (screenshots, scripts, artifacts)
-- Note branch name in session summary
-
-### Forbidden Practices
-- ❌ `git push --force` or `git push -f`
-- ❌ `git commit --amend` or `git rebase` on pushed branches
-- ❌ Edit `.env*` files or secrets
-- ❌ Leave uncommitted changes
-- ❌ Assume commit history is stable without pulling
-
-**See `docs/COPILOT-ISOLATION.md` for full guidelines.**
+**See `docs/COPILOT-ISOLATION.md` for full guidelines and worktree details.**

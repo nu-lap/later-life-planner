@@ -2,6 +2,41 @@
 
 This file establishes working practices for multiple concurrent Copilot instances on the later-life-planner repository.
 
+## 🎯 Quick Start: Using Git Worktrees
+
+**Multiple Copilot instances should each use a separate git worktree** to work on different branches simultaneously without interference.
+
+### For a New Copilot Instance
+
+```bash
+# 1. Navigate to the repo
+cd /Users/pauldurbin/github/later-life-planner
+
+# 2. Create an isolated worktree for your branch
+./scripts/setup-copilot-worktree.sh llp-ui feature/my-task
+
+# 3. Switch to your worktree
+cd ../llp-llp-ui
+
+# 4. Start working (all git/npm commands work normally)
+npm run dev
+git status
+git commit -m "fix: my change"
+git push origin feature/my-task
+
+# 5. When done, clean up
+cd /Users/pauldurbin/github/later-life-planner
+git worktree remove ../llp-llp-ui
+```
+
+### See All Worktrees
+```bash
+cd /Users/pauldurbin/github/later-life-planner
+git worktree list
+```
+
+---
+
 ## 🔐 Isolation Rules (CRITICAL)
 
 ### Branch Isolation
@@ -94,6 +129,70 @@ Every Copilot instance must follow this before making changes:
 - Leave uncommitted changes
 - Assume commit history is stable without pulling first
 - Create PRs from `master` branch
+
+## 🛠️ Git Worktrees for Concurrent Development
+
+### What is a Worktree?
+
+A **git worktree** is an isolated checkout of the repository in a separate directory. Each worktree can have a different branch checked out. This allows **multiple Copilot instances to work simultaneously on different branches without interfering with each other**.
+
+**Problem without worktrees:** All instances share the same `.git/index`, so `git checkout feature/xyz` in one instance affects all others.
+
+**Solution with worktrees:** Each instance uses its own worktree directory, enabling true parallel work.
+
+### Setup
+
+**For a new Copilot instance starting a task:**
+
+```bash
+cd /Users/pauldurbin/github/later-life-planner
+
+# Create a worktree for your branch
+./scripts/setup-copilot-worktree.sh llp-task-name feature/my-feature
+
+# Navigate to your worktree
+cd ../llp-llp-task-name
+
+# All git/npm commands work normally from here
+npm run dev
+git status
+git commit -m "fix: my change"
+```
+
+**Script parameters:**
+- `llp-task-name` — Unique worktree identifier (e.g., `llp-ui`, `llp-engine`, `llp-docs`)
+  - Creates worktree at: `../llp-llp-task-name`
+- `feature/my-feature` — Branch name (fetches from origin if not local)
+
+### Usage
+
+```bash
+# List all active worktrees
+git worktree list
+
+# Remove a worktree when done (from main repo)
+cd /Users/pauldurbin/github/later-life-planner
+git worktree remove ../llp-llp-task-name
+```
+
+### Layout Example
+
+```
+/Users/pauldurbin/github/
+├── later-life-planner/           ← main repo (any branch)
+├── llp-llp-ui/                   ← Copilot-1 worktree (feature/dashboard)
+├── llp-llp-engine/               ← Copilot-2 worktree (fix/pension-calc)
+└── llp-llp-docs/                 ← Copilot-3 worktree (docs/user-guide)
+```
+
+Each instance works independently; no checkout conflicts.
+
+### Important Notes
+
+- **node_modules are separate** — `setup-copilot-worktree.sh` installs dependencies in each worktree
+- **Git objects are shared** — Worktrees share the `.git` directory from the main repo (efficient)
+- **Always clean up** — Remove worktrees when done: `git worktree remove <path>`
+- **Create PRs from worktrees** — Works normally; the worktree is just a checkout
 
 ## 📝 Communication
 
