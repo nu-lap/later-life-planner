@@ -559,7 +559,7 @@ export default function OptimizerPanel({ plannerState, result, proEnabled, onPro
                   <span className="font-black text-purple-700">{formatCurrency(apProj.plannedEventSpend, true)}</span>
                 </p>
                 <p className="mt-1 text-xs text-slate-600">
-                  This is built into the drawdown plan — the withdrawal strategy above already accounts for funding this expense from a source that is designed to be tax-efficient.
+                  This is built into the drawdown plan — the withdrawal strategy already accounts for funding this expense from a source that is designed to be tax-efficient.
                 </p>
               </div>
             )}
