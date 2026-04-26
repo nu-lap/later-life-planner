@@ -324,9 +324,17 @@ export default function OptimizerPanel({ plannerState, result, proEnabled, onPro
     { label: 'Other income', p1: apProj.p1OtherIncome, p2: isCouple ? apProj.p2OtherIncome : 0 },
     { label: 'Property rent', p1: apProj.p1PropertyRent, p2: isCouple ? apProj.p2PropertyRent : 0 },
   ].filter(item => item.p1 + item.p2 > 0);
-  const apHasIsaAction = apProj.p1BedIsaTransfer > 0 || apProj.p2BedIsaTransfer > 0;
+  
+  // Suppress BED transfer display when ISA withdrawal already covers or exceeds the transfer amount.
+  // Rationale: if you're withdrawing more from ISA than the BED amount, the transfer is redundant.
+  const p1IsaWithdrawal = apBd.person1.isa?.grossAmount ?? 0;
+  const p2IsaWithdrawal = isCouple ? (apBd.person2?.isa?.grossAmount ?? 0) : 0;
+  const p1ShowBed = apProj.p1BedIsaTransfer > 0 && p1IsaWithdrawal < apProj.p1BedIsaTransfer;
+  const p2ShowBed = apProj.p2BedIsaTransfer > 0 && p2IsaWithdrawal < apProj.p2BedIsaTransfer;
+  
+  const apHasIsaAction = p1ShowBed || p2ShowBed;
   const apHasPensionAction = (apBd.person1.pension?.grossAmount ?? 0) > 0 || (apBd.person2?.pension?.grossAmount ?? 0) > 0;
-  const apHasIsaSpend = (apBd.person1.isa?.grossAmount ?? 0) > 0 || (apBd.person2?.isa?.grossAmount ?? 0) > 0;
+  const apHasIsaSpend = p1IsaWithdrawal > 0 || p2IsaWithdrawal > 0;
   const allStrategyGuideEntries = useMemo(
     () => getStrategyDefinitions(plannerState.mode, person1Label, isCouple ? person2Label : undefined),
     [isCouple, person1Label, person2Label, plannerState.mode],
@@ -492,8 +500,8 @@ export default function OptimizerPanel({ plannerState, result, proEnabled, onPro
                 <p className="mb-2 text-xs font-bold uppercase tracking-wide text-emerald-700">
                   🗓️ Before 5 April — Move to ISA
                 </p>
-                {apProj.p1BedIsaTransfer > 0 && (
-                  <div className={clsx('mb-2', isCouple && 'pb-2 border-b border-emerald-100')}>
+                {p1ShowBed && apProj.p1BedIsaTransfer > 0 && (
+                  <div className={clsx('mb-2', isCouple && p2ShowBed && apProj.p2BedIsaTransfer > 0 && 'pb-2 border-b border-emerald-100')}>
                     {isCouple && <p className="mb-0.5 text-xs font-semibold uppercase tracking-wide text-slate-500">{person1Label}</p>}
                     <p className="mb-1 text-sm font-semibold text-slate-800">
                       Move{' '}
@@ -517,7 +525,7 @@ export default function OptimizerPanel({ plannerState, result, proEnabled, onPro
                     )}
                   </div>
                 )}
-                {isCouple && apProj.p2BedIsaTransfer > 0 && (
+                {isCouple && p2ShowBed && apProj.p2BedIsaTransfer > 0 && (
                   <div>
                     <p className="mb-0.5 text-xs font-semibold uppercase tracking-wide text-slate-500">{person2Label}</p>
                     <p className="mb-1 text-sm font-semibold text-slate-800">
@@ -559,7 +567,7 @@ export default function OptimizerPanel({ plannerState, result, proEnabled, onPro
                   <span className="font-black text-purple-700">{formatCurrency(apProj.plannedEventSpend, true)}</span>
                 </p>
                 <p className="mt-1 text-xs text-slate-600">
-                  This is built into the drawdown plan — the withdrawal strategy above already accounts for funding this expense from a source that is designed to be tax-efficient.
+                  This is built into the drawdown plan — the withdrawal strategy already accounts for funding this expense from a source that is designed to be tax-efficient.
                 </p>
               </div>
             )}
@@ -621,6 +629,11 @@ export default function OptimizerPanel({ plannerState, result, proEnabled, onPro
                       <span className="font-black text-indigo-700">{formatCurrency(apBd.person1.isa!.grossAmount, true)}</span>
                       {' '}tax-free from your ISA
                     </p>
+                    {!p1ShowBed && apProj.p1BedIsaTransfer > 0 && (
+                      <p className="mt-1 text-xs text-slate-500">
+                        (Includes {formatCurrency(apProj.p1BedIsaTransfer, true)} from tax-efficient transfer of GIA investments)
+                      </p>
+                    )}
                   </div>
                 )}
                 {isCouple && (apBd.person2?.isa?.grossAmount ?? 0) > 0 && (
@@ -631,6 +644,11 @@ export default function OptimizerPanel({ plannerState, result, proEnabled, onPro
                       <span className="font-black text-indigo-700">{formatCurrency(apBd.person2!.isa!.grossAmount, true)}</span>
                       {' '}tax-free from your ISA
                     </p>
+                    {!p2ShowBed && apProj.p2BedIsaTransfer > 0 && (
+                      <p className="mt-1 text-xs text-slate-500">
+                        (Includes {formatCurrency(apProj.p2BedIsaTransfer, true)} from tax-efficient transfer of GIA investments)
+                      </p>
+                    )}
                   </div>
                 )}
               </div>
