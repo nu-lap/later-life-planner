@@ -761,7 +761,7 @@ describe('OptimizerPanel — Your action plan (Option B)', () => {
 describe('OptimizerPanel — ISA/GIA funding breakdown', () => {
   test('shows ISA-funded spending label and Bed & ISA split when ISA withdrawal covers transfer (person 1)', async () => {
     // With pcls-bed-isa, year 5 has p1ShowBed=false (p1Isa=39,413 >= p1Bed=27,371)
-    // so the full breakdown renders inside "How you'll fund your spending"
+    // so the full breakdown renders inside "ISA withdrawal"
     const plannerState = { ...paulAndLisaState(), drawdownStrategy: 'pcls-bed-isa' as const };
     const result = optimizeWithdrawals(plannerState);
 
@@ -784,7 +784,7 @@ describe('OptimizerPanel — ISA/GIA funding breakdown', () => {
     expect(within(section).getByText(record5.taxYear)).toBeInTheDocument();
 
     // The funding breakdown card should be visible
-    expect(within(section).getByText("How you'll fund your spending")).toBeInTheDocument();
+    expect(within(section).getByText("ISA withdrawal")).toBeInTheDocument();
     // Accurate label for the ISA withdrawal amount
     expect(within(section).getByText('ISA-funded spending:')).toBeInTheDocument();
     // Breakdown lines
@@ -850,7 +850,7 @@ describe('OptimizerPanel — ISA/GIA funding breakdown', () => {
     render(<OptimizerPanel plannerState={plannerState} result={result} proEnabled={true} />);
 
     const section = screen.getByTestId('action-plan-section');
-    expect(within(section).queryByText("How you'll fund your spending")).not.toBeInTheDocument();
+    expect(within(section).queryByText("ISA withdrawal")).not.toBeInTheDocument();
     expect(within(section).queryByText('ISA-funded spending:')).not.toBeInTheDocument();
   });
 });
