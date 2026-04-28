@@ -787,9 +787,10 @@ describe('OptimizerPanel — ISA/GIA funding breakdown', () => {
     expect(within(section).getByText("ISA withdrawal")).toBeInTheDocument();
     // Accurate label for the ISA withdrawal amount
     expect(within(section).getByText('ISA-funded spending:')).toBeInTheDocument();
-    // Breakdown lines
-    expect(within(section).getByText('From GIA (via Bed & ISA):')).toBeInTheDocument();
+    // Breakdown lines - should now only show tax-free ISA portion (not "From GIA" anymore)
     expect(within(section).getByText('Tax-free from ISA:')).toBeInTheDocument();
+    // GIA breakdown should be in the GIA panel now
+    expect(within(section).getByText('💷 GIA withdrawal')).toBeInTheDocument();
   });
 
   test('shows CGT line in ISA/GIA breakdown when CGT is due', async () => {
@@ -810,7 +811,8 @@ describe('OptimizerPanel — ISA/GIA funding breakdown', () => {
       await userEvent.click(within(section).getByRole('button', { name: 'Next year' }));
     }
 
-    expect(within(section).getByText(/Capital gains tax on GIA sale:/)).toBeInTheDocument();
+    // CGT should be shown in the GIA panel now
+    expect(within(section).getAllByText(/Capital gains tax due:/).length).toBeGreaterThanOrEqual(1);
   });
 
   test('shows ISA/GIA breakdown for person 2 in couple mode', async () => {
@@ -837,8 +839,8 @@ describe('OptimizerPanel — ISA/GIA funding breakdown', () => {
     // Both persons should have ISA-funded spending labels
     const isaFundedLabels = within(section).getAllByText('ISA-funded spending:');
     expect(isaFundedLabels.length).toBeGreaterThanOrEqual(1);
-    // Person 2's breakdown should show the Bed & ISA split
-    expect(within(section).getAllByText('From GIA (via Bed & ISA):').length).toBeGreaterThanOrEqual(1);
+    // Person 2's breakdown should show GIA panel with the transfer info
+    expect(within(section).getByText('💷 GIA withdrawal')).toBeInTheDocument();
     expect(within(section).getAllByText('Tax-free from ISA:').length).toBeGreaterThanOrEqual(1);
   });
 
@@ -880,7 +882,10 @@ describe('OptimizerPanel — ISA/GIA funding breakdown', () => {
 
     // BED section IS shown with explanatory text for person 1
     expect(within(section).getByText('🗓️ Before 5 April — Move to ISA')).toBeInTheDocument();
-    expect(within(section).getAllByText(/From GIA:.*funds your spending/).length).toBeGreaterThanOrEqual(1);
+    // Should now show "already been withdrawn from GIA" instead of "From GIA: ... funds your spending"
+    expect(within(section).getAllByText(/has already been withdrawn from GIA/).length).toBeGreaterThanOrEqual(1);
+    // GIA panel should show the breakdown
+    expect(within(section).getByText('💷 GIA withdrawal')).toBeInTheDocument();
 
     // ISA withdrawal card is NOT shown
     expect(within(section).queryByText('ISA withdrawal')).not.toBeInTheDocument();
@@ -922,7 +927,10 @@ describe('OptimizerPanel — ISA/GIA funding breakdown', () => {
 
     // BED section IS shown with explanatory text (equality case: residual = £0)
     expect(within(section).getByText('🗓️ Before 5 April — Move to ISA')).toBeInTheDocument();
-    expect(within(section).getAllByText(/From GIA:.*funds your spending/).length).toBeGreaterThanOrEqual(1);
+    // Should now show "already been withdrawn from GIA" instead of "From GIA: ... funds your spending"
+    expect(within(section).getAllByText(/has already been withdrawn from GIA/).length).toBeGreaterThanOrEqual(1);
+    // GIA panel should show the breakdown
+    expect(within(section).getByText('💷 GIA withdrawal')).toBeInTheDocument();
 
     // ISA withdrawal card is NOT shown
     expect(within(section).queryByText('ISA withdrawal')).not.toBeInTheDocument();

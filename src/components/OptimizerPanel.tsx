@@ -332,6 +332,22 @@ export default function OptimizerPanel({ plannerState, result, proEnabled, onPro
   const p1ShowBed = apProj.p1BedIsaTransfer > 0 && p1IsaWithdrawal <= apProj.p1BedIsaTransfer;
   const p2ShowBed = apProj.p2BedIsaTransfer > 0 && p2IsaWithdrawal <= apProj.p2BedIsaTransfer;
   
+  // GIA withdrawal calculations
+  const p1GiaWithdrawal = apBd.person1.gia?.grossAmount ?? 0;
+  const p2GiaWithdrawal = isCouple ? (apBd.person2?.gia?.grossAmount ?? 0) : 0;
+  const jointGiaWithdrawal = apBd.joint?.gia?.grossAmount ?? 0;
+  
+  // Total GIA withdrawn (from all sources: individual + joint)
+  const p1TotalGiaWithdrawn = p1GiaWithdrawal + (apProj.p1BedIsaTransfer > 0 ? apProj.p1BedIsaTransfer : 0);
+  const p2TotalGiaWithdrawn = p2GiaWithdrawal + (apProj.p2BedIsaTransfer > 0 ? apProj.p2BedIsaTransfer : 0);
+  
+  // GIA to spending (total withdrawn minus what goes to ISA)
+  const p1GiaToSpending = Math.max(0, p1TotalGiaWithdrawn - apProj.p1BedIsaTransfer);
+  const p2GiaToSpending = Math.max(0, p2TotalGiaWithdrawn - apProj.p2BedIsaTransfer);
+  
+  // Check if there's any GIA withdrawal to display
+  const apHasGiaWithdrawal = p1TotalGiaWithdrawn > 0 || p2TotalGiaWithdrawn > 0 || jointGiaWithdrawal > 0;
+
   const apHasIsaAction = p1ShowBed || p2ShowBed;
   const apHasPensionAction = (apBd.person1.pension?.grossAmount ?? 0) > 0 || (apBd.person2?.pension?.grossAmount ?? 0) > 0;
   const apHasIsaSpend = p1IsaWithdrawal > 0 || p2IsaWithdrawal > 0;
@@ -494,6 +510,75 @@ export default function OptimizerPanel({ plannerState, result, proEnabled, onPro
           {/* Action cards grid */}
           <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
 
+            {/* GIA Withdrawal */}
+            {apHasGiaWithdrawal && (
+              <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-3">
+                <p className="mb-2 text-xs font-bold uppercase tracking-wide text-amber-700">
+                  💷 GIA withdrawal
+                </p>
+                {p1TotalGiaWithdrawn > 0 && (
+                  <div className={clsx('mb-2', isCouple && p2TotalGiaWithdrawn > 0 && 'pb-2 border-b border-amber-100')}>
+                    {isCouple && <p className="mb-0.5 text-xs font-semibold uppercase tracking-wide text-slate-500">{person1Label}</p>}
+                    <p className="text-sm font-semibold text-slate-800">
+                      Total withdrawal:{' '}
+                      <span className="font-black text-amber-700">{formatCurrency(p1TotalGiaWithdrawn, true)}</span>
+                    </p>
+                    <div className="mt-2 space-y-1.5 rounded-lg bg-white/50 p-2">
+                      <div className="flex justify-between text-xs">
+                        <span className="text-slate-600">
+                          To spending:
+                        </span>
+                        <span className="font-semibold text-slate-800">{formatCurrency(p1GiaToSpending, true)}</span>
+                      </div>
+                      {apProj.p1BedIsaTransfer > 0 && (
+                        <div className="flex justify-between text-xs">
+                          <span className="text-slate-600">
+                            To ISA (via Bed & ISA):
+                          </span>
+                          <span className="font-semibold text-slate-800">{formatCurrency(apProj.p1BedIsaTransfer, true)}</span>
+                        </div>
+                      )}
+                    </div>
+                    {apProj.p1CgtPaid > 0 && (
+                      <p className="mt-1.5 text-xs text-orange-600">
+                        Capital gains tax due: ~{formatCurrency(apProj.p1CgtPaid, true)}
+                      </p>
+                    )}
+                  </div>
+                )}
+                {isCouple && p2TotalGiaWithdrawn > 0 && (
+                  <div>
+                    <p className="mb-0.5 text-xs font-semibold uppercase tracking-wide text-slate-500">{person2Label}</p>
+                    <p className="text-sm font-semibold text-slate-800">
+                      Total withdrawal:{' '}
+                      <span className="font-black text-amber-700">{formatCurrency(p2TotalGiaWithdrawn, true)}</span>
+                    </p>
+                    <div className="mt-2 space-y-1.5 rounded-lg bg-white/50 p-2">
+                      <div className="flex justify-between text-xs">
+                        <span className="text-slate-600">
+                          To spending:
+                        </span>
+                        <span className="font-semibold text-slate-800">{formatCurrency(p2GiaToSpending, true)}</span>
+                      </div>
+                      {apProj.p2BedIsaTransfer > 0 && (
+                        <div className="flex justify-between text-xs">
+                          <span className="text-slate-600">
+                            To ISA (via Bed & ISA):
+                          </span>
+                          <span className="font-semibold text-slate-800">{formatCurrency(apProj.p2BedIsaTransfer, true)}</span>
+                        </div>
+                      )}
+                    </div>
+                    {apProj.p2CgtPaid > 0 && (
+                      <p className="mt-1.5 text-xs text-orange-600">
+                        Capital gains tax due: ~{formatCurrency(apProj.p2CgtPaid, true)}
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* ISA action (Bed & ISA) */}
             {apHasIsaAction && (
               <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-3">
@@ -520,7 +605,7 @@ export default function OptimizerPanel({ plannerState, result, proEnabled, onPro
                     </p>
                     {p1IsaWithdrawal > 0 && p1IsaWithdrawal <= apProj.p1BedIsaTransfer && (
                       <p className="mb-1.5 text-xs text-slate-600">
-                        From GIA: <strong>{formatCurrency(p1IsaWithdrawal, true)}</strong> funds your spending, <strong>{formatCurrency(apProj.p1BedIsaTransfer - p1IsaWithdrawal, true)}</strong> is added to your ISA.
+                        <strong>{formatCurrency(apProj.p1BedIsaTransfer, true)}</strong> has already been withdrawn from GIA (see GIA withdrawal panel for breakdown).
                       </p>
                     )}
                     {apProj.p1IndivBedIsaTransfer > 0 && (
@@ -534,9 +619,6 @@ export default function OptimizerPanel({ plannerState, result, proEnabled, onPro
                         · <span className="font-semibold">{formatCurrency(apProj.p1JointBedIsaTransfer, true)}</span>{' '}
                         from joint portfolio
                       </p>
-                    )}
-                    {apProj.p1CgtPaid > 0 && (
-                      <p className="mt-1 text-xs text-orange-600">CGT due this year: ~{formatCurrency(apProj.p1CgtPaid, true)}</p>
                     )}
                   </div>
                 )}
@@ -560,7 +642,7 @@ export default function OptimizerPanel({ plannerState, result, proEnabled, onPro
                     </p>
                     {p2IsaWithdrawal > 0 && p2IsaWithdrawal <= apProj.p2BedIsaTransfer && (
                       <p className="mb-1.5 text-xs text-slate-600">
-                        From GIA: <strong>{formatCurrency(p2IsaWithdrawal, true)}</strong> funds your spending, <strong>{formatCurrency(apProj.p2BedIsaTransfer - p2IsaWithdrawal, true)}</strong> is added to your ISA.
+                        <strong>{formatCurrency(apProj.p2BedIsaTransfer, true)}</strong> has already been withdrawn from GIA (see GIA withdrawal panel for breakdown).
                       </p>
                     )}
                     {apProj.p2IndivBedIsaTransfer > 0 && (
@@ -574,9 +656,6 @@ export default function OptimizerPanel({ plannerState, result, proEnabled, onPro
                         · <span className="font-semibold">{formatCurrency(apProj.p2JointBedIsaTransfer, true)}</span>{' '}
                         from joint portfolio
                       </p>
-                    )}
-                    {apProj.p2CgtPaid > 0 && (
-                      <p className="mt-1 text-xs text-orange-600">CGT due this year: ~{formatCurrency(apProj.p2CgtPaid, true)}</p>
                     )}
                   </div>
                 )}
@@ -661,14 +740,6 @@ export default function OptimizerPanel({ plannerState, result, proEnabled, onPro
                       <span className="font-black text-indigo-700">{formatCurrency(apBd.person1.isa!.grossAmount, true)}</span>
                     </p>
                     <div className="mt-2 space-y-1.5 rounded-lg bg-white/50 p-2">
-                      {!p1ShowBed && apProj.p1BedIsaTransfer > 0 && (
-                        <div className="flex justify-between text-xs">
-                          <span className="text-slate-600">
-                            From GIA (via Bed & ISA):
-                          </span>
-                          <span className="font-semibold text-slate-800">{formatCurrency(apProj.p1BedIsaTransfer, true)}</span>
-                        </div>
-                      )}
                       <div className="flex justify-between text-xs">
                         <span className="text-slate-600">
                           Tax-free from ISA:
@@ -678,11 +749,6 @@ export default function OptimizerPanel({ plannerState, result, proEnabled, onPro
                         </span>
                       </div>
                     </div>
-                    {!p1ShowBed && apProj.p1CgtPaid > 0 && (
-                      <p className="mt-1.5 text-xs text-orange-600">
-                        Capital gains tax on GIA sale: ~{formatCurrency(apProj.p1CgtPaid, true)}
-                      </p>
-                    )}
                   </div>
                 )}
                 {isCouple && (apBd.person2?.isa?.grossAmount ?? 0) > 0 && !p2ShowBed && (
@@ -693,14 +759,6 @@ export default function OptimizerPanel({ plannerState, result, proEnabled, onPro
                       <span className="font-black text-indigo-700">{formatCurrency(apBd.person2!.isa!.grossAmount, true)}</span>
                     </p>
                     <div className="mt-2 space-y-1.5 rounded-lg bg-white/50 p-2">
-                      {!p2ShowBed && apProj.p2BedIsaTransfer > 0 && (
-                        <div className="flex justify-between text-xs">
-                          <span className="text-slate-600">
-                            From GIA (via Bed & ISA):
-                          </span>
-                          <span className="font-semibold text-slate-800">{formatCurrency(apProj.p2BedIsaTransfer, true)}</span>
-                        </div>
-                      )}
                       <div className="flex justify-between text-xs">
                         <span className="text-slate-600">
                           Tax-free from ISA:
@@ -710,11 +768,6 @@ export default function OptimizerPanel({ plannerState, result, proEnabled, onPro
                         </span>
                       </div>
                     </div>
-                    {!p2ShowBed && apProj.p2CgtPaid > 0 && (
-                      <p className="mt-1.5 text-xs text-orange-600">
-                        Capital gains tax on GIA sale: ~{formatCurrency(apProj.p2CgtPaid, true)}
-                      </p>
-                    )}
                   </div>
                 )}
               </div>
