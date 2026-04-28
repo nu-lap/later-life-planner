@@ -882,10 +882,10 @@ describe('OptimizerPanel — ISA/GIA funding breakdown', () => {
     await userEvent.click(within(section).getByRole('button', { name: 'Next year' }));
     expect(within(section).getByText(record1.taxYear)).toBeInTheDocument();
 
-    // BED section IS shown with explanatory text for person 1
+    // BED section IS shown with amount moving to ISA
     expect(within(section).getByText('🗓️ Before 5 April — Move to ISA')).toBeInTheDocument();
-    // Should now show "already been withdrawn from GIA" instead of "From GIA: ... funds your spending"
-    expect(within(section).getAllByText(/has already been withdrawn from GIA/).length).toBeGreaterThanOrEqual(1);
+    // Should show "Move to ISA:" in the new Bed & ISA panel format
+    expect(within(section).getAllByText('Move to ISA:').length).toBeGreaterThanOrEqual(1);
     // GIA panel should show the breakdown with spending amount
     expect(within(section).getByText('💷 GIA withdrawal')).toBeInTheDocument();
     expect(within(section).getAllByText('To spending:').length).toBeGreaterThanOrEqual(1);
@@ -928,10 +928,10 @@ describe('OptimizerPanel — ISA/GIA funding breakdown', () => {
     await userEvent.click(within(section).getByRole('button', { name: 'Next year' }));
     expect(within(section).getByText(record1.taxYear)).toBeInTheDocument();
 
-    // BED section IS shown with explanatory text (equality case: residual = £0)
+    // BED section IS shown with amount moving to ISA (equality case: only person 2 shows, residual person 1 = £0)
     expect(within(section).getByText('🗓️ Before 5 April — Move to ISA')).toBeInTheDocument();
-    // Should now show "already been withdrawn from GIA" instead of "From GIA: ... funds your spending"
-    expect(within(section).getAllByText(/has already been withdrawn from GIA/).length).toBeGreaterThanOrEqual(1);
+    // Should show "Move to ISA:" in the new Bed & ISA panel format
+    expect(within(section).getAllByText('Move to ISA:').length).toBeGreaterThanOrEqual(1);
     // GIA panel should show the breakdown with spending amount
     expect(within(section).getByText('💷 GIA withdrawal')).toBeInTheDocument();
     expect(within(section).getAllByText('To spending:').length).toBeGreaterThanOrEqual(1);
