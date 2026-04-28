@@ -548,7 +548,7 @@ export default function OptimizerPanel({ plannerState, result, proEnabled, onPro
                         </span>
                         <span className="font-semibold text-slate-800">{formatCurrency(p1GiaToSpending, true)}</span>
                       </div>
-                      {apProj.p1BedIsaTransfer > 0 && (
+                      {p1BedIsaNetToIsa > 0 && (
                         <div className="flex justify-between text-xs">
                           <span className="text-slate-600">
                             To ISA (via Bed & ISA):
@@ -578,7 +578,7 @@ export default function OptimizerPanel({ plannerState, result, proEnabled, onPro
                         </span>
                         <span className="font-semibold text-slate-800">{formatCurrency(p2GiaToSpending, true)}</span>
                       </div>
-                      {apProj.p2BedIsaTransfer > 0 && (
+                      {p2BedIsaNetToIsa > 0 && (
                         <div className="flex justify-between text-xs">
                           <span className="text-slate-600">
                             To ISA (via Bed & ISA):
