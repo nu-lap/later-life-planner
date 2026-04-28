@@ -337,15 +337,15 @@ export default function OptimizerPanel({ plannerState, result, proEnabled, onPro
   const p2GiaWithdrawal = isCouple ? (apBd.person2?.gia?.grossAmount ?? 0) : 0;
   const jointGiaWithdrawal = apBd.joint?.gia?.grossAmount ?? 0;
   
-  // Total GIA withdrawn (from all sources: individual + joint)
-  const p1TotalGiaWithdrawn = p1GiaWithdrawal + (apProj.p1BedIsaTransfer > 0 ? apProj.p1BedIsaTransfer : 0);
-  const p2TotalGiaWithdrawn = p2GiaWithdrawal + (apProj.p2BedIsaTransfer > 0 ? apProj.p2BedIsaTransfer : 0);
+  // GIA to spending: direct individual GIA draws (not from Bed & ISA transfers)
+  const p1GiaToSpending = p1GiaWithdrawal;
+  const p2GiaToSpending = p2GiaWithdrawal;
   
-  // GIA to spending (total withdrawn minus what goes to ISA)
-  const p1GiaToSpending = Math.max(0, p1TotalGiaWithdrawn - apProj.p1BedIsaTransfer);
-  const p2GiaToSpending = Math.max(0, p2TotalGiaWithdrawn - apProj.p2BedIsaTransfer);
+  // Total GIA withdrawn: individual GIA + Bed & ISA transfers
+  const p1TotalGiaWithdrawn = p1GiaWithdrawal + apProj.p1BedIsaTransfer;
+  const p2TotalGiaWithdrawn = p2GiaWithdrawal + apProj.p2BedIsaTransfer;
   
-  // Check if there's any GIA withdrawal to display
+  // Check if there's any GIA withdrawal to display (individual or joint)
   const apHasGiaWithdrawal = p1TotalGiaWithdrawn > 0 || p2TotalGiaWithdrawn > 0 || jointGiaWithdrawal > 0;
 
   const apHasIsaAction = p1ShowBed || p2ShowBed;
@@ -574,6 +574,15 @@ export default function OptimizerPanel({ plannerState, result, proEnabled, onPro
                         Capital gains tax due: ~{formatCurrency(apProj.p2CgtPaid, true)}
                       </p>
                     )}
+                  </div>
+                )}
+                {jointGiaWithdrawal > 0 && (
+                  <div className={clsx(isCouple && (p1TotalGiaWithdrawn > 0 || p2TotalGiaWithdrawn > 0) && 'mt-2 pt-2 border-t border-amber-100')}>
+                    <p className="mb-0.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Joint portfolio</p>
+                    <p className="text-sm font-semibold text-slate-800">
+                      Total withdrawal:{' '}
+                      <span className="font-black text-amber-700">{formatCurrency(jointGiaWithdrawal, true)}</span>
+                    </p>
                   </div>
                 )}
               </div>
