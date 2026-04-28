@@ -329,28 +329,46 @@ export default function OptimizerPanel({ plannerState, result, proEnabled, onPro
   // Rationale: if you're withdrawing more from ISA than the BED amount, the transfer is redundant.
   const p1IsaWithdrawal = apBd.person1.isa?.grossAmount ?? 0;
   const p2IsaWithdrawal = isCouple ? (apBd.person2?.isa?.grossAmount ?? 0) : 0;
-  const p1ShowBed = apProj.p1BedIsaTransfer > 0 && p1IsaWithdrawal <= apProj.p1BedIsaTransfer;
-  const p2ShowBed = apProj.p2BedIsaTransfer > 0 && p2IsaWithdrawal <= apProj.p2BedIsaTransfer;
-  
+
+  // How much of the Bed & ISA transfer covers spending directly (redirected, not entering ISA)
+  const p1BedIsaToSpend = Math.min(apProj.p1BedIsaTransfer, p1IsaWithdrawal);
+  const p2BedIsaToSpend = Math.min(apProj.p2BedIsaTransfer, p2IsaWithdrawal);
+  // Net amount of Bed & ISA that actually stays in the ISA
+  const p1BedIsaNetToIsa = apProj.p1BedIsaTransfer - p1BedIsaToSpend;
+  const p2BedIsaNetToIsa = apProj.p2BedIsaTransfer - p2BedIsaToSpend;
+  // Show Bed & ISA panel only when a net amount actually moves into the ISA
+  const p1ShowBed = p1BedIsaNetToIsa > 0;
+  const p2ShowBed = isCouple && p2BedIsaNetToIsa > 0;
+  // Direct ISA spending = ISA withdrawal minus the Bed & ISA portion that was redirected to spending
+  const p1DirectIsaSpend = p1IsaWithdrawal - p1BedIsaToSpend;
+  const p2DirectIsaSpend = p2IsaWithdrawal - p2BedIsaToSpend;
+  // Scaled individual/joint source breakdown for the net Bed & ISA going into ISA
+  const p1BedIsaScale = apProj.p1BedIsaTransfer > 0 ? p1BedIsaNetToIsa / apProj.p1BedIsaTransfer : 0;
+  const p2BedIsaScale = apProj.p2BedIsaTransfer > 0 ? p2BedIsaNetToIsa / apProj.p2BedIsaTransfer : 0;
+  const p1IndivBedIsaNetToIsa = apProj.p1IndivBedIsaTransfer * p1BedIsaScale;
+  const p1JointBedIsaNetToIsa = apProj.p1JointBedIsaTransfer * p1BedIsaScale;
+  const p2IndivBedIsaNetToIsa = apProj.p2IndivBedIsaTransfer * p2BedIsaScale;
+  const p2JointBedIsaNetToIsa = apProj.p2JointBedIsaTransfer * p2BedIsaScale;
+
   // GIA withdrawal calculations
   const p1GiaWithdrawal = apBd.person1.gia?.grossAmount ?? 0;
   const p2GiaWithdrawal = isCouple ? (apBd.person2?.gia?.grossAmount ?? 0) : 0;
   const jointGiaWithdrawal = apBd.joint?.gia?.grossAmount ?? 0;
-  
-  // GIA to spending: direct individual GIA draws (not from Bed & ISA transfers)
-  const p1GiaToSpending = p1GiaWithdrawal;
-  const p2GiaToSpending = p2GiaWithdrawal;
-  
-  // Total GIA withdrawn: individual GIA + Bed & ISA transfers
+
+  // GIA to spending: direct individual GIA draws + Bed & ISA portion redirected to spending
+  const p1GiaToSpending = p1GiaWithdrawal + p1BedIsaToSpend;
+  const p2GiaToSpending = p2GiaWithdrawal + p2BedIsaToSpend;
+
+  // Total GIA withdrawn: individual GIA + full Bed & ISA transfer
   const p1TotalGiaWithdrawn = p1GiaWithdrawal + apProj.p1BedIsaTransfer;
   const p2TotalGiaWithdrawn = p2GiaWithdrawal + apProj.p2BedIsaTransfer;
-  
+
   // Check if there's any GIA withdrawal to display (individual or joint)
   const apHasGiaWithdrawal = p1TotalGiaWithdrawn > 0 || p2TotalGiaWithdrawn > 0 || jointGiaWithdrawal > 0;
 
   const apHasIsaAction = p1ShowBed || p2ShowBed;
   const apHasPensionAction = (apBd.person1.pension?.grossAmount ?? 0) > 0 || (apBd.person2?.pension?.grossAmount ?? 0) > 0;
-  const apHasIsaSpend = p1IsaWithdrawal > 0 || p2IsaWithdrawal > 0;
+  const apHasIsaSpend = p1DirectIsaSpend > 0 || p2DirectIsaSpend > 0;
   const allStrategyGuideEntries = useMemo(
     () => getStrategyDefinitions(plannerState.mode, person1Label, isCouple ? person2Label : undefined),
     [isCouple, person1Label, person2Label, plannerState.mode],
@@ -530,12 +548,12 @@ export default function OptimizerPanel({ plannerState, result, proEnabled, onPro
                         </span>
                         <span className="font-semibold text-slate-800">{formatCurrency(p1GiaToSpending, true)}</span>
                       </div>
-                      {apProj.p1BedIsaTransfer > 0 && (
+                      {p1BedIsaNetToIsa > 0 && (
                         <div className="flex justify-between text-xs">
                           <span className="text-slate-600">
                             To ISA (via Bed & ISA):
                           </span>
-                          <span className="font-semibold text-slate-800">{formatCurrency(apProj.p1BedIsaTransfer, true)}</span>
+                          <span className="font-semibold text-slate-800">{formatCurrency(p1BedIsaNetToIsa, true)}</span>
                         </div>
                       )}
                     </div>
@@ -560,12 +578,12 @@ export default function OptimizerPanel({ plannerState, result, proEnabled, onPro
                         </span>
                         <span className="font-semibold text-slate-800">{formatCurrency(p2GiaToSpending, true)}</span>
                       </div>
-                      {apProj.p2BedIsaTransfer > 0 && (
+                      {p2BedIsaNetToIsa > 0 && (
                         <div className="flex justify-between text-xs">
                           <span className="text-slate-600">
                             To ISA (via Bed & ISA):
                           </span>
-                          <span className="font-semibold text-slate-800">{formatCurrency(apProj.p2BedIsaTransfer, true)}</span>
+                          <span className="font-semibold text-slate-800">{formatCurrency(p2BedIsaNetToIsa, true)}</span>
                         </div>
                       )}
                     </div>
@@ -594,47 +612,43 @@ export default function OptimizerPanel({ plannerState, result, proEnabled, onPro
                 <p className="mb-2 text-xs font-bold uppercase tracking-wide text-emerald-700">
                   🗓️ Before 5 April — Move to ISA
                 </p>
-                {p1ShowBed && apProj.p1BedIsaTransfer > 0 && (
-                  <div className={clsx('mb-2', isCouple && p2ShowBed && apProj.p2BedIsaTransfer > 0 && 'pb-2 border-b border-emerald-100')}>
+                {p1ShowBed && (
+                  <div className={clsx('mb-2', isCouple && p2ShowBed && 'pb-2 border-b border-emerald-100')}>
                     {isCouple && <p className="mb-0.5 text-xs font-semibold uppercase tracking-wide text-slate-500">{person1Label}</p>}
-
-                    {p1IsaWithdrawal > 0 && p1IsaWithdrawal <= apProj.p1BedIsaTransfer && (
-                      <p className="mb-1.5 text-xs text-slate-600">
-                        <strong>{formatCurrency(apProj.p1BedIsaTransfer, true)}</strong> has already been withdrawn from GIA (see GIA withdrawal panel for breakdown).
-                      </p>
-                    )}
-                    {apProj.p1IndivBedIsaTransfer > 0 && (
-                      <p className="text-xs text-slate-600">
-                        · <span className="font-semibold">{formatCurrency(apProj.p1IndivBedIsaTransfer, true)}</span>{' '}
+                    <p className="text-sm font-semibold text-slate-800">
+                      Move to ISA:{' '}
+                      <span className="font-black text-emerald-700">{formatCurrency(p1BedIsaNetToIsa, true)}</span>
+                    </p>
+                    {p1IndivBedIsaNetToIsa > 0 && (
+                      <p className="mt-0.5 text-xs text-slate-600">
+                        · <span className="font-semibold">{formatCurrency(p1IndivBedIsaNetToIsa, true)}</span>{' '}
                         from {isCouple ? `${person1Label}'s` : 'your'} own portfolio
                       </p>
                     )}
-                    {apProj.p1JointBedIsaTransfer > 0 && (
-                      <p className="text-xs text-slate-600">
-                        · <span className="font-semibold">{formatCurrency(apProj.p1JointBedIsaTransfer, true)}</span>{' '}
+                    {p1JointBedIsaNetToIsa > 0 && (
+                      <p className="mt-0.5 text-xs text-slate-600">
+                        · <span className="font-semibold">{formatCurrency(p1JointBedIsaNetToIsa, true)}</span>{' '}
                         from joint portfolio
                       </p>
                     )}
                   </div>
                 )}
-                {isCouple && p2ShowBed && apProj.p2BedIsaTransfer > 0 && (
+                {isCouple && p2ShowBed && (
                   <div>
                     <p className="mb-0.5 text-xs font-semibold uppercase tracking-wide text-slate-500">{person2Label}</p>
-
-                    {p2IsaWithdrawal > 0 && p2IsaWithdrawal <= apProj.p2BedIsaTransfer && (
-                      <p className="mb-1.5 text-xs text-slate-600">
-                        <strong>{formatCurrency(apProj.p2BedIsaTransfer, true)}</strong> has already been withdrawn from GIA (see GIA withdrawal panel for breakdown).
-                      </p>
-                    )}
-                    {apProj.p2IndivBedIsaTransfer > 0 && (
-                      <p className="text-xs text-slate-600">
-                        · <span className="font-semibold">{formatCurrency(apProj.p2IndivBedIsaTransfer, true)}</span>{' '}
+                    <p className="text-sm font-semibold text-slate-800">
+                      Move to ISA:{' '}
+                      <span className="font-black text-emerald-700">{formatCurrency(p2BedIsaNetToIsa, true)}</span>
+                    </p>
+                    {p2IndivBedIsaNetToIsa > 0 && (
+                      <p className="mt-0.5 text-xs text-slate-600">
+                        · <span className="font-semibold">{formatCurrency(p2IndivBedIsaNetToIsa, true)}</span>{' '}
                         from {person2Label}&apos;s own portfolio
                       </p>
                     )}
-                    {apProj.p2JointBedIsaTransfer > 0 && (
-                      <p className="text-xs text-slate-600">
-                        · <span className="font-semibold">{formatCurrency(apProj.p2JointBedIsaTransfer, true)}</span>{' '}
+                    {p2JointBedIsaNetToIsa > 0 && (
+                      <p className="mt-0.5 text-xs text-slate-600">
+                        · <span className="font-semibold">{formatCurrency(p2JointBedIsaNetToIsa, true)}</span>{' '}
                         from joint portfolio
                       </p>
                     )}
@@ -708,17 +722,17 @@ export default function OptimizerPanel({ plannerState, result, proEnabled, onPro
             )}
 
             {/* ISA and GIA spending (with BED context) */}
-            {apHasIsaSpend && (!p1ShowBed || (isCouple && !p2ShowBed)) && (
+            {apHasIsaSpend && (
               <div className="rounded-xl border border-indigo-200 bg-indigo-50/60 p-3">
                 <p className="mb-2 text-xs font-bold uppercase tracking-wide text-indigo-700">
                   ISA withdrawal
                 </p>
-                {(apBd.person1.isa?.grossAmount ?? 0) > 0 && !p1ShowBed && (
-                  <div className={clsx('mb-2', isCouple && (apBd.person2?.isa?.grossAmount ?? 0) > 0 && !p2ShowBed && 'pb-2 border-b border-indigo-100')}>
+                {p1DirectIsaSpend > 0 && (
+                  <div className={clsx('mb-2', isCouple && p2DirectIsaSpend > 0 && 'pb-2 border-b border-indigo-100')}>
                     {isCouple && <p className="mb-0.5 text-xs font-semibold uppercase tracking-wide text-slate-500">{person1Label}</p>}
                     <p className="text-sm font-semibold text-slate-800">
                       ISA-funded spending:{' '}
-                      <span className="font-black text-indigo-700">{formatCurrency(apBd.person1.isa!.grossAmount - (p1ShowBed ? 0 : apProj.p1BedIsaTransfer), true)}</span>
+                      <span className="font-black text-indigo-700">{formatCurrency(p1DirectIsaSpend, true)}</span>
                     </p>
                     <div className="mt-2 space-y-1.5 rounded-lg bg-white/50 p-2">
                       <div className="flex justify-between text-xs">
@@ -726,18 +740,18 @@ export default function OptimizerPanel({ plannerState, result, proEnabled, onPro
                           Tax-free from ISA:
                         </span>
                         <span className="font-semibold text-indigo-700">
-                          {formatCurrency(apBd.person1.isa!.grossAmount - (p1ShowBed ? 0 : apProj.p1BedIsaTransfer), true)}
+                          {formatCurrency(p1DirectIsaSpend, true)}
                         </span>
                       </div>
                     </div>
                   </div>
                 )}
-                {isCouple && (apBd.person2?.isa?.grossAmount ?? 0) > 0 && !p2ShowBed && (
+                {isCouple && p2DirectIsaSpend > 0 && (
                   <div>
                     <p className="mb-0.5 text-xs font-semibold uppercase tracking-wide text-slate-500">{person2Label}</p>
                     <p className="text-sm font-semibold text-slate-800">
                       ISA-funded spending:{' '}
-                      <span className="font-black text-indigo-700">{formatCurrency(apBd.person2!.isa!.grossAmount - (p2ShowBed ? 0 : apProj.p2BedIsaTransfer), true)}</span>
+                      <span className="font-black text-indigo-700">{formatCurrency(p2DirectIsaSpend, true)}</span>
                     </p>
                     <div className="mt-2 space-y-1.5 rounded-lg bg-white/50 p-2">
                       <div className="flex justify-between text-xs">
@@ -745,7 +759,7 @@ export default function OptimizerPanel({ plannerState, result, proEnabled, onPro
                           Tax-free from ISA:
                         </span>
                         <span className="font-semibold text-indigo-700">
-                          {formatCurrency(apBd.person2!.isa!.grossAmount - (p2ShowBed ? 0 : apProj.p2BedIsaTransfer), true)}
+                          {formatCurrency(p2DirectIsaSpend, true)}
                         </span>
                       </div>
                     </div>

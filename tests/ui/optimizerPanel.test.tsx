@@ -4,6 +4,7 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import OptimizerPanel from '@/components/OptimizerPanel';
 import { optimizeWithdrawals } from '@/financialEngine/withdrawalOptimizer';
+import { formatCurrency } from '@/financialEngine/projectionEngine';
 import { dcOnlyState, paulAndLisaState } from '../fixtures/states';
 
 afterEach(() => {
@@ -792,6 +793,16 @@ describe('OptimizerPanel — ISA/GIA funding breakdown', () => {
     // GIA breakdown should be in the GIA panel with spending amount
     expect(within(section).getByText('💷 GIA withdrawal')).toBeInTheDocument();
     expect(within(section).getAllByText('To spending:').length).toBeGreaterThanOrEqual(1);
+
+    // Validate computed overlap values for ISA > BED scenario:
+    // p1BedIsaToSpend = p1Bed (all BED transfer redirected to spending)
+    // p1DirectIsaSpend = p1Isa - p1Bed (only existing ISA used for direct spending)
+    // p1GiaToSpending = p1GiaWithdrawal + p1Bed
+    const p1GiaWithdrawal5 = record5.drawdownBreakdown.person1.gia?.grossAmount ?? 0;
+    const p1DirectIsaSpend5 = p1Isa - p1Bed;
+    const p1GiaToSpending5 = p1GiaWithdrawal5 + p1Bed;
+    expect(within(section).getAllByText(formatCurrency(p1GiaToSpending5, true)).length).toBeGreaterThanOrEqual(1);
+    expect(within(section).getAllByText(formatCurrency(p1DirectIsaSpend5, true)).length).toBeGreaterThanOrEqual(1);
   });
 
   test('shows CGT line in ISA/GIA breakdown when CGT is due', async () => {
@@ -882,13 +893,25 @@ describe('OptimizerPanel — ISA/GIA funding breakdown', () => {
     await userEvent.click(within(section).getByRole('button', { name: 'Next year' }));
     expect(within(section).getByText(record1.taxYear)).toBeInTheDocument();
 
-    // BED section IS shown with explanatory text for person 1
+    // BED section IS shown with amount moving to ISA
     expect(within(section).getByText('🗓️ Before 5 April — Move to ISA')).toBeInTheDocument();
-    // Should now show "already been withdrawn from GIA" instead of "From GIA: ... funds your spending"
-    expect(within(section).getAllByText(/has already been withdrawn from GIA/).length).toBeGreaterThanOrEqual(1);
+    // Should show "Move to ISA:" in the new Bed & ISA panel format, including when an amount is rendered inline
+    expect(within(section).getAllByText(/Move to ISA:/).length).toBeGreaterThanOrEqual(1);
     // GIA panel should show the breakdown with spending amount
     expect(within(section).getByText('💷 GIA withdrawal')).toBeInTheDocument();
     expect(within(section).getAllByText('To spending:').length).toBeGreaterThanOrEqual(1);
+
+    // Validate computed overlap values for ISA < BED scenario:
+    // p1BedIsaToSpend = p1Isa (ISA withdrawal fully covered by redirected BED transfer)
+    // p1BedIsaNetToIsa = p1Bed - p1Isa (net amount that actually enters the ISA)
+    // p1GiaToSpending = p1GiaWithdrawal + p1Isa
+    const p1GiaWithdrawal1 = record1.drawdownBreakdown.person1.gia?.grossAmount ?? 0;
+    const p1BedIsaNetToIsa1 = p1Bed - p1Isa;
+    const p1GiaToSpending1 = p1GiaWithdrawal1 + p1Isa;
+    expect(within(section).getAllByText(formatCurrency(p1GiaToSpending1, true)).length).toBeGreaterThanOrEqual(1);
+    // BED panel "Move to ISA:" shows net amount
+    const bedPanels = within(section).getAllByText(/Move to ISA:/);
+    expect(bedPanels.some(el => el.textContent?.includes(formatCurrency(p1BedIsaNetToIsa1, true)))).toBe(true);
 
     // ISA withdrawal card is NOT shown
     expect(within(section).queryByText('ISA withdrawal')).not.toBeInTheDocument();
@@ -928,13 +951,21 @@ describe('OptimizerPanel — ISA/GIA funding breakdown', () => {
     await userEvent.click(within(section).getByRole('button', { name: 'Next year' }));
     expect(within(section).getByText(record1.taxYear)).toBeInTheDocument();
 
-    // BED section IS shown with explanatory text (equality case: residual = £0)
+    // BED section IS shown with amount moving to ISA (equality case: only person 2 shows, residual person 1 = £0)
     expect(within(section).getByText('🗓️ Before 5 April — Move to ISA')).toBeInTheDocument();
-    // Should now show "already been withdrawn from GIA" instead of "From GIA: ... funds your spending"
-    expect(within(section).getAllByText(/has already been withdrawn from GIA/).length).toBeGreaterThanOrEqual(1);
+    // Should show "Move to ISA:" in the new Bed & ISA panel format
+    expect(within(section).getAllByText(/Move to ISA:/).length).toBeGreaterThanOrEqual(1);
     // GIA panel should show the breakdown with spending amount
     expect(within(section).getByText('💷 GIA withdrawal')).toBeInTheDocument();
     expect(within(section).getAllByText('To spending:').length).toBeGreaterThanOrEqual(1);
+
+    // Validate computed overlap values for ISA == BED scenario (person 1):
+    // p1BedIsaToSpend = p1Bed (= p1Isa, full transfer redirected to spending)
+    // p1BedIsaNetToIsa = 0 (nothing net into ISA for person 1)
+    // p1GiaToSpending = p1GiaWithdrawal + p1Bed
+    const p1GiaWithdrawalEq = patchedRecord1.drawdownBreakdown.person1.gia?.grossAmount ?? 0;
+    const p1GiaToSpendingEq = p1GiaWithdrawalEq + p1Bed;
+    expect(within(section).getAllByText(formatCurrency(p1GiaToSpendingEq, true)).length).toBeGreaterThanOrEqual(1);
 
     // ISA withdrawal card is NOT shown
     expect(within(section).queryByText('ISA withdrawal')).not.toBeInTheDocument();
