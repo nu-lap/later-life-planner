@@ -746,7 +746,7 @@ export default function OptimizerPanel({ plannerState, result, proEnabled, onPro
                     {isCouple && <p className="mb-0.5 text-xs font-semibold uppercase tracking-wide text-slate-500">{person1Label}</p>}
                     <p className="text-sm font-semibold text-slate-800">
                       ISA-funded spending:{' '}
-                      <span className="font-black text-indigo-700">{formatCurrency(apBd.person1.isa!.grossAmount, true)}</span>
+                      <span className="font-black text-indigo-700">{formatCurrency(apBd.person1.isa!.grossAmount - (p1ShowBed ? 0 : apProj.p1BedIsaTransfer), true)}</span>
                     </p>
                     <div className="mt-2 space-y-1.5 rounded-lg bg-white/50 p-2">
                       <div className="flex justify-between text-xs">
@@ -765,7 +765,7 @@ export default function OptimizerPanel({ plannerState, result, proEnabled, onPro
                     <p className="mb-0.5 text-xs font-semibold uppercase tracking-wide text-slate-500">{person2Label}</p>
                     <p className="text-sm font-semibold text-slate-800">
                       ISA-funded spending:{' '}
-                      <span className="font-black text-indigo-700">{formatCurrency(apBd.person2!.isa!.grossAmount, true)}</span>
+                      <span className="font-black text-indigo-700">{formatCurrency(apBd.person2!.isa!.grossAmount - (p2ShowBed ? 0 : apProj.p2BedIsaTransfer), true)}</span>
                     </p>
                     <div className="mt-2 space-y-1.5 rounded-lg bg-white/50 p-2">
                       <div className="flex justify-between text-xs">
