@@ -4,14 +4,15 @@
  */
 
 import React from 'react';
-import { describe, test, expect, vi } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 
 import Toggle       from '@/components/ui/Toggle';
 import CurrencyInput from '@/components/ui/CurrencyInput';
 import ConfirmModal from '@/components/ui/ConfirmModal';
 import StepIndicator from '@/components/StepIndicator';
 import DisclaimerGate from '@/components/DisclaimerGate';
+import InfoIcon from '@/components/ui/InfoIcon';
 
 // ─── Toggle ──────────────────────────────────────────────────────────────────
 
@@ -387,5 +388,98 @@ describe('DisclaimerGate', () => {
     render(<DisclaimerGate onAccept={vi.fn()} />);
     // Multiple elements contain this phrase; confirm at least one is present
     expect(screen.getAllByText(/not regulated financial advice/i).length).toBeGreaterThan(0);
+  });
+});
+
+// ─── InfoIcon ─────────────────────────────────────────────────────────────────
+
+describe('InfoIcon', () => {
+  // jsdom does not implement createPortal by default — patch it to render inline
+  // so the tooltip DOM is accessible via screen queries.
+  beforeEach(() => {
+    vi.spyOn(require('react-dom'), 'createPortal').mockImplementation(
+      (children: React.ReactNode) => children as React.ReactElement,
+    );
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  test('tooltip is hidden initially', () => {
+    render(<InfoIcon term="ISA" tooltip="An ISA explanation." />);
+    expect(screen.queryByRole('tooltip')).toBeNull();
+  });
+
+  test('tooltip appears on mouseenter and contains the term and text', async () => {
+    render(<InfoIcon term="ISA" tooltip="An ISA explanation." />);
+    const btn = screen.getByRole('button', { name: /what is isa/i });
+    fireEvent.mouseEnter(btn);
+    await waitFor(() => expect(screen.getByRole('tooltip')).toBeInTheDocument());
+    expect(screen.getByRole('tooltip')).toHaveTextContent('ISA');
+    expect(screen.getByRole('tooltip')).toHaveTextContent('An ISA explanation.');
+  });
+
+  test('tooltip disappears on mouseleave', async () => {
+    render(<InfoIcon term="ISA" tooltip="An ISA explanation." />);
+    const btn = screen.getByRole('button', { name: /what is isa/i });
+    fireEvent.mouseEnter(btn);
+    await waitFor(() => expect(screen.getByRole('tooltip')).toBeInTheDocument());
+    fireEvent.mouseLeave(btn);
+    await waitFor(() => expect(screen.queryByRole('tooltip')).toBeNull());
+  });
+
+  test('tooltip appears on focus', async () => {
+    render(<InfoIcon term="ISA" tooltip="An ISA explanation." />);
+    const btn = screen.getByRole('button', { name: /what is isa/i });
+    fireEvent.focus(btn);
+    await waitFor(() => expect(screen.getByRole('tooltip')).toBeInTheDocument());
+  });
+
+  test('tooltip disappears on blur', async () => {
+    render(<InfoIcon term="ISA" tooltip="An ISA explanation." />);
+    const btn = screen.getByRole('button', { name: /what is isa/i });
+    fireEvent.focus(btn);
+    await waitFor(() => expect(screen.getByRole('tooltip')).toBeInTheDocument());
+    fireEvent.blur(btn);
+    await waitFor(() => expect(screen.queryByRole('tooltip')).toBeNull());
+  });
+
+  test('tooltip toggles open/closed on successive clicks', async () => {
+    render(<InfoIcon term="ISA" tooltip="An ISA explanation." />);
+    const btn = screen.getByRole('button', { name: /what is isa/i });
+    fireEvent.click(btn);
+    await waitFor(() => expect(screen.getByRole('tooltip')).toBeInTheDocument());
+    fireEvent.click(btn);
+    await waitFor(() => expect(screen.queryByRole('tooltip')).toBeNull());
+  });
+
+  test('button has aria-expanded=false when closed and true when open', async () => {
+    render(<InfoIcon term="ISA" tooltip="An ISA explanation." />);
+    const btn = screen.getByRole('button', { name: /what is isa/i });
+    expect(btn).toHaveAttribute('aria-expanded', 'false');
+    fireEvent.mouseEnter(btn);
+    await waitFor(() => expect(btn).toHaveAttribute('aria-expanded', 'true'));
+  });
+
+  test('button has aria-describedby pointing to tooltip id when open', async () => {
+    render(<InfoIcon term="ISA" tooltip="An ISA explanation." />);
+    const btn = screen.getByRole('button', { name: /what is isa/i });
+    expect(btn).not.toHaveAttribute('aria-describedby');
+    fireEvent.mouseEnter(btn);
+    await waitFor(() => {
+      const id = btn.getAttribute('aria-describedby');
+      expect(id).toBeTruthy();
+      expect(document.getElementById(id!)).toBe(screen.getByRole('tooltip'));
+    });
+  });
+
+  test('aria-describedby is removed from button when tooltip closes', async () => {
+    render(<InfoIcon term="ISA" tooltip="An ISA explanation." />);
+    const btn = screen.getByRole('button', { name: /what is isa/i });
+    fireEvent.mouseEnter(btn);
+    await waitFor(() => expect(btn).toHaveAttribute('aria-describedby'));
+    fireEvent.mouseLeave(btn);
+    await waitFor(() => expect(btn).not.toHaveAttribute('aria-describedby'));
   });
 });
