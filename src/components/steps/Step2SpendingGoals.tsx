@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Toggle from '@/components/ui/Toggle';
 import { usePlannerStore } from '@/store/plannerStore';
 import { getStageTotals, getStageTotalSpending, formatCurrency } from '@/lib/calculations';
 import { RLSS_STANDARDS } from '@/lib/mockData';
@@ -602,7 +603,8 @@ export default function Step2SpendingGoals({ onNext, onBack }: Props) {
               step={100}
               value={gapDisplayValue}
               onChange={(e) => setGapSpending(Number(e.target.value))}
-              className="w-full accent-blue-600"
+              className="w-full"
+              style={{ background: `linear-gradient(to right, ${STAGE_COLORS['go-go']} ${Math.min(100, (gapDisplayValue / Math.max(1, goGoSpend)) * 100)}%, #e2e8f0 ${Math.min(100, (gapDisplayValue / Math.max(1, goGoSpend)) * 100)}%)` }}
             />
 
             <div className="flex justify-between text-xs text-blue-500">
@@ -728,29 +730,12 @@ function EventForm({ event, minAge, maxAge, onChange, onSave, onCancel }: EventF
 
       {/* Inflation toggle */}
       <div className="flex items-center gap-4">
-        <button
-          id={`inflation-toggle-${event.id}`}
-          type="button"
-          role="switch"
-          aria-checked={event.inflationLinked}
-          onClick={toggleInflation}
-          onKeyDown={handleInflationKeyDown}
-          className={clsx(
-            'relative shrink-0 w-10 h-5 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-purple-300',
-            event.inflationLinked ? 'bg-purple-500' : 'bg-slate-200',
-          )}
-        >
-          <span className={clsx(
-            'absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform',
-            event.inflationLinked ? 'translate-x-5' : 'translate-x-0.5',
-          )} />
-        </button>
-        <label
-          htmlFor={`inflation-toggle-${event.id}`}
-          className="text-sm text-slate-700 cursor-pointer"
-        >
-          Adjust for inflation between now and when you spend it
-        </label>
+        <Toggle
+          checked={event.inflationLinked}
+          onChange={(v) => onChange({ ...event, inflationLinked: v })}
+          label="Adjust for inflation between now and when you spend it"
+          ariaLabel={`Adjust for inflation for ${event.name}`}
+        />
       </div>
 
       <div className="flex gap-2 pt-1">
