@@ -28,6 +28,8 @@ import type { OptimizerPolicyOverride } from '@/financialEngine/types';
 import type { CareReserve, DrawdownStrategy, GoalConfig, GoalId } from '@/models/types';
 import clsx from 'clsx';
 import IHTOutlookPanel from '@/components/IHTOutlookPanel';
+import InfoIcon from '@/components/ui/InfoIcon';
+import { GLOSSARY } from '@/lib/glossary';
 
 const GOAL_ORCHESTRATION_DEBOUNCE_MS = 300;
 const GOAL_TARGET_FORMATTER = new Intl.NumberFormat('en-GB', {
@@ -559,9 +561,9 @@ function TaxOverview({ projections }: { projections: YearlyProjection[] }) {
           <p className="text-xs text-rose-500 mt-0.5">across all years</p>
         </div>
         <div className="rounded-2xl p-3 bg-amber-50 border border-amber-100">
-          <p className="text-xs text-amber-600 font-bold mb-1">Lifetime CGT</p>
+          <p className="text-xs text-amber-600 font-bold mb-1 flex items-center">Lifetime CGT<InfoIcon term="CGT" tooltip={GLOSSARY.CGT} /></p>
           <p className="text-xl font-black text-amber-800">{formatCurrency(lifetimeCGT, true)}</p>
-          <p className="text-xs text-amber-500 mt-0.5">on GIA gains</p>
+          <p className="text-xs text-amber-500 mt-0.5">on <span className="inline-flex items-center">GIA<InfoIcon term="GIA" tooltip={GLOSSARY.GIA} /></span> gains</p>
         </div>
         <div className="rounded-2xl p-3 bg-emerald-50 border border-emerald-100">
           <p className="text-xs text-emerald-600 font-bold mb-1">Tax-free years</p>
@@ -569,27 +571,29 @@ function TaxOverview({ projections }: { projections: YearlyProjection[] }) {
           <p className="text-xs text-emerald-500 mt-0.5">of {projections.length} projected</p>
         </div>
         <div className="rounded-2xl p-3 bg-sky-50 border border-sky-100">
-          <p className="text-xs text-sky-600 font-bold mb-1">Effective rate</p>
+          <p className="text-xs text-sky-600 font-bold mb-1 flex items-center">Effective rate<InfoIcon term="Effective rate" tooltip={GLOSSARY['Effective rate']} /></p>
           <p className="text-xl font-black text-sky-800">{effectiveRate.toFixed(1)}%</p>
           <p className="text-xs text-sky-500 mt-0.5">avg tax on income</p>
         </div>
       </div>
 
       <div className="space-y-2">
-        {[
-          { n: 1, icon: '🏦', label: 'DC pension — within personal allowance', desc: `Any unused personal allowance (${personalAllowance}) is filled by DC pension withdrawals. Each withdrawal is 25% tax-free; the remaining 75% sits within the allowance → 0% income tax.`, color: 'bg-violet-50 border-violet-100' },
-          { n: 2, icon: '📊', label: 'GIA — within CGT exempt amount', desc: `Investment gains up to ${annualExempt}/person are crystallised tax-free each year. Only drawn when needed for spending.`, color: 'bg-amber-50 border-amber-100' },
-          { n: 3, icon: '✅', label: 'ISA', desc: 'Completely tax-free. Used after personal allowance and CGT allowance have been maximised.', color: 'bg-emerald-50 border-emerald-100' },
-          { n: 4, icon: '💰', label: 'Remaining GIA & cash', desc: `GIA gains above the exempt amount are taxed at ${cgtBasicRate} (basic-rate) or ${cgtHigherRate} (higher-rate). Cash withdrawals are always tax-free.`, color: 'bg-sky-50 border-sky-100' },
-          { n: 5, icon: '💼', label: 'DC pension — above personal allowance', desc: 'Remaining net spending gap is covered by further pension withdrawals. The 75% taxable portion now attracts income tax at marginal rate. Only reached when other sources are exhausted or the gap is large.', color: 'bg-slate-50 border-slate-100' },
-        ].map(({ n, icon, label, desc, color }) => (
+        {([
+          { n: 1, icon: '🏦', label: 'DC pension', labelSuffix: '— within personal allowance', info: { term: 'DC pension', tooltip: GLOSSARY['DC pension'] }, desc: `Any unused personal allowance (${personalAllowance}) is filled by DC pension withdrawals. Each withdrawal is 25% tax-free; the remaining 75% sits within the allowance → 0% income tax.`, color: 'bg-violet-50 border-violet-100' },
+          { n: 2, icon: '📊', label: 'GIA', labelSuffix: '— within CGT exempt amount', info: { term: 'GIA', tooltip: GLOSSARY.GIA }, desc: `Investment gains up to ${annualExempt}/person are crystallised tax-free each year. Only drawn when needed for spending.`, color: 'bg-amber-50 border-amber-100' },
+          { n: 3, icon: '✅', label: 'ISA', labelSuffix: '', info: { term: 'ISA', tooltip: GLOSSARY.ISA }, desc: 'Completely tax-free. Used after personal allowance and CGT allowance have been maximised.', color: 'bg-emerald-50 border-emerald-100' },
+          { n: 4, icon: '💰', label: 'Remaining GIA & cash', labelSuffix: '', info: { term: 'GIA', tooltip: GLOSSARY.GIA }, desc: `GIA gains above the exempt amount are taxed at ${cgtBasicRate} (basic-rate) or ${cgtHigherRate} (higher-rate). Cash withdrawals are always tax-free.`, color: 'bg-sky-50 border-sky-100' },
+          { n: 5, icon: '💼', label: 'DC pension', labelSuffix: '— above personal allowance', info: { term: 'DC pension', tooltip: GLOSSARY['DC pension'] }, desc: 'Remaining net spending gap is covered by further pension withdrawals. The 75% taxable portion now attracts income tax at marginal rate. Only reached when other sources are exhausted or the gap is large.', color: 'bg-slate-50 border-slate-100' },
+        ] as const).map(({ n, icon, label, labelSuffix, info, desc, color }) => (
           <div key={n} className={clsx('flex gap-3 p-3 rounded-2xl border', color)}>
             <div className="w-6 h-6 rounded-full bg-white shadow-sm flex items-center justify-center font-black text-xs flex-shrink-0 text-slate-700">
               {n}
             </div>
             <div>
-              <div className="flex items-center gap-2 text-sm font-bold text-slate-800">
-                <span>{icon}</span>{label}
+              <div className="flex items-center gap-1 text-sm font-bold text-slate-800">
+                <span>{icon}</span>
+                <span className="inline-flex items-center gap-0">{label}<InfoIcon term={info.term} tooltip={info.tooltip} /></span>
+                {labelSuffix && <span className="font-normal text-slate-600">{labelSuffix}</span>}
               </div>
               <p className="text-xs text-slate-500 mt-0.5">{desc}</p>
             </div>
@@ -981,7 +985,11 @@ export default function Step4Dashboard({ onBack }: Props) {
           <div className="rounded-2xl bg-slate-50 border border-slate-200 p-4">
             <div className="flex items-center gap-2 mb-3">
               <span className="text-lg">⚙️</span>
-              <h3 className="font-black text-slate-900 text-sm">Withdrawal strategy</h3>
+              <h3 className="font-black text-slate-900 text-sm flex items-center">
+                Withdrawal strategy
+                <InfoIcon term="UFPLS" tooltip={GLOSSARY.UFPLS} />
+                <InfoIcon term="PCLS" tooltip={GLOSSARY.PCLS} />
+              </h3>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {([
@@ -1226,7 +1234,7 @@ export default function Step4Dashboard({ onBack }: Props) {
       <div className="game-card">
         <h3 className="section-heading">Investment balances over time</h3>
         <p className="text-xs text-slate-500 mb-4">
-          Combined ISA, GIA, cash and pension as you draw from them.
+          Combined <span className="inline-flex items-center">ISA<InfoIcon term="ISA" tooltip={GLOSSARY.ISA} /></span>, <span className="inline-flex items-center">GIA<InfoIcon term="GIA" tooltip={GLOSSARY.GIA} /></span>, cash and pension as you draw from them.
           {state.careReserve?.enabled && (
             <span className="ml-1 text-teal-600 font-semibold">Care Reserve shown separately — earmarked, not drawn for spending.</span>
           )}
