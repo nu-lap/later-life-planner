@@ -845,3 +845,80 @@ describe('calculateProjections — plannedEvents', () => {
     expect(projections.every(p => p.plannedEventSpend === 0)).toBe(true);
   });
 });
+
+// ─── Gap-period spending ──────────────────────────────────────────────────────
+
+describe('calculateProjections — gap-period spending', () => {
+  function gapState(opts: {
+    fiAge: number;
+    p2FiAge: number;
+    gapSpending?: number;
+    p2Salary: number;
+    retirementSpend: number;
+  }): PlannerState {
+    const base = createDefaultState(50);
+    const state: PlannerState = {
+      ...base,
+      mode: 'couple',
+      fiAge: opts.fiAge,
+      p2FiAge: opts.p2FiAge,
+      gapSpending: opts.gapSpending,
+      person1: { ...base.person1, currentAge: 50 },
+      person2: {
+        ...base.person2,
+        currentAge: 48,
+        incomeSources: {
+          ...base.person2.incomeSources,
+          dcPension: {
+            enabled: true,
+            totalValue: 0,
+            growthRate: 0,
+            workplaceSalary: opts.p2Salary,
+            workplaceContributionPercent: 0,
+            sippContributionAnnualGross: 0,
+          },
+        },
+      },
+      spendingCategories: base.spendingCategories.map((c) => ({
+        ...c,
+        amounts: Object.fromEntries(
+          Object.keys(c.amounts).map((k) => [k, opts.retirementSpend / base.spendingCategories.length]),
+        ),
+      })),
+    };
+    return state;
+  }
+
+  test('gapSpending overrides baseSpend during gap years', () => {
+    // p1 at 50, p2 at 48. p1 retires at 55, p2 at 58 → gap is p1 55–59, p2 53–57
+    // p2 reaches 58 when p1 is 60 → post-gap starts at p1Age 60
+    const state = gapState({ fiAge: 55, p2FiAge: 58, gapSpending: 20_000, p2Salary: 0, retirementSpend: 40_000 });
+    const projections = calculateProjections(state);
+    const gapYear = projections.find(p => p.p1Age === 55)!;      // p2Age=53, gap
+    const postGapYear = projections.find(p => p.p1Age === 62)!;  // p2Age=60, past gap
+    expect(gapYear).toBeDefined();
+    expect(postGapYear).toBeDefined();
+    // Gap spending (~20k today) should be roughly half of retirement spending (~40k today)
+    expect(gapYear.spending).toBeLessThan(postGapYear.spending * 0.75);
+    expect(gapYear.spending).toBeGreaterThan(postGapYear.spending * 0.4);
+  });
+
+  test('gapSpending = undefined falls back to stage spending (no behaviour change)', () => {
+    const stateWithGap = gapState({ fiAge: 55, p2FiAge: 58, gapSpending: undefined, p2Salary: 0, retirementSpend: 40_000 });
+    const stateNoGap = { ...stateWithGap, p2FiAge: 55 }; // no gap
+    const projGap = calculateProjections(stateWithGap);
+    const projNoGap = calculateProjections(stateNoGap);
+    const gapYear = projGap.find(p => p.p1Age === 55)!;
+    const noGapYear = projNoGap.find(p => p.p1Age === 55)!;
+    expect(gapYear.spending).toBeCloseTo(noGapYear.spending, -2);
+  });
+
+  test('P2 net salary added to fixedIncome during gap reduces drawdown', () => {
+    // retirementSpend = 30_000, p2Salary = 50_000 → net ~34_000 > spend → no drawdown needed
+    const state = gapState({ fiAge: 55, p2FiAge: 58, gapSpending: 30_000, p2Salary: 50_000, retirementSpend: 30_000 });
+    const projections = calculateProjections(state);
+    const gapYear = projections.find(p => p.p1Age === 55)!;
+    // P2 net salary (~34k) > gap spending (30k) → gap should be positive (no shortfall)
+    expect(gapYear.gap).toBeGreaterThanOrEqual(0);
+  });
+});

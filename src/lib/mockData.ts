@@ -315,6 +315,8 @@ export function normalizePlannerState(state: PlannerState): PlannerState {
     pclsAge: state.pclsAge,
     // p2FiAge is optional — undefined means "default to fiAge" in the engine
     p2FiAge: normalized.p2FiAge,
+    // gapSpending is optional — undefined means "use stage spending" in the engine
+    gapSpending: state.gapSpending,
     plannedEvents: state.plannedEvents ?? [],
   };
 }

@@ -19,6 +19,7 @@ export const PERSISTED_PLANNER_KEYS = [
   'drawdownStrategy',
   'pclsAge',
   'p2FiAge',
+  'gapSpending',
   'plannedEvents',
 ] as const satisfies readonly (keyof PersistedPlannerState)[];
 

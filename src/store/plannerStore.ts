@@ -44,6 +44,7 @@ type Actions = {
   setPrimaryResidence: (updates: Partial<PrimaryResidenceAsset>) => void;
   setDrawdownStrategy: (strategy: DrawdownStrategy) => void;
   setPclsAge: (age: number | undefined) => void;
+  setGapSpending: (amount: number | undefined) => void;
   addPlannedEvent: (event: PlannedEvent) => void;
   updatePlannedEvent: (id: string, updates: Partial<PlannedEvent>) => void;
   removePlannedEvent: (id: string) => void;
@@ -315,6 +316,7 @@ export const usePlannerStore = create<PlannerState & Actions>()(
 
       setDrawdownStrategy: (strategy) => set({ drawdownStrategy: strategy }),
       setPclsAge: (age) => set({ pclsAge: age }),
+      setGapSpending: (amount) => set({ gapSpending: amount }),
 
       addPlannedEvent: (event) =>
         set((s) => ({ plannedEvents: [...s.plannedEvents, event] })),

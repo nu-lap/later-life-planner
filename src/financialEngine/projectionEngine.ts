@@ -205,7 +205,14 @@ export function calculateProjections(state: PlannerState): YearlyProjection[] {
     const eventSpend  = (state.plannedEvents ?? [])
       .filter((e) => e.p1Age === p1Age)
       .reduce((s, e) => s + (e.inflationLinked ? e.amount * inflFactor : e.amount), 0);
-    const spending    = baseSpend + eventSpend;
+
+    // During the gap period P1 has retired but P2 is still working — use gapSpending
+    // as the spending target if the user has set one, otherwise fall back to baseSpend.
+    const inGapPeriod = householdFiStarted && mode === 'couple' && p2Age !== null && p2Age < p2FiAge;
+    const gapSpendTarget = state.gapSpending !== undefined
+      ? state.gapSpending * inflFactor
+      : baseSpend;
+    const spending    = (inGapPeriod ? gapSpendTarget : baseSpend) + eventSpend;
 
     // ── Fixed income ──────────────────────────────────────────────────────
     const p1Inc = personIncome(person1.incomeSources, person1.assets, p1Age, y, inflation);
@@ -218,7 +225,10 @@ export function calculateProjections(state: PlannerState): YearlyProjection[] {
     const p2RentEffective = jointPropP1 ? 0 : p2Inc.rent; // already counted in p1Inc.rent
 
     const fixedIncome = p1Inc.sp + p1Inc.db + p1Inc.ptw + p1Inc.other + p1Inc.rent
-                      + p2Inc.sp + p2Inc.db + p2Inc.ptw + p2Inc.other + p2RentEffective;
+                      + p2Inc.sp + p2Inc.db + p2Inc.ptw + p2Inc.other + p2RentEffective
+                      + (inGapPeriod
+                          ? Math.max(0, (person2.incomeSources.dcPension.workplaceSalary ?? 0) * inflFactor * 0.68)
+                          : 0);
 
     // ── Asset growth (before drawdown) ────────────────────────────────────
     if (p1Isa            > 0) p1Isa            *= (1 + p1IsaG);

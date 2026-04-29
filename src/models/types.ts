@@ -311,6 +311,12 @@ export interface PlannerState {
    */
   p2FiAge?: number;
   /**
+   * Household spending target during the gap period (P1 retired, P2 still working).
+   * In today's money; inflation-adjusted in the engine. Only relevant in couple mode
+   * when p2FiAge > fiAge. Defaults to the post-FI life-stage spending when undefined.
+   */
+  gapSpending?: number;
+  /**
    * One-off timed expenditures layered on top of regular life-stage spending.
    * Each event is inflation-adjusted (if inflationLinked) and added to the
    * spending target in the year it falls.
