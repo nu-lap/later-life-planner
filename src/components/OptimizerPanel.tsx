@@ -128,16 +128,44 @@ function TaxFreeBreakdownCell({ breakdown }: { breakdown?: TaxFreeWithdrawalBrea
   );
 }
 
-function BedIsaCell({ amount, cgt }: { amount: number; cgt: number }) {
+function BedIsaCell({ amount, cgt, isaSpend = 0 }: { amount: number; cgt: number; isaSpend?: number }) {
   if (amount <= 0) {
     return <span className="text-slate-400">—</span>;
   }
+  // How much of the GIA sale goes directly to spending vs. into the ISA wrapper
+  const toSpend = Math.min(amount, isaSpend);
+  const netToIsa = amount - toSpend;
+  const isSplit = toSpend > 0;
+
   return (
     <div className="space-y-1.5 rounded-xl border border-emerald-100 bg-emerald-50/60 p-2 shadow-sm">
-      <div className="flex flex-col gap-0.5">
-        <span className="text-[10px] font-semibold uppercase tracking-wide text-emerald-600">Move to ISA</span>
-        <span className="text-sm font-semibold text-emerald-800">{formatCurrency(amount, true)}</span>
-      </div>
+      {isSplit ? (
+        // When ISA spending intercepts some of the Bed & ISA, show the full GIA sale with a breakdown
+        <>
+          <div className="flex flex-col gap-0.5">
+            <span className="text-[10px] font-semibold uppercase tracking-wide text-emerald-600">GIA sold (Bed &amp; ISA)</span>
+            <span className="text-sm font-semibold text-emerald-800">{formatCurrency(amount, true)}</span>
+          </div>
+          <div className="space-y-0.5 border-t border-emerald-100 pt-1">
+            {netToIsa > 0 && (
+              <div className="flex items-baseline justify-between gap-1 text-[10px]">
+                <span className="text-emerald-700">↳ Into ISA:</span>
+                <span className="font-semibold text-emerald-800">{formatCurrency(netToIsa, true)}</span>
+              </div>
+            )}
+            <div className="flex items-baseline justify-between gap-1 text-[10px]">
+              <span className="text-slate-500">↳ Covers ISA spending:</span>
+              <span className="font-semibold text-slate-700">{formatCurrency(toSpend, true)}</span>
+            </div>
+          </div>
+        </>
+      ) : (
+        // Standard case: full amount moves into the ISA wrapper
+        <div className="flex flex-col gap-0.5">
+          <span className="text-[10px] font-semibold uppercase tracking-wide text-emerald-600">Move to ISA</span>
+          <span className="text-sm font-semibold text-emerald-800">{formatCurrency(amount, true)}</span>
+        </div>
+      )}
       {cgt > 0 && (
         <div className="flex flex-col gap-0.5">
           <span className="text-[10px] font-semibold uppercase tracking-wide text-orange-500">CGT due</span>
@@ -918,17 +946,19 @@ export default function OptimizerPanel({ plannerState, result, proEnabled, onPro
                       ) : null}
                       {hasAnyBedIsa ? (() => {
                         const proj = result.baselineProjections[record.yearIndex];
+                        const p1IsaWd = bd.person1.isa?.grossAmount ?? 0;
                         return (
                           <td className="px-3 py-3">
-                            <BedIsaCell amount={proj?.p1BedIsaTransfer ?? 0} cgt={proj?.p1CgtPaid ?? 0} />
+                            <BedIsaCell amount={proj?.p1BedIsaTransfer ?? 0} cgt={proj?.p1CgtPaid ?? 0} isaSpend={p1IsaWd} />
                           </td>
                         );
                       })() : null}
                       {hasAnyBedIsa && isCouple ? (() => {
                         const proj = result.baselineProjections[record.yearIndex];
+                        const p2IsaWd = bd.person2?.isa?.grossAmount ?? 0;
                         return (
                           <td className="px-3 py-3">
-                            <BedIsaCell amount={proj?.p2BedIsaTransfer ?? 0} cgt={proj?.p2CgtPaid ?? 0} />
+                            <BedIsaCell amount={proj?.p2BedIsaTransfer ?? 0} cgt={proj?.p2CgtPaid ?? 0} isaSpend={p2IsaWd} />
                           </td>
                         );
                       })() : null}
@@ -940,7 +970,7 @@ export default function OptimizerPanel({ plannerState, result, proEnabled, onPro
             </div>
             {hasAnyBedIsa && (
               <p className="mt-3 text-xs text-slate-500">
-                <span className="font-semibold text-emerald-700">Annual ISA action:</span> Each year before 5 April, sell the amount shown from your general investment account and immediately repurchase the same investments inside your ISA wrapper. Your investment platform may offer this as a &ldquo;Bed &amp; ISA&rdquo; service. Any capital gains tax shown is due on the sale.
+                <span className="font-semibold text-emerald-700">Annual ISA action:</span> Each year before 5 April, sell the amount shown from your general investment account and repurchase inside your ISA wrapper (your platform may call this a &ldquo;Bed &amp; ISA&rdquo; service). Any capital gains tax shown is due on the sale. Where &ldquo;Covers ISA spending&rdquo; appears, the GIA sale proceeds fund that year&rsquo;s ISA withdrawals directly — only the &ldquo;Into ISA&rdquo; portion actually enters the ISA wrapper.
               </p>
             )}
             </>
