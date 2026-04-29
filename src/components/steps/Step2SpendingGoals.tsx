@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Toggle from '@/components/ui/Toggle';
 import { usePlannerStore } from '@/store/plannerStore';
 import { getStageTotals, getStageTotalSpending, formatCurrency } from '@/lib/calculations';
 import { RLSS_STANDARDS } from '@/lib/mockData';
@@ -591,18 +592,20 @@ export default function Step2SpendingGoals({ onNext, onBack }: Props) {
 
           <div className="space-y-3">
             <div className="flex justify-between items-center">
-              <span className="text-sm text-blue-800 font-medium">Target spending during gap</span>
+              <span id="gap-spending-label" className="text-sm text-blue-800 font-medium">Target spending during gap</span>
               <span className="text-lg font-bold text-blue-900">{formatCurrency(gapDisplayValue, true)}/yr</span>
             </div>
 
             <input
               type="range"
+              aria-labelledby="gap-spending-label"
               min={0}
               max={goGoSpend}
               step={100}
               value={gapDisplayValue}
               onChange={(e) => setGapSpending(Number(e.target.value))}
-              className="w-full accent-blue-600"
+              className="w-full"
+              style={{ background: `linear-gradient(to right, ${STAGE_COLORS['go-go']} ${Math.min(100, (gapDisplayValue / Math.max(1, goGoSpend)) * 100)}%, #e2e8f0 ${Math.min(100, (gapDisplayValue / Math.max(1, goGoSpend)) * 100)}%)` }}
             />
 
             <div className="flex justify-between text-xs text-blue-500">
@@ -615,7 +618,7 @@ export default function Step2SpendingGoals({ onNext, onBack }: Props) {
                 ✓ Regular spending during the gap is estimated to be covered by {person2.name || 'Person 2'}&apos;s take-home pay — drawdown for day-to-day costs may be minimal. One-off events and other factors may still require some drawdown.
               </p>
             )}
-            {gapSpending !== undefined && (
+            {gapSpending !== undefined && gapSpending !== gapSmartDefault && (
               <button
                 type="button"
                 onClick={() => setGapSpending(undefined)}
@@ -653,11 +656,6 @@ interface EventFormProps {
 
 function EventForm({ event, minAge, maxAge, onChange, onSave, onCancel }: EventFormProps) {
   const isValid = event.name.trim().length > 0 && event.amount > 0 && event.p1Age >= minAge && event.p1Age <= maxAge;
-
-  function toggleInflation() { onChange({ ...event, inflationLinked: !event.inflationLinked }); }
-  function handleInflationKeyDown(e: React.KeyboardEvent) {
-    if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); toggleInflation(); }
-  }
 
   return (
     <div className="rounded-xl border border-purple-200 bg-white p-4 mb-4 space-y-3">
@@ -727,31 +725,12 @@ function EventForm({ event, minAge, maxAge, onChange, onSave, onCancel }: EventF
       </div>
 
       {/* Inflation toggle */}
-      <div className="flex items-center gap-4">
-        <button
-          id={`inflation-toggle-${event.id}`}
-          type="button"
-          role="switch"
-          aria-checked={event.inflationLinked}
-          onClick={toggleInflation}
-          onKeyDown={handleInflationKeyDown}
-          className={clsx(
-            'relative shrink-0 w-10 h-5 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-purple-300',
-            event.inflationLinked ? 'bg-purple-500' : 'bg-slate-200',
-          )}
-        >
-          <span className={clsx(
-            'absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform',
-            event.inflationLinked ? 'translate-x-5' : 'translate-x-0.5',
-          )} />
-        </button>
-        <label
-          htmlFor={`inflation-toggle-${event.id}`}
-          className="text-sm text-slate-700 cursor-pointer"
-        >
-          Adjust for inflation between now and when you spend it
-        </label>
-      </div>
+      <Toggle
+        checked={event.inflationLinked}
+        onChange={(v) => onChange({ ...event, inflationLinked: v })}
+        label="Adjust for inflation between now and when you spend it"
+        ariaLabel={`Adjust for inflation for ${event.name}`}
+      />
 
       <div className="flex gap-2 pt-1">
         <button
