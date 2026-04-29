@@ -1,11 +1,11 @@
-import { CGT } from '@/config/financialConstants';
+import { CGT, IHT, PENSION_RULES } from '@/config/financialConstants';
 
 export const GLOSSARY: Record<string, string> = {
   CGT: `Capital Gains Tax — tax on investment growth above the £${CGT.ANNUAL_EXEMPT.toLocaleString('en-GB')} annual exempt amount per person.`,
   GIA: 'General Investment Account — a taxable investment account (shares, funds, bonds) held outside a tax wrapper. Gains are subject to CGT on disposal.',
   ISA: 'Individual Savings Account — a tax-free investment wrapper. Withdrawals are completely free of income tax, CGT, and have no impact on your personal allowance.',
-  LSA: 'Lump Sum Allowance — the total tax-free cash you can take from your pension across your lifetime (currently £268,275).',
-  RNRB: 'Residence Nil-Rate Band — an additional IHT allowance (up to £175,000) available when you leave your main residence to direct descendants.',
+  LSA: `Lump Sum Allowance — the total tax-free cash you can take from your pension across your lifetime (currently £${PENSION_RULES.PCLS_LUMP_SUM_ALLOWANCE.toLocaleString('en-GB')}).`,
+  RNRB: `Residence Nil-Rate Band — an additional IHT allowance (up to £${IHT.RNRB.toLocaleString('en-GB')}) available when you leave your main residence to direct descendants.`,
   SIPP: 'Self-Invested Personal Pension — a flexible pension pot you manage yourself. Each withdrawal is 25% tax-free and 75% taxable income.',
   UFPLS: 'Uncrystallised Funds Pension Lump Sum — a way of drawing from your pension where each withdrawal is 25% tax-free and 75% taxable, using your tax-free entitlement gradually over time.',
   PCLS: 'Pension Commencement Lump Sum — the tax-free cash taken when you crystallise (formally access) your pension. Typically 25% of the pot, subject to the Lump Sum Allowance.',
