@@ -1057,7 +1057,7 @@ export default function Step4Dashboard({ onBack }: Props) {
                   >+</button>
                 </div>
                 <p className="text-xs text-slate-500">
-                  Min {nmpa} (min pension access age{pclsCalYear >= PENSION_RULES.NMPA_RISE_YEAR ? ' from 2028' : ''}) ·{' '}
+                  Min {nmpa} (<span className="inline-flex items-center">NMPA<InfoIcon term="NMPA" tooltip={GLOSSARY.NMPA} /></span>{pclsCalYear >= PENSION_RULES.NMPA_RISE_YEAR ? ` from ${PENSION_RULES.NMPA_RISE_YEAR}` : ''}) ·{' '}
                   {effectivePclsAge < fiAge
                     ? `${fiAge - effectivePclsAge} yr${fiAge - effectivePclsAge !== 1 ? 's' : ''} before FI — proceeds grow in ISA & investment account until then`
                     : effectivePclsAge === fiAge
