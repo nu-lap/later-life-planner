@@ -303,6 +303,13 @@ export interface PlannerState {
    */
   pclsAge?: number;
   /**
+   * Financial independence age for person2 — the age at which person2's work income
+   * and DC pension contributions stop. Only used in couple mode; ignored in single mode.
+   * Defaults to `fiAge` (person1's FI age) when not set, so existing plans are
+   * fully backward-compatible.
+   */
+  p2FiAge?: number;
+  /**
    * One-off timed expenditures layered on top of regular life-stage spending.
    * Each event is inflation-adjusted (if inflationLinked) and added to the
    * spending target in the year it falls.

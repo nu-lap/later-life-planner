@@ -62,11 +62,21 @@ export function clampFiAge(fiAge: number, currentAge: number, lifeExpectancy: nu
   return clamp(fiAge, normalizedCurrentAge, getFiAgeMax(normalizedLifeExpectancy));
 }
 
+export function clampP2FiAge(
+  p2FiAge: number | undefined,
+  p2CurrentAge: number,
+  lifeExpectancy: number,
+): number | undefined {
+  if (p2FiAge === undefined) return undefined;
+  return clampFiAge(p2FiAge, p2CurrentAge, lifeExpectancy);
+}
+
 export function normalizePlanningBounds(
   currentAge: number,
   secondaryCurrentAge: number,
   fiAge: number,
   lifeExpectancy: number,
+  p2FiAge?: number,
 ) {
   const normalizedCurrentAge = clampCurrentAge(currentAge);
   const normalizedSecondaryCurrentAge = clampCurrentAge(secondaryCurrentAge);
@@ -81,6 +91,7 @@ export function normalizePlanningBounds(
     secondaryCurrentAge: normalizedSecondaryCurrentAge,
     lifeExpectancy: normalizedLifeExpectancy,
     fiAge: clampFiAge(fiAge, normalizedCurrentAge, normalizedLifeExpectancy),
+    p2FiAge: clampP2FiAge(p2FiAge, normalizedSecondaryCurrentAge, normalizedLifeExpectancy),
   };
 }
 

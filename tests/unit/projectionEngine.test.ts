@@ -142,12 +142,13 @@ describe('calculateProjections — financial invariants', () => {
     expect(projections[2].p1DcBalance).toBeCloseTo(112_555, 2);
   });
 
-  test('applies contribution modelling for both people in couple mode until household FI age', () => {
+  test('applies contribution modelling for both people in couple mode, each stopping at their own FI age', () => {
     const base = withSpending(bareState(55), 0);
     const state: PlannerState = {
       ...base,
       mode: 'couple',
       fiAge: 56,
+      // p2FiAge defaults to fiAge (56) when not set — p2 (age 54) still contributes for 2 more years
       person1: {
         ...base.person1,
         incomeSources: {
@@ -181,10 +182,72 @@ describe('calculateProjections — financial invariants', () => {
 
     const projections = calculateProjections(state);
 
-    expect(projections[0].p1DcBalance).toBeCloseTo(84_400, 2);
-    expect(projections[0].p2DcBalance).toBeCloseTo(64_200, 2);
-    expect(projections[1].p1DcBalance).toBeCloseTo(84_400, 2);
-    expect(projections[1].p2DcBalance).toBeCloseTo(64_200, 2);
+    // Year 0: p1Age=55 < fiAge=56 → p1 contributes (80_000 + 40_000*0.05 + 2_400 = 84_400)
+    //         p2Age=54 < p2FiAge=56 → p2 contributes (60_000 + 30_000*0.08 + 1_800 = 64_200)
+    expect(projections[0].p1DcBalance).toBeCloseTo(84_400, -2);
+    expect(projections[0].p2DcBalance).toBeCloseTo(64_200, -2);
+
+    // Year 1: p1Age=56 >= fiAge=56 → p1 stops contributing (balance stays ~84_400)
+    //         p2Age=55 < p2FiAge=56 → p2 still contributes (~64_200 + 4_200 = ~68_400+)
+    expect(projections[1].p1DcBalance).toBeCloseTo(84_400, -2);
+    // p2 balance should be ~4200 more than year 0 (contributions added)
+    expect(projections[1].p2DcBalance).toBeGreaterThan(projections[0].p2DcBalance + 4_000);
+    expect(projections[1].p2DcBalance).toBeLessThan(projections[0].p2DcBalance + 5_000);
+
+    // Year 2: p2Age=56 >= p2FiAge=56 → p2 stops contributing (balance unchanged from year 1)
+    expect(projections[2].p2DcBalance).toBeCloseTo(projections[1].p2DcBalance, -2);
+  });
+
+  test('p2 DC contributions stop at independent p2FiAge when set differently to p1 fiAge', () => {
+    const base = withSpending(bareState(55), 0);
+    const state: PlannerState = {
+      ...base,
+      mode: 'couple',
+      fiAge: 56,
+      p2FiAge: 58, // person2 works 2 years longer
+      person1: {
+        ...base.person1,
+        incomeSources: {
+          ...base.person1.incomeSources,
+          dcPension: {
+            enabled: true,
+            totalValue: 80_000,
+            growthRate: 0,
+            workplaceSalary: 40_000,
+            workplaceContributionPercent: 5,
+            sippContributionAnnualGross: 2_400,
+          },
+        },
+      },
+      person2: {
+        ...base.person2,
+        currentAge: 54,
+        incomeSources: {
+          ...base.person2.incomeSources,
+          dcPension: {
+            enabled: true,
+            totalValue: 60_000,
+            growthRate: 0,
+            workplaceSalary: 30_000,
+            workplaceContributionPercent: 8,
+            sippContributionAnnualGross: 1_800,
+          },
+        },
+      },
+    };
+
+    const projections = calculateProjections(state);
+
+    // Year 0 (p2Age=54): contributes → ~64_200
+    expect(projections[0].p2DcBalance).toBeCloseTo(64_200, -2);
+    // Year 1 (p2Age=55): still contributes → increases by ~4_200
+    expect(projections[1].p2DcBalance).toBeGreaterThan(projections[0].p2DcBalance + 4_000);
+    // Year 2 (p2Age=56): still contributes (p2FiAge=58) → increases again
+    expect(projections[2].p2DcBalance).toBeGreaterThan(projections[1].p2DcBalance + 4_000);
+    // Year 3 (p2Age=57): still contributes → increases again
+    expect(projections[3].p2DcBalance).toBeGreaterThan(projections[2].p2DcBalance + 4_000);
+    // Year 4 (p2Age=58): stops contributing → balance does NOT jump by ~4_200
+    expect(projections[4].p2DcBalance).toBeLessThan(projections[3].p2DcBalance + 4_000);
   });
 });
 

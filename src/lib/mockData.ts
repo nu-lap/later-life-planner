@@ -235,6 +235,7 @@ export function createDefaultState(primaryAge: number = DEFAULT_ASSUMPTIONS.DEFA
     primaryResidence: { ...defaultPrimaryResidence },
     drawdownStrategy: 'standard-ufpls',
     plannedEvents: [],
+    // p2FiAge is undefined by default — engine falls back to fiAge
   };
 }
 
@@ -266,6 +267,7 @@ export function normalizePlannerState(state: PlannerState): PlannerState {
     ageFromDOB(normalizedP2Dob, state.person2.currentAge),
     state.fiAge,
     state.assumptions.lifeExpectancy,
+    state.p2FiAge,
   );
 
   const normalizeDcPension = (source: PersonIncomeSources['dcPension']) => ({
@@ -311,6 +313,8 @@ export function normalizePlannerState(state: PlannerState): PlannerState {
     drawdownStrategy: state.drawdownStrategy ?? 'standard-ufpls',
     // pclsAge is optional — undefined means "default to fiAge" in the engine
     pclsAge: state.pclsAge,
+    // p2FiAge is optional — undefined means "default to fiAge" in the engine
+    p2FiAge: normalized.p2FiAge,
     plannedEvents: state.plannedEvents ?? [],
   };
 }

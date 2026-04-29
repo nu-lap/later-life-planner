@@ -542,6 +542,7 @@ function AssetsSection({ assets, set, mode, p1Label, p2Label, sharedGia, onShare
 export default function Step3IncomeSources({ onNext, onBack }: Props) {
   const {
     mode, fiAge,
+    p2FiAge: p2FiAgeRaw,
     person1, setP1Income, setP1Asset,
     person2, setP2Income, setP2Asset,
     jointGia, setJointGia,
@@ -636,7 +637,14 @@ export default function Step3IncomeSources({ onNext, onBack }: Props) {
 
       {/* Content */}
       {activeTab === 'income' ? (
-        <IncomeSection currentAge={person.currentAge} fiAge={fiAge} lifeExpectancy={assumptions.lifeExpectancy} src={person.incomeSources} assets={person.assets} set={setIncome} />
+        <IncomeSection
+          currentAge={person.currentAge}
+          fiAge={isPerson1 ? fiAge : (p2FiAgeRaw ?? fiAge)}
+          lifeExpectancy={assumptions.lifeExpectancy}
+          src={person.incomeSources}
+          assets={person.assets}
+          set={setIncome}
+        />
       ) : (
         <AssetsSection
           assets={person.assets} set={setAsset} mode={mode}
