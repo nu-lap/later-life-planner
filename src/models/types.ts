@@ -303,6 +303,14 @@ export interface PlannerState {
    */
   pclsAge?: number;
   /**
+   * Financial independence age for person 2 — the age at which person 2's DC pension
+   * contributions stop. This value is also used as the drawdown label anchor in Step 3.
+   * Only used in couple mode; ignored in single mode.
+   * When not set, the engine derives the age person 2 would be when person 1 reaches
+   * `fiAge`, preserving backward-compatible behaviour for existing plans.
+   */
+  p2FiAge?: number;
+  /**
    * One-off timed expenditures layered on top of regular life-stage spending.
    * Each event is inflation-adjusted (if inflationLinked) and added to the
    * spending target in the year it falls.

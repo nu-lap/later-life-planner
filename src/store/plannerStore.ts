@@ -25,6 +25,7 @@ type Actions = {
   setMode: (mode: PlanningMode) => void;
 
   setFiAge: (age: number) => void;
+  setP2FiAge: (age: number) => void;
 
   setP1Name:  (name: string) => void;
   setP1Dob:   (dob: string)  => void;
@@ -127,6 +128,7 @@ export const usePlannerStore = create<PlannerState & Actions>()(
           mode === 'couple' ? s.person2.currentAge : 0,
           s.fiAge,
           s.assumptions.lifeExpectancy,
+          s.p2FiAge,
         );
 
         return {
@@ -146,13 +148,29 @@ export const usePlannerStore = create<PlannerState & Actions>()(
             s.mode === 'couple' ? s.person2.currentAge : 0,
             fiAge,
             s.assumptions.lifeExpectancy,
+            s.p2FiAge,
           );
 
           return {
             fiAge: normalized.fiAge,
+            p2FiAge: normalized.p2FiAge,
             lifeStages: syncLifeStages(s.lifeStages, normalized.fiAge, normalized.lifeExpectancy),
             assumptions: { ...s.assumptions, lifeExpectancy: normalized.lifeExpectancy },
           };
+        }),
+
+      // Person2 FI age setter
+      setP2FiAge: (p2FiAge) =>
+        set((s) => {
+          const normalized = normalizePlanningBounds(
+            s.person1.currentAge,
+            s.mode === 'couple' ? s.person2.currentAge : 0,
+            s.fiAge,
+            s.assumptions.lifeExpectancy,
+            p2FiAge,
+          );
+
+          return { p2FiAge: normalized.p2FiAge };
         }),
 
       setP1Name: (name) => set((s) => ({ person1: { ...s.person1, name } })),
@@ -167,6 +185,7 @@ export const usePlannerStore = create<PlannerState & Actions>()(
             s.mode === 'couple' ? s.person2.currentAge : 0,
             s.fiAge,
             s.assumptions.lifeExpectancy,
+            s.p2FiAge,
           );
 
           return {
@@ -176,6 +195,7 @@ export const usePlannerStore = create<PlannerState & Actions>()(
               currentAge: normalized.currentAge,
             },
             fiAge: normalized.fiAge,
+            p2FiAge: normalized.p2FiAge,
             lifeStages: syncLifeStages(s.lifeStages, normalized.fiAge, normalized.lifeExpectancy),
             assumptions: { ...s.assumptions, lifeExpectancy: normalized.lifeExpectancy },
           };
@@ -189,6 +209,7 @@ export const usePlannerStore = create<PlannerState & Actions>()(
             s.mode === 'couple' ? s.person2.currentAge : 0,
             s.fiAge,
             s.assumptions.lifeExpectancy,
+            s.p2FiAge,
           );
 
           return {
@@ -198,6 +219,7 @@ export const usePlannerStore = create<PlannerState & Actions>()(
               currentAge: normalized.currentAge,
             },
             fiAge: normalized.fiAge,
+            p2FiAge: normalized.p2FiAge,
             lifeStages: syncLifeStages(s.lifeStages, normalized.fiAge, normalized.lifeExpectancy),
             assumptions: { ...s.assumptions, lifeExpectancy: normalized.lifeExpectancy },
           };
@@ -228,6 +250,7 @@ export const usePlannerStore = create<PlannerState & Actions>()(
             ageFromDOB(normalizedDob, s.person2.currentAge),
             s.fiAge,
             s.assumptions.lifeExpectancy,
+            s.p2FiAge,
           );
 
           return {
@@ -237,6 +260,7 @@ export const usePlannerStore = create<PlannerState & Actions>()(
               currentAge: normalized.secondaryCurrentAge,
             },
             fiAge: normalized.fiAge,
+            p2FiAge: normalized.p2FiAge,
             lifeStages: syncLifeStages(s.lifeStages, normalized.fiAge, normalized.lifeExpectancy),
             assumptions: { ...s.assumptions, lifeExpectancy: normalized.lifeExpectancy },
           };
@@ -249,6 +273,7 @@ export const usePlannerStore = create<PlannerState & Actions>()(
             age,
             s.fiAge,
             s.assumptions.lifeExpectancy,
+            s.p2FiAge,
           );
 
           return {
@@ -258,6 +283,7 @@ export const usePlannerStore = create<PlannerState & Actions>()(
               currentAge: normalized.secondaryCurrentAge,
             },
             fiAge: normalized.fiAge,
+            p2FiAge: normalized.p2FiAge,
             lifeStages: syncLifeStages(s.lifeStages, normalized.fiAge, normalized.lifeExpectancy),
             assumptions: { ...s.assumptions, lifeExpectancy: normalized.lifeExpectancy },
           };
@@ -325,10 +351,12 @@ export const usePlannerStore = create<PlannerState & Actions>()(
               s.mode === 'couple' ? s.person2.currentAge : 0,
               s.fiAge,
               newAssumptions.lifeExpectancy,
+              s.p2FiAge,
             );
 
             return {
               fiAge: normalized.fiAge,
+              p2FiAge: normalized.p2FiAge,
               assumptions: { ...newAssumptions, lifeExpectancy: normalized.lifeExpectancy },
               lifeStages: syncLifeStages(s.lifeStages, normalized.fiAge, normalized.lifeExpectancy),
             };

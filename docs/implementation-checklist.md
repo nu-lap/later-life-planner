@@ -469,3 +469,144 @@ funds from the cheapest-tax bucket. Output `plannedEventSpend: eventSpend` in th
 - [ ] Unit test: two events in the same year — amounts are summed
 - [ ] Unit test: event before FI age — added to building-phase spending correctly
 - [ ] UI test: add an event card, verify it appears and can be removed (`tests/ui/`)
+
+---
+
+## Phase 11 — Independent FI Ages per Person (Couple Mode)
+
+### Goal
+
+Allow each person in a couple to have their own financial independence age. Currently a single
+`fiAge` applies to both persons, which means person2's work income and DC pension contributions
+always stop at the same time as person1's. In reality, partners frequently retire at different
+ages. This change lets each person's building-phase contributions and work income stop
+independently, making projections more accurate for real-world couples.
+
+### Design decisions
+
+- **`fiAge` stays as person1's FI age** (backward-compatible; no migration needed for single-mode
+  users or existing persisted plans).
+- **`p2FiAge?: number`** is added as an optional top-level field. When absent it defaults to
+  `fiAge` at runtime — existing saved plans continue to behave identically.
+- **Life stages (Go-Go / Slo-Go / No-Go) remain anchored to `fiAge` (person1).** The household
+  lifestyle transition is driven by person1's FI; person2 retiring later simply means their
+  individual contributions and work income stop at a later point while spending stages are
+  unchanged.
+- **`householdFiStarted` remains tied to person1's FI age** for Bed & ISA transfers and PCLS
+  crystallisation — these are household-level financial events.
+- **Person2's DC contributions and the DC contribution line for person2 use `p2FiAge`**, not the
+  shared `fiAge`.
+- **Dashboard "Gross income at FI" and projection filter** remain based on `fiAge` (person1).
+- **`displayProjections` filter** in Step4Dashboard is unchanged (`p1Age >= fiAge`).
+
+### Data model (`src/models/types.ts`)
+
+```typescript
+/**
+ * Financial independence age for person2 — when person2's work income and DC
+ * pension contributions stop. Only used in couple mode; single mode ignores it.
+ * Defaults to `fiAge` (person1's FI age) when not set, so existing plans are
+ * backward-compatible.
+ */
+p2FiAge?: number;
+```
+
+### Planning bounds (`src/lib/planningBounds.ts`)
+
+Add `clampP2FiAge(p2FiAge, p2CurrentAge, lifeExpectancy)` — identical logic to `clampFiAge` but
+using person2's current age as the lower bound.
+
+Update `normalizePlanningBounds()` to accept and return `p2FiAge`.
+
+### Store (`src/store/plannerStore.ts`)
+
+- Add `'p2FiAge'` to `PERSISTED_PLANNER_KEYS`.
+- Add `setP2FiAge(age: number)` action — clamps to `[person2.currentAge, getFiAgeMax(lifeExpectancy)]`
+  and normalises bounds.
+- In `setP2Dob` / `setP2Age` — re-clamp `p2FiAge` if it falls below the new person2 current age.
+- In `normalizePlannerState()` in `src/lib/mockData.ts` — add `p2FiAge ?? undefined` fallback for
+  backward-compat hydration.
+
+### Projection engine (`src/financialEngine/projectionEngine.ts`)
+
+At the top of `calculateProjections`, resolve:
+
+```typescript
+const p2FiAge = state.p2FiAge ?? state.fiAge;
+```
+
+Change the DC-contribution block from the shared `!householdFiStarted` guard for person2:
+
+```typescript
+// Before:
+if (!householdFiStarted) {
+  if (person2.incomeSources.dcPension.enabled) {
+    p2Dc += getAnnualDcContribution(person2.incomeSources.dcPension, y, inflation);
+  }
+}
+// After:
+const p2FiStarted = mode === 'couple' && p2Age !== null ? p2Age >= p2FiAge : true;
+if (!householdFiStarted) {
+  // person1 contributions unchanged
+}
+if (!p2FiStarted && mode === 'couple') {
+  if (person2.incomeSources.dcPension.enabled) {
+    p2Dc += getAnnualDcContribution(person2.incomeSources.dcPension, y, inflation);
+  }
+}
+```
+
+### UI — Step 1 (`src/components/steps/Step1HouseholdSetup.tsx`)
+
+In couple mode, show a second "Person 2 FI age" slider beneath person1's:
+
+- Label: "{p2Name}'s financial independence age"
+- min: `person2.currentAge`, max: `getFiAgeMax(lifeExpectancy)`, step: 1
+- Same visual style as person1 slider
+- Shows building-phase span for person2: `age {person2.currentAge} → {p2FiAge - 1}`
+- Calls `setP2FiAge(age)` on change
+
+Person1 slider label updated to "{p1Name}'s financial independence age" in couple mode only
+(single mode remains unchanged).
+
+### UI — Step 3 (`src/components/steps/Step3IncomeSources.tsx`)
+
+Update the DC pension drawdown label in person2's section to reference `p2FiAge` rather than
+`fiAge` (e.g., "Drawdown starts: Age {p2FiAge}").
+
+### Implementation checklist
+
+#### Data model & persistence
+- [ ] Add `p2FiAge?: number` to `PlannerState` in `src/models/types.ts`
+- [ ] Add `'p2FiAge'` to `PERSISTED_PLANNER_KEYS` in `src/lib/persistedPlan.ts`
+- [ ] Add `p2FiAge: undefined` default in `createDefaultState()` in `src/lib/mockData.ts`
+- [ ] Add backward-compat `?? undefined` fallback in `normalizePlannerState()` in `src/lib/mockData.ts`
+
+#### Planning bounds
+- [ ] Add `clampP2FiAge(p2FiAge, p2CurrentAge, lifeExpectancy)` to `src/lib/planningBounds.ts`
+- [ ] Update `normalizePlanningBounds()` to accept `p2FiAge` and return a clamped `p2FiAge`
+
+#### Store
+- [ ] Add `setP2FiAge(age: number)` action to `src/store/plannerStore.ts`
+- [ ] In `setP2Dob` / `setP2Age` — re-clamp `p2FiAge` if it falls below the new person2 current age
+- [ ] In `normalizePlanningBounds()` call sites — pass `s.p2FiAge ?? s.fiAge` and store the result
+
+#### Projection engine
+- [ ] Resolve `p2FiAge = state.p2FiAge ?? state.fiAge` at the top of `calculateProjections` in `src/financialEngine/projectionEngine.ts`
+- [ ] Compute `p2FiStarted = mode === 'couple' && p2Age !== null ? p2Age >= p2FiAge : true`
+- [ ] Move person2 DC contribution accumulation to use `p2FiStarted` instead of `householdFiStarted`
+
+#### UI — Step 1
+- [ ] In couple mode, add a second FI age slider for person2 in `src/components/steps/Step1HouseholdSetup.tsx`
+- [ ] Update person1 slider label to include person1's name in couple mode
+
+#### UI — Step 3
+- [ ] In person2's DC pension section, reference `p2FiAge` for the drawdown-start age label in `src/components/steps/Step3IncomeSources.tsx`
+
+#### Tests
+- [ ] Unit test: couple — person2 DC contributions continue past `fiAge` when `p2FiAge > fiAge`
+- [ ] Unit test: couple — person2 DC contributions stop exactly at `p2FiAge`
+- [ ] Unit test: couple — when `p2FiAge` is undefined, person2 behaves as if `p2FiAge === fiAge`
+- [ ] Unit test: single mode — `p2FiAge` is irrelevant; projections unchanged
+- [ ] Unit test: `clampP2FiAge` — clamps to `[person2.currentAge, getFiAgeMax(lifeExpectancy)]`
+- [ ] UI test: couple mode Step1 — p2 FI slider visible and calls `setP2FiAge`

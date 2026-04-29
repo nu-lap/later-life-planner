@@ -19,9 +19,13 @@ export default function Step1HouseholdSetup({ onNext }: Props) {
     person1, setP1Name, setP1Dob,
     person2, setP2Name, setP2Dob,
     fiAge, setFiAge,
+    p2FiAge: p2FiAgeRaw, setP2FiAge,
     assumptions, updateAssumptions,
     rlssStandard, applyRlssTemplate,
   } = usePlannerStore();
+
+  // In couple mode, p2FiAge defaults to fiAge if not explicitly set
+  const p2FiAge = mode === 'couple' ? (p2FiAgeRaw ?? fiAge) : fiAge;
 
   // Format a date value for display (age label)
   const ageLabel = (age: number) => `${age} years old`;
@@ -34,6 +38,9 @@ export default function Step1HouseholdSetup({ onNext }: Props) {
   const fiAgeMin = person1.currentAge;
   const fiAgeMax = Math.max(fiAgeMin, getFiAgeMax(assumptions.lifeExpectancy));
   const fiProgress = getRangeProgress(fiAge, fiAgeMin, fiAgeMax);
+  const p2FiAgeMin = mode === 'couple' ? person2.currentAge : fiAgeMin;
+  const p2FiAgeMax = Math.max(p2FiAgeMin, getFiAgeMax(assumptions.lifeExpectancy));
+  const p2FiProgress = getRangeProgress(p2FiAge, p2FiAgeMin, p2FiAgeMax);
   const planningHorizonProgress = getRangeProgress(
     assumptions.lifeExpectancy,
     planningHorizonMin,
@@ -174,29 +181,72 @@ export default function Step1HouseholdSetup({ onNext }: Props) {
           The age from which work becomes a choice, not a necessity. Life stages — Go-Go Years, Slo-Go Years,
           No-Go Years — begin here. You can still work beyond this age if you want to — this is about having options.
         </p>
-        <div className="flex items-center gap-4">
-          <input
-            type="range"
-            min={fiAgeMin}
-            max={fiAgeMax}
-            step={1}
-            value={fiAge}
-            onChange={(e) => setFiAge(parseInt(e.target.value))}
-            className="flex-1"
-            disabled={fiAgeMin === fiAgeMax}
-            style={{ background: `linear-gradient(to right, #f97316 ${fiProgress}%, #e2e8f0 ${fiProgress}%)` }}
-          />
-          <div className="w-16 h-14 bg-orange-500 text-white font-black text-xl rounded-2xl flex items-center justify-center flex-shrink-0">
-            {fiAge}
+
+        {/* Person 1 (or solo) slider */}
+        <div className={mode === 'couple' ? 'mb-5' : ''}>
+          {mode === 'couple' && (
+            <p className="text-sm font-semibold text-slate-700 mb-2">
+              {person1.name || 'Person 1'}
+            </p>
+          )}
+          <div className="flex items-center gap-4">
+            <input
+              type="range"
+              min={fiAgeMin}
+              max={fiAgeMax}
+              step={1}
+              value={fiAge}
+              onChange={(e) => setFiAge(parseInt(e.target.value))}
+              className="flex-1"
+              disabled={fiAgeMin === fiAgeMax}
+              aria-label={`${person1.name || 'Person 1'} financial independence age`}
+              style={{ background: `linear-gradient(to right, #f97316 ${fiProgress}%, #e2e8f0 ${fiProgress}%)` }}
+            />
+            <div className="w-16 h-14 bg-orange-500 text-white font-black text-xl rounded-2xl flex items-center justify-center flex-shrink-0">
+              {fiAge}
+            </div>
+          </div>
+          <div className="mt-3 flex items-center justify-between text-xs text-slate-400">
+            {fiAge > person1.currentAge
+              ? <span>Building phase: age {person1.currentAge} → {fiAge - 1}</span>
+              : <span>Freedom phase starts now</span>
+            }
+            <span>Freedom phase starts: age {fiAge}</span>
           </div>
         </div>
-        <div className="mt-3 flex items-center justify-between text-xs text-slate-400">
-          {fiAge > person1.currentAge
-            ? <span>Building phase: age {person1.currentAge} → {fiAge - 1}</span>
-            : <span>Freedom phase starts now</span>
-          }
-          <span>Freedom phase starts: age {fiAge}</span>
-        </div>
+
+        {/* Person 2 slider — couple mode only */}
+        {mode === 'couple' && (
+          <div>
+            <p className="text-sm font-semibold text-slate-700 mb-2">
+              {person2.name || 'Person 2'}
+            </p>
+            <div className="flex items-center gap-4">
+              <input
+                type="range"
+                min={p2FiAgeMin}
+                max={p2FiAgeMax}
+                step={1}
+                value={p2FiAge}
+                onChange={(e) => setP2FiAge(parseInt(e.target.value))}
+                className="flex-1"
+                disabled={p2FiAgeMin === p2FiAgeMax}
+                aria-label={`${person2.name || 'Person 2'} financial independence age`}
+                style={{ background: `linear-gradient(to right, #f97316 ${p2FiProgress}%, #e2e8f0 ${p2FiProgress}%)` }}
+              />
+              <div className="w-16 h-14 bg-orange-500 text-white font-black text-xl rounded-2xl flex items-center justify-center flex-shrink-0">
+                {p2FiAge}
+              </div>
+            </div>
+            <div className="mt-3 flex items-center justify-between text-xs text-slate-400">
+              {p2FiAge > person2.currentAge
+                ? <span>Building phase: age {person2.currentAge} → {p2FiAge - 1}</span>
+                : <span>Freedom phase starts now</span>
+              }
+              <span>Freedom phase starts: age {p2FiAge}</span>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Planning horizon */}
