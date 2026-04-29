@@ -14,11 +14,11 @@ export const GLOSSARY: Record<string, string> = {
   'Effective rate': 'Effective tax rate — your total lifetime tax (income tax + CGT) as a percentage of total gross income. A useful summary of overall tax efficiency.',
 
   // IHT-specific terms
-  IHT: `Inheritance Tax — a 40% tax on estates above the nil-rate bands. Currently charged on the portion of the estate exceeding the NRB (£${IHT.NRB.toLocaleString('en-GB')}) and RNRB where applicable.`,
+  IHT: `Inheritance Tax — a ${IHT.RATE * 100}% tax on estates above the nil-rate bands. Currently charged on the portion of the estate exceeding the NRB (£${IHT.NRB.toLocaleString('en-GB')}) and RNRB where applicable.`,
   NRB: `Nil-Rate Band — each person's IHT-free threshold (£${IHT.NRB.toLocaleString('en-GB')}). In a couple, any unused NRB transfers to the surviving spouse, potentially doubling it to £${(IHT.NRB * 2).toLocaleString('en-GB')}.`,
   PET: 'Potentially Exempt Transfer — a gift to an individual that becomes fully exempt from IHT if the giver survives at least 7 years after making it. If death occurs within 7 years, tapered IHT may apply.',
-  'Chargeable estate': 'The gross estate value after deducting all available nil-rate bands (NRB + RNRB). Inheritance Tax at 40% applies to this amount.',
-  'Gross estate': 'The total value of all assets — property, investments, cash, and pension (from April 2027) — before any nil-rate band deductions. This is the starting point for the IHT calculation.',
+  'Chargeable estate': `The gross estate value after deducting all available nil-rate bands (NRB + RNRB). Inheritance Tax at ${IHT.RATE * 100}% applies to this amount.`,
+  'Gross estate': `The total value of all assets — property, investments, cash, and pension (from April ${IHT.PENSION_ESTATE_INCLUSION_YEAR}) — before any nil-rate band deductions. This is the starting point for the IHT calculation.`,
   NMPA: 'Normal Minimum Pension Age — the earliest age you can normally access your pension without a protected pension age. Currently 55, rising to 57 in April 2028.',
   's.21 surplus income': 'Normal expenditure out of income (IHTA 1984 s.21) — gifts made regularly from surplus income (income that exceeds your normal living costs) are immediately exempt from IHT with no 7-year survival requirement.',
   's.19 annual exemption': `Annual exempt gift allowance (IHTA 1984 s.19) — you can give away £${IHT.ANNUAL_GIFT_EXEMPTION.toLocaleString('en-GB')}/year per person free of IHT, regardless of other gifts. Any unused allowance can be carried forward one year.`,
