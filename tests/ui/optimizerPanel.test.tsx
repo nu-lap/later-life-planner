@@ -579,7 +579,7 @@ describe('OptimizerPanel — Bed & ISA action columns', () => {
     render(<OptimizerPanel plannerState={plannerState} result={result} proEnabled={true} />);
     await userEvent.click(screen.getByRole('button', { name: '▼ Show breakdown' }));
 
-    expect(screen.getByText(/Bed & ISA/)).toBeInTheDocument();
+    expect(screen.getAllByText(/Bed & ISA/).length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText(/before 5 April/)).toBeInTheDocument();
   });
 
@@ -594,6 +594,29 @@ describe('OptimizerPanel — Bed & ISA action columns', () => {
     const table = screen.getByTestId('optimizer-drawdown-breakdown-table');
     expect(table).toBeInTheDocument();
     expect(screen.queryByText('Annual ISA action')).not.toBeInTheDocument();
+  });
+
+  test('BedIsaCell shows split breakdown (Into ISA + Covers ISA spending) when ISA withdrawal partially intercepts the transfer', async () => {
+    // Year 1 of pcls-bed-isa has p1Isa < p1Bed, so the table cell enters split mode and shows both sub-rows.
+    const plannerState = { ...paulAndLisaState(), drawdownStrategy: 'pcls-bed-isa' as const };
+    const result = optimizeWithdrawals(plannerState);
+
+    const record1 = result.yearRecords[1]!;
+    const proj1 = result.baselineProjections[record1.yearIndex]!;
+    const p1Isa = record1.drawdownBreakdown.person1.isa?.grossAmount ?? 0;
+    const p1Bed = proj1.p1BedIsaTransfer;
+    // Precondition: ISA withdrawal > 0 but less than the transfer — ensures both split sub-rows render
+    expect(p1Isa).toBeGreaterThan(0);
+    expect(p1Isa).toBeLessThan(p1Bed);
+
+    render(<OptimizerPanel plannerState={plannerState} result={result} proEnabled={true} />);
+    await userEvent.click(screen.getByRole('button', { name: '▼ Show breakdown' }));
+
+    // Split label replaces the standard "Move to ISA" header
+    expect(screen.getAllByText('GIA sold (Bed & ISA)').length).toBeGreaterThanOrEqual(1);
+    // Both destination sub-rows must be present (at least one each across all table cells)
+    expect(screen.getAllByText('↳ Into ISA:').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('↳ Covers ISA spending:').length).toBeGreaterThanOrEqual(1);
   });
 
   test('Bed & ISA cells show dash when no transfer needed that year', async () => {
@@ -738,6 +761,31 @@ describe('OptimizerPanel — Your action plan (Option B)', () => {
 
     const section = screen.getByTestId('action-plan-section');
     expect(within(section).getByText(/First year shown free/i)).toBeInTheDocument();
+  });
+
+  test('shows "Bed & ISA strategy active" banner in action plan when ISA spending partially intercepts the transfer', async () => {
+    // Year 1 of pcls-bed-isa: p1Isa=18,351 < p1Bed=23,397 → p1BedIsaToSpend=18,351 > 0 → banner shows
+    const plannerState = { ...paulAndLisaState(), drawdownStrategy: 'pcls-bed-isa' as const };
+    const result = optimizeWithdrawals(plannerState);
+
+    const record1 = result.yearRecords[1]!;
+    const proj1 = result.baselineProjections[record1.yearIndex]!;
+    const p1Isa = record1.drawdownBreakdown.person1.isa?.grossAmount ?? 0;
+    const p1Bed = proj1.p1BedIsaTransfer;
+    // Precondition: both amounts > 0 so p1BedIsaToSpend = min(p1Bed, p1Isa) > 0
+    expect(p1Isa).toBeGreaterThan(0);
+    expect(p1Bed).toBeGreaterThan(0);
+
+    render(<OptimizerPanel plannerState={plannerState} result={result} proEnabled={true} />);
+
+    const section = screen.getByTestId('action-plan-section');
+    await userEvent.click(within(section).getByRole('button', { name: 'Next year' }));
+    expect(within(section).getByText(record1.taxYear)).toBeInTheDocument();
+
+    // Banner heading must be visible
+    expect(within(section).getByText(/Bed & ISA strategy active/i)).toBeInTheDocument();
+    // Partial-redirect variant: some of the transfer still enters the ISA (p1BedIsaNetToIsa > 0)
+    expect(within(section).getByText(/Part of the planned GIA-to-ISA transfer/i)).toBeInTheDocument();
   });
 
   test('resets to year 0 when proEnabled flips from true to false', async () => {
