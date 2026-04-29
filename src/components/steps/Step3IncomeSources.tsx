@@ -308,7 +308,7 @@ function IncomeSection({ currentAge, fiAge, lifeExpectancy, src, assets, set }: 
             <span className="text-sm font-bold text-orange-600">Age {fiAge} <span className="font-normal text-slate-400">(your financial independence age)</span></span>
           </FieldRow>
           <div className="py-2 text-xs text-slate-500 bg-slate-50 rounded-xl px-3">
-            Each withdrawal is 25% tax-free and 75% taxable income. The full pot stays invested until needed. Workplace and SIPP contributions are projected only until FI age.
+            Workplace and SIPP contributions are projected only until FI age.
           </div>
         </SourceCard>
 
