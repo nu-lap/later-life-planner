@@ -580,7 +580,7 @@ describe('OptimizerPanel — Bed & ISA action columns', () => {
     await userEvent.click(screen.getByRole('button', { name: '▼ Show breakdown' }));
 
     expect(screen.getAllByText(/Bed & ISA/).length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByText(/before 5 April/));
+    expect(screen.getByText(/before 5 April/)).toBeInTheDocument();
   });
 
   test('does not show "Annual ISA action" column when no GIA exists to shelter', async () => {
