@@ -5,7 +5,7 @@ import { usePlannerStore } from '@/store/plannerStore';
 import { getStageTotals, getStageTotalSpending, formatCurrency } from '@/lib/calculations';
 import { RLSS_STANDARDS } from '@/lib/mockData';
 import { syncCareReserveGoal } from '@/lib/goalOrchestration';
-import { CARE_RESERVE } from '@/config/financialConstants';
+import { CARE_RESERVE, GAP_PERIOD_NET_SALARY_FACTOR } from '@/config/financialConstants';
 import type { SpendingTier, RlssStandard, PlannedEvent } from '@/models/types';
 import clsx from 'clsx';
 import { newId } from '@/lib/ids';
@@ -122,7 +122,7 @@ export default function Step2SpendingGoals({ onNext, onBack }: Props) {
   // Gap-period spending: smart default = max(0, go-go spending - estimated P2 net salary)
   const goGoSpend = getStageTotalSpending(state, 'go-go');
   const p2GrossSalary = person2.incomeSources.dcPension.workplaceSalary ?? 0;
-  const p2EstNetSalary = Math.round((p2GrossSalary * 0.68) / 100) * 100; // rounded to £100
+  const p2EstNetSalary = Math.round((p2GrossSalary * GAP_PERIOD_NET_SALARY_FACTOR) / 100) * 100; // rounded to £100
   const gapSmartDefault = Math.max(0, Math.round((goGoSpend - p2EstNetSalary) / 100) * 100);
   const gapDisplayValue = gapSpending ?? gapSmartDefault;
 
@@ -612,7 +612,7 @@ export default function Step2SpendingGoals({ onNext, onBack }: Props) {
 
             {gapDisplayValue === 0 && (
               <p className="text-xs text-emerald-700 bg-emerald-50 rounded-lg px-3 py-2 border border-emerald-200">
-                ✓ {person2.name || 'Person 2'}&apos;s salary is expected to cover all spending — no drawdown needed during the gap.
+                ✓ Regular spending during the gap is estimated to be covered by {person2.name || 'Person 2'}&apos;s take-home pay — drawdown for day-to-day costs may be minimal. One-off events and other factors may still require some drawdown.
               </p>
             )}
             {gapSpending !== undefined && (

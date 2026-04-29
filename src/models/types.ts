@@ -348,6 +348,12 @@ export interface YearlyProjection {
   p2PartTimeWork: number;
   p2OtherIncome: number;
   p2PropertyRent: number;
+  /**
+   * Estimated P2 net take-home salary during gap years (P1 retired, P2 still working).
+   * Computed as gross salary × GAP_PERIOD_NET_SALARY_FACTOR, inflation-adjusted.
+   * Zero in non-gap years or single-person plans.
+   */
+  p2GapSalary: number;
 
   // Per-person asset drawdowns
   p1IsaDrawdown: number;
