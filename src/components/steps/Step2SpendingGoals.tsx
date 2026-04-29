@@ -656,11 +656,6 @@ interface EventFormProps {
 function EventForm({ event, minAge, maxAge, onChange, onSave, onCancel }: EventFormProps) {
   const isValid = event.name.trim().length > 0 && event.amount > 0 && event.p1Age >= minAge && event.p1Age <= maxAge;
 
-  function toggleInflation() { onChange({ ...event, inflationLinked: !event.inflationLinked }); }
-  function handleInflationKeyDown(e: React.KeyboardEvent) {
-    if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); toggleInflation(); }
-  }
-
   return (
     <div className="rounded-xl border border-purple-200 bg-white p-4 mb-4 space-y-3">
       {/* Emoji picker */}
