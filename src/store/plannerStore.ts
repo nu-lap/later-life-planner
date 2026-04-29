@@ -351,10 +351,12 @@ export const usePlannerStore = create<PlannerState & Actions>()(
               s.mode === 'couple' ? s.person2.currentAge : 0,
               s.fiAge,
               newAssumptions.lifeExpectancy,
+              s.p2FiAge,
             );
 
             return {
               fiAge: normalized.fiAge,
+              p2FiAge: normalized.p2FiAge,
               assumptions: { ...newAssumptions, lifeExpectancy: normalized.lifeExpectancy },
               lifeStages: syncLifeStages(s.lifeStages, normalized.fiAge, normalized.lifeExpectancy),
             };

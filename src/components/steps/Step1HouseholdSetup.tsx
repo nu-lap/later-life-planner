@@ -199,6 +199,7 @@ export default function Step1HouseholdSetup({ onNext }: Props) {
               onChange={(e) => setFiAge(parseInt(e.target.value))}
               className="flex-1"
               disabled={fiAgeMin === fiAgeMax}
+              aria-label={`${person1.name || 'Person 1'} financial independence age`}
               style={{ background: `linear-gradient(to right, #f97316 ${fiProgress}%, #e2e8f0 ${fiProgress}%)` }}
             />
             <div className="w-16 h-14 bg-orange-500 text-white font-black text-xl rounded-2xl flex items-center justify-center flex-shrink-0">
@@ -230,6 +231,7 @@ export default function Step1HouseholdSetup({ onNext }: Props) {
                 onChange={(e) => setP2FiAge(parseInt(e.target.value))}
                 className="flex-1"
                 disabled={p2FiAgeMin === p2FiAgeMax}
+                aria-label={`${person2.name || 'Person 2'} financial independence age`}
                 style={{ background: `linear-gradient(to right, #f97316 ${p2FiProgress}%, #e2e8f0 ${p2FiProgress}%)` }}
               />
               <div className="w-16 h-14 bg-orange-500 text-white font-black text-xl rounded-2xl flex items-center justify-center flex-shrink-0">

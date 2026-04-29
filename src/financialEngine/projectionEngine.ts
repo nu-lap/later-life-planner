@@ -127,8 +127,12 @@ export function calculateProjections(state: PlannerState): YearlyProjection[] {
   const drawdownStrategy = state.drawdownStrategy ?? 'standard-ufpls';
   const isPclsBedIsa = drawdownStrategy === 'pcls-bed-isa';
 
-  // Resolve person2's FI age: user-specified, else falls back to person1's fiAge
-  const p2FiAge = state.p2FiAge ?? fiAge;
+  // Resolve person2's FI age: user-specified, else preserve original household behaviour
+  // by computing the age person2 would be when person1 reaches fiAge. This ensures
+  // existing couple plans (where p2FiAge was never stored) continue to produce identical
+  // projections to before this field was introduced.
+  const p2FiAge = state.p2FiAge ??
+    (mode === 'couple' ? person2.currentAge + (fiAge - person1.currentAge) : fiAge);
 
   // Resolve the PCLS crystallisation age: user-specified (≥ current age and NMPA), else fiAge.
   // NMPA is 55 before calendar year 2028, rising to 57 from 2028 onwards.

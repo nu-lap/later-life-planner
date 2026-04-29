@@ -303,10 +303,11 @@ export interface PlannerState {
    */
   pclsAge?: number;
   /**
-   * Financial independence age for person2 — the age at which person2's work income
-   * and DC pension contributions stop. Only used in couple mode; ignored in single mode.
-   * Defaults to `fiAge` (person1's FI age) when not set, so existing plans are
-   * fully backward-compatible.
+   * Financial independence age for person 2 — the age at which person 2's DC pension
+   * contributions stop. This value is also used as the drawdown label anchor in Step 3.
+   * Only used in couple mode; ignored in single mode.
+   * When not set, the engine derives the age person 2 would be when person 1 reaches
+   * `fiAge`, preserving backward-compatible behaviour for existing plans.
    */
   p2FiAge?: number;
   /**
