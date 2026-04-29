@@ -22,6 +22,8 @@ import {
 } from '@/financialEngine/giftingOptimiser';
 import { formatCurrency } from '@/financialEngine/projectionEngine';
 import { DEFAULT_ASSUMPTIONS, IHT, getRNRBForYear, getRNRBTaperThresholdForYear } from '@/config/financialConstants';
+import InfoIcon from '@/components/ui/InfoIcon';
+import { GLOSSARY } from '@/lib/glossary';
 
 interface IHTOutlookPanelProps {
   state: PlannerState;
@@ -211,7 +213,7 @@ export default function IHTOutlookPanel({ state, projections }: IHTOutlookPanelP
       <div className="flex items-center gap-3 mb-5">
         <span className="text-2xl flex-shrink-0">&#127963;</span>
         <div>
-          <h3 className="font-black text-slate-900 text-base">IHT Estate Planning</h3>
+          <h3 className="font-black text-slate-900 text-base flex items-center">IHT Estate Planning<InfoIcon term="IHT" tooltip={GLOSSARY.IHT} /></h3>
           <p className="text-xs text-slate-500 mt-0.5">
             Projected inheritance tax at end of plan horizon
           </p>
@@ -253,7 +255,7 @@ export default function IHTOutlookPanel({ state, projections }: IHTOutlookPanelP
             </div>
           )}
           <div className="flex justify-between items-center text-sm py-1.5 font-bold">
-            <span className="text-slate-800">Gross estate</span>
+            <span className="text-slate-800 flex items-center">Gross estate<InfoIcon term="Gross estate" tooltip={GLOSSARY['Gross estate']} /></span>
             <span className="text-slate-900">{formatCurrency(result.grossEstate, true)}</span>
           </div>
         </div>
@@ -261,8 +263,8 @@ export default function IHTOutlookPanel({ state, projections }: IHTOutlookPanelP
 
       {/* Section 2 - IHT Projection */}
       <div className="mb-5">
-        <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">
-          IHT Projection
+        <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-2 flex items-center">
+          IHT Projection<InfoIcon term="IHT" tooltip={GLOSSARY.IHT} />
         </h4>
         {/* Amber: approaching taper zone — estate between warning threshold and taper threshold */}
         {result.rnrbTaperWarning && result.grossEstate <= taperThreshold && (
@@ -296,7 +298,7 @@ export default function IHTOutlookPanel({ state, projections }: IHTOutlookPanelP
         )}
         <div className="grid grid-cols-2 gap-3">
           <div className="rounded-xl bg-white border border-slate-200 p-3">
-            <p className="text-xs text-slate-500 mb-1">NRB available</p>
+            <p className="text-xs text-slate-500 mb-1 flex items-center">NRB available<InfoIcon term="NRB" tooltip={GLOSSARY.NRB} /></p>
             <p className="text-lg font-black text-slate-800">
               {formatCurrency(result.nrbAvailable, true)}
             </p>
@@ -305,7 +307,7 @@ export default function IHTOutlookPanel({ state, projections }: IHTOutlookPanelP
             )}
           </div>
           <div className="rounded-xl bg-white border border-slate-200 p-3">
-            <p className="text-xs text-slate-500 mb-1">RNRB available</p>
+            <p className="text-xs text-slate-500 mb-1 flex items-center">RNRB available<InfoIcon term="RNRB" tooltip={GLOSSARY.RNRB} /></p>
             <p className="text-lg font-black text-slate-800">
               {formatCurrency(result.rnrbAvailable, true)}
             </p>
@@ -317,7 +319,7 @@ export default function IHTOutlookPanel({ state, projections }: IHTOutlookPanelP
             )}
           </div>
           <div className="rounded-xl bg-white border border-slate-200 p-3">
-            <p className="text-xs text-slate-500 mb-1">Chargeable estate</p>
+            <p className="text-xs text-slate-500 mb-1 flex items-center">Chargeable estate<InfoIcon term="Chargeable estate" tooltip={GLOSSARY['Chargeable estate']} /></p>
             <p className="text-lg font-black text-slate-800">
               {formatCurrency(result.chargeableEstate, true)}
             </p>
@@ -329,7 +331,7 @@ export default function IHTOutlookPanel({ state, projections }: IHTOutlookPanelP
                 : 'bg-green-50 border border-green-200'
             }`}
           >
-            <p className="text-xs text-slate-500 mb-1">IHT due</p>
+            <p className="text-xs text-slate-500 mb-1 flex items-center">IHT due<InfoIcon term="IHT" tooltip={GLOSSARY.IHT} /></p>
             <p
               className={`text-lg font-black ${
                 result.ihtDue > 0 ? 'text-red-700' : 'text-green-700'
@@ -410,7 +412,7 @@ export default function IHTOutlookPanel({ state, projections }: IHTOutlookPanelP
             <div className="space-y-1.5">
               {gifting.annualExemptFromIncome > 0 && (
                 <div className="flex justify-between items-center text-sm">
-                  <span className="text-slate-600">Surplus income gifts (s.21)</span>
+                  <span className="text-slate-600 flex items-center">Surplus income gifts (s.21)<InfoIcon term="s.21 surplus income" tooltip={GLOSSARY['s.21 surplus income']} /></span>
                   <span className="font-bold text-green-800">
                     {formatCurrency(gifting.annualExemptFromIncome, true)}/yr
                   </span>
@@ -418,11 +420,11 @@ export default function IHTOutlookPanel({ state, projections }: IHTOutlookPanelP
               )}
               <div className="flex justify-between items-center text-sm">
                 <span className="text-slate-600">
-                  Annual exempt allowance (s.19
+                  <span className="flex items-center">Annual exempt allowance (s.19<InfoIcon term="s.19 annual exemption" tooltip={GLOSSARY['s.19 annual exemption']} />
                   {gifting.annualExemptGiftAllowance > IHT.ANNUAL_GIFT_EXEMPTION
                     ? ', both spouses'
                     : ''}
-                  )
+                  )</span>
                 </span>
                 <span className="font-bold text-green-800">
                   {formatCurrency(gifting.annualExemptGiftAllowance, true)}/yr
@@ -431,7 +433,7 @@ export default function IHTOutlookPanel({ state, projections }: IHTOutlookPanelP
               {gifting.annualDCDrawdownGiftNet > 0 && (
                 <div className="flex justify-between items-center text-sm">
                   <span className="text-slate-600">
-                    DC drawdown &amp; gift (PET, net of{' '}
+                    DC drawdown &amp; gift (<span className="inline-flex items-center">PET<InfoIcon term="PET" tooltip={GLOSSARY.PET} /></span>, net of{' '}
                     {(gifting.marginalIncomeTaxRate * 100).toFixed(0)}% income tax)
                   </span>
                   <span className="font-bold text-green-800">
@@ -588,7 +590,7 @@ export default function IHTOutlookPanel({ state, projections }: IHTOutlookPanelP
           </h4>
           <p className="text-xs text-slate-400 mb-3">
             Directional estimates — does not re-run the full projection engine.
-            All scenarios assume DC lump sums / drawdown proceeds are gifted as PETs (&gt;7 yrs
+            All scenarios assume DC lump sums / drawdown proceeds are gifted as <span className="inline-flex items-center">PETs<InfoIcon term="PET" tooltip={GLOSSARY.PET} /></span> (&gt;7 yrs
             before death).
           </p>
 
@@ -646,7 +648,7 @@ export default function IHTOutlookPanel({ state, projections }: IHTOutlookPanelP
                         <span className="font-bold text-red-600">−{formatCurrency(s.annualIncomeTaxCost, true)}/yr</span>
                       </div>
                       <div className="flex justify-between items-center text-sm">
-                        <span className="text-slate-600">Net annual gift (PET)</span>
+                        <span className="text-slate-600 flex items-center">Net annual gift (PET)<InfoIcon term="PET" tooltip={GLOSSARY.PET} /></span>
                         <span className="font-bold text-green-700">{formatCurrency(s.annualGift, true)}/yr</span>
                       </div>
                     </>
