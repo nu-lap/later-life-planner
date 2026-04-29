@@ -617,7 +617,7 @@ export default function Step2SpendingGoals({ onNext, onBack }: Props) {
                 ✓ Regular spending during the gap is estimated to be covered by {person2.name || 'Person 2'}&apos;s take-home pay — drawdown for day-to-day costs may be minimal. One-off events and other factors may still require some drawdown.
               </p>
             )}
-            {gapSpending !== undefined && (
+            {gapSpending !== undefined && gapSpending !== gapSmartDefault && (
               <button
                 type="button"
                 onClick={() => setGapSpending(undefined)}
