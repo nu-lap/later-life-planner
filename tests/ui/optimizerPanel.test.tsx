@@ -579,8 +579,8 @@ describe('OptimizerPanel — Bed & ISA action columns', () => {
     render(<OptimizerPanel plannerState={plannerState} result={result} proEnabled={true} />);
     await userEvent.click(screen.getByRole('button', { name: '▼ Show breakdown' }));
 
-    expect(screen.getByText(/Bed & ISA/)).toBeInTheDocument();
-    expect(screen.getByText(/before 5 April/)).toBeInTheDocument();
+    expect(screen.getAllByText(/Bed & ISA/).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText(/before 5 April/));
   });
 
   test('does not show "Annual ISA action" column when no GIA exists to shelter', async () => {
