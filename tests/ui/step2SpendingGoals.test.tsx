@@ -84,12 +84,9 @@ describe('Step2SpendingGoals', () => {
     // Initially gapSpending is 1000 and smart default should be 0 (because person2 salary is large)
     expect(screen.getByRole('button', { name: /Reset to smart default/i })).toBeDefined();
 
-    // Simulate moving the slider to 0 (smart default)
-    const slider = screen.getAllByRole('slider').find((el) => el.getAttribute('min') === '0' && el.getAttribute('max') !== null);
-    expect(slider).toBeDefined();
-    if (slider) {
-      fireEvent.change(slider, { target: { value: '0' } });
-    }
+    // Simulate moving the slider to 0 (smart default) — query by accessible name for robustness
+    const slider = screen.getByRole('slider', { name: /target spending during gap/i });
+    fireEvent.change(slider, { target: { value: '0' } });
 
     // Simulate the store update that would occur when the slider is moved to the default
     plannerState.gapSpending = 0;

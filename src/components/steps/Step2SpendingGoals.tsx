@@ -592,12 +592,13 @@ export default function Step2SpendingGoals({ onNext, onBack }: Props) {
 
           <div className="space-y-3">
             <div className="flex justify-between items-center">
-              <span className="text-sm text-blue-800 font-medium">Target spending during gap</span>
+              <span id="gap-spending-label" className="text-sm text-blue-800 font-medium">Target spending during gap</span>
               <span className="text-lg font-bold text-blue-900">{formatCurrency(gapDisplayValue, true)}/yr</span>
             </div>
 
             <input
               type="range"
+              aria-labelledby="gap-spending-label"
               min={0}
               max={goGoSpend}
               step={100}
@@ -724,14 +725,12 @@ function EventForm({ event, minAge, maxAge, onChange, onSave, onCancel }: EventF
       </div>
 
       {/* Inflation toggle */}
-      <div className="flex items-center gap-4">
-        <Toggle
-          checked={event.inflationLinked}
-          onChange={(v) => onChange({ ...event, inflationLinked: v })}
-          label="Adjust for inflation between now and when you spend it"
-          ariaLabel={`Adjust for inflation for ${event.name}`}
-        />
-      </div>
+      <Toggle
+        checked={event.inflationLinked}
+        onChange={(v) => onChange({ ...event, inflationLinked: v })}
+        label="Adjust for inflation between now and when you spend it"
+        ariaLabel={`Adjust for inflation for ${event.name}`}
+      />
 
       <div className="flex gap-2 pt-1">
         <button
