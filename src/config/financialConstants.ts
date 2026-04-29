@@ -135,6 +135,25 @@ export const PENSION_RULES = {
   NMPA_RISE_YEAR: 2028,
 } as const;
 
+// ─── Gap-period salary net factor ────────────────────────────────────────────
+// Applied to P2's gross workplace salary during the gap period (P1 retired, P2
+// still working) to estimate the take-home net amount used in the projection.
+// Approximation: 20% basic-rate income tax + 12% employee NI Class 1 → ~32%
+// combined deduction → ~68% retained (1 – 0.20 – 0.12 = 0.68).
+// This is intentionally a simple estimate; the engine does not run a full
+// marginal-tax simulation for gap-period earnings.
+// Source: HMRC income tax (INCOME_TAX.BASIC_RATE = 0.20) +
+//         NI Class 1 employee rate 12% (HMRC NIC Schedule — effective for
+//         earnings between the primary threshold and upper earnings limit).
+// User-adjustable: No (reflect UK statutory deductions).
+
+/**
+ * Fraction of a P2 gross salary retained as take-home during the gap period.
+ * Approximation: basic-rate income tax (20%) + employee NI Class 1 (12%) = 32%
+ * deduction, leaving 68% net.
+ */
+export const GAP_PERIOD_NET_SALARY_FACTOR = 0.68;
+
 // ─── Default projection assumptions ─────────────────────────────────────────
 // User-adjustable: Yes — displayed in Step 3 and overrideable via env vars.
 // Source: UK long-run market averages and OBR inflation forecasts.

@@ -167,7 +167,10 @@ function buildFixedIncomeContext(row: YearlyProjection): FixedIncomeContext {
     p1OtherTaxable,
     p2StatePension: row.p2StatePension,
     p2OtherTaxable,
-    total: row.p1StatePension + p1OtherTaxable + row.p2StatePension + p2OtherTaxable,
+    // p2GapSalary is the estimated net take-home during gap years — already
+    // after the approximate 20% IT + 12% NI deduction so it is not added to
+    // taxable income, only to the total that reduces the drawdown requirement.
+    total: row.p1StatePension + p1OtherTaxable + row.p2StatePension + p2OtherTaxable + (row.p2GapSalary ?? 0),
   };
 }
 

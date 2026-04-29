@@ -540,6 +540,15 @@ export default function OptimizerPanel({ plannerState, result, proEnabled, onPro
                 <p className="text-xs text-slate-500">
                   Age {apRecord.p1Age}{apRecord.p2Age !== null ? ` / ${apRecord.p2Age}` : ''}
                 </p>
+                {(() => {
+                  const p2FiAge = plannerState.p2FiAge ?? plannerState.fiAge;
+                  const inGap = isCouple && apRecord.p1Age >= plannerState.fiAge && apRecord.p2Age !== null && apRecord.p2Age < p2FiAge;
+                  return inGap ? (
+                    <span className="inline-block mt-0.5 text-[10px] font-semibold bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
+                      {person2Label} still working
+                    </span>
+                  ) : null;
+                })()}
               </div>
               <button
                 type="button"

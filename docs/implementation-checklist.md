@@ -610,3 +610,122 @@ Update the DC pension drawdown label in person2's section to reference `p2FiAge`
 - [ ] Unit test: single mode — `p2FiAge` is irrelevant; projections unchanged
 - [ ] Unit test: `clampP2FiAge` — clamps to `[person2.currentAge, getFiAgeMax(lifeExpectancy)]`
 - [ ] UI test: couple mode Step1 — p2 FI slider visible and calls `setP2FiAge`
+
+---
+
+### Phase 11 Extension — Gap-Period Spending Adjustment
+
+#### Problem
+
+When `p2FiAge > fiAge` there is a **gap period** where P1 has retired but P2 is still
+working. Two bugs/gaps exist:
+
+1. **Engine omission**: P2's `workplaceSalary` is only used to calculate DC pension
+   contributions — it is never surfaced as income in `fixedIncome`. The engine therefore
+   draws down P1's savings as if P2 earns nothing during the gap.
+
+2. **Spending target**: Household costs may genuinely differ during the gap (P1 stops
+   commuting; one salary is still coming in). Users need a way to set a lower spending
+   target for this phase.
+
+#### Solution
+
+**Part 1 — Engine: add P2's estimated net salary to `fixedIncome` during the gap**
+
+During gap years (`householdFiStarted && !p2FiStarted`) add:
+
+```typescript
+const p2GapNetSalary = (!p2FiStarted && mode === 'couple')
+  ? Math.max(0, (person2.incomeSources.dcPension.workplaceSalary ?? 0) * inflFactor * 0.68)
+  : 0;
+```
+
+to `fixedIncome`. The `0.68` factor approximates 20% income tax + 12% NI for a
+mid-range salary. If P2 has no `workplaceSalary` the value is 0 (no change from
+today). A future improvement can replace this with the full tax engine.
+
+**Part 2 — State: `gapSpending?: number`**
+
+Optional field in `PlannerState` (today's money). During gap years the engine uses
+`gapSpending` (inflation-adjusted) instead of `baseSpend` (the post-FI stage
+spending) as the target. `undefined` = same as retirement spending (backward-compat).
+
+Smart default shown in UI: `max(0, retirementSpending − p2EstimatedNetSalary)`, floored
+at £0. If P2 earns enough to cover all retirement spending, the pre-fill is £0 and no
+drawdown is expected.
+
+#### Data model addition (`src/models/types.ts`)
+
+```typescript
+/**
+ * Household spending target during the gap period (P1 retired, P2 still working).
+ * In today's money; inflation-adjusted in the engine. Only relevant in couple mode
+ * when p2FiAge > fiAge. Defaults to the post-FI life-stage spending when undefined.
+ */
+gapSpending?: number;
+```
+
+#### Engine changes (`src/financialEngine/projectionEngine.ts`)
+
+```typescript
+// Determine whether we are in the gap period
+const inGapPeriod = householdFiStarted && !p2FiStarted && mode === 'couple';
+
+// Part 1: P2 net salary added to fixed income during gap
+const p2GapNetSalary = inGapPeriod
+  ? Math.max(0, (person2.incomeSources.dcPension.workplaceSalary ?? 0) * inflFactor * 0.68)
+  : 0;
+// ... add p2GapNetSalary into fixedIncome total
+
+// Part 2: use gapSpending as the spending target during gap
+const gapSpendTarget = state.gapSpending !== undefined
+  ? state.gapSpending * inflFactor
+  : baseSpend;
+const spending = (inGapPeriod ? gapSpendTarget : baseSpend) + eventSpend;
+```
+
+#### UI — Step 2 Spending Goals (`src/components/steps/Step2SpendingGoals.tsx`)
+
+Show a collapsible section below the life-stage tabs, **only when**
+`mode === 'couple' && p2FiAge > fiAge`:
+
+> **Gap period spending** *(P1 retired, P2 still working)*
+> During the gap ({p1Name} aged {fiAge}–{p2FiAge - 1}), P2's salary covers some or all
+> of your household costs. Set a lower spending target if your costs reduce.
+>
+> [slider / number input] £XX,XXX/yr  ← smart default
+
+#### Dashboard (`src/components/steps/Step4Dashboard.tsx`)
+
+Action plan rows during the gap period show:
+- Phase label: "Gap — {p2Name} still working"
+- P2's estimated take-home: "~£XX,XXX/yr from {p2Name}'s salary"
+
+#### Implementation checklist — Gap Extension
+
+##### Data model & persistence
+- [ ] Add `gapSpending?: number` to `PlannerState` in `src/models/types.ts`
+- [ ] Add `'gapSpending'` to `PERSISTED_PLANNER_KEYS` in `src/lib/persistedPlan.ts`
+- [ ] Pass through `gapSpending` in `normalizePlannerState()` in `src/lib/mockData.ts`
+
+##### Store
+- [ ] Add `setGapSpending(amount: number | undefined)` action to `src/store/plannerStore.ts`
+
+##### Projection engine
+- [ ] Compute `inGapPeriod = householdFiStarted && !p2FiStarted && mode === 'couple'`
+- [ ] Add `p2GapNetSalary` (workplaceSalary × 0.68 × inflFactor) to `fixedIncome` when `inGapPeriod`
+- [ ] Use `gapSpending * inflFactor` (falling back to `baseSpend`) as `spending` target when `inGapPeriod`
+
+##### UI — Step 2
+- [ ] Add gap-period spending section to `src/components/steps/Step2SpendingGoals.tsx` (couple + gap only)
+- [ ] Pre-fill smart default: `max(0, retirementSpending − p2EstNetSalary)` rounded to nearest £100
+- [ ] Slider min 0, max `retirementSpending`, step £100; shows "£0 — P2's salary covers everything"
+
+##### UI — Dashboard
+- [ ] Label gap years in Action Plan rows in `src/components/steps/Step4Dashboard.tsx`
+- [ ] Show P2 estimated take-home alongside the label
+
+##### Tests
+- [ ] Unit test: gap year — P2 net salary appears in `fixedIncome`; no drawdown when salary ≥ gapSpending
+- [ ] Unit test: `gapSpending` overrides `baseSpend` during gap but not outside gap
+- [ ] Unit test: `gapSpending = undefined` — behaviour identical to today (baseSpend used)

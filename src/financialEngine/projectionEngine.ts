@@ -40,7 +40,7 @@ import type {
   PersonIncomeSources, PersonAssets, SimulationResult,
   GamificationMetrics,
 } from '@/models/types';
-import { CGT, PENSION_RULES, RLSS, CURRENT_TAX_YEAR_START } from '@/config/financialConstants';
+import { CGT, PENSION_RULES, RLSS, CURRENT_TAX_YEAR_START, GAP_PERIOD_NET_SALARY_FACTOR } from '@/config/financialConstants';
 import { getSnapshotForYear } from '@/config/taxRuleSnapshot';
 import { calcIncomeTax, calcCGT, drawFromGIA, isHigherRateTaxpayer } from './taxCalculations';
 
@@ -205,7 +205,14 @@ export function calculateProjections(state: PlannerState): YearlyProjection[] {
     const eventSpend  = (state.plannedEvents ?? [])
       .filter((e) => e.p1Age === p1Age)
       .reduce((s, e) => s + (e.inflationLinked ? e.amount * inflFactor : e.amount), 0);
-    const spending    = baseSpend + eventSpend;
+
+    // During the gap period P1 has retired but P2 is still working — use gapSpending
+    // as the spending target if the user has set one, otherwise fall back to baseSpend.
+    const inGapPeriod = householdFiStarted && mode === 'couple' && p2Age !== null && p2Age < p2FiAge;
+    const gapSpendTarget = state.gapSpending !== undefined
+      ? state.gapSpending * inflFactor
+      : baseSpend;
+    const spending    = (inGapPeriod ? gapSpendTarget : baseSpend) + eventSpend;
 
     // ── Fixed income ──────────────────────────────────────────────────────
     const p1Inc = personIncome(person1.incomeSources, person1.assets, p1Age, y, inflation);
@@ -218,7 +225,13 @@ export function calculateProjections(state: PlannerState): YearlyProjection[] {
     const p2RentEffective = jointPropP1 ? 0 : p2Inc.rent; // already counted in p1Inc.rent
 
     const fixedIncome = p1Inc.sp + p1Inc.db + p1Inc.ptw + p1Inc.other + p1Inc.rent
-                      + p2Inc.sp + p2Inc.db + p2Inc.ptw + p2Inc.other + p2RentEffective;
+                      + p2Inc.sp + p2Inc.db + p2Inc.ptw + p2Inc.other + p2RentEffective
+                      + (inGapPeriod
+                          ? Math.max(0, (person2.incomeSources.dcPension.workplaceSalary ?? 0) * inflFactor * GAP_PERIOD_NET_SALARY_FACTOR)
+                          : 0);
+    const p2GapSalary = inGapPeriod
+      ? Math.max(0, (person2.incomeSources.dcPension.workplaceSalary ?? 0) * inflFactor * GAP_PERIOD_NET_SALARY_FACTOR)
+      : 0;
 
     // ── Asset growth (before drawdown) ────────────────────────────────────
     if (p1Isa            > 0) p1Isa            *= (1 + p1IsaG);
@@ -685,6 +698,7 @@ export function calculateProjections(state: PlannerState): YearlyProjection[] {
       p1OtherIncome: p1Inc.other, p1PropertyRent: p1Inc.rent,
       p2StatePension: p2Inc.sp, p2DbPension: p2Inc.db, p2PartTimeWork: p2Inc.ptw,
       p2OtherIncome: p2Inc.other, p2PropertyRent: p2RentEffective,
+      p2GapSalary: Math.round(p2GapSalary),
 
       p1IsaDrawdown: p1IsaD, p1GiaDrawdown: p1GiaD, p1CashDrawdown: p1CashD, p1DcDrawdown: p1DcD,
       p2IsaDrawdown: p2IsaD, p2GiaDrawdown: p2GiaD, p2CashDrawdown: p2CashD, p2DcDrawdown: p2DcD,

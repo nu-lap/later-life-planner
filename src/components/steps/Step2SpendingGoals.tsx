@@ -5,7 +5,7 @@ import { usePlannerStore } from '@/store/plannerStore';
 import { getStageTotals, getStageTotalSpending, formatCurrency } from '@/lib/calculations';
 import { RLSS_STANDARDS } from '@/lib/mockData';
 import { syncCareReserveGoal } from '@/lib/goalOrchestration';
-import { CARE_RESERVE } from '@/config/financialConstants';
+import { CARE_RESERVE, GAP_PERIOD_NET_SALARY_FACTOR } from '@/config/financialConstants';
 import type { SpendingTier, RlssStandard, PlannedEvent } from '@/models/types';
 import clsx from 'clsx';
 import { newId } from '@/lib/ids';
@@ -64,7 +64,13 @@ export default function Step2SpendingGoals({ onNext, onBack }: Props) {
     updatePlannedEvent,
     removePlannedEvent,
     person1,
+    person2,
+    fiAge,
+    gapSpending,
+    setGapSpending,
   } = state;
+  const p2FiAge = state.p2FiAge ?? fiAge;
+  const hasGap = mode === 'couple' && p2FiAge > fiAge;
 
   const [activeStageId, setActiveStageId] = useState(lifeStages[0]?.id ?? 'active');
   const [openTiers, setOpenTiers] = useState<Record<string, boolean>>({ essential: true, moderate: true, aspirational: false, variable: false });
@@ -112,6 +118,13 @@ export default function Step2SpendingGoals({ onNext, onBack }: Props) {
 
   const currentP1Age = person1.currentAge;
   const maxP1Age = state.assumptions.lifeExpectancy;
+
+  // Gap-period spending: smart default = max(0, go-go spending - estimated P2 net salary)
+  const goGoSpend = getStageTotalSpending(state, 'go-go');
+  const p2GrossSalary = person2.incomeSources.dcPension.workplaceSalary ?? 0;
+  const p2EstNetSalary = Math.round((p2GrossSalary * GAP_PERIOD_NET_SALARY_FACTOR) / 100) * 100; // rounded to £100
+  const gapSmartDefault = Math.max(0, Math.round((goGoSpend - p2EstNetSalary) / 100) * 100);
+  const gapDisplayValue = gapSpending ?? gapSmartDefault;
 
   function openNewEvent(preset?: { emoji: string; name: string; amount: number }) {
     setEditingEvent({
@@ -546,6 +559,74 @@ export default function Step2SpendingGoals({ onNext, onBack }: Props) {
           </p>
         )}
       </div>
+
+      {/* Gap-period spending — only shown in couple mode when p2FiAge > fiAge */}
+      {hasGap && (
+        <div className="rounded-2xl border border-blue-200 bg-blue-50 p-5">
+          <div className="flex items-start justify-between mb-1">
+            <div>
+              <h3 className="text-sm font-bold text-blue-900">
+                Gap period spending
+              </h3>
+              <p className="text-xs text-blue-700 mt-0.5">
+                {person1.name || 'Person 1'} retires at {fiAge},{' '}
+                {person2.name || 'Person 2'} continues working until {p2FiAge}.
+              </p>
+            </div>
+            <span className="text-xs font-semibold bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
+              {fiAge}–{p2FiAge - 1}
+            </span>
+          </div>
+
+          <p className="text-xs text-blue-600 mb-4">
+            During this {p2FiAge - fiAge}-year gap, {person2.name || 'Person 2'}&apos;s salary
+            automatically offsets household spending. Set a lower target here if your
+            costs reduce when one person stops commuting / working.
+            {p2EstNetSalary > 0 && (
+              <span className="ml-1 font-medium">
+                (~{formatCurrency(p2EstNetSalary, true)}/yr estimated take-home from {person2.name || 'Person 2'}&apos;s salary)
+              </span>
+            )}
+          </p>
+
+          <div className="space-y-3">
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-blue-800 font-medium">Target spending during gap</span>
+              <span className="text-lg font-bold text-blue-900">{formatCurrency(gapDisplayValue, true)}/yr</span>
+            </div>
+
+            <input
+              type="range"
+              min={0}
+              max={goGoSpend}
+              step={100}
+              value={gapDisplayValue}
+              onChange={(e) => setGapSpending(Number(e.target.value))}
+              className="w-full accent-blue-600"
+            />
+
+            <div className="flex justify-between text-xs text-blue-500">
+              <span>£0 — fully covered by {person2.name || 'Person 2'}&apos;s salary</span>
+              <span>{formatCurrency(goGoSpend, true)} — same as retirement</span>
+            </div>
+
+            {gapDisplayValue === 0 && (
+              <p className="text-xs text-emerald-700 bg-emerald-50 rounded-lg px-3 py-2 border border-emerald-200">
+                ✓ Regular spending during the gap is estimated to be covered by {person2.name || 'Person 2'}&apos;s take-home pay — drawdown for day-to-day costs may be minimal. One-off events and other factors may still require some drawdown.
+              </p>
+            )}
+            {gapSpending !== undefined && (
+              <button
+                type="button"
+                onClick={() => setGapSpending(undefined)}
+                className="text-xs text-blue-500 underline"
+              >
+                Reset to smart default ({formatCurrency(gapSmartDefault, true)}/yr)
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       <div className="flex justify-between pt-4">
         <button onClick={onBack} className="btn-secondary">← Back</button>
