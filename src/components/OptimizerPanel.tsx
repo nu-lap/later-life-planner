@@ -397,6 +397,9 @@ export default function OptimizerPanel({ plannerState, result, proEnabled, onPro
   const apHasIsaAction = p1ShowBed || p2ShowBed;
   const apHasPensionAction = (apBd.person1.pension?.grossAmount ?? 0) > 0 || (apBd.person2?.pension?.grossAmount ?? 0) > 0;
   const apHasIsaSpend = p1DirectIsaSpend > 0 || p2DirectIsaSpend > 0;
+  // True when Bed & ISA is active for this plan but this year's ISA spending has consumed
+  // some or all of the planned transfer (so it funds spending instead of sheltering assets).
+  const apBedIsaRedirectedToSpend = p1BedIsaToSpend > 0 || p2BedIsaToSpend > 0;
   const allStrategyGuideEntries = useMemo(
     () => getStrategyDefinitions(plannerState.mode, person1Label, isCouple ? person2Label : undefined),
     [isCouple, person1Label, person2Label, plannerState.mode],
@@ -825,6 +828,29 @@ export default function OptimizerPanel({ plannerState, result, proEnabled, onPro
               <p className="mt-0.5 text-xs text-violet-700">target net spending for the year</p>
             </div>
           </div>
+
+          {/* Bed & ISA override notice — shown when the strategy is active but ISA spending
+              has consumed some or all of the planned transfer this year */}
+          {apBedIsaRedirectedToSpend && (
+            <div className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50/50 px-3 py-2.5">
+              <p className="text-xs font-bold uppercase tracking-wide text-emerald-700">
+                ℹ️ Bed &amp; ISA strategy active
+              </p>
+              <p className="mt-1 text-xs text-slate-600">
+                Your plan uses a <span className="font-semibold">Bed &amp; ISA</span> strategy to gradually shelter GIA investments inside your ISA wrapper.
+                {' '}
+                {!apHasIsaAction
+                  ? <>This year, <span className="font-semibold">all</span> of the planned GIA-to-ISA transfer ({
+                      [
+                        p1BedIsaToSpend > 0 && `${person1Label}: ${formatCurrency(p1BedIsaToSpend, true)}`,
+                        isCouple && p2BedIsaToSpend > 0 && `${person2Label}: ${formatCurrency(p2BedIsaToSpend, true)}`,
+                      ].filter(Boolean).join(', ')
+                    }) is being used to fund planned ISA spending directly — so no new assets are moved into the ISA wrapper this year. The strategy will resume sheltering assets in years where ISA spending is lower.</>
+                  : <>Part of the planned GIA-to-ISA transfer is funding ISA spending directly this year; only the remaining amount shown in the &ldquo;Before 5 April&rdquo; card actually enters the ISA wrapper.</>
+                }
+              </p>
+            </div>
+          )}
         </div>
 
         {proEnabled && <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-4">
