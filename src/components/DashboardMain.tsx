@@ -1,0 +1,185 @@
+'use client';
+
+import { useMemo } from 'react';
+import dynamic from 'next/dynamic';
+import type { YearlyProjection, DrawdownStrategy, LifeStage } from '@/lib/types';
+import type { PlannerState } from '@/models/types';
+import { formatCurrency } from '@/lib/calculations';
+import InfoIcon from '@/components/ui/InfoIcon';
+import { GLOSSARY } from '@/lib/glossary';
+
+const ChartSkeleton = () => <div className="h-64 bg-slate-100 rounded-2xl animate-pulse" />;
+const LifetimeChart = dynamic(() => import('@/components/charts/LifetimeChart'), { ssr: false, loading: ChartSkeleton });
+const AssetChart    = dynamic(() => import('@/components/charts/AssetChart'),    { ssr: false, loading: ChartSkeleton });
+const ProjectionTable = dynamic(() => import('@/components/ProjectionTable'), { ssr: false, loading: () => <div className="h-96 bg-slate-100 rounded-2xl animate-pulse" /> });
+
+interface DashboardMainProps {
+  state: PlannerState;
+  projections: YearlyProjection[];
+  displayProjections: YearlyProjection[];
+  surplus: boolean;
+  depletionAge: number | string;
+  firstYear?: YearlyProjection;
+  lastPositive?: YearlyProjection;
+  lifeStages: LifeStage[];
+  mode: 'single' | 'couple';
+  p1Name: string;
+  p2Name: string;
+  rlssStandard?: string;
+  optimizerEnabled: boolean;
+  proEnabled: boolean;
+}
+
+interface StatCardProps {
+  icon: string;
+  label: string;
+  value: string | number;
+  sub?: string;
+  accent?: 'slate' | 'sky' | 'orange' | 'emerald' | 'rose';
+}
+
+function StatCard({ icon, label, value, sub, accent = 'slate' }: StatCardProps) {
+  const bgMap = { slate: 'bg-slate-50 border-slate-100', sky: 'bg-sky-50 border-sky-100', orange: 'bg-orange-50 border-orange-100', emerald: 'bg-emerald-50 border-emerald-100', rose: 'bg-rose-50 border-rose-100' };
+  const textMap = { slate: 'text-slate-600', sky: 'text-sky-600', orange: 'text-orange-600', emerald: 'text-emerald-600', rose: 'text-rose-600' };
+
+  return (
+    <div className={`rounded-2xl p-4 border ${bgMap[accent]}`}>
+      <p className={`text-xs font-bold mb-2 flex items-center gap-1 ${textMap[accent]}`}>{icon} {label}</p>
+      <p className="text-2xl font-black text-slate-800">{value}</p>
+      {sub && <p className={`text-xs mt-1 ${textMap[accent]}`}>{sub}</p>}
+    </div>
+  );
+}
+
+export default function DashboardMain({
+  state,
+  projections,
+  displayProjections,
+  surplus,
+  depletionAge,
+  firstYear,
+  lastPositive,
+  lifeStages,
+  mode,
+  p1Name,
+  p2Name,
+  rlssStandard,
+  optimizerEnabled,
+  proEnabled,
+}: DashboardMainProps) {
+  const { RLSS_STANDARDS } = require('@/lib/mockData');
+  const annualSpend = state.assumptions.targetAnnualSpending;
+  const fiAge = state.assumptions.financialIndependenceAge;
+  const unrealisedGain = useMemo(() => {
+    const projection = projections[0];
+    if (!projection) return 0;
+    const p1Gain = Math.max(0, projection.p1GiaValue - projection.p1GiaBaseCost);
+    const p2Gain = Math.max(0, projection.p2GiaValue - projection.p2GiaBaseCost);
+    const jointGain = Math.max(0, projection.jointGiaValue - projection.jointGiaBaseCost);
+    return p1Gain + p2Gain + jointGain;
+  }, [projections]);
+
+  return (
+    <div className="flex-1 min-w-0">
+      {/* Gap alert */}
+      {!surplus && (
+        <div className="rounded-2xl bg-rose-50 border-2 border-rose-200 p-4 flex gap-3 mb-4">
+          <span className="text-xl flex-shrink-0">⚠️</span>
+          <div>
+            <p className="font-black text-rose-800">Funding gap detected</p>
+            <p className="text-sm text-rose-600 mt-0.5">
+              At current spending, assets could be depleted by age <strong>{depletionAge}</strong>.
+              Consider increasing income, adjusting spending, or working a little longer.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* KPI stat cards */}
+      <div id="section-overview" className="scroll-mt-32 grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+        <StatCard 
+          icon="💰" 
+          label="Required net spending" 
+          value={formatCurrency(annualSpend, true)}
+          sub={rlssStandard ? `${RLSS_STANDARDS[mode][rlssStandard].label} lifestyle` : "today's £"}
+          accent="slate" 
+        />
+        <StatCard 
+          icon="📥" 
+          label={`Gross income at ${fiAge}`} 
+          value={formatCurrency(firstYear?.totalIncome ?? 0, true)}
+          sub={firstYear ? `Net after tax: ${formatCurrency(firstYear.netIncome, true)} — year 1` : 'year 1'}
+          accent="sky" 
+        />
+        <StatCard 
+          icon="🏦" 
+          label={`Investment Assets at ${fiAge}`} 
+          value={formatCurrency(firstYear?.totalAssets ?? 0, true)}
+          sub={unrealisedGain > 0 ? `${formatCurrency(unrealisedGain, true)} unrealised gain` : 'across all accounts'}
+          accent="orange" 
+        />
+        <StatCard
+          icon={surplus ? '✅' : '⚠️'}
+          label={surplus ? `Investment Assets at ${state.assumptions.lifeExpectancy}` : 'Depleted at age'}
+          value={surplus ? formatCurrency(lastPositive?.totalAssets ?? 0, true) : String(depletionAge)}
+          sub={surplus ? 'plan is on track' : 'review your plan'}
+          accent={surplus ? 'emerald' : 'rose'} 
+        />
+      </div>
+
+      {/* Care Reserve callout */}
+      {state.careReserve?.enabled && (
+        <div className="rounded-2xl bg-teal-50 border border-teal-200 p-4 flex items-start gap-3 mb-6">
+          <span className="text-2xl flex-shrink-0">🛡️</span>
+          <div>
+            <p className="font-black text-teal-800">Care Reserve at {fiAge} — {formatCurrency(firstYear?.careReserveBalance ?? state.careReserve.amount, true)}</p>
+            <p className="text-sm text-teal-600 mt-0.5">
+              Protected capital set aside for later-life care. It stays invested and is excluded from normal spending.
+            </p>
+            <p className="text-xs text-teal-500 mt-1">
+              Current target: {formatCurrency(state.careReserve.amount, true)} · If care costs never arise, it remains part of your estate.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Charts */}
+      <div id="section-charts" className="scroll-mt-32 game-card mb-6">
+        <div className="flex items-start justify-between mb-1">
+          <h3 className="section-heading mb-0">
+            {optimizerEnabled && proEnabled ? 'Gross income vs required spending — optimiser view' : 'Gross income vs required spending — lifetime view'}
+          </h3>
+        </div>
+        <p className="text-xs text-slate-500 mb-4">
+          {optimizerEnabled && proEnabled
+            ? 'This chart uses the optimiser-selected strategy, so it matches the year-by-year drawdown table below. Tax reduces spendable cash, so gross income can be higher than required spending.'
+            : 'Stacked bars = gross income sources. Dashed line = required spending — the cash need the plan must meet after tax. Tax reduces spendable cash, so gross income can be higher than spending in a given year.'}
+        </p>
+        <LifetimeChart projections={displayProjections} mode={mode} p1Name={p1Name} p2Name={p2Name} />
+        <p className="mt-3 text-xs text-slate-400 text-center">
+          Bars above the dashed line indicate surplus income; bars below indicate a shortfall.
+        </p>
+      </div>
+
+      <div className="game-card mb-6">
+        <h3 className="section-heading">Investment balances over time</h3>
+        <p className="text-xs text-slate-500 mb-4">
+          Combined <span className="inline-flex items-center">ISA<InfoIcon term="ISA" tooltip={GLOSSARY.ISA} /></span>, <span className="inline-flex items-center">GIA<InfoIcon term="GIA" tooltip={GLOSSARY.GIA} /></span>, cash and pension as you draw from them.
+          {state.careReserve?.enabled && (
+            <span className="ml-1 text-teal-600 font-semibold">Care Reserve shown separately — earmarked, not drawn for spending.</span>
+          )}
+        </p>
+        <AssetChart projections={displayProjections} />
+      </div>
+
+      {/* Projection table */}
+      <div className="game-card">
+        <h3 className="section-heading">Year-by-year projection</h3>
+        <p className="text-xs text-slate-500 mb-4">
+          Detailed breakdown of income, spending, and asset changes each year. Use this to plan ahead and identify key financial milestones.
+        </p>
+        <ProjectionTable projections={displayProjections} lifeStages={lifeStages} />
+      </div>
+    </div>
+  );
+}
