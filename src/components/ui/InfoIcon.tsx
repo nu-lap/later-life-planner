@@ -79,6 +79,7 @@ export default function InfoIcon({ term, tooltip, testId }: InfoIconProps) {
     <div
       id={tooltipId}
       role="tooltip"
+      data-testid={testId ? `${testId}-tooltip` : undefined}
       style={{
         position: 'absolute',
         top: pos.top,
