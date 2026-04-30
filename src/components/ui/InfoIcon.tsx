@@ -105,7 +105,9 @@ export default function InfoIcon({ term, tooltip, testId }: InfoIconProps) {
         onBlur={close}
         onClick={() => (show ? close() : open())}
         aria-label={`What is ${term}?`}
+        aria-haspopup="dialog"
         aria-expanded={show}
+        aria-controls={tooltipId}
         aria-describedby={show ? tooltipId : undefined}
         data-testid={testId}
         className="inline-flex items-center justify-center w-5 h-5 ml-1 rounded-full bg-slate-200 hover:bg-slate-300 text-slate-600 hover:text-slate-800 text-xs font-bold flex-shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
