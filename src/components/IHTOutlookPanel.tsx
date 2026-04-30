@@ -307,7 +307,7 @@ export default function IHTOutlookPanel({ state, projections }: IHTOutlookPanelP
             )}
           </div>
           <div className="rounded-xl bg-white border border-slate-200 p-3">
-            <p className="text-xs text-slate-500 mb-1 flex items-center">RNRB available<InfoIcon term="RNRB" tooltip={GLOSSARY.RNRB} /></p>
+            <p className="text-xs text-slate-500 mb-1 flex items-center">RNRB available<InfoIcon term="RNRB" tooltip={GLOSSARY.RNRB} testId="rnrb-info" /></p>
             <p className="text-lg font-black text-slate-800">
               {formatCurrency(result.rnrbAvailable, true)}
             </p>

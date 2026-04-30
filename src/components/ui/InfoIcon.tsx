@@ -6,9 +6,10 @@ import { createPortal } from 'react-dom';
 interface InfoIconProps {
   term: string;
   tooltip: string;
+  testId?: string;
 }
 
-export default function InfoIcon({ term, tooltip }: InfoIconProps) {
+export default function InfoIcon({ term, tooltip, testId }: InfoIconProps) {
   const [show, setShow] = useState(false);
   const [pos, setPos] = useState({ top: 0, left: 0, alignRight: false });
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -106,6 +107,7 @@ export default function InfoIcon({ term, tooltip }: InfoIconProps) {
         aria-label={`What is ${term}?`}
         aria-expanded={show}
         aria-describedby={show ? tooltipId : undefined}
+        data-testid={testId}
         className="inline-flex items-center justify-center w-5 h-5 ml-1 rounded-full bg-slate-200 hover:bg-slate-300 text-slate-600 hover:text-slate-800 text-xs font-bold flex-shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
       >
         <span aria-hidden="true">ℹ</span>
