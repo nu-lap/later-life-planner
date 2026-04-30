@@ -1,17 +1,68 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import dynamic from 'next/dynamic';
 import type { YearlyProjection, DrawdownStrategy, LifeStage } from '@/lib/types';
 import type { PlannerState } from '@/models/types';
 import { formatCurrency } from '@/lib/calculations';
 import InfoIcon from '@/components/ui/InfoIcon';
 import { GLOSSARY } from '@/lib/glossary';
+import clsx from 'clsx';
 
 const ChartSkeleton = () => <div className="h-64 bg-slate-100 rounded-2xl animate-pulse" />;
 const LifetimeChart = dynamic(() => import('@/components/charts/LifetimeChart'), { ssr: false, loading: ChartSkeleton });
 const AssetChart    = dynamic(() => import('@/components/charts/AssetChart'),    { ssr: false, loading: ChartSkeleton });
-const ProjectionTable = dynamic(() => import('@/components/ProjectionTable'), { ssr: false, loading: () => <div className="h-96 bg-slate-100 rounded-2xl animate-pulse" /> });
+
+// ProjectionTable component
+function ProjectionTable({ projections, lifeStages }: {
+  projections: YearlyProjection[];
+  lifeStages: { label: string; color: string }[];
+}) {
+  const [showAll, setShowAll] = useState(false);
+  const rows = showAll ? projections : projections.filter((_, i) => i % 5 === 0);
+  return (
+    <div className="game-card">
+      <h3 className="section-heading">Year-by-year projection</h3>
+      <p className="text-xs text-slate-500 mb-4">Nominal (inflation-adjusted) figures in future £.</p>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-slate-100 text-right">
+              {['Age', 'Stage', 'Spending', 'Income', 'Tax', 'Net', 'Inv. Assets'].map((h, i) => (
+                <th key={h} className={clsx('pb-2 pr-3 last:pr-0 font-bold text-slate-500', i <= 1 && 'text-left')}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map(p => {
+              const stageColor = lifeStages.find(s => s.label === p.lifeStage)?.color ?? '#94a3b8';
+              return (
+                <tr key={p.p1Age} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
+                  <td className="py-2 pr-3 text-sm text-slate-700">
+                    {p.p1Age}{p.p2Age !== null && <span>/{p.p2Age}</span>}
+                  </td>
+                  <td className="py-2 pr-3 whitespace-nowrap">
+                    <span className="text-xs font-semibold" style={{ color: stageColor }}>{p.lifeStage}</span>
+                  </td>
+                  <td className="py-2 pr-3 text-right text-slate-600">{formatCurrency(p.spending, true)}</td>
+                  <td className="py-2 pr-3 text-right font-semibold text-slate-800">{formatCurrency(p.totalIncome, true)}</td>
+                  <td className="py-2 pr-3 text-right text-rose-500">{formatCurrency(p.totalTaxPaid, true)}</td>
+                  <td className="py-2 pr-3 text-right text-emerald-600 font-semibold">{formatCurrency(p.netIncome, true)}</td>
+                  <td className={clsx('py-2 text-right font-bold', p.totalAssets <= 0 ? 'text-rose-600' : 'text-slate-700')}>
+                    {p.totalAssets <= 0 ? '—' : formatCurrency(p.totalAssets, true)}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <button onClick={() => setShowAll(!showAll)} className="mt-4 text-sm text-orange-600 hover:text-orange-700 font-semibold">
+        {showAll ? '▲ Show fewer rows' : '▼ Show all years'}
+      </button>
+    </div>
+  );
+}
 
 interface DashboardMainProps {
   state: PlannerState;
@@ -67,9 +118,10 @@ export default function DashboardMain({
   optimizerEnabled,
   proEnabled,
 }: DashboardMainProps) {
-  const { RLSS_STANDARDS } = require('@/lib/mockData');
-  const annualSpend = state.assumptions.targetAnnualSpending;
-  const fiAge = state.assumptions.financialIndependenceAge;
+  const { RLSS_STANDARDS, getStageTotalSpending } = require('@/lib/mockData');
+  const firstStageId = lifeStages[0]?.id ?? 'active';
+  const annualSpend = getStageTotalSpending(state, firstStageId);
+  const fiAge = state.fiAge;
   const unrealisedGain = useMemo(() => {
     const projection = projections[0];
     if (!projection) return 0;

@@ -2,7 +2,8 @@
 
 import { useState } from 'react';
 import type { PlannerState, CareReserve, DrawdownStrategy, GoalRegistry } from '@/models/types';
-import type { YearlyProjection, OptimizerPolicyOverride } from '@/lib/types';
+import type { YearlyProjection } from '@/lib/types';
+import type { OptimizerPolicyOverride } from '@/financialEngine/types';
 import { formatCurrency } from '@/lib/calculations';
 import ProFeatureBanner from '@/components/ProFeatureBanner';
 import clsx from 'clsx';
@@ -221,7 +222,7 @@ export default function DashboardSidebar({
               <div className="space-y-2 text-xs">
                 <p className="text-slate-600">Target amount: <span className="font-bold">{formatCurrency(careReserve.amount, true)}</span></p>
                 {firstYear && (
-                  <p className="text-slate-500">At {state.assumptions.financialIndependenceAge}: {formatCurrency(firstYear.careReserveBalance ?? careReserve.amount, true)}</p>
+                  <p className="text-slate-500">At {state.fiAge}: {formatCurrency(firstYear.careReserveBalance ?? careReserve.amount, true)}</p>
                 )}
               </div>
             ) : (
