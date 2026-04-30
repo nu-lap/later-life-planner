@@ -5,6 +5,8 @@ import dynamic from 'next/dynamic';
 import type { YearlyProjection, DrawdownStrategy, LifeStage } from '@/lib/types';
 import type { PlannerState } from '@/models/types';
 import { formatCurrency } from '@/lib/calculations';
+import { getStageTotalSpending } from '@/financialEngine/projectionEngine';
+import { RLSS_STANDARDS } from '@/lib/mockData';
 import InfoIcon from '@/components/ui/InfoIcon';
 import { GLOSSARY } from '@/lib/glossary';
 import clsx from 'clsx';
@@ -118,7 +120,6 @@ export default function DashboardMain({
   optimizerEnabled,
   proEnabled,
 }: DashboardMainProps) {
-  const { RLSS_STANDARDS, getStageTotalSpending } = require('@/lib/mockData');
   const firstStageId = lifeStages[0]?.id ?? 'active';
   const annualSpend = getStageTotalSpending(state, firstStageId);
   const fiAge = state.fiAge;
@@ -153,7 +154,7 @@ export default function DashboardMain({
           icon="💰" 
           label="Required net spending" 
           value={formatCurrency(annualSpend, true)}
-          sub={rlssStandard ? `${RLSS_STANDARDS[mode][rlssStandard].label} lifestyle` : "today's £"}
+          sub={rlssStandard && (RLSS_STANDARDS[mode] as Record<string, any>)[rlssStandard] ? `${(RLSS_STANDARDS[mode] as Record<string, any>)[rlssStandard].label} lifestyle` : "today's £"}
           accent="slate" 
         />
         <StatCard 
