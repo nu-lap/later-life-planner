@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import dynamic from 'next/dynamic';
 import type { YearlyProjection, DrawdownStrategy, LifeStage } from '@/lib/types';
-import type { PlannerState } from '@/models/types';
+import type { PlannerState, RlssStandard } from '@/models/types';
 import { formatCurrency } from '@/lib/calculations';
 import { getStageTotalSpending } from '@/financialEngine/projectionEngine';
 import { RLSS_STANDARDS } from '@/lib/mockData';
@@ -78,7 +78,7 @@ interface DashboardMainProps {
   mode: 'single' | 'couple';
   p1Name: string;
   p2Name: string;
-  rlssStandard?: string;
+  rlssStandard?: RlssStandard;
   optimizerEnabled: boolean;
   proEnabled: boolean;
 }
@@ -154,7 +154,7 @@ export default function DashboardMain({
           icon="💰" 
           label="Required net spending" 
           value={formatCurrency(annualSpend, true)}
-          sub={rlssStandard && (RLSS_STANDARDS[mode] as Record<string, any>)[rlssStandard] ? `${(RLSS_STANDARDS[mode] as Record<string, any>)[rlssStandard].label} lifestyle` : "today's £"}
+          sub={rlssStandard && RLSS_STANDARDS[mode][rlssStandard] ? `${RLSS_STANDARDS[mode][rlssStandard].label} lifestyle` : "today's £"}
           accent="slate" 
         />
         <StatCard 
@@ -226,13 +226,7 @@ export default function DashboardMain({
       </div>
 
       {/* Projection table */}
-      <div className="game-card">
-        <h3 className="section-heading">Year-by-year projection</h3>
-        <p className="text-xs text-slate-500 mb-4">
-          Detailed breakdown of income, spending, and asset changes each year. Use this to plan ahead and identify key financial milestones.
-        </p>
-        <ProjectionTable projections={displayProjections} lifeStages={lifeStages} />
-      </div>
+      <ProjectionTable projections={projections} lifeStages={lifeStages} />
     </div>
   );
 }

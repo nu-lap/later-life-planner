@@ -5,8 +5,8 @@ import { usePlannerStore } from '@/store/plannerStore';
 import { useOptionalGetToken } from '@/hooks/useOptionalGetToken';
 import { newId } from '@/lib/ids';
 import {
-  calculateProjections, getStageTotalSpending,
-  getAssetDepletionAge, formatCurrency,
+  calculateProjections,
+  getAssetDepletionAge,
 } from '@/lib/calculations';
 import ProInterestModal from '@/components/ProInterestModal';
 import DashboardMain from '@/components/DashboardMain';
@@ -449,6 +449,15 @@ function TaxOverview({ projections }: { projections: YearlyProjection[] }) {
   );
 }
 
+/** Resolves a PCLS age candidate against NMPA rules and the person's current age. */
+function resolvePclsAge(candidate: number, currentAge: number): number {
+  const calYear = CURRENT_TAX_YEAR_START + (candidate - currentAge);
+  const nmpaForAge = calYear >= PENSION_RULES.NMPA_RISE_YEAR
+    ? PENSION_RULES.MIN_ACCESS_AGE_POST_2028
+    : PENSION_RULES.MIN_ACCESS_AGE;
+  return Math.max(candidate, nmpaForAge, currentAge);
+}
+
 export function buildOptimizerViewProjections(
   displayRows: YearlyProjection[],
   optimizerResult: NonNullable<ReturnType<typeof optimizeWithdrawals> | null>,
@@ -539,17 +548,8 @@ export default function Step4Dashboard({ onBack }: Props) {
   const [proModalSource, setProModalSource] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<ActiveTab>('overview');
 
-  // Calculate PCLS age resolution
-  const resolvePclsAge = (candidate: number) => {
-    const calYear = CURRENT_TAX_YEAR_START + (candidate - person1.currentAge);
-    const nmpaForAge = calYear >= PENSION_RULES.NMPA_RISE_YEAR
-      ? PENSION_RULES.MIN_ACCESS_AGE_POST_2028
-      : PENSION_RULES.MIN_ACCESS_AGE;
-    return Math.max(candidate, nmpaForAge, person1.currentAge);
-  };
-
   const rawAge = pclsAge ?? fiAge;
-  const effectivePclsAge = resolvePclsAge(rawAge);
+  const effectivePclsAge = resolvePclsAge(rawAge, person1.currentAge);
 
   // Goal registry sync effect
   useEffect(() => {
@@ -624,7 +624,7 @@ export default function Step4Dashboard({ onBack }: Props) {
     if (!optimizerEnabled) {
       return {
         projections: calculateProjections(effectiveState),
-        optimizerResult: null,
+        optimizerResult: undefined,
       };
     }
 
