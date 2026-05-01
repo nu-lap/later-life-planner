@@ -227,7 +227,7 @@ export default function Step4Dashboard({ onBack }: Props) {
     if (!optimizerEnabled) {
       return {
         projections: calculateProjections(effectiveState),
-        optimizerResult: null,
+        optimizerResult: undefined,
       };
     }
 
