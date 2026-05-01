@@ -80,9 +80,9 @@ export default function DashboardSidebar({
 
   const strategies = [
     {
-      id: 'standard-drawdown' as DrawdownStrategy,
-      label: 'Standard drawdown',
-      icon: '📊',
+      id: 'standard-ufpls' as DrawdownStrategy,
+      label: 'Flexible pension drawdown',
+      icon: '💧',
       description: 'Draw flexibly from your pension — each withdrawal is 25% tax-free and 75% taxable, using your tax-free entitlement gradually over time.',
     },
     {
@@ -134,7 +134,7 @@ export default function DashboardSidebar({
           </div>
 
           {/* Withdrawal Strategies (always visible) */}
-          <SidebarSection title="Withdrawal Strategy" icon="💳" defaultOpen>
+          <SidebarSection title="Withdrawal Strategy" icon="⚙️" defaultOpen>
             <div className="space-y-2">
               {strategies.map(option => (
                 <button
@@ -152,6 +152,9 @@ export default function DashboardSidebar({
                     <span className={`font-bold text-xs ${activeStrategy === option.id ? 'text-orange-800' : 'text-slate-800'}`}>
                       {option.label}
                     </span>
+                    {activeStrategy === option.id && (
+                      <span className="ml-auto text-xs font-bold bg-orange-200 text-orange-700 px-1.5 py-0.5 rounded">Active</span>
+                    )}
                   </div>
                   <p className={`text-xs leading-tight ${activeStrategy === option.id ? 'text-orange-700' : 'text-slate-500'}`}>
                     {option.description}
@@ -159,6 +162,24 @@ export default function DashboardSidebar({
                 </button>
               ))}
             </div>
+            
+            {/* PCLS Age Input (shown when strategy is pcls-bed-isa) */}
+            {activeStrategy === 'pcls-bed-isa' && (
+              <div className="mt-3 p-2 bg-blue-50 border border-blue-200 rounded-lg">
+                <label className="text-xs font-semibold text-slate-700 block mb-2">
+                  Lump sum age
+                </label>
+                <input
+                  type="number"
+                  value={effectivePclsAge}
+                  onChange={(e) => onPclsAgeChange(Math.max(state.person1.currentAge, parseInt(e.target.value) || effectivePclsAge))}
+                  min={state.person1.currentAge}
+                  max={120}
+                  className="w-full px-2 py-1 text-sm border border-blue-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-400"
+                />
+                <p className="text-xs text-blue-600 mt-1">Strategy applies from age {effectivePclsAge}</p>
+              </div>
+            )}
           </SidebarSection>
 
           {/* Goal Priorities (Pro-gated) */}
