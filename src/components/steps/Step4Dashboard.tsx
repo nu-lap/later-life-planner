@@ -116,6 +116,23 @@ export default function Step4Dashboard({ onBack }: Props) {
   const [proModalSource, setProModalSource] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
+  // Restore sidebar state from localStorage on mount
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const stored = localStorage.getItem('llp:dashboardSidebarOpen');
+      if (stored !== null) setSidebarOpen(stored === 'true');
+    } catch { /* ignore localStorage errors */ }
+  }, []);
+
+  // Persist sidebar state to localStorage
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      localStorage.setItem('llp:dashboardSidebarOpen', String(sidebarOpen));
+    } catch { /* ignore localStorage errors */ }
+  }, [sidebarOpen]);
+
   // Calculate PCLS age resolution
   const resolvePclsAge = (candidate: number) => {
     const calYear = CURRENT_TAX_YEAR_START + (candidate - person1.currentAge);
