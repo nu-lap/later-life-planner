@@ -253,7 +253,6 @@ export default function Step4Dashboard({ onBack }: Props) {
   const firstStageId = lifeStages[0]?.id ?? 'active';
   const depletionAge = getAssetDepletionAge(projections);
   const surplus = depletionAge === null;
-  const annualSpend = getStageTotalSpending(state, firstStageId);
 
   // Helper: update care reserve from goal panel
   function updateCareReserveFromGoalPanel(nextReserve: Partial<CareReserve>) {
