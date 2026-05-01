@@ -20,7 +20,7 @@ interface DashboardSidebarProps {
   goalRegistry?: GoalRegistry;
   onGoalRegistryChange?: (registry: GoalRegistry) => void;
   careReserve?: CareReserve;
-  onCareReserveChange?: (reserve: CareReserve) => void;
+  onCareReserveChange?: (reserve: Partial<CareReserve>) => void;
   optimizerResult?: any;
   onProCta?: (source: string) => void;
   isOpen: boolean;
@@ -240,10 +240,42 @@ export default function DashboardSidebar({
           {/* Care Reserve (always visible) */}
           <SidebarSection title="Care Reserve" icon="🛡️" defaultOpen={careReserve?.enabled}>
             {careReserve ? (
-              <div className="space-y-2 text-xs">
-                <p className="text-slate-600">Target amount: <span className="font-bold">{formatCurrency(careReserve.amount, true)}</span></p>
-                {firstYear && (
-                  <p className="text-slate-500">At {state.fiAge}: {formatCurrency(firstYear.careReserveBalance ?? careReserve.amount, true)}</p>
+              <div className="space-y-3 text-xs">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={careReserve.enabled}
+                    onChange={(e) => onCareReserveChange?.({ enabled: e.target.checked })}
+                    className="rounded border-slate-300 text-orange-500 focus:ring-orange-500"
+                    id="care-reserve-enabled"
+                  />
+                  <label htmlFor="care-reserve-enabled" className="font-semibold text-slate-700 cursor-pointer">
+                    Enable care reserve
+                  </label>
+                </div>
+
+                {careReserve.enabled && (
+                  <div className="rounded-lg bg-blue-50 border border-blue-200 p-2 space-y-2">
+                    <label className="block font-semibold text-slate-700">Target amount</label>
+                    <div className="flex gap-2 items-center">
+                      <span className="text-slate-500">£</span>
+                      <input
+                        type="number"
+                        value={careReserve.amount}
+                        onChange={(e) => onCareReserveChange?.({ amount: Math.max(0, parseInt(e.target.value) || 0) })}
+                        className="flex-1 px-2 py-1 text-sm border border-blue-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-400"
+                        min="0"
+                        step="10000"
+                      />
+                    </div>
+                    <p className="text-xs text-blue-600">
+                      Projected: {formatCurrency(firstYear?.careReserveBalance ?? careReserve.amount, true)} at {state.fiAge}
+                    </p>
+                  </div>
+                )}
+
+                {!careReserve.enabled && (
+                  <p className="text-slate-500 italic">Disabled. Enable above to set aside funds for later-life care.</p>
                 )}
               </div>
             ) : (
