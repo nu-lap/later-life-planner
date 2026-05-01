@@ -5,7 +5,6 @@ import type { PlannerState, CareReserve, DrawdownStrategy, GoalRegistry } from '
 import type { YearlyProjection } from '@/lib/types';
 import type { OptimizerPolicyOverride, OptimizationResult } from '@/financialEngine/types';
 import { formatCurrency } from '@/lib/calculations';
-import ProFeatureBanner from '@/components/ProFeatureBanner';
 import OptimizerPanel from '@/components/OptimizerPanel';
 import IHTOutlookPanel from '@/components/IHTOutlookPanel';
 import clsx from 'clsx';
