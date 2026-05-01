@@ -17,7 +17,7 @@ import DashboardMain from '@/components/DashboardMain';
 import OptimizerPanel from '@/components/OptimizerPanel';
 import IHTOutlookPanel from '@/components/IHTOutlookPanel';
 import ProFeatureBanner from '@/components/ProFeatureBanner';
-import { CARE_RESERVE, CGT, CURRENT_TAX_YEAR_START, INCOME_TAX, PENSION_RULES } from '@/config/financialConstants';
+import { CARE_RESERVE, CGT, CURRENT_TAX_YEAR_START, GOAL_PANEL, INCOME_TAX, PENSION_RULES } from '@/config/financialConstants';
 import { optimizeWithdrawals } from '@/financialEngine/withdrawalOptimizer';
 import {
   buildGoalOrchestrateRequest,
@@ -402,8 +402,11 @@ function TaxOverview({ projections }: { projections: YearlyProjection[] }) {
   return (
     <div className="game-card">
       <h3 className="section-heading">Simplified tax-efficient withdrawal strategy</h3>
-      <p className="text-xs text-slate-500 mb-4">
-        A simplified guide to how income is structured each year to minimise tax.
+      <p className="text-xs text-slate-500 mb-1">
+        A simplified guide to how income is typically structured each year to reduce tax.
+      </p>
+      <p className="text-xs text-slate-400 mb-4 italic">
+        This is a simplified, typical ordering only — the most tax-efficient sequence and outcomes can vary based on your circumstances and current tax position.
       </p>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
@@ -428,11 +431,11 @@ function TaxOverview({ projections }: { projections: YearlyProjection[] }) {
 
       <div className="space-y-2">
         {([
-          { n: 1, icon: '🏦', label: 'DC pension', labelSuffix: '— within personal allowance', desc: `Any unused personal allowance (${personalAllowance}) is filled by DC pension withdrawals. Each withdrawal is 25% tax-free; the remaining 75% sits within the allowance → 0% income tax.`, color: 'bg-violet-50 border-violet-100' },
-          { n: 2, icon: '📊', label: 'GIA', labelSuffix: '— within CGT exempt amount', desc: `Investment gains up to ${annualExempt}/person are crystallised tax-free each year.`, color: 'bg-amber-50 border-amber-100' },
-          { n: 3, icon: '✅', label: 'ISA', labelSuffix: '', desc: 'Completely tax-free. Used after personal allowance and CGT allowance have been maximised.', color: 'bg-emerald-50 border-emerald-100' },
-          { n: 4, icon: '💰', label: 'Remaining GIA & cash', labelSuffix: '', desc: `GIA gains above the exempt amount are taxed at ${cgtBasicRate} (basic-rate) or ${cgtHigherRate} (higher-rate). Cash withdrawals are always tax-free.`, color: 'bg-sky-50 border-sky-100' },
-          { n: 5, icon: '💼', label: 'DC pension', labelSuffix: '— above personal allowance', desc: 'Remaining net spending gap is covered by further pension withdrawals. Only reached when other sources are exhausted.', color: 'bg-slate-50 border-slate-100' },
+          { n: 1, icon: '🏦', label: 'DC pension', labelSuffix: '— within personal allowance', desc: `Any unused personal allowance (${personalAllowance}) may be met with DC pension withdrawals. Each withdrawal is typically 25% tax-free, and the remaining 75% may fall within the allowance, which can reduce or eliminate income tax in some cases.`, color: 'bg-violet-50 border-violet-100' },
+          { n: 2, icon: '📊', label: 'GIA', labelSuffix: '— within CGT exempt amount', desc: `Investment gains up to ${annualExempt}/person may be crystallised with no CGT due in a given tax year, subject to your overall circumstances.`, color: 'bg-amber-50 border-amber-100' },
+          { n: 3, icon: '✅', label: 'ISA', labelSuffix: '', desc: 'ISA withdrawals are typically free of UK income tax and capital gains tax. Used after personal allowance and CGT allowance have been maximised in this simplified guide.', color: 'bg-emerald-50 border-emerald-100' },
+          { n: 4, icon: '💰', label: 'Remaining GIA & cash', labelSuffix: '', desc: `GIA gains above the exempt amount may be taxed at ${cgtBasicRate} (basic-rate) or ${cgtHigherRate} (higher-rate), depending on your position. Cash withdrawals are generally tax-free.`, color: 'bg-sky-50 border-sky-100' },
+          { n: 5, icon: '💼', label: 'DC pension', labelSuffix: '— above personal allowance', desc: 'Any remaining net spending gap may be covered by further pension withdrawals, typically after other sources have been considered in this simplified ordering.', color: 'bg-slate-50 border-slate-100' },
         ] as const).map(({ n, icon, label, labelSuffix, desc, color }) => (
           <div key={n} className={clsx('flex gap-3 p-3 rounded-2xl border', color)}>
             <div className="w-6 h-6 rounded-full bg-white shadow-sm flex items-center justify-center font-black text-xs flex-shrink-0 text-slate-700">{n}</div>
@@ -653,8 +656,8 @@ export default function Step4Dashboard({ onBack }: Props) {
   const annualSpend = getStageTotalSpending(state, firstStageId);
 
   const goalTargetControlConfig = useMemo<Partial<Record<GoalId, GoalTargetControlConfig>>>(() => {
-    const annualTargetMax = roundUp(Math.max(annualSpend * 2, 100_000), 1_000);
-    const capitalTargetMax = roundUp(Math.max(firstYear?.totalAssets ?? 0, CARE_RESERVE.MAX_AMOUNT, 250_000), 5_000);
+    const annualTargetMax = roundUp(Math.max(annualSpend * 2, GOAL_PANEL.ANNUAL_TARGET_FLOOR), 1_000);
+    const capitalTargetMax = roundUp(Math.max(firstYear?.totalAssets ?? 0, CARE_RESERVE.MAX_AMOUNT, GOAL_PANEL.CAPITAL_TARGET_FLOOR), 5_000);
 
     return {
       longevity_protection: { max: annualTargetMax, step: 1_000, suggested: roundUp(annualSpend, 1_000) },
@@ -784,7 +787,7 @@ export default function Step4Dashboard({ onBack }: Props) {
               <ProFeatureBanner
                 icon="⚡"
                 headline="Withdrawal Optimizer"
-                description="Automatically find the most tax-efficient drawdown order across pension, ISA, GIA, and cash each year."
+                description="Explore a more tax-efficient drawdown order across pension, ISA, GIA, and cash each year based on your plan inputs."
                 onCta={() => setProModalSource('optimizer-banner')}
               />
             ) : null}
@@ -792,7 +795,13 @@ export default function Step4Dashboard({ onBack }: Props) {
         )}
 
         {/* ── Strategy tab ──────────────────────────────────────────────────── */}
-        {activeTab === 'strategy' && (
+        {activeTab === 'strategy' && (() => {
+          const effectiveDrawdownStrategy =
+            !proEnabled && drawdownStrategy === 'pcls-bed-isa'
+              ? 'standard-ufpls'
+              : (drawdownStrategy ?? 'standard-ufpls');
+
+          return (
           <div className="game-card space-y-4">
             <div>
               <h3 className="section-heading">Withdrawal Strategy</h3>
@@ -812,31 +821,31 @@ export default function Step4Dashboard({ onBack }: Props) {
                   }}
                   className={clsx(
                     'w-full text-left rounded-xl border-2 p-4 transition-all',
-                    (drawdownStrategy ?? 'standard-ufpls') === option.id
+                    effectiveDrawdownStrategy === option.id
                       ? 'border-orange-400 bg-orange-50'
                       : 'border-slate-200 bg-white hover:border-slate-300',
                   )}
                 >
                   <div className="flex items-center gap-3 mb-2">
                     <span className="text-xl">{option.icon}</span>
-                    <span className={clsx('font-bold text-sm', (drawdownStrategy ?? 'standard-ufpls') === option.id ? 'text-orange-800' : 'text-slate-800')}>
+                    <span className={clsx('font-bold text-sm', effectiveDrawdownStrategy === option.id ? 'text-orange-800' : 'text-slate-800')}>
                       {option.label}
                     </span>
-                    {(drawdownStrategy ?? 'standard-ufpls') === option.id && (
+                    {effectiveDrawdownStrategy === option.id && (
                       <span className="ml-auto text-xs font-bold bg-orange-200 text-orange-700 px-2 py-0.5 rounded-full">Active</span>
                     )}
                     {option.id === 'pcls-bed-isa' && !proEnabled && (
                       <span className="ml-auto text-xs font-bold bg-violet-100 text-violet-700 px-2 py-0.5 rounded-full">Pro</span>
                     )}
                   </div>
-                  <p className={clsx('text-sm leading-relaxed', (drawdownStrategy ?? 'standard-ufpls') === option.id ? 'text-orange-700' : 'text-slate-500')}>
+                  <p className={clsx('text-sm leading-relaxed', effectiveDrawdownStrategy === option.id ? 'text-orange-700' : 'text-slate-500')}>
                     {option.description}
                   </p>
                 </button>
               ))}
             </div>
 
-            {(drawdownStrategy ?? 'standard-ufpls') === 'pcls-bed-isa' && (
+            {effectiveDrawdownStrategy === 'pcls-bed-isa' && (
               <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl">
                 <label className="text-sm font-semibold text-slate-700 block mb-2">
                   Lump sum age
@@ -853,7 +862,8 @@ export default function Step4Dashboard({ onBack }: Props) {
               </div>
             )}
           </div>
-        )}
+          );
+        })()}
 
         {/* ── Goals tab ─────────────────────────────────────────────────────── */}
         {activeTab === 'goals' && (
@@ -928,7 +938,7 @@ export default function Step4Dashboard({ onBack }: Props) {
                     onChange={(e) => updateCareReserveFromGoalPanel({ amount: Math.max(0, parseInt(e.target.value) || 0) })}
                     className="w-40 px-3 py-2 text-sm border border-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
                     min="0"
-                    step="10000"
+                    step={CARE_RESERVE.STEP_AMOUNT}
                   />
                 </div>
                 <p className="text-sm text-blue-700 font-semibold">
