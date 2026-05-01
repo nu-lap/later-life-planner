@@ -214,6 +214,26 @@ export const CARE_RESERVE = {
   DEFAULT_AMOUNT: 100_000,
   /** Maximum slider value. */
   MAX_AMOUNT: 500_000,
+  /** Step size for the care reserve amount input (£10,000 increments). */
+  STEP_AMOUNT: 10_000,
+} as const;
+
+// ─── Goal panel UI defaults ───────────────────────────────────────────────────
+// Fallback slider bounds used in the Goal Priority panel when live plan values
+// are unavailable (e.g., no projections yet or first render).
+
+export const GOAL_PANEL = {
+  /**
+   * Minimum slider-max for annual-income goals (longevity protection, spending floor).
+   * Ensures the slider is wide enough even if the user's annual spend is very low.
+   * £100k covers a comfortable RLSS couple income with headroom for adjustment.
+   */
+  ANNUAL_TARGET_FLOOR: 100_000,
+  /**
+   * Minimum slider-max for capital goals (bequest, capital-reserve style goals).
+   * Provides a sensible lower bound when total assets are not yet populated.
+   */
+  CAPITAL_TARGET_FLOOR: 250_000,
 } as const;
 
 // ─── Inheritance Tax ──────────────────────────────────────────────────────────
