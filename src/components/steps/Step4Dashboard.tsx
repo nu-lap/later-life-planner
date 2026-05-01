@@ -715,6 +715,13 @@ export default function Step4Dashboard({ onBack }: Props) {
     { id: 'tax', label: 'Tax Summary' },
   ];
 
+  // Sanitise the persisted drawdown strategy: if Pro is disabled, fall back to the
+  // default strategy so the Pro-only UI never appears active in the calculations or UI.
+  const effectiveDrawdownStrategy: DrawdownStrategy =
+    !proEnabled && drawdownStrategy === 'pcls-bed-isa'
+      ? 'standard-ufpls'
+      : (drawdownStrategy ?? 'standard-ufpls');
+
   return (
     <div className="min-h-screen bg-slate-50">
       {/* Hero section */}
@@ -795,13 +802,7 @@ export default function Step4Dashboard({ onBack }: Props) {
         )}
 
         {/* ── Strategy tab ──────────────────────────────────────────────────── */}
-        {activeTab === 'strategy' && (() => {
-          const effectiveDrawdownStrategy =
-            !proEnabled && drawdownStrategy === 'pcls-bed-isa'
-              ? 'standard-ufpls'
-              : (drawdownStrategy ?? 'standard-ufpls');
-
-          return (
+        {activeTab === 'strategy' && (
           <div className="game-card space-y-4">
             <div>
               <h3 className="section-heading">Withdrawal Strategy</h3>
@@ -862,8 +863,7 @@ export default function Step4Dashboard({ onBack }: Props) {
               </div>
             )}
           </div>
-          );
-        })()}
+        )}
 
         {/* ── Goals tab ─────────────────────────────────────────────────────── */}
         {activeTab === 'goals' && (
