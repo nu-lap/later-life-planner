@@ -5,8 +5,8 @@ import { usePlannerStore } from '@/store/plannerStore';
 import { useOptionalGetToken } from '@/hooks/useOptionalGetToken';
 import { newId } from '@/lib/ids';
 import {
-  calculateProjections, getStageTotalSpending,
-  getAssetDepletionAge, formatCurrency,
+  calculateProjections,
+  getAssetDepletionAge,
 } from '@/lib/calculations';
 import ProInterestModal from '@/components/ProInterestModal';
 import DashboardMain from '@/components/DashboardMain';
@@ -25,6 +25,15 @@ import type { OptimizerPolicyOverride } from '@/financialEngine/types';
 import type { CareReserve, DrawdownStrategy } from '@/models/types';
 
 interface Props { onBack: () => void }
+
+/** Resolves a PCLS age candidate against NMPA rules and the person's current age. */
+function resolvePclsAge(candidate: number, currentAge: number): number {
+  const calYear = CURRENT_TAX_YEAR_START + (candidate - currentAge);
+  const nmpaForAge = calYear >= PENSION_RULES.NMPA_RISE_YEAR
+    ? PENSION_RULES.MIN_ACCESS_AGE_POST_2028
+    : PENSION_RULES.MIN_ACCESS_AGE;
+  return Math.max(candidate, nmpaForAge, currentAge);
+}
 
 export function buildOptimizerViewProjections(
   displayRows: YearlyProjection[],
@@ -133,17 +142,8 @@ export default function Step4Dashboard({ onBack }: Props) {
     } catch { /* ignore localStorage errors */ }
   }, [sidebarOpen]);
 
-  // Calculate PCLS age resolution
-  const resolvePclsAge = (candidate: number) => {
-    const calYear = CURRENT_TAX_YEAR_START + (candidate - person1.currentAge);
-    const nmpaForAge = calYear >= PENSION_RULES.NMPA_RISE_YEAR
-      ? PENSION_RULES.MIN_ACCESS_AGE_POST_2028
-      : PENSION_RULES.MIN_ACCESS_AGE;
-    return Math.max(candidate, nmpaForAge, person1.currentAge);
-  };
-
   const rawAge = pclsAge ?? fiAge;
-  const effectivePclsAge = resolvePclsAge(rawAge);
+  const effectivePclsAge = resolvePclsAge(rawAge, person1.currentAge);
 
   // Goal registry sync effect (from original)
   useEffect(() => {
@@ -250,6 +250,7 @@ export default function Step4Dashboard({ onBack }: Props) {
   }, [projections]);
 
   const firstYear = projections[0];
+  const lastPositive = [...projections].reverse().find(p => p.totalAssets > 0);
   const depletionAge = getAssetDepletionAge(projections);
   const surplus = depletionAge === null;
 
@@ -293,6 +294,7 @@ export default function Step4Dashboard({ onBack }: Props) {
           surplus={surplus}
           depletionAge={depletionAge ?? 'Never'}
           firstYear={firstYear}
+          lastPositive={lastPositive}
           lifeStages={lifeStages}
           mode={mode}
           p1Name={person1.name || (mode === 'couple' ? 'Partner 1' : 'You')}
@@ -317,6 +319,7 @@ export default function Step4Dashboard({ onBack }: Props) {
           careReserve={careReserve}
           onCareReserveChange={updateCareReserveFromGoalPanel}
           optimizerResult={optimizerResult}
+          isOptimizerLoading={policyLoading}
           onProCta={setProModalSource}
           isOpen={sidebarOpen}
           onToggle={() => setSidebarOpen(!sidebarOpen)}

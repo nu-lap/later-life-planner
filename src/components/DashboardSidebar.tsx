@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import type { PlannerState, CareReserve, DrawdownStrategy, GoalRegistry } from '@/models/types';
 import type { YearlyProjection } from '@/lib/types';
-import type { OptimizerPolicyOverride, OptimizationResult } from '@/financialEngine/types';
+import type { OptimizationResult } from '@/financialEngine/types';
 import { formatCurrency } from '@/lib/calculations';
 import OptimizerPanel from '@/components/OptimizerPanel';
 import IHTOutlookPanel from '@/components/IHTOutlookPanel';
@@ -22,7 +22,8 @@ interface DashboardSidebarProps {
   onGoalRegistryChange?: (registry: GoalRegistry) => void;
   careReserve?: CareReserve;
   onCareReserveChange?: (reserve: Partial<CareReserve>) => void;
-  optimizerResult?: any;
+  optimizerResult?: OptimizationResult;
+  isOptimizerLoading?: boolean;
   onProCta?: (source: string) => void;
   isOpen: boolean;
   onToggle: () => void;
@@ -67,6 +68,7 @@ export default function DashboardSidebar({
   careReserve,
   onCareReserveChange,
   optimizerResult,
+  isOptimizerLoading = false,
   onProCta,
   isOpen,
   onToggle,
@@ -96,11 +98,14 @@ export default function DashboardSidebar({
 
   return (
     <>
-      {/* Mobile toggle button */}
+      {/* Toggle button — always visible on mobile; also shown on desktop when sidebar is closed */}
       <button
         onClick={onToggle}
-        className="fixed bottom-4 right-4 z-40 md:hidden w-12 h-12 rounded-full bg-orange-500 text-white shadow-lg flex items-center justify-center hover:bg-orange-600 transition-colors"
-        aria-label="Toggle sidebar"
+        className={clsx(
+          'fixed bottom-4 right-4 z-40 w-12 h-12 rounded-full bg-orange-500 text-white shadow-lg flex items-center justify-center hover:bg-orange-600 transition-colors',
+          isOpen ? 'md:hidden' : '',
+        )}
+        aria-label={isOpen ? 'Close sidebar' : 'Open sidebar'}
       >
         ☰
       </button>
@@ -116,12 +121,26 @@ export default function DashboardSidebar({
       {/* Sidebar */}
       <aside
         className={clsx(
-          'fixed md:static inset-y-0 right-0 w-80 md:w-80 bg-white border-l border-slate-200 shadow-lg md:shadow-none z-40 md:z-auto',
-          'overflow-y-auto transition-transform duration-300 md:translate-x-0',
-          isOpen ? 'translate-x-0' : 'translate-x-full'
+          'fixed md:relative inset-y-0 right-0 bg-white border-l border-slate-200 shadow-lg md:shadow-none z-40 md:z-auto',
+          'transition-all duration-300',
+          isOpen
+            ? 'translate-x-0 w-80 overflow-y-auto'
+            : 'translate-x-full w-80 overflow-hidden md:w-0 md:translate-x-0 md:border-0',
         )}
       >
-        <div className="p-4 space-y-6">
+        <div className="p-4 space-y-6 w-80">
+          {/* Desktop header with collapse button */}
+          <div className="hidden md:flex items-center justify-between pb-3 mb-2 border-b border-slate-200">
+            <h2 className="font-bold text-sm text-slate-700">Plan Controls</h2>
+            <button
+              onClick={onToggle}
+              className="text-slate-400 hover:text-slate-600 p-1 rounded transition-colors"
+              aria-label="Collapse sidebar"
+            >
+              ▶
+            </button>
+          </div>
+
           {/* Close button (mobile) */}
           <div className="flex items-center justify-between md:hidden mb-4">
             <h2 className="font-bold text-lg">Dashboard Controls</h2>
@@ -206,15 +225,20 @@ export default function DashboardSidebar({
           {/* Optimizer (Pro-gated) */}
           {proEnabled && optimizerEnabled ? (
             <SidebarSection title="Withdrawal Optimizer" icon="⚡">
-              {optimizerResult ? (
+              {isOptimizerLoading ? (
+                <div className="flex items-center gap-2 py-2">
+                  <span className="animate-spin text-orange-500">⏳</span>
+                  <p className="text-xs text-slate-500">Analysing your plan…</p>
+                </div>
+              ) : optimizerResult ? (
                 <OptimizerPanel
                   plannerState={state}
-                  result={optimizerResult as OptimizationResult}
+                  result={optimizerResult}
                   proEnabled={proEnabled}
                   onProCta={() => onProCta?.('optimizer')}
                 />
               ) : (
-                <p className="text-xs text-slate-500">Analyzing your plan...</p>
+                <p className="text-xs text-slate-500">Optimizer result unavailable.</p>
               )}
             </SidebarSection>
           ) : null}
