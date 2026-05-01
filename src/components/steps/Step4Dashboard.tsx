@@ -143,11 +143,7 @@ export default function Step4Dashboard({ onBack }: Props) {
   };
 
   const rawAge = pclsAge ?? fiAge;
-  const pclsCalYear = CURRENT_TAX_YEAR_START + (rawAge - person1.currentAge);
-  const nmpa = pclsCalYear >= PENSION_RULES.NMPA_RISE_YEAR
-    ? PENSION_RULES.MIN_ACCESS_AGE_POST_2028
-    : PENSION_RULES.MIN_ACCESS_AGE;
-  const effectivePclsAge = Math.max(rawAge, nmpa, person1.currentAge);
+  const effectivePclsAge = resolvePclsAge(rawAge);
 
   // Goal registry sync effect (from original)
   useEffect(() => {
