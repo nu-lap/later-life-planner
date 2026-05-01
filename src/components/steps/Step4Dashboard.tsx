@@ -250,7 +250,6 @@ export default function Step4Dashboard({ onBack }: Props) {
   }, [projections]);
 
   const firstYear = projections[0];
-  const firstStageId = lifeStages[0]?.id ?? 'active';
   const depletionAge = getAssetDepletionAge(projections);
   const surplus = depletionAge === null;
 
