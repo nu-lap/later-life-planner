@@ -3,9 +3,11 @@
 import { useState } from 'react';
 import type { PlannerState, CareReserve, DrawdownStrategy, GoalRegistry } from '@/models/types';
 import type { YearlyProjection } from '@/lib/types';
-import type { OptimizerPolicyOverride } from '@/financialEngine/types';
+import type { OptimizerPolicyOverride, OptimizationResult } from '@/financialEngine/types';
 import { formatCurrency } from '@/lib/calculations';
 import ProFeatureBanner from '@/components/ProFeatureBanner';
+import OptimizerPanel from '@/components/OptimizerPanel';
+import IHTOutlookPanel from '@/components/IHTOutlookPanel';
 import clsx from 'clsx';
 
 interface DashboardSidebarProps {
@@ -205,14 +207,15 @@ export default function DashboardSidebar({
           {/* Optimizer (Pro-gated) */}
           {proEnabled && optimizerEnabled ? (
             <SidebarSection title="Withdrawal Optimizer" icon="⚡">
-              <p className="text-xs text-slate-500">AI-powered withdrawal sequencing to minimize lifetime tax.</p>
-              {optimizerResult && (
-                <div className="rounded-lg bg-emerald-50 border border-emerald-200 p-2 text-xs">
-                  <p className="font-semibold text-emerald-900 mb-1">Estimated tax saving</p>
-                  <p className="text-emerald-800 font-black text-base">
-                    {formatCurrency(optimizerResult.estimatedSavings || 0, true)}
-                  </p>
-                </div>
+              {optimizerResult ? (
+                <OptimizerPanel
+                  plannerState={state}
+                  result={optimizerResult as OptimizationResult}
+                  proEnabled={proEnabled}
+                  onProCta={() => onProCta?.('optimizer')}
+                />
+              ) : (
+                <p className="text-xs text-slate-500">Analyzing your plan...</p>
               )}
             </SidebarSection>
           ) : null}
@@ -220,7 +223,7 @@ export default function DashboardSidebar({
           {/* IHT / Estate Planning (Pro-gated) */}
           {proEnabled ? (
             <SidebarSection title="IHT & Estate" icon="🏛️">
-              <p className="text-xs text-slate-500">Plan your inheritance and manage inheritance tax liability.</p>
+              <IHTOutlookPanel state={state} projections={projections} />
             </SidebarSection>
           ) : (
             <div className="border-t border-slate-200 pt-3">
