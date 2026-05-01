@@ -8,7 +8,6 @@ import {
   calculateProjections, getStageTotalSpending,
   getAssetDepletionAge, formatCurrency,
 } from '@/lib/calculations';
-import OptimizerPanel from '@/components/OptimizerPanel';
 import ProInterestModal from '@/components/ProInterestModal';
 import DashboardMain from '@/components/DashboardMain';
 import DashboardSidebar from '@/components/DashboardSidebar';
@@ -312,18 +311,6 @@ export default function Step4Dashboard({ onBack }: Props) {
           onToggle={() => setSidebarOpen(!sidebarOpen)}
         />
       </div>
-
-      {/* Optimizer panel (Pro-only, shown below main content if enabled) */}
-      {optimizerEnabled && proEnabled && optimizerResult && (
-        <div className="max-w-7xl mx-auto px-4 py-6">
-          <OptimizerPanel
-            plannerState={deferredState}
-            result={optimizerResult}
-            proEnabled={proEnabled}
-            onProCta={() => setProModalSource('optimizer-explain')}
-          />
-        </div>
-      )}
 
       {/* Action buttons footer */}
       <div className="flex flex-wrap gap-3 justify-between px-4 py-4 border-t border-slate-200 bg-white no-print">
