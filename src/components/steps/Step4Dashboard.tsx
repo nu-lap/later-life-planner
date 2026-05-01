@@ -7,6 +7,8 @@ import { newId } from '@/lib/ids';
 import {
   calculateProjections,
   getAssetDepletionAge,
+  formatCurrency,
+  getStageTotalSpending,
 } from '@/lib/calculations';
 import ProInterestModal from '@/components/ProInterestModal';
 import DashboardMain from '@/components/DashboardMain';

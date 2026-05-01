@@ -123,7 +123,9 @@ describe('Step4Dashboard', () => {
 
     render(<Step4Dashboard onBack={vi.fn()} />);
 
-    // In refactored layout, Pro features are gated in sidebar (not a single banner)
+    // In tab-based layout, Pro features are gated behind tabs — navigate to Goals tab first
+    fireEvent.click(screen.getByRole('button', { name: 'Goals' }));
+
     // Check that Goal Priorities shows Pro CTA
     expect(screen.getByText('Goal Priorities')).toBeInTheDocument();
     const ctaButtons = screen.getAllByRole('button', { name: /Unlock with Pro/ });
