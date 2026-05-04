@@ -7,6 +7,7 @@ import type { PlannerState, RlssStandard } from '@/models/types';
 import { formatCurrency } from '@/lib/calculations';
 import { getStageTotalSpending } from '@/financialEngine/projectionEngine';
 import { RLSS_STANDARDS } from '@/lib/mockData';
+import { CGT, INCOME_TAX, PENSION_RULES } from '@/config/financialConstants';
 import InfoIcon from '@/components/ui/InfoIcon';
 import { GLOSSARY } from '@/lib/glossary';
 import clsx from 'clsx';
@@ -104,6 +105,17 @@ function StatCard({ icon, label, value, sub, accent = 'slate' }: StatCardProps) 
   );
 }
 
+// ─── Withdrawal guide strings — computed once from HMRC constants ──────────────
+// These derive from module-level constants, so they are stable across all renders.
+const WITHDRAWAL_GUIDE = {
+  ufplsTaxFree:      `${Math.round(PENSION_RULES.UFPLS_TAX_FREE_FRACTION * 100)}%`,
+  ufplsTaxable:      `${Math.round((1 - PENSION_RULES.UFPLS_TAX_FREE_FRACTION) * 100)}%`,
+  personalAllowance: formatCurrency(INCOME_TAX.PERSONAL_ALLOWANCE, true),
+  annualExempt:      formatCurrency(CGT.ANNUAL_EXEMPT, true),
+  cgtBasicRate:      `${Math.round(CGT.BASIC_RATE * 100)}%`,
+  cgtHigherRate:     `${Math.round(CGT.HIGHER_RATE * 100)}%`,
+} as const;
+
 export default function DashboardMain({
   state,
   projections,
@@ -131,6 +143,15 @@ export default function DashboardMain({
     const jointGain = Math.max(0, projection.jointGiaValue - projection.jointGiaBaseCost);
     return p1Gain + p2Gain + jointGain;
   }, [projections]);
+
+  // Tax summary stats (used for overview panels)
+  const lifetimeIncomeTax = projections.reduce((s, p) => s + p.incomeTaxPaid, 0);
+  const lifetimeCGT = projections.reduce((s, p) => s + p.totalCgtPaid, 0);
+  const lifetimeIncome = projections.reduce((s, p) => s + p.totalIncome, 0);
+  const taxFreeYears = projections.filter(p => Math.round(p.totalTaxPaid) === 0).length;
+  const effectiveRate = lifetimeIncome > 0 ? (lifetimeIncomeTax + lifetimeCGT) / lifetimeIncome * 100 : 0;
+
+  const { ufplsTaxFree, ufplsTaxable, personalAllowance, annualExempt, cgtBasicRate, cgtHigherRate } = WITHDRAWAL_GUIDE;
 
   return (
     <div className="flex-1 min-w-0">
@@ -227,6 +248,87 @@ export default function DashboardMain({
 
       {/* Projection table */}
       <ProjectionTable projections={projections} lifeStages={lifeStages} />
+
+      {/* Tax panels in overview: show full simplified withdrawal guide for non-Pro users; show a compact Tax Summary for Pro users */}
+      {!proEnabled ? (
+        <div className="game-card mt-6">
+          <h3 className="section-heading">Simplified tax-efficient withdrawal strategy</h3>
+          <p className="text-xs text-slate-500 mb-1">A simplified guide to how income is typically structured each year to reduce tax.</p>
+          <p className="text-xs text-slate-400 mb-4 italic">
+            This is a simplified, typical ordering only — the most tax-efficient sequence and outcomes can vary based on your circumstances and current tax position.
+          </p>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
+            <div className="rounded-2xl p-3 bg-rose-50 border border-rose-100">
+              <p className="text-xs text-rose-600 font-bold mb-1">Lifetime income tax</p>
+              <p className="text-xl font-black text-rose-800">{formatCurrency(lifetimeIncomeTax, true)}</p>
+            </div>
+            <div className="rounded-2xl p-3 bg-amber-50 border border-amber-100">
+              <p className="text-xs text-amber-600 font-bold mb-1 flex items-center">Lifetime CGT<InfoIcon term="CGT" tooltip={GLOSSARY.CGT} /></p>
+              <p className="text-xl font-black text-amber-800">{formatCurrency(lifetimeCGT, true)}</p>
+            </div>
+            <div className="rounded-2xl p-3 bg-emerald-50 border border-emerald-100">
+              <p className="text-xs text-emerald-600 font-bold mb-1">Tax-free years</p>
+              <p className="text-xl font-black text-emerald-800">{taxFreeYears}</p>
+              <p className="text-xs text-emerald-500 mt-0.5">of {projections.length} projected</p>
+            </div>
+            <div className="rounded-2xl p-3 bg-sky-50 border border-sky-100">
+              <p className="text-xs text-sky-600 font-bold mb-1 flex items-center">Effective rate<InfoIcon term="Effective rate" tooltip={GLOSSARY['Effective rate']} /></p>
+              <p className="text-xl font-black text-sky-800">{effectiveRate.toFixed(1)}%</p>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            {([
+              { n: 1, icon: '🏦', label: 'DC pension', labelSuffix: '— within personal allowance', desc: `Any unused personal allowance (${personalAllowance}) may be met with DC pension withdrawals. Each withdrawal is typically ${ufplsTaxFree} tax-free, and the remaining ${ufplsTaxable} may fall within the allowance, which can reduce or eliminate income tax in some cases.`, color: 'bg-violet-50 border-violet-100' },
+              { n: 2, icon: '📊', label: 'GIA', labelSuffix: '— within CGT exempt amount', desc: `Investment gains up to ${annualExempt}/person may be crystallised with no CGT due in a given tax year, subject to your overall circumstances.`, color: 'bg-amber-50 border-amber-100' },
+              { n: 3, icon: '✅', label: 'ISA', labelSuffix: '', desc: 'ISA withdrawals are typically free of UK income tax and capital gains tax. Used after personal allowance and CGT allowance have been maximised in this simplified guide.', color: 'bg-emerald-50 border-emerald-100' },
+              { n: 4, icon: '💰', label: 'Remaining GIA & cash', labelSuffix: '', desc: `GIA gains above the exempt amount may be taxed at ${cgtBasicRate} (basic-rate) or ${cgtHigherRate} (higher-rate), depending on your position. Cash withdrawals are generally tax-free.`, color: 'bg-sky-50 border-sky-100' },
+              { n: 5, icon: '💼', label: 'DC pension', labelSuffix: '— above personal allowance', desc: 'Any remaining net spending gap may be covered by further pension withdrawals, typically after other sources have been considered in this simplified ordering.', color: 'bg-slate-50 border-slate-100' },
+            ] as const).map(({ n, icon, label, labelSuffix, desc, color }) => (
+              <div key={n} className={clsx('flex gap-3 p-3 rounded-2xl border', color)}>
+                <div className="w-6 h-6 rounded-full bg-white shadow-sm flex items-center justify-center font-black text-xs flex-shrink-0 text-slate-700">{n}</div>
+                <div>
+                  <div className="flex items-center gap-1 text-sm font-bold text-slate-800">
+                    <span>{icon}</span>
+                    <span>{label}</span>
+                    {labelSuffix && <span className="font-normal text-slate-600">{labelSuffix}</span>}
+                  </div>
+                  <p className="text-xs text-slate-500 mt-0.5">{desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <div className="game-card mt-6">
+          <h3 className="section-heading">Tax Summary</h3>
+          <p className="text-xs text-slate-500 mb-1">Key lifetime tax figures based on the standard drawdown plan.</p>
+          {optimizerEnabled && (
+            <p className="text-xs text-amber-600 mb-4 italic">
+              Figures reflect the standard drawdown (pre-optimiser baseline). Use the Withdrawal Optimizer panel for optimised projections.
+            </p>
+          )}
+          {!optimizerEnabled && <div className="mb-4" />}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="rounded-xl p-4 bg-rose-50 border border-rose-100">
+              <p className="text-xs text-rose-600 font-bold">Income Tax</p>
+              <p className="text-xl font-black text-rose-800 mt-1">{formatCurrency(lifetimeIncomeTax, true)}</p>
+            </div>
+            <div className="rounded-xl p-4 bg-amber-50 border border-amber-100">
+              <p className="text-xs text-amber-600 font-bold">CGT</p>
+              <p className="text-xl font-black text-amber-800 mt-1">{formatCurrency(lifetimeCGT, true)}</p>
+            </div>
+            <div className="rounded-xl p-4 bg-sky-50 border border-sky-100">
+              <p className="text-xs text-sky-600 font-bold">Effective Rate</p>
+              <p className="text-xl font-black text-sky-800 mt-1">{effectiveRate.toFixed(1)}%</p>
+            </div>
+            <div className="rounded-xl p-4 bg-emerald-50 border border-emerald-100">
+              <p className="text-xs text-emerald-600 font-bold">Tax-free Years</p>
+              <p className="text-xl font-black text-emerald-800 mt-1">{taxFreeYears}</p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
