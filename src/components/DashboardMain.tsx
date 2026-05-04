@@ -8,7 +8,7 @@ import type { OptimizationResult } from '@/financialEngine/types';
 import { formatCurrency } from '@/lib/calculations';
 import { getStageTotalSpending } from '@/financialEngine/projectionEngine';
 import { RLSS_STANDARDS } from '@/lib/mockData';
-import { CGT, INCOME_TAX, PENSION_RULES } from '@/config/financialConstants';
+
 import InfoIcon from '@/components/ui/InfoIcon';
 import { GLOSSARY } from '@/lib/glossary';
 import OptimizerPanel from '@/components/OptimizerPanel';
@@ -110,17 +110,6 @@ function StatCard({ icon, label, value, sub, accent = 'slate' }: StatCardProps) 
   );
 }
 
-// ─── Withdrawal guide strings — computed once from HMRC constants ──────────────
-// These derive from module-level constants, so they are stable across all renders.
-const WITHDRAWAL_GUIDE = {
-  ufplsTaxFree:      `${Math.round(PENSION_RULES.UFPLS_TAX_FREE_FRACTION * 100)}%`,
-  ufplsTaxable:      `${Math.round((1 - PENSION_RULES.UFPLS_TAX_FREE_FRACTION) * 100)}%`,
-  personalAllowance: formatCurrency(INCOME_TAX.PERSONAL_ALLOWANCE, true),
-  annualExempt:      formatCurrency(CGT.ANNUAL_EXEMPT, true),
-  cgtBasicRate:      `${Math.round(CGT.BASIC_RATE * 100)}%`,
-  cgtHigherRate:     `${Math.round(CGT.HIGHER_RATE * 100)}%`,
-} as const;
-
 export default function DashboardMain({
   state,
   projections,
@@ -152,14 +141,9 @@ export default function DashboardMain({
     return p1Gain + p2Gain + jointGain;
   }, [projections]);
 
-  // Tax summary stats (used for overview panels)
-  const lifetimeIncomeTax = projections.reduce((s, p) => s + p.incomeTaxPaid, 0);
-  const lifetimeCGT = projections.reduce((s, p) => s + p.totalCgtPaid, 0);
-  const lifetimeIncome = projections.reduce((s, p) => s + p.totalIncome, 0);
-  const taxFreeYears = projections.filter(p => Math.round(p.totalTaxPaid) === 0).length;
-  const effectiveRate = lifetimeIncome > 0 ? (lifetimeIncomeTax + lifetimeCGT) / lifetimeIncome * 100 : 0;
-
-  const { ufplsTaxFree, ufplsTaxable, personalAllowance, annualExempt, cgtBasicRate, cgtHigherRate } = WITHDRAWAL_GUIDE;
+  // State for lazy-load table and chart toggle
+  const [showDetailedTable, setShowDetailedTable] = useState(false);
+  const [chartView, setChartView] = useState<'income' | 'assets'>('income');
 
   return (
     <div className="flex-1 min-w-0">
@@ -237,66 +221,92 @@ export default function DashboardMain({
         </div>
       )}
 
-      {/* Charts */}
+      {/* Charts with toggle */}
       <div id="section-charts" className="scroll-mt-32 game-card mb-6">
-        <div className="flex items-start justify-between mb-1">
-          <h3 className="section-heading mb-0">
-            {optimizerEnabled && proEnabled ? 'Gross income vs required spending — optimiser view' : 'Gross income vs required spending — lifetime view'}
-          </h3>
+        <div className="flex items-start justify-between mb-4">
+          <div className="flex-1">
+            <h3 className="section-heading mb-0">
+              {chartView === 'income'
+                ? (optimizerEnabled && proEnabled ? 'Gross income vs required spending — optimiser view' : 'Gross income vs required spending — lifetime view')
+                : 'Investment balances over time'}
+            </h3>
+          </div>
+          <div className="flex gap-2 flex-shrink-0 ml-4">
+            <button
+              type="button"
+              aria-pressed={chartView === 'income'}
+              onClick={() => setChartView('income')}
+              className={clsx(
+                'px-3 py-1 rounded-lg text-sm font-semibold transition-colors whitespace-nowrap',
+                chartView === 'income'
+                  ? 'bg-orange-100 text-orange-700 border border-orange-200'
+                  : 'text-slate-600 hover:bg-slate-100 border border-transparent'
+              )}
+            >
+              Income vs Spending
+            </button>
+            <button
+              type="button"
+              aria-pressed={chartView === 'assets'}
+              onClick={() => setChartView('assets')}
+              className={clsx(
+                'px-3 py-1 rounded-lg text-sm font-semibold transition-colors whitespace-nowrap',
+                chartView === 'assets'
+                  ? 'bg-orange-100 text-orange-700 border border-orange-200'
+                  : 'text-slate-600 hover:bg-slate-100 border border-transparent'
+              )}
+            >
+              Asset Growth
+            </button>
+          </div>
         </div>
-        <p className="text-xs text-slate-500 mb-4">
-          {optimizerEnabled && proEnabled
-            ? 'This chart uses the optimiser-selected strategy, so it matches the withdrawal plan optimisation above. Tax reduces spendable cash, so gross income can be higher than required spending.'
-            : 'Stacked bars = gross income sources. Dashed line = required spending — the cash need the plan must meet after tax. Tax reduces spendable cash, so gross income can be higher than spending in a given year.'}
-        </p>
-        <LifetimeChart projections={displayProjections} mode={mode} p1Name={p1Name} p2Name={p2Name} />
-        <p className="mt-3 text-xs text-slate-400 text-center">
-          Bars above the dashed line indicate surplus income; bars below indicate a shortfall.
-        </p>
-      </div>
 
-      <div className="game-card mb-6">
-        <h3 className="section-heading">Investment balances over time</h3>
-        <p className="text-xs text-slate-500 mb-4">
-          Combined <span className="inline-flex items-center">ISA<InfoIcon term="ISA" tooltip={GLOSSARY.ISA} /></span>, <span className="inline-flex items-center">GIA<InfoIcon term="GIA" tooltip={GLOSSARY.GIA} /></span>, cash and pension as you draw from them.
-          {state.careReserve?.enabled && (
-            <span className="ml-1 text-teal-600 font-semibold">Care Reserve shown separately — earmarked, not drawn for spending.</span>
-          )}
-        </p>
-        <AssetChart projections={displayProjections} />
-      </div>
-
-      {/* Projection table */}
-      <ProjectionTable projections={projections} lifeStages={lifeStages} />
-
-      {/* Tax Summary panel shown only in Pro mode */}
-      {proEnabled && (
-        <div className="game-card mt-6">
-          <h3 className="section-heading">Tax Summary</h3>
-          <p className="text-xs text-slate-500 mb-1">Key lifetime tax figures based on the standard drawdown plan.</p>
-          {optimizerEnabled && (
-            <p className="text-xs text-amber-600 mb-4 italic">
-              Figures reflect the standard drawdown (pre-optimiser baseline). Use the Withdrawal Optimizer panel for optimised projections.
+        {chartView === 'income' && (
+          <>
+            <p className="text-xs text-slate-500 mb-4">
+              {optimizerEnabled && proEnabled
+                ? 'This chart uses the optimiser-selected strategy, so it matches the withdrawal plan optimisation above. Tax reduces spendable cash, so gross income can be higher than required spending.'
+                : 'Stacked bars = gross income sources. Dashed line = required spending — the cash need the plan must meet after tax. Tax reduces spendable cash, so gross income can be higher than spending in a given year.'}
             </p>
-          )}
-          {!optimizerEnabled && <div className="mb-4" />}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div className="rounded-xl p-4 bg-rose-50 border border-rose-100">
-              <p className="text-xs text-rose-600 font-bold">Income Tax</p>
-              <p className="text-xl font-black text-rose-800 mt-1">{formatCurrency(lifetimeIncomeTax, true)}</p>
-            </div>
-            <div className="rounded-xl p-4 bg-amber-50 border border-amber-100">
-              <p className="text-xs text-amber-600 font-bold">CGT</p>
-              <p className="text-xl font-black text-amber-800 mt-1">{formatCurrency(lifetimeCGT, true)}</p>
-            </div>
-            <div className="rounded-xl p-4 bg-sky-50 border border-sky-100">
-              <p className="text-xs text-sky-600 font-bold">Effective Rate</p>
-              <p className="text-xl font-black text-sky-800 mt-1">{effectiveRate.toFixed(1)}%</p>
-            </div>
-            <div className="rounded-xl p-4 bg-emerald-50 border border-emerald-100">
-              <p className="text-xs text-emerald-600 font-bold">Tax-free Years</p>
-              <p className="text-xl font-black text-emerald-800 mt-1">{taxFreeYears}</p>
-            </div>
+            <LifetimeChart projections={displayProjections} mode={mode} p1Name={p1Name} p2Name={p2Name} />
+            <p className="mt-3 text-xs text-slate-400 text-center">
+              Bars above the dashed line indicate surplus income; bars below indicate a shortfall.
+            </p>
+          </>
+        )}
+
+        {chartView === 'assets' && (
+          <>
+            <p className="text-xs text-slate-500 mb-4">
+              Combined <span className="inline-flex items-center">ISA<InfoIcon term="ISA" tooltip={GLOSSARY.ISA} /></span>, <span className="inline-flex items-center">GIA<InfoIcon term="GIA" tooltip={GLOSSARY.GIA} /></span>, cash and pension as you draw from them.
+              {state.careReserve?.enabled && (
+                <span className="ml-1 text-teal-600 font-semibold">Care Reserve shown separately — earmarked, not drawn for spending.</span>
+              )}
+            </p>
+            <AssetChart projections={displayProjections} />
+          </>
+        )}
+      </div>
+
+      {/* Projection table — lazy loaded */}
+      {showDetailedTable && (
+        <div id="projection-table">
+          <ProjectionTable projections={projections} lifeStages={lifeStages} />
+        </div>
+      )}
+      {!showDetailedTable && (
+        <div className="game-card mb-6">
+          <div className="text-center py-8">
+            <p className="text-sm text-slate-600 mb-4">View detailed year-by-year financial data for your entire projection period.</p>
+            <button 
+              type="button"
+              aria-expanded={showDetailedTable}
+              aria-controls="projection-table"
+              onClick={() => setShowDetailedTable(true)}
+              className="px-4 py-2 rounded-lg bg-orange-50 border border-orange-200 text-orange-700 hover:bg-orange-100 font-semibold text-sm transition-colors"
+            >
+              Show detailed table
+            </button>
           </div>
         </div>
       )}
