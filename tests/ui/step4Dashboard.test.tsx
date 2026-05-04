@@ -4,6 +4,7 @@ import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { paulAndLisaState } from '../fixtures/states';
 import { calculateProjections, formatCurrency } from '@/lib/calculations';
 import { optimizeWithdrawals } from '@/financialEngine/withdrawalOptimizer';
+import { PENSION_RULES, INCOME_TAX, CGT } from '@/config/financialConstants';
 
 const setGoalRegistryMock = vi.fn();
 const setCareReserveMock = vi.fn();
@@ -133,6 +134,75 @@ describe('Step4Dashboard', () => {
 
     fireEvent.click(ctaButtons[0]);
     expect(screen.getByText('Your plan is good.')).toBeInTheDocument();
+  });
+
+  describe('Strategy tab — non-Pro mode', () => {
+    function renderAndOpenStrategyTab() {
+      vi.stubEnv('NEXT_PUBLIC_PRO_ENABLED', 'false');
+      render(<Step4Dashboard onBack={vi.fn()} />);
+      fireEvent.click(screen.getByRole('button', { name: 'Strategy' }));
+    }
+
+    test('shows the simplified withdrawal strategy heading on the Strategy tab', () => {
+      renderAndOpenStrategyTab();
+      expect(screen.getByText('Simplified tax-efficient withdrawal strategy')).toBeInTheDocument();
+    });
+
+    test('shows all five withdrawal steps matching the drawdown waterfall', () => {
+      renderAndOpenStrategyTab();
+
+      // Steps 1 and 5 both say "DC pension" — two instances are expected
+      expect(screen.getAllByText('DC pension')).toHaveLength(2);
+
+      expect(screen.getByText('— within personal allowance')).toBeInTheDocument();
+      expect(screen.getAllByText('GIA').length).toBeGreaterThanOrEqual(1);
+      expect(screen.getByText('— within CGT exempt amount')).toBeInTheDocument();
+      expect(screen.getByText('Remaining GIA & cash')).toBeInTheDocument();
+      expect(screen.getByText('— above personal allowance')).toBeInTheDocument();
+    });
+
+    test('derives UFPLS percentages from PENSION_RULES constants, not hardcoded strings', () => {
+      renderAndOpenStrategyTab();
+
+      const ufplsTaxFree = `${Math.round(PENSION_RULES.UFPLS_TAX_FREE_FRACTION * 100)}%`;
+      const ufplsTaxable = `${Math.round((1 - PENSION_RULES.UFPLS_TAX_FREE_FRACTION) * 100)}%`;
+      // Scope to the simplified guide section to avoid matching the strategy option descriptions
+      const guideSection = screen.getByText('Simplified tax-efficient withdrawal strategy').parentElement!;
+      const step1 = within(guideSection).getByText(new RegExp(`${ufplsTaxFree} tax-free`));
+      expect(step1).toBeInTheDocument();
+      expect(step1.textContent).toContain(ufplsTaxable);
+    });
+
+    test('derives CGT exemption amount from CGT constants in the GIA step description', () => {
+      renderAndOpenStrategyTab();
+
+      const annualExempt = formatCurrency(CGT.ANNUAL_EXEMPT, true);
+      expect(screen.getByText(new RegExp(annualExempt.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))).toBeInTheDocument();
+    });
+
+    test('derives personal allowance from INCOME_TAX constants in the DC pension step description', () => {
+      renderAndOpenStrategyTab();
+
+      const personalAllowance = formatCurrency(INCOME_TAX.PERSONAL_ALLOWANCE, true);
+      expect(screen.getByText(new RegExp(personalAllowance.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))).toBeInTheDocument();
+    });
+
+    test('shows all four tax summary stat cards on the Strategy tab', () => {
+      renderAndOpenStrategyTab();
+
+      expect(screen.getByText('Lifetime income tax')).toBeInTheDocument();
+      expect(screen.getByText('Lifetime CGT')).toBeInTheDocument();
+      expect(screen.getByText('Tax-free years')).toBeInTheDocument();
+      expect(screen.getByText('Effective rate')).toBeInTheDocument();
+    });
+
+    test('does not show simplified withdrawal guide on the Strategy tab in Pro mode', () => {
+      vi.stubEnv('NEXT_PUBLIC_PRO_ENABLED', 'true');
+      render(<Step4Dashboard onBack={vi.fn()} />);
+      fireEvent.click(screen.getByRole('button', { name: 'Strategy' }));
+
+      expect(screen.queryByText('Simplified tax-efficient withdrawal strategy')).not.toBeInTheDocument();
+    });
   });
 
   test.skip('feeds optimizer-adjusted projections into the asset chart when optimizer mode is enabled', () => {

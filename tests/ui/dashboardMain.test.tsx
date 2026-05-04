@@ -88,68 +88,6 @@ function renderDashboardMain(
 }
 
 describe('DashboardMain tax panel', () => {
-  describe('non-Pro branch', () => {
-    test('shows the simplified withdrawal strategy heading', () => {
-      renderDashboardMain({ proEnabled: false });
-      expect(screen.getByText('Simplified tax-efficient withdrawal strategy')).toBeInTheDocument();
-    });
-
-    test('shows all five withdrawal steps matching the drawdown waterfall', () => {
-      renderDashboardMain({ proEnabled: false });
-
-      // Steps 1 and 5 both say "DC pension" — two instances are expected
-      expect(screen.getAllByText('DC pension')).toHaveLength(2);
-
-      // Each step's distinct suffix/label is present exactly once
-      expect(screen.getByText('— within personal allowance')).toBeInTheDocument();
-      expect(screen.getAllByText('GIA').length).toBeGreaterThanOrEqual(1);
-      expect(screen.getByText('— within CGT exempt amount')).toBeInTheDocument();
-      expect(screen.getByText('Remaining GIA & cash')).toBeInTheDocument();
-      expect(screen.getByText('— above personal allowance')).toBeInTheDocument();
-    });
-
-    test('derives UFPLS percentages from PENSION_RULES constants, not hardcoded strings', () => {
-      renderDashboardMain({ proEnabled: false });
-
-      // WITHDRAWAL_GUIDE (computed from PENSION_RULES.UFPLS_TAX_FREE_FRACTION) drives the text
-      const ufplsTaxFree = `${Math.round(PENSION_RULES.UFPLS_TAX_FREE_FRACTION * 100)}%`;
-      const ufplsTaxable = `${Math.round((1 - PENSION_RULES.UFPLS_TAX_FREE_FRACTION) * 100)}%`;
-      const step1 = screen.getByText(new RegExp(`${escapeRegex(ufplsTaxFree)} tax-free`));
-      expect(step1).toBeInTheDocument();
-      expect(step1.textContent).toContain(ufplsTaxable);
-    });
-
-    test('derives CGT exemption amount from CGT constants in the GIA step description', () => {
-      renderDashboardMain({ proEnabled: false });
-
-      // The GIA step description uses formatCurrency(CGT.ANNUAL_EXEMPT, true) — verify the formatted value is present
-      const annualExempt = formatCurrency(CGT.ANNUAL_EXEMPT, true);
-      expect(screen.getByText(new RegExp(escapeRegex(annualExempt)))).toBeInTheDocument();
-    });
-
-    test('derives personal allowance from INCOME_TAX constants in the DC pension step description', () => {
-      renderDashboardMain({ proEnabled: false });
-
-      // Step 1 uses formatCurrency(INCOME_TAX.PERSONAL_ALLOWANCE, true) — verify formatted value is present
-      const personalAllowance = formatCurrency(INCOME_TAX.PERSONAL_ALLOWANCE, true);
-      expect(screen.getByText(new RegExp(escapeRegex(personalAllowance)))).toBeInTheDocument();
-    });
-
-    test('shows all four tax summary stat cards', () => {
-      renderDashboardMain({ proEnabled: false });
-
-      expect(screen.getByText('Lifetime income tax')).toBeInTheDocument();
-      expect(screen.getByText('Lifetime CGT')).toBeInTheDocument();
-      expect(screen.getByText('Tax-free years')).toBeInTheDocument();
-      expect(screen.getByText('Effective rate')).toBeInTheDocument();
-    });
-
-    test('does not show the Pro Tax Summary heading', () => {
-      renderDashboardMain({ proEnabled: false });
-      expect(screen.queryByText('Tax Summary')).not.toBeInTheDocument();
-    });
-  });
-
   describe('Pro branch', () => {
     test('shows the compact Tax Summary heading', () => {
       renderDashboardMain({ proEnabled: true });
