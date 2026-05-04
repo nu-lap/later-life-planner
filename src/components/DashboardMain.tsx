@@ -128,6 +128,13 @@ export default function DashboardMain({
   optimizerResult,
   plannerState,
   onProCta,
+  drawdownStrategy,
+  setDrawdownStrategy,
+  pclsAge,
+  setPclsAge,
+  strategies,
+  effectiveDrawdownStrategy,
+  person1CurrentAge,
 }: DashboardMainProps) {
   const firstStageId = lifeStages[0]?.id ?? 'active';
   const annualSpend = getStageTotalSpending(state, firstStageId);

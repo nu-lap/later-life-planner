@@ -199,12 +199,26 @@ describe('Step4Dashboard', () => {
       expect(screen.getByText('Effective rate')).toBeInTheDocument();
     });
 
-    test('does not show simplified withdrawal guide on the Strategy tab in Pro mode', () => {
+    test('hides Strategy tab in Pro mode; shows tax guide only in non-Pro Strategy tab', () => {
+      // Pro mode: Strategy tab should be hidden entirely
       vi.stubEnv('NEXT_PUBLIC_PRO_ENABLED', 'true');
-      render(<Step4Dashboard onBack={vi.fn()} />);
-      fireEvent.click(screen.getByRole('button', { name: 'Strategy' }));
-
+      const { unmount: unmountPro } = render(<Step4Dashboard onBack={vi.fn()} />);
+      
+      // Strategy button should NOT exist in Pro mode
+      expect(screen.queryByRole('button', { name: /Strategy/ })).not.toBeInTheDocument();
       expect(screen.queryByText('Simplified tax-efficient withdrawal strategy')).not.toBeInTheDocument();
+      
+      unmountPro();
+      
+      // Non-Pro mode: Strategy tab should exist with tax guide
+      vi.stubEnv('NEXT_PUBLIC_PRO_ENABLED', 'false');
+      render(<Step4Dashboard onBack={vi.fn()} />);
+      
+      const strategyButton = screen.getByRole('button', { name: /Strategy/ });
+      fireEvent.click(strategyButton);
+      
+      // Tax guide should be visible in non-Pro Strategy tab
+      expect(screen.getByText('Simplified tax-efficient withdrawal strategy')).toBeInTheDocument();
     });
   });
 

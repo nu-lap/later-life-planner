@@ -75,6 +75,14 @@ function renderDashboardMain(
       p2Name="Partner 2"
       optimizerEnabled={overrides.optimizerEnabled ?? false}
       proEnabled={overrides.proEnabled ?? false}
+      // Strategy-related props for Pro mode
+      drawdownStrategy={overrides.proEnabled ? 'max-growth' : undefined}
+      setDrawdownStrategy={overrides.proEnabled ? vi.fn() : undefined}
+      pclsAge={overrides.proEnabled ? 65 : undefined}
+      setPclsAge={overrides.proEnabled ? vi.fn() : undefined}
+      strategies={overrides.proEnabled ? [] : undefined}
+      effectiveDrawdownStrategy={overrides.proEnabled ? 'max-growth' : undefined}
+      person1CurrentAge={overrides.proEnabled ? 65 : undefined}
     />,
   );
 }
