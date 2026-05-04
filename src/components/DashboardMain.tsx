@@ -105,6 +105,17 @@ function StatCard({ icon, label, value, sub, accent = 'slate' }: StatCardProps) 
   );
 }
 
+// ─── Withdrawal guide strings — computed once from HMRC constants ──────────────
+// These derive from module-level constants, so they are stable across all renders.
+const WITHDRAWAL_GUIDE = {
+  ufplsTaxFree:      `${Math.round(PENSION_RULES.UFPLS_TAX_FREE_FRACTION * 100)}%`,
+  ufplsTaxable:      `${Math.round((1 - PENSION_RULES.UFPLS_TAX_FREE_FRACTION) * 100)}%`,
+  personalAllowance: formatCurrency(INCOME_TAX.PERSONAL_ALLOWANCE, true),
+  annualExempt:      formatCurrency(CGT.ANNUAL_EXEMPT, true),
+  cgtBasicRate:      `${Math.round(CGT.BASIC_RATE * 100)}%`,
+  cgtHigherRate:     `${Math.round(CGT.HIGHER_RATE * 100)}%`,
+} as const;
+
 export default function DashboardMain({
   state,
   projections,
@@ -140,13 +151,7 @@ export default function DashboardMain({
   const taxFreeYears = projections.filter(p => Math.round(p.totalTaxPaid) === 0).length;
   const effectiveRate = lifetimeIncome > 0 ? (lifetimeIncomeTax + lifetimeCGT) / lifetimeIncome * 100 : 0;
 
-  // Withdrawal guide constants — derived from HMRC rules so the guide stays in sync with the engine
-  const ufplsTaxFree = `${Math.round(PENSION_RULES.UFPLS_TAX_FREE_FRACTION * 100)}%`;
-  const ufplsTaxable = `${Math.round((1 - PENSION_RULES.UFPLS_TAX_FREE_FRACTION) * 100)}%`;
-  const personalAllowance = formatCurrency(INCOME_TAX.PERSONAL_ALLOWANCE, true);
-  const annualExempt = formatCurrency(CGT.ANNUAL_EXEMPT, true);
-  const cgtBasicRate = `${Math.round(CGT.BASIC_RATE * 100)}%`;
-  const cgtHigherRate = `${Math.round(CGT.HIGHER_RATE * 100)}%`;
+  const { ufplsTaxFree, ufplsTaxable, personalAllowance, annualExempt, cgtBasicRate, cgtHigherRate } = WITHDRAWAL_GUIDE;
 
   return (
     <div className="flex-1 min-w-0">

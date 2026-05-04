@@ -26,6 +26,11 @@ vi.mock('@/financialEngine/projectionEngine', async (importOriginal) => {
   };
 });
 
+/** Escapes characters that are special in RegExp so they can be used in `new RegExp(str)`. */
+function escapeRegex(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 /** Minimal projection row sufficient for the component to render without errors. */
 function makeProjection(overrides: Partial<YearlyProjection> = {}): YearlyProjection {
   return {
@@ -106,13 +111,12 @@ describe('DashboardMain tax panel', () => {
     test('derives UFPLS percentages from PENSION_RULES constants, not hardcoded strings', () => {
       renderDashboardMain({ proEnabled: false });
 
+      // WITHDRAWAL_GUIDE (computed from PENSION_RULES.UFPLS_TAX_FREE_FRACTION) drives the text
       const ufplsTaxFree = `${Math.round(PENSION_RULES.UFPLS_TAX_FREE_FRACTION * 100)}%`;
       const ufplsTaxable = `${Math.round((1 - PENSION_RULES.UFPLS_TAX_FREE_FRACTION) * 100)}%`;
-
-      // The description for step 1 should contain both percentages from constants
-      const step1Text = screen.getByText(new RegExp(`${ufplsTaxFree} tax-free`));
-      expect(step1Text).toBeInTheDocument();
-      expect(step1Text.textContent).toContain(ufplsTaxable);
+      const step1 = screen.getByText(new RegExp(`${escapeRegex(ufplsTaxFree)} tax-free`));
+      expect(step1).toBeInTheDocument();
+      expect(step1.textContent).toContain(ufplsTaxable);
     });
 
     test('derives CGT exemption amount from CGT constants in the GIA step description', () => {
@@ -120,7 +124,7 @@ describe('DashboardMain tax panel', () => {
 
       // The GIA step description uses formatCurrency(CGT.ANNUAL_EXEMPT, true) — verify the formatted value is present
       const annualExempt = formatCurrency(CGT.ANNUAL_EXEMPT, true);
-      expect(screen.getByText(new RegExp(annualExempt.replace(/[£.]/g, (c) => `\\${c}`)))).toBeInTheDocument();
+      expect(screen.getByText(new RegExp(escapeRegex(annualExempt)))).toBeInTheDocument();
     });
 
     test('derives personal allowance from INCOME_TAX constants in the DC pension step description', () => {
@@ -128,7 +132,7 @@ describe('DashboardMain tax panel', () => {
 
       // Step 1 uses formatCurrency(INCOME_TAX.PERSONAL_ALLOWANCE, true) — verify formatted value is present
       const personalAllowance = formatCurrency(INCOME_TAX.PERSONAL_ALLOWANCE, true);
-      expect(screen.getByText(new RegExp(personalAllowance.replace(/[£.]/g, (c) => `\\${c}`)))).toBeInTheDocument();
+      expect(screen.getByText(new RegExp(escapeRegex(personalAllowance)))).toBeInTheDocument();
     });
 
     test('shows all four tax summary stat cards', () => {
