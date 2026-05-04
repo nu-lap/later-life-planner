@@ -139,5 +139,9 @@ describe('DashboardMain lazy-loaded projection table', () => {
     const btn = screen.getByRole('button', { name: 'Show detailed table' });
     expect(btn).toHaveAttribute('aria-expanded', 'false');
     expect(btn).toHaveAttribute('aria-controls', 'projection-table');
+    // After clicking, the table is shown and the button is removed from the DOM —
+    // verify the table container is now present instead
+    fireEvent.click(btn);
+    expect(screen.getByText('Year-by-year projection')).toBeInTheDocument();
   });
 });
