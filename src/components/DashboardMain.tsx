@@ -4,11 +4,13 @@ import { useMemo, useState } from 'react';
 import dynamic from 'next/dynamic';
 import type { YearlyProjection, DrawdownStrategy, LifeStage } from '@/lib/types';
 import type { PlannerState, RlssStandard } from '@/models/types';
+import type { OptimizationResult } from '@/financialEngine/types';
 import { formatCurrency } from '@/lib/calculations';
 import { getStageTotalSpending } from '@/financialEngine/projectionEngine';
 import { RLSS_STANDARDS } from '@/lib/mockData';
 import InfoIcon from '@/components/ui/InfoIcon';
 import { GLOSSARY } from '@/lib/glossary';
+import OptimizerPanel from '@/components/OptimizerPanel';
 import clsx from 'clsx';
 
 const ChartSkeleton = () => <div className="h-64 bg-slate-100 rounded-2xl animate-pulse" />;
@@ -81,6 +83,9 @@ interface DashboardMainProps {
   rlssStandard?: RlssStandard;
   optimizerEnabled: boolean;
   proEnabled: boolean;
+  optimizerResult?: OptimizationResult | null;
+  plannerState?: PlannerState;
+  onProCta?: () => void;
 }
 
 interface StatCardProps {
@@ -119,6 +124,9 @@ export default function DashboardMain({
   rlssStandard,
   optimizerEnabled,
   proEnabled,
+  optimizerResult,
+  plannerState,
+  onProCta,
 }: DashboardMainProps) {
   const firstStageId = lifeStages[0]?.id ?? 'active';
   const annualSpend = getStageTotalSpending(state, firstStageId);
@@ -202,6 +210,23 @@ export default function DashboardMain({
           </div>
         </div>
       )}
+
+      {/* Withdrawal plan optimisation — shown above charts */}
+      {optimizerEnabled && optimizerResult && proEnabled && plannerState ? (
+        <OptimizerPanel
+          plannerState={plannerState}
+          result={optimizerResult}
+          proEnabled={proEnabled}
+          onProCta={onProCta}
+        />
+      ) : optimizerEnabled && !proEnabled && optimizerResult && plannerState ? (
+        <OptimizerPanel
+          plannerState={plannerState}
+          result={optimizerResult}
+          proEnabled={false}
+          onProCta={onProCta}
+        />
+      ) : null}
 
       {/* Charts */}
       <div id="section-charts" className="scroll-mt-32 game-card mb-6">

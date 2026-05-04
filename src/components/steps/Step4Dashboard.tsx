@@ -14,7 +14,6 @@ import ProInterestModal from '@/components/ProInterestModal';
 import DashboardMain from '@/components/DashboardMain';
 // DashboardSidebar is no longer rendered — kept as a file reference to avoid breaking any test imports
 // import DashboardSidebar from '@/components/DashboardSidebar';
-import OptimizerPanel from '@/components/OptimizerPanel';
 import IHTOutlookPanel from '@/components/IHTOutlookPanel';
 import ProFeatureBanner from '@/components/ProFeatureBanner';
 import { CARE_RESERVE, CGT, CURRENT_TAX_YEAR_START, GOAL_PANEL, INCOME_TAX, PENSION_RULES } from '@/config/financialConstants';
@@ -764,40 +763,25 @@ export default function Step4Dashboard({ onBack }: Props) {
 
         {/* ── Overview tab ──────────────────────────────────────────────────── */}
         {activeTab === 'overview' && (
-          <>
-            <DashboardMain
-              state={state}
-              projections={projections}
-              displayProjections={displayProjections}
-              surplus={surplus}
-              depletionAge={depletionAge ?? 'Never'}
-              firstYear={firstYear}
-              lastPositive={lastPositive}
-              lifeStages={lifeStages}
-              mode={mode}
-              p1Name={person1.name || (mode === 'couple' ? 'Partner 1' : 'You')}
-              p2Name={person2?.name || 'Partner 2'}
-              rlssStandard={rlssStandard ?? undefined}
-              optimizerEnabled={optimizerEnabled}
-              proEnabled={proEnabled}
-            />
-
-            {optimizerEnabled && proEnabled && optimizerResult ? (
-              <OptimizerPanel
-                plannerState={deferredState}
-                result={optimizerResult as OptimizationResult}
-                proEnabled={proEnabled}
-                onProCta={() => setProModalSource('optimizer-explain')}
-              />
-            ) : optimizerEnabled && !proEnabled ? (
-              <ProFeatureBanner
-                icon="⚡"
-                headline="Withdrawal Optimizer"
-                description="Explore a more tax-efficient drawdown order across pension, ISA, GIA, and cash each year based on your plan inputs."
-                onCta={() => setProModalSource('optimizer-banner')}
-              />
-            ) : null}
-          </>
+          <DashboardMain
+            state={state}
+            projections={projections}
+            displayProjections={displayProjections}
+            surplus={surplus}
+            depletionAge={depletionAge ?? 'Never'}
+            firstYear={firstYear}
+            lastPositive={lastPositive}
+            lifeStages={lifeStages}
+            mode={mode}
+            p1Name={person1.name || (mode === 'couple' ? 'Partner 1' : 'You')}
+            p2Name={person2?.name || 'Partner 2'}
+            rlssStandard={rlssStandard ?? undefined}
+            optimizerEnabled={optimizerEnabled}
+            proEnabled={proEnabled}
+            optimizerResult={optimizerResult ?? null}
+            plannerState={deferredState}
+            onProCta={() => setProModalSource('optimizer-explain')}
+          />
         )}
 
         {/* ── Strategy tab ──────────────────────────────────────────────────── */}
