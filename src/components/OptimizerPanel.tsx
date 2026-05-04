@@ -557,7 +557,12 @@ export default function OptimizerPanel({ plannerState, result, proEnabled, onPro
                   setSelectedActionPlanYear(y => Math.min(result.yearRecords.length - 1, y + 1));
                 }}
                 disabled={proEnabled && apIsLastYear}
-                className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-100 disabled:opacity-30"
+                className={clsx(
+                  'rounded-full px-2.5 py-1.5 text-xs font-bold transition-all',
+                  !proEnabled
+                    ? 'border-2 border-orange-300 bg-gradient-to-br from-orange-50 to-orange-100 text-orange-700 hover:shadow-md hover:border-orange-400'
+                    : 'border border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100 disabled:opacity-30'
+                )}
                 aria-label={proEnabled ? 'Next year' : 'Unlock all years with Pro'}
               >
                 {proEnabled ? '▶' : '🔓'}

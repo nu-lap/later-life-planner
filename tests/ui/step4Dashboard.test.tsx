@@ -166,9 +166,12 @@ describe('Step4Dashboard', () => {
 
       const ufplsTaxFree = `${Math.round(PENSION_RULES.UFPLS_TAX_FREE_FRACTION * 100)}%`;
       const ufplsTaxable = `${Math.round((1 - PENSION_RULES.UFPLS_TAX_FREE_FRACTION) * 100)}%`;
-      // Scope to the simplified guide section to avoid matching the strategy option descriptions
-      const guideSection = screen.getByText('Simplified tax-efficient withdrawal strategy').parentElement!;
-      const step1 = within(guideSection).getByText(new RegExp(`${ufplsTaxFree} tax-free`));
+      // Find the guide section heading and scope to its parent container
+      const headingSpan = screen.getByText((text, element) => 
+        text === 'Simplified tax-efficient withdrawal strategy' && element?.tagName === 'SPAN'
+      );
+      const guideSection = headingSpan.closest('div');
+      const step1 = within(guideSection!).getByText(new RegExp(`${ufplsTaxFree} tax-free`));
       expect(step1).toBeInTheDocument();
       expect(step1.textContent).toContain(ufplsTaxable);
     });

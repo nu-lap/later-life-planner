@@ -751,11 +751,13 @@ export default function Step4Dashboard({ onBack }: Props) {
                     setDrawdownStrategy(option.id);
                   }}
                   className={clsx(
-                    'w-full text-left rounded-xl border-2 p-4 transition-all',
+                    'w-full text-left rounded-xl border-2 p-4 transition-all hover:shadow-md',
                     effectiveDrawdownStrategy === option.id
                       ? 'border-orange-400 bg-orange-50'
-                      : 'border-slate-200 bg-white hover:border-slate-300',
+                      : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/50',
                   )}
+                  aria-pressed={effectiveDrawdownStrategy === option.id}
+                  aria-label={`${option.label}. ${option.description}${option.id === 'pcls-bed-isa' && !proEnabled ? ' (Pro only)' : ''}`}
                 >
                   <div className="flex items-center gap-3 mb-2">
                     <span className="text-xl">{option.icon}</span>
@@ -763,10 +765,10 @@ export default function Step4Dashboard({ onBack }: Props) {
                       {option.label}
                     </span>
                     {effectiveDrawdownStrategy === option.id && (
-                      <span className="ml-auto text-xs font-bold bg-orange-200 text-orange-700 px-2 py-0.5 rounded-full">Active</span>
+                      <span className="ml-auto text-xs font-bold bg-orange-200 text-orange-700 px-2 py-0.5 rounded-full" aria-label="This strategy is currently active">Active</span>
                     )}
                     {option.id === 'pcls-bed-isa' && !proEnabled && (
-                      <span className="ml-auto text-xs font-bold bg-violet-100 text-violet-700 px-2 py-0.5 rounded-full">Pro</span>
+                      <span className="ml-auto text-xs font-bold bg-violet-100 text-violet-700 px-2 py-0.5 rounded-full" aria-label="Pro feature only">Pro</span>
                     )}
                   </div>
                   <p className={clsx('text-sm leading-relaxed', effectiveDrawdownStrategy === option.id ? 'text-orange-700' : 'text-slate-500')}>
@@ -795,27 +797,30 @@ export default function Step4Dashboard({ onBack }: Props) {
 
             {/* Simplified tax-efficient withdrawal strategy — shown only in non-Pro mode */}
             {!proEnabled && (
-              <div className="mt-6 pt-6 border-t border-slate-200">
-                <h3 className="section-heading mb-3">Simplified tax-efficient withdrawal strategy</h3>
+              <div className="mt-6 pt-6 border-t-2 border-t-orange-200 bg-gradient-to-br from-orange-50/30 to-transparent rounded-xl p-4">
+                <h3 className="section-heading mb-3 flex items-center gap-2">
+                  <span>💡</span>
+                  <span>Simplified tax-efficient withdrawal strategy</span>
+                </h3>
                 <p className="text-xs text-slate-500 mb-1">A simplified guide to how income is typically structured each year to reduce tax.</p>
                 <p className="text-xs text-slate-400 mb-4 italic">
                   This is a simplified, typical ordering only — the most tax-efficient sequence and outcomes can vary based on your circumstances and current tax position.
                 </p>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
-                  <div className="rounded-2xl p-3 bg-rose-50 border border-rose-100">
+                  <div className="rounded-2xl p-3 bg-rose-50 border border-rose-100 hover:shadow-md hover:border-rose-200 transition-all duration-200 cursor-default">
                     <p className="text-xs text-rose-600 font-bold mb-1">Lifetime income tax</p>
                     <p className="text-xl font-black text-rose-800">{formatCurrency(lifetimeIncomeTax, true)}</p>
                   </div>
-                  <div className="rounded-2xl p-3 bg-amber-50 border border-amber-100">
+                  <div className="rounded-2xl p-3 bg-amber-50 border border-amber-100 hover:shadow-md hover:border-amber-200 transition-all duration-200 cursor-default">
                     <p className="text-xs text-amber-600 font-bold mb-1 flex items-center">Lifetime CGT<InfoIcon term="CGT" tooltip={GLOSSARY.CGT} /></p>
                     <p className="text-xl font-black text-amber-800">{formatCurrency(lifetimeCGT, true)}</p>
                   </div>
-                  <div className="rounded-2xl p-3 bg-emerald-50 border border-emerald-100">
+                  <div className="rounded-2xl p-3 bg-emerald-50 border border-emerald-100 hover:shadow-md hover:border-emerald-200 transition-all duration-200 cursor-default">
                     <p className="text-xs text-emerald-600 font-bold mb-1">Tax-free years</p>
                     <p className="text-xl font-black text-emerald-800">{taxFreeYears}</p>
                     <p className="text-xs text-emerald-500 mt-0.5">of {projections.length} projected</p>
                   </div>
-                  <div className="rounded-2xl p-3 bg-sky-50 border border-sky-100">
+                  <div className="rounded-2xl p-3 bg-sky-50 border border-sky-100 hover:shadow-md hover:border-sky-200 transition-all duration-200 cursor-default">
                     <p className="text-xs text-sky-600 font-bold mb-1 flex items-center">Effective rate<InfoIcon term="Effective rate" tooltip={GLOSSARY['Effective rate']} /></p>
                     <p className="text-xl font-black text-sky-800">{effectiveRate.toFixed(1)}%</p>
                   </div>

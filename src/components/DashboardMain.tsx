@@ -29,12 +29,12 @@ function ProjectionTable({ projections, lifeStages }: {
     <div className="game-card">
       <h3 className="section-heading">Year-by-year projection</h3>
       <p className="text-xs text-slate-500 mb-4">Nominal (inflation-adjusted) figures in future £.</p>
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
+      <div className="overflow-x-auto -mx-2 sm:mx-0 sm:overflow-visible">
+        <table className="w-full text-xs sm:text-sm">
           <thead>
             <tr className="border-b border-slate-100 text-right">
               {['Age', 'Stage', 'Spending', 'Income', 'Tax', 'Net', 'Inv. Assets'].map((h, i) => (
-                <th key={h} className={clsx('pb-2 pr-3 last:pr-0 font-bold text-slate-500', i <= 1 && 'text-left')}>{h}</th>
+                <th key={h} className={clsx('pb-2 px-1 sm:px-3 sm:pr-3 font-bold text-slate-500 whitespace-nowrap', i <= 1 && 'text-left')}>{h}</th>
               ))}
             </tr>
           </thead>
@@ -43,17 +43,17 @@ function ProjectionTable({ projections, lifeStages }: {
               const stageColor = lifeStages.find(s => s.label === p.lifeStage)?.color ?? '#94a3b8';
               return (
                 <tr key={p.p1Age} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
-                  <td className="py-2 pr-3 text-sm text-slate-700">
+                  <td className="py-2 px-1 sm:px-3 sm:pr-3 text-slate-700 whitespace-nowrap">
                     {p.p1Age}{p.p2Age !== null && <span>/{p.p2Age}</span>}
                   </td>
-                  <td className="py-2 pr-3 whitespace-nowrap">
+                  <td className="py-2 px-1 sm:px-3 sm:pr-3 whitespace-nowrap">
                     <span className="text-xs font-semibold" style={{ color: stageColor }}>{p.lifeStage}</span>
                   </td>
-                  <td className="py-2 pr-3 text-right text-slate-600">{formatCurrency(p.spending, true)}</td>
-                  <td className="py-2 pr-3 text-right font-semibold text-slate-800">{formatCurrency(p.totalIncome, true)}</td>
-                  <td className="py-2 pr-3 text-right text-rose-500">{formatCurrency(p.totalTaxPaid, true)}</td>
-                  <td className="py-2 pr-3 text-right text-emerald-600 font-semibold">{formatCurrency(p.netIncome, true)}</td>
-                  <td className={clsx('py-2 text-right font-bold', p.totalAssets <= 0 ? 'text-rose-600' : 'text-slate-700')}>
+                  <td className="py-2 px-1 sm:px-3 sm:pr-3 text-right text-slate-600 whitespace-nowrap">{formatCurrency(p.spending, true)}</td>
+                  <td className="py-2 px-1 sm:px-3 sm:pr-3 text-right font-semibold text-slate-800 whitespace-nowrap">{formatCurrency(p.totalIncome, true)}</td>
+                  <td className="py-2 px-1 sm:px-3 sm:pr-3 text-right text-rose-500 whitespace-nowrap">{formatCurrency(p.totalTaxPaid, true)}</td>
+                  <td className="py-2 px-1 sm:px-3 sm:pr-3 text-right text-emerald-600 font-semibold whitespace-nowrap">{formatCurrency(p.netIncome, true)}</td>
+                  <td className={clsx('py-2 px-1 sm:px-3 text-right font-bold whitespace-nowrap', p.totalAssets <= 0 ? 'text-rose-600' : 'text-slate-700')}>
                     {p.totalAssets <= 0 ? '—' : formatCurrency(p.totalAssets, true)}
                   </td>
                 </tr>
