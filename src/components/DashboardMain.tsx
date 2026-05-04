@@ -227,12 +227,14 @@ export default function DashboardMain({
 
       {/* Withdrawal plan optimisation — shown above charts */}
       {optimizerEnabled && optimizerResult && plannerState && (
-        <OptimizerPanel
-          plannerState={plannerState}
-          result={optimizerResult}
-          proEnabled={proEnabled}
-          onProCta={onProCta}
-        />
+        <div className="mb-8">
+          <OptimizerPanel
+            plannerState={plannerState}
+            result={optimizerResult}
+            proEnabled={proEnabled}
+            onProCta={onProCta}
+          />
+        </div>
       )}
 
       {/* Charts */}
