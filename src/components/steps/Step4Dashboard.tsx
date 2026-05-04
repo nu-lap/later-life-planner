@@ -643,8 +643,12 @@ export default function Step4Dashboard({ onBack }: Props) {
 
   const displayProjections = useMemo(() => {
     const rows = projections.length;
-    return rows > 100 ? projections.filter((_, i) => i % 5 === 0) : projections;
-  }, [projections]);
+    const baseRows = rows > 100 ? projections.filter((_, i) => i % 5 === 0) : projections;
+    if (optimizerEnabled && proEnabled && optimizerResult) {
+      return buildOptimizerViewProjections(baseRows, optimizerResult);
+    }
+    return baseRows;
+  }, [projections, optimizerEnabled, proEnabled, optimizerResult]);
 
   const firstYear = projections[0];
   const lastPositive = [...projections].reverse().find(p => p.totalAssets > 0);

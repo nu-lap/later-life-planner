@@ -212,21 +212,14 @@ export default function DashboardMain({
       )}
 
       {/* Withdrawal plan optimisation — shown above charts */}
-      {optimizerEnabled && optimizerResult && proEnabled && plannerState ? (
+      {optimizerEnabled && optimizerResult && plannerState && (
         <OptimizerPanel
           plannerState={plannerState}
           result={optimizerResult}
           proEnabled={proEnabled}
           onProCta={onProCta}
         />
-      ) : optimizerEnabled && !proEnabled && optimizerResult && plannerState ? (
-        <OptimizerPanel
-          plannerState={plannerState}
-          result={optimizerResult}
-          proEnabled={false}
-          onProCta={onProCta}
-        />
-      ) : null}
+      )}
 
       {/* Charts */}
       <div id="section-charts" className="scroll-mt-32 game-card mb-6">
@@ -237,7 +230,7 @@ export default function DashboardMain({
         </div>
         <p className="text-xs text-slate-500 mb-4">
           {optimizerEnabled && proEnabled
-            ? 'This chart uses the optimiser-selected strategy, so it matches the year-by-year drawdown table below. Tax reduces spendable cash, so gross income can be higher than required spending.'
+            ? 'This chart uses the optimiser-selected strategy, so it matches the withdrawal plan optimisation above. Tax reduces spendable cash, so gross income can be higher than required spending.'
             : 'Stacked bars = gross income sources. Dashed line = required spending — the cash need the plan must meet after tax. Tax reduces spendable cash, so gross income can be higher than spending in a given year.'}
         </p>
         <LifetimeChart projections={displayProjections} mode={mode} p1Name={p1Name} p2Name={p2Name} />

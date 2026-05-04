@@ -109,10 +109,10 @@ describe('Step4Dashboard', () => {
 
     // In non-Pro mode, OptimizerPanel is now shown with first-year action plan
     // Find the "Unlock all years with Pro" button (via aria-label)
-    const unlocButton = screen.getByRole('button', { name: 'Unlock all years with Pro' });
-    expect(unlocButton).toBeInTheDocument();
+    const unlockButton = screen.getByRole('button', { name: 'Unlock all years with Pro' });
+    expect(unlockButton).toBeInTheDocument();
 
-    fireEvent.click(unlocButton);
+    fireEvent.click(unlockButton);
     expect(screen.getByText('Your plan is good.')).toBeInTheDocument();
   });
 
