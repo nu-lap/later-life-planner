@@ -107,14 +107,12 @@ describe('Step4Dashboard', () => {
 
     render(<Step4Dashboard onBack={vi.fn()} />);
 
-    // In refactored layout, withdrawal controls are in sidebar with Pro gating
-    // Find the "Unlock with Pro" button related to advanced features
-    const ctaButtons = screen.getAllByRole('button', { name: /Unlock with Pro/ });
-    expect(ctaButtons.length).toBeGreaterThan(0);
-    const ctaButton = ctaButtons[0];
-    expect(ctaButton).toBeInTheDocument();
+    // In non-Pro mode, OptimizerPanel is now shown with first-year action plan
+    // Find the "Unlock all years with Pro" button (via aria-label)
+    const unlockButton = screen.getByRole('button', { name: 'Unlock all years with Pro' });
+    expect(unlockButton).toBeInTheDocument();
 
-    fireEvent.click(ctaButton);
+    fireEvent.click(unlockButton);
     expect(screen.getByText('Your plan is good.')).toBeInTheDocument();
   });
 

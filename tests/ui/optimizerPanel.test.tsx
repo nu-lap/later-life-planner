@@ -485,13 +485,13 @@ describe('OptimizerPanel — Pro gating (proEnabled=false)', () => {
     expect(screen.getByText('Tax vs standard approach')).toBeInTheDocument();
     expect(screen.getByText('Plan durability vs standard approach')).toBeInTheDocument();
     expect(screen.getByText('End-of-plan assets vs standard approach')).toBeInTheDocument();
-    expect(screen.getByText('Explain this recommendation')).toBeInTheDocument();
+    expect(screen.getByText('Unlock with Pro →')).toBeInTheDocument();
     expect(screen.getByText('Baseline waterfall by year (first 5 years)')).toBeInTheDocument();
     expect(screen.getAllByText('Upgrade to Pro to compare optimised alternatives.')).toHaveLength(5);
     expect(screen.queryByText('Optimised strategy comparison')).not.toBeInTheDocument();
   });
 
-  test('clicking Explain this recommendation in non-Pro mode triggers onProCta only', async () => {
+  test('clicking "Unlock with Pro" explain button in non-Pro mode triggers onProCta only', async () => {
     const plannerState = paulAndLisaState();
     const result = optimizeWithdrawals(plannerState);
     const onProCta = vi.fn();
@@ -500,7 +500,7 @@ describe('OptimizerPanel — Pro gating (proEnabled=false)', () => {
 
     render(<OptimizerPanel plannerState={plannerState} result={result} proEnabled={false} onProCta={onProCta} />);
 
-    await userEvent.click(screen.getByRole('button', { name: 'Explain this recommendation' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Unlock with Pro →' }));
 
     expect(onProCta).toHaveBeenCalledTimes(1);
     expect(screen.queryByTestId('optimizer-explain-panel')).not.toBeInTheDocument();
@@ -516,14 +516,14 @@ describe('OptimizerPanel — Pro gating (proEnabled=false)', () => {
     expect(screen.queryByText('Drawdown detail by year')).not.toBeInTheDocument();
   });
 
-  test('clicking "Show all optimiser years" in non-Pro mode triggers onProCta and keeps years limited', async () => {
+  test('clicking "Unlock all years with Pro" button in non-Pro mode triggers onProCta and keeps years limited', async () => {
     const plannerState = paulAndLisaState();
     const result = optimizeWithdrawals(plannerState);
     const onProCta = vi.fn();
 
     render(<OptimizerPanel plannerState={plannerState} result={result} proEnabled={false} onProCta={onProCta} />);
 
-    const showAllBtn = screen.getByRole('button', { name: '▼ Show all optimiser years' });
+    const showAllBtn = screen.getByRole('button', { name: 'Unlock all years with Pro →' });
     expect(showAllBtn).toBeInTheDocument();
 
     await userEvent.click(showAllBtn);

@@ -475,7 +475,7 @@ export default function OptimizerPanel({ plannerState, result, proEnabled, onPro
               onClick={proEnabled ? () => void openDialog() : () => onProCta?.()}
               className="btn-secondary py-2 text-sm"
             >
-              Explain this recommendation
+              {proEnabled ? 'Explain this recommendation' : 'Unlock with Pro →'}
             </button>
           </div>
         </div>
@@ -1018,7 +1018,7 @@ export default function OptimizerPanel({ plannerState, result, proEnabled, onPro
             onClick={proEnabled ? () => setShowAll((current) => !current) : () => onProCta?.()}
             className="mt-4 text-sm font-semibold text-orange-600 hover:text-orange-700"
           >
-            {proEnabled && showAll ? '▲ Show fewer years' : '▼ Show all optimiser years'}
+            {proEnabled ? (showAll ? '▲ Show fewer years' : '▼ Show all optimiser years') : 'Unlock all years with Pro →'}
           </button>
         )}
 

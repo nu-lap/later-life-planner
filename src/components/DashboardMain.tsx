@@ -4,12 +4,14 @@ import { useMemo, useState } from 'react';
 import dynamic from 'next/dynamic';
 import type { YearlyProjection, DrawdownStrategy, LifeStage } from '@/lib/types';
 import type { PlannerState, RlssStandard } from '@/models/types';
+import type { OptimizationResult } from '@/financialEngine/types';
 import { formatCurrency } from '@/lib/calculations';
 import { getStageTotalSpending } from '@/financialEngine/projectionEngine';
 import { RLSS_STANDARDS } from '@/lib/mockData';
 import { CGT, INCOME_TAX, PENSION_RULES } from '@/config/financialConstants';
 import InfoIcon from '@/components/ui/InfoIcon';
 import { GLOSSARY } from '@/lib/glossary';
+import OptimizerPanel from '@/components/OptimizerPanel';
 import clsx from 'clsx';
 
 const ChartSkeleton = () => <div className="h-64 bg-slate-100 rounded-2xl animate-pulse" />;
@@ -82,6 +84,9 @@ interface DashboardMainProps {
   rlssStandard?: RlssStandard;
   optimizerEnabled: boolean;
   proEnabled: boolean;
+  optimizerResult?: OptimizationResult | null;
+  plannerState?: PlannerState;
+  onProCta?: () => void;
 }
 
 interface StatCardProps {
@@ -131,6 +136,9 @@ export default function DashboardMain({
   rlssStandard,
   optimizerEnabled,
   proEnabled,
+  optimizerResult,
+  plannerState,
+  onProCta,
 }: DashboardMainProps) {
   const firstStageId = lifeStages[0]?.id ?? 'active';
   const annualSpend = getStageTotalSpending(state, firstStageId);
@@ -217,6 +225,16 @@ export default function DashboardMain({
         </div>
       )}
 
+      {/* Withdrawal plan optimisation — shown above charts */}
+      {optimizerEnabled && optimizerResult && plannerState && (
+        <OptimizerPanel
+          plannerState={plannerState}
+          result={optimizerResult}
+          proEnabled={proEnabled}
+          onProCta={onProCta}
+        />
+      )}
+
       {/* Charts */}
       <div id="section-charts" className="scroll-mt-32 game-card mb-6">
         <div className="flex items-start justify-between mb-1">
@@ -226,7 +244,7 @@ export default function DashboardMain({
         </div>
         <p className="text-xs text-slate-500 mb-4">
           {optimizerEnabled && proEnabled
-            ? 'This chart uses the optimiser-selected strategy, so it matches the year-by-year drawdown table below. Tax reduces spendable cash, so gross income can be higher than required spending.'
+            ? 'This chart uses the optimiser-selected strategy, so it matches the withdrawal plan optimisation above. Tax reduces spendable cash, so gross income can be higher than required spending.'
             : 'Stacked bars = gross income sources. Dashed line = required spending — the cash need the plan must meet after tax. Tax reduces spendable cash, so gross income can be higher than spending in a given year.'}
         </p>
         <LifetimeChart projections={displayProjections} mode={mode} p1Name={p1Name} p2Name={p2Name} />
