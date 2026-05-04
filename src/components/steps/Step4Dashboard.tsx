@@ -712,7 +712,6 @@ export default function Step4Dashboard({ onBack }: Props) {
     { id: 'goals', label: 'Goals' },
     { id: 'iht', label: 'IHT & Estate' },
     { id: 'care', label: 'Care Reserve' },
-    { id: 'tax', label: 'Tax Summary' },
   ];
 
   // Sanitise the persisted drawdown strategy: if Pro is disabled, fall back to the
@@ -954,35 +953,6 @@ export default function Step4Dashboard({ onBack }: Props) {
           </div>
         )}
 
-        {/* ── Tax Summary tab ───────────────────────────────────────────────── */}
-        {activeTab === 'tax' && (
-          <div className="space-y-6">
-            <div className="game-card">
-              <h3 className="section-heading">Tax Summary</h3>
-              <p className="text-xs text-slate-500 mb-4">Lifetime tax across all projected years.</p>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <div className="rounded-xl p-4 bg-rose-50 border border-rose-100">
-                  <p className="text-xs text-rose-600 font-bold">Income Tax</p>
-                  <p className="text-xl font-black text-rose-800 mt-1">{formatCurrency(lifetimeIncomeTax, true)}</p>
-                </div>
-                <div className="rounded-xl p-4 bg-amber-50 border border-amber-100">
-                  <p className="text-xs text-amber-600 font-bold">CGT</p>
-                  <p className="text-xl font-black text-amber-800 mt-1">{formatCurrency(lifetimeCGT, true)}</p>
-                </div>
-                <div className="rounded-xl p-4 bg-sky-50 border border-sky-100">
-                  <p className="text-xs text-sky-600 font-bold">Effective Rate</p>
-                  <p className="text-xl font-black text-sky-800 mt-1">{effectiveRate.toFixed(1)}%</p>
-                </div>
-                <div className="rounded-xl p-4 bg-emerald-50 border border-emerald-100">
-                  <p className="text-xs text-emerald-600 font-bold">Tax-free Years</p>
-                  <p className="text-xl font-black text-emerald-800 mt-1">{taxFreeYears}</p>
-                </div>
-              </div>
-            </div>
-
-            <TaxOverview projections={projections} />
-          </div>
-        )}
 
       </div>
 
