@@ -757,18 +757,18 @@ export default function Step4Dashboard({ onBack }: Props) {
                       : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/50',
                   )}
                   aria-pressed={effectiveDrawdownStrategy === option.id}
-                  aria-label={`${option.label}. ${option.description}${option.id === 'pcls-bed-isa' && !proEnabled ? ' (Pro only)' : ''}`}
+                  aria-label={`${option.label}. ${option.description}${option.id === 'pcls-bed-isa' && !proEnabled ? ' (Pro only)' : ''}${effectiveDrawdownStrategy === option.id ? ' (Active)' : ''}`}
                 >
                   <div className="flex items-center gap-3 mb-2">
-                    <span className="text-xl">{option.icon}</span>
-                    <span className={clsx('font-bold text-sm', effectiveDrawdownStrategy === option.id ? 'text-orange-800' : 'text-slate-800')}>
+                    <span className="text-xl" aria-hidden="true">{option.icon}</span>
+                    <span className={clsx('font-bold text-sm', effectiveDrawdownStrategy === option.id ? 'text-orange-800' : 'text-slate-800')} aria-hidden="true">
                       {option.label}
                     </span>
                     {effectiveDrawdownStrategy === option.id && (
-                      <span className="ml-auto text-xs font-bold bg-orange-200 text-orange-700 px-2 py-0.5 rounded-full" aria-label="This strategy is currently active">Active</span>
+                      <span className="ml-auto text-xs font-bold bg-orange-200 text-orange-700 px-2 py-0.5 rounded-full" aria-hidden="true">Active</span>
                     )}
                     {option.id === 'pcls-bed-isa' && !proEnabled && (
-                      <span className="ml-auto text-xs font-bold bg-violet-100 text-violet-700 px-2 py-0.5 rounded-full" aria-label="Pro feature only">Pro</span>
+                      <span className="ml-auto text-xs font-bold bg-violet-100 text-violet-700 px-2 py-0.5 rounded-full" aria-hidden="true">Pro</span>
                     )}
                   </div>
                   <p className={clsx('text-sm leading-relaxed', effectiveDrawdownStrategy === option.id ? 'text-orange-700' : 'text-slate-500')}>
