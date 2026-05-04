@@ -652,12 +652,12 @@ export default function Step4Dashboard({ onBack }: Props) {
   ] as const;
 
   // ─── Tab definitions ──────────────────────────────────────────────────────────
-  const tabs: { id: ActiveTab; label: string }[] = [
+  const tabs: { id: ActiveTab; label: string; badge?: string }[] = [
     { id: 'overview', label: 'Overview' },
     { id: 'strategy', label: 'Strategy' },
-    { id: 'goals', label: 'Goals' },
+    { id: 'goals', label: 'Goals', badge: 'Coming soon' },
     { id: 'iht', label: 'IHT & Estate' },
-    { id: 'care', label: 'Care Reserve' },
+    { id: 'care', label: 'Care Reserve', badge: 'Coming soon' },
   ];
 
   // Sanitise the persisted drawdown strategy: if Pro is disabled, fall back to the
@@ -692,13 +692,18 @@ export default function Step4Dashboard({ onBack }: Props) {
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className={clsx(
-                  'flex-shrink-0 px-4 py-2 rounded-lg text-sm font-semibold transition-colors whitespace-nowrap',
+                  'flex-shrink-0 px-4 py-2 rounded-lg text-sm font-semibold transition-colors whitespace-nowrap flex items-center gap-2',
                   activeTab === tab.id
                     ? 'bg-orange-100 text-orange-700 border border-orange-200'
                     : 'text-slate-600 hover:bg-slate-100 border border-transparent',
                 )}
               >
                 {tab.label}
+                {tab.badge && (
+                  <span className="text-xs bg-slate-300 text-slate-700 px-1.5 py-0.5 rounded-full">
+                    {tab.badge}
+                  </span>
+                )}
               </button>
             ))}
           </div>
@@ -895,49 +900,63 @@ export default function Step4Dashboard({ onBack }: Props) {
 
         {/* ── Care Reserve tab ──────────────────────────────────────────────── */}
         {activeTab === 'care' && (
-          <div className="game-card space-y-4">
-            <div>
-              <h3 className="section-heading">Care Reserve</h3>
-              <p className="text-xs text-slate-500">Set aside protected capital for later-life care costs, separate from your spending plan.</p>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <input
-                type="checkbox"
-                checked={careReserve.enabled}
-                onChange={(e) => updateCareReserveFromGoalPanel({ enabled: e.target.checked })}
-                className="rounded border-slate-300 text-orange-500 focus:ring-orange-500 w-4 h-4"
-                id="care-reserve-enabled-tab"
-              />
-              <label htmlFor="care-reserve-enabled-tab" className="font-semibold text-slate-700 cursor-pointer">
-                Enable care reserve
-              </label>
-            </div>
-
-            {careReserve.enabled ? (
-              <div className="rounded-xl bg-blue-50 border border-blue-200 p-4 space-y-3">
-                <label className="block font-semibold text-sm text-slate-700">Target amount</label>
-                <div className="flex gap-2 items-center">
-                  <span className="text-slate-500 font-semibold">£</span>
-                  <input
-                    type="number"
-                    value={careReserve.amount}
-                    onChange={(e) => updateCareReserveFromGoalPanel({ amount: Math.max(0, parseInt(e.target.value) || 0) })}
-                    className="w-40 px-3 py-2 text-sm border border-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
-                    min="0"
-                    step={CARE_RESERVE.STEP_AMOUNT}
-                  />
+          <div className="space-y-4">
+            <div className="game-card border-2 border-blue-200 bg-blue-50">
+              <div className="flex items-start gap-3">
+                <span className="text-2xl flex-shrink-0">🚧</span>
+                <div>
+                  <p className="font-bold text-blue-900">Care Reserve Features Coming Soon</p>
+                  <p className="text-sm text-blue-700 mt-1">
+                    Enhanced care cost modeling and reserve management tools are in development. You can enable and configure basic care reserve settings below.
+                  </p>
                 </div>
-                <p className="text-sm text-blue-700 font-semibold">
-                  Projected at {fiAge}: {formatCurrency(firstYear?.careReserveBalance ?? careReserve.amount, true)}
-                </p>
-                <p className="text-xs text-blue-600">
-                  Protected capital stays invested and is excluded from normal spending. If care costs never arise, it remains part of your estate.
-                </p>
               </div>
-            ) : (
-              <p className="text-sm text-slate-500 italic">Disabled. Enable above to set aside funds for later-life care.</p>
-            )}
+            </div>
+
+            <div className="game-card space-y-4">
+              <div>
+                <h3 className="section-heading">Care Reserve</h3>
+                <p className="text-xs text-slate-500">Set aside protected capital for later-life care costs, separate from your spending plan.</p>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  checked={careReserve.enabled}
+                  onChange={(e) => updateCareReserveFromGoalPanel({ enabled: e.target.checked })}
+                  className="rounded border-slate-300 text-orange-500 focus:ring-orange-500 w-4 h-4"
+                  id="care-reserve-enabled-tab"
+                />
+                <label htmlFor="care-reserve-enabled-tab" className="font-semibold text-slate-700 cursor-pointer">
+                  Enable care reserve
+                </label>
+              </div>
+
+              {careReserve.enabled ? (
+                <div className="rounded-xl bg-blue-50 border border-blue-200 p-4 space-y-3">
+                  <label className="block font-semibold text-sm text-slate-700">Target amount</label>
+                  <div className="flex gap-2 items-center">
+                    <span className="text-slate-500 font-semibold">£</span>
+                    <input
+                      type="number"
+                      value={careReserve.amount}
+                      onChange={(e) => updateCareReserveFromGoalPanel({ amount: Math.max(0, parseInt(e.target.value) || 0) })}
+                      className="w-40 px-3 py-2 text-sm border border-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
+                      min="0"
+                      step={CARE_RESERVE.STEP_AMOUNT}
+                    />
+                  </div>
+                  <p className="text-sm text-blue-700 font-semibold">
+                    Projected at {fiAge}: {formatCurrency(firstYear?.careReserveBalance ?? careReserve.amount, true)}
+                  </p>
+                  <p className="text-xs text-blue-600">
+                    Protected capital stays invested and is excluded from normal spending. If care costs never arise, it remains part of your estate.
+                  </p>
+                </div>
+              ) : (
+                <p className="text-sm text-slate-500 italic">Disabled. Enable above to set aside funds for later-life care.</p>
+              )}
+            </div>
           </div>
         )}
 

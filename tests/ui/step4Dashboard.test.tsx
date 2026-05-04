@@ -123,7 +123,7 @@ describe('Step4Dashboard', () => {
     render(<Step4Dashboard onBack={vi.fn()} />);
 
     // In tab-based layout, Pro features are gated behind tabs — navigate to Goals tab first
-    fireEvent.click(screen.getByRole('button', { name: 'Goals' }));
+    fireEvent.click(screen.getByRole('button', { name: /Goals/ }));
 
     // Check that Goal Priorities shows Pro CTA
     expect(screen.getByText('Goal Priorities')).toBeInTheDocument();

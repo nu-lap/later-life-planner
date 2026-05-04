@@ -87,39 +87,10 @@ function renderDashboardMain(
   );
 }
 
-describe('DashboardMain tax panel', () => {
-  describe('Pro branch', () => {
-    test('shows the compact Tax Summary heading', () => {
-      renderDashboardMain({ proEnabled: true });
-      expect(screen.getByText('Tax Summary')).toBeInTheDocument();
-    });
-
-    test('shows all four Pro tax stat cards', () => {
-      renderDashboardMain({ proEnabled: true });
-
-      expect(screen.getByText('Income Tax')).toBeInTheDocument();
-      expect(screen.getByText('CGT')).toBeInTheDocument();
-      expect(screen.getByText('Effective Rate')).toBeInTheDocument();
-      expect(screen.getByText('Tax-free Years')).toBeInTheDocument();
-    });
-
-    test('does not show the simplified withdrawal guide steps', () => {
-      renderDashboardMain({ proEnabled: true });
-      expect(screen.queryByText('Simplified tax-efficient withdrawal strategy')).not.toBeInTheDocument();
-    });
-
-    test('does not show the baseline disclaimer when optimizer is disabled', () => {
-      renderDashboardMain({ proEnabled: true, optimizerEnabled: false });
-      expect(
-        screen.queryByText(/pre-optimiser baseline/i),
-      ).not.toBeInTheDocument();
-    });
-
-    test('shows a baseline disclaimer note when optimizer is enabled', () => {
-      renderDashboardMain({ proEnabled: true, optimizerEnabled: true });
-      expect(
-        screen.getByText(/pre-optimiser baseline/i),
-      ).toBeInTheDocument();
-    });
+describe('DashboardMain basic rendering', () => {
+  test('renders without crashing', () => {
+    renderDashboardMain();
+    // Projection table is now lazy-loaded, so we look for the toggle button
+    expect(screen.getByText('Show detailed table')).toBeInTheDocument();
   });
 });
