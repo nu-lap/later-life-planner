@@ -1,16 +1,13 @@
 /**
- * Tests for DashboardMain tax panel branches (Pro and non-Pro).
- * Verifies correct content is rendered for each entitlement level.
+ * Tests for DashboardMain rendering, chart toggle, and lazy-loaded projection table.
  */
 
 import React from 'react';
 import { describe, test, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import DashboardMain from '@/components/DashboardMain';
 import { bareState } from '../fixtures/states';
-import { formatCurrency } from '@/lib/calculations';
 import type { YearlyProjection } from '@/models/types';
-import { PENSION_RULES, INCOME_TAX, CGT } from '@/config/financialConstants';
 
 vi.mock('next/dynamic', () => ({
   default: () => function MockDynamicComponent() {
@@ -25,11 +22,6 @@ vi.mock('@/financialEngine/projectionEngine', async (importOriginal) => {
     getStageTotalSpending: () => 30_000,
   };
 });
-
-/** Escapes characters that are special in RegExp so they can be used in `new RegExp(str)`. */
-function escapeRegex(str: string): string {
-  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
 
 /** Minimal projection row sufficient for the component to render without errors. */
 function makeProjection(overrides: Partial<YearlyProjection> = {}): YearlyProjection {
@@ -92,5 +84,60 @@ describe('DashboardMain basic rendering', () => {
     renderDashboardMain();
     // Projection table is now lazy-loaded, so we look for the toggle button
     expect(screen.getByText('Show detailed table')).toBeInTheDocument();
+  });
+});
+
+describe('DashboardMain chart toggle', () => {
+  test('defaults to Income vs Spending view', () => {
+    renderDashboardMain();
+    expect(screen.getByText(/Gross income vs required spending/)).toBeInTheDocument();
+    expect(screen.queryByText('Investment balances over time')).not.toBeInTheDocument();
+  });
+
+  test('switching to Asset Growth view changes the chart heading', () => {
+    renderDashboardMain();
+    fireEvent.click(screen.getByRole('button', { name: 'Asset Growth' }));
+    expect(screen.getByText('Investment balances over time')).toBeInTheDocument();
+    expect(screen.queryByText(/Gross income vs required spending/)).not.toBeInTheDocument();
+  });
+
+  test('switching back to Income vs Spending restores that view', () => {
+    renderDashboardMain();
+    fireEvent.click(screen.getByRole('button', { name: 'Asset Growth' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Income vs Spending' }));
+    expect(screen.getByText(/Gross income vs required spending/)).toBeInTheDocument();
+  });
+
+  test('toggle buttons expose aria-pressed state', () => {
+    renderDashboardMain();
+    const incomeBtn = screen.getByRole('button', { name: 'Income vs Spending' });
+    const assetsBtn = screen.getByRole('button', { name: 'Asset Growth' });
+    expect(incomeBtn).toHaveAttribute('aria-pressed', 'true');
+    expect(assetsBtn).toHaveAttribute('aria-pressed', 'false');
+    fireEvent.click(assetsBtn);
+    expect(incomeBtn).toHaveAttribute('aria-pressed', 'false');
+    expect(assetsBtn).toHaveAttribute('aria-pressed', 'true');
+  });
+});
+
+describe('DashboardMain lazy-loaded projection table', () => {
+  test('projection table is hidden on initial render', () => {
+    renderDashboardMain();
+    expect(screen.queryByText('Year-by-year projection')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Show detailed table' })).toBeInTheDocument();
+  });
+
+  test('clicking Show detailed table renders the table and hides the CTA', () => {
+    renderDashboardMain();
+    fireEvent.click(screen.getByRole('button', { name: 'Show detailed table' }));
+    expect(screen.getByText('Year-by-year projection')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Show detailed table' })).not.toBeInTheDocument();
+  });
+
+  test('Show detailed table button exposes aria-expanded state', () => {
+    renderDashboardMain();
+    const btn = screen.getByRole('button', { name: 'Show detailed table' });
+    expect(btn).toHaveAttribute('aria-expanded', 'false');
+    expect(btn).toHaveAttribute('aria-controls', 'projection-table');
   });
 });

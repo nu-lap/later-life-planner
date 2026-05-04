@@ -8,7 +8,7 @@ import type { OptimizationResult } from '@/financialEngine/types';
 import { formatCurrency } from '@/lib/calculations';
 import { getStageTotalSpending } from '@/financialEngine/projectionEngine';
 import { RLSS_STANDARDS } from '@/lib/mockData';
-import { CGT, INCOME_TAX, PENSION_RULES } from '@/config/financialConstants';
+
 import InfoIcon from '@/components/ui/InfoIcon';
 import { GLOSSARY } from '@/lib/glossary';
 import OptimizerPanel from '@/components/OptimizerPanel';
@@ -110,17 +110,6 @@ function StatCard({ icon, label, value, sub, accent = 'slate' }: StatCardProps) 
   );
 }
 
-// ─── Withdrawal guide strings — computed once from HMRC constants ──────────────
-// These derive from module-level constants, so they are stable across all renders.
-const WITHDRAWAL_GUIDE = {
-  ufplsTaxFree:      `${Math.round(PENSION_RULES.UFPLS_TAX_FREE_FRACTION * 100)}%`,
-  ufplsTaxable:      `${Math.round((1 - PENSION_RULES.UFPLS_TAX_FREE_FRACTION) * 100)}%`,
-  personalAllowance: formatCurrency(INCOME_TAX.PERSONAL_ALLOWANCE, true),
-  annualExempt:      formatCurrency(CGT.ANNUAL_EXEMPT, true),
-  cgtBasicRate:      `${Math.round(CGT.BASIC_RATE * 100)}%`,
-  cgtHigherRate:     `${Math.round(CGT.HIGHER_RATE * 100)}%`,
-} as const;
-
 export default function DashboardMain({
   state,
   projections,
@@ -151,15 +140,6 @@ export default function DashboardMain({
     const jointGain = Math.max(0, projection.jointGiaValue - projection.jointGiaBaseCost);
     return p1Gain + p2Gain + jointGain;
   }, [projections]);
-
-  // Tax summary stats (used for overview panels)
-  const lifetimeIncomeTax = projections.reduce((s, p) => s + p.incomeTaxPaid, 0);
-  const lifetimeCGT = projections.reduce((s, p) => s + p.totalCgtPaid, 0);
-  const lifetimeIncome = projections.reduce((s, p) => s + p.totalIncome, 0);
-  const taxFreeYears = projections.filter(p => Math.round(p.totalTaxPaid) === 0).length;
-  const effectiveRate = lifetimeIncome > 0 ? (lifetimeIncomeTax + lifetimeCGT) / lifetimeIncome * 100 : 0;
-
-  const { ufplsTaxFree, ufplsTaxable, personalAllowance, annualExempt, cgtBasicRate, cgtHigherRate } = WITHDRAWAL_GUIDE;
 
   // State for lazy-load table and chart toggle
   const [showDetailedTable, setShowDetailedTable] = useState(false);
@@ -253,6 +233,8 @@ export default function DashboardMain({
           </div>
           <div className="flex gap-2 flex-shrink-0 ml-4">
             <button
+              type="button"
+              aria-pressed={chartView === 'income'}
               onClick={() => setChartView('income')}
               className={clsx(
                 'px-3 py-1 rounded-lg text-sm font-semibold transition-colors whitespace-nowrap',
@@ -264,6 +246,8 @@ export default function DashboardMain({
               Income vs Spending
             </button>
             <button
+              type="button"
+              aria-pressed={chartView === 'assets'}
               onClick={() => setChartView('assets')}
               className={clsx(
                 'px-3 py-1 rounded-lg text-sm font-semibold transition-colors whitespace-nowrap',
@@ -305,13 +289,19 @@ export default function DashboardMain({
       </div>
 
       {/* Projection table — lazy loaded */}
-      {showDetailedTable && <ProjectionTable projections={projections} lifeStages={lifeStages} />}
-      
+      {showDetailedTable && (
+        <div id="projection-table">
+          <ProjectionTable projections={projections} lifeStages={lifeStages} />
+        </div>
+      )}
       {!showDetailedTable && (
         <div className="game-card mb-6">
           <div className="text-center py-8">
             <p className="text-sm text-slate-600 mb-4">View detailed year-by-year financial data for your entire projection period.</p>
             <button 
+              type="button"
+              aria-expanded={showDetailedTable}
+              aria-controls="projection-table"
               onClick={() => setShowDetailedTable(true)}
               className="px-4 py-2 rounded-lg bg-orange-50 border border-orange-200 text-orange-700 hover:bg-orange-100 font-semibold text-sm transition-colors"
             >
