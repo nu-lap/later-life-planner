@@ -986,6 +986,27 @@ describe('calculateProjections — ISA annual contributions', () => {
       expect(row.p1IsaBalance).toBeCloseTo(projWithout[i].p1IsaBalance, 0);
     });
   });
+
+  test('end-of-year ordering: growth applied before contribution (ordinary annuity)', () => {
+    // growthRate=5, initialValue=10_000, contribution=2_000
+    // Year 1: 10_000 * 1.05 + 2_000 = 12_500 (grow-then-contribute)
+    // vs contribute-then-grow: (10_000 + 2_000) * 1.05 = 12_600
+    const base = bareState(55);
+    const state: PlannerState = {
+      ...base,
+      fiAge: 58,
+      person1: {
+        ...base.person1,
+        assets: {
+          ...base.person1.assets,
+          isaInvestments: { enabled: true, totalValue: 10_000, growthRate: 5, annualContribution: 2_000 },
+        },
+      },
+    };
+    const year0 = calculateProjections(state).find(p => p.p1Age === 55)!;
+    // grow-then-contribute: 10_000 * 1.05 + 2_000 = 12_500
+    expect(year0.p1IsaBalance).toBeCloseTo(12_500, 0);
+  });
 });
 
 describe('calculateProjections — GIA annual contributions', () => {
@@ -1046,5 +1067,86 @@ describe('calculateProjections — GIA annual contributions', () => {
     projWith.forEach((row, i) => {
       expect(row.p1GiaValue).toBeCloseTo(projWithout[i].p1GiaValue, 0);
     });
+  });
+});
+
+describe('calculateProjections — couple mode ISA/GIA contributions', () => {
+  /** Zero out all spending categories so drawdown does not consume pre-FI contributions. */
+  function zeroSpending(state: PlannerState): PlannerState {
+    return {
+      ...state,
+      spendingCategories: state.spendingCategories.map(c => ({
+        ...c,
+        amounts: Object.fromEntries(Object.keys(c.amounts).map(k => [k, 0])),
+      })),
+    };
+  }
+
+  test('P2 ISA contributions apply pre-p2FI and stop at p2FiAge', () => {
+    // P1 age 55 (FI 57), P2 age 50 (p2FiAge=55 — p2 works 5 more years)
+    const base = bareCoupleState(55, 50);
+    const state = zeroSpending({
+      ...base,
+      fiAge: 57,
+      p2FiAge: 55,
+      person2: {
+        ...base.person2,
+        assets: {
+          ...base.person2.assets,
+          isaInvestments: { enabled: true, totalValue: 0, growthRate: 0, annualContribution: 4_000 },
+        },
+      },
+    });
+    const projections = calculateProjections(state);
+
+    // Pre-FI for P2: p2Age 50–54 → 5 years × 4_000 = 20_000
+    const lastPreFiP2 = projections.find(p => p.p2Age === 54)!;
+    expect(lastPreFiP2.p2IsaBalance).toBeCloseTo(20_000, 0);
+
+    // After P2 FI (p2Age ≥ 55): no further contributions; balance stays at 20_000
+    const atP2Fi = projections.find(p => p.p2Age === 56)!;
+    expect(atP2Fi.p2IsaBalance).toBeCloseTo(20_000, 0);
+  });
+
+  test('joint GIA contributions continue through the gap period (P1 retired, P2 still working)', () => {
+    // P1 age 55 (FI 57), P2 age 52 (p2FiAge=60 — P2 works well into the gap)
+    const base = bareCoupleState(55, 52);
+    const state = zeroSpending({
+      ...base,
+      fiAge: 57,
+      p2FiAge: 60,
+      jointGia: { enabled: true, totalValue: 0, baseCost: 0, growthRate: 0, annualContribution: 6_000 },
+    });
+    const projections = calculateProjections(state);
+
+    // Pre-FI (p1Age 55, 56): 2 contributions → jointGiaValue = 12_000
+    expect(projections.find(p => p.p1Age === 56)!.jointGiaValue).toBeCloseTo(12_000, 0);
+
+    // Gap year (p1Age 57, p2Age 54): householdFiStarted=true, !p2FiStarted=true fires contribution.
+    // The 3rd contribution (6_000) is applied first, then Bed & ISA immediately moves the entire
+    // joint GIA (18_000) into p1's ISA. p1IsaBalance should be 18_000, not 12_000.
+    const gapYear = projections.find(p => p.p1Age === 57)!;
+    expect(gapYear.p1IsaBalance).toBeCloseTo(18_000, 0);
+  });
+
+  test('joint GIA contributions stop once both persons are post-FI', () => {
+    // P1 age 55 (FI 57), P2 age 55 (p2FiAge=57) — both retire simultaneously
+    const base = bareCoupleState(55, 55);
+    const state = zeroSpending({
+      ...base,
+      fiAge: 57,
+      p2FiAge: 57,
+      jointGia: { enabled: true, totalValue: 0, baseCost: 0, growthRate: 0, annualContribution: 5_000 },
+    });
+    const projections = calculateProjections(state);
+
+    // Pre-FI: p1Age 55, 56 → 2 contributions × 5_000 = 10_000
+    const lastPreFi = projections.find(p => p.p1Age === 56)!;
+    expect(lastPreFi.jointGiaValue).toBeCloseTo(10_000, 0);
+
+    // At FI (p1Age 57): no new contribution (both FI); Bed & ISA moves the 10_000 to p1 ISA.
+    // p1IsaBalance = 10_000 (not 15_000) proves no contribution fired.
+    const atFi = projections.find(p => p.p1Age === 57)!;
+    expect(atFi.p1IsaBalance).toBeCloseTo(10_000, 0);
   });
 });

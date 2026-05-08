@@ -280,8 +280,10 @@ export function calculateProjections(state: PlannerState): YearlyProjection[] {
       }
     }
 
-    // Joint GIA contributions — applied pre-FI (household FI not yet started)
-    if (!householdFiStarted && mode === 'couple' && jointGia.enabled) {
+    // Joint GIA contributions — continue while either person is still pre-FI.
+    // Using householdFiStarted alone would stop contributions during the gap period
+    // (P1 retired, P2 still working), inconsistent with how P2's individual GIA works.
+    if ((!householdFiStarted || !p2FiStarted) && mode === 'couple' && jointGia.enabled) {
       const jointGiaContrib = jointGia.annualContribution ?? 0;
       if (jointGiaContrib > 0) { jointGiaV += jointGiaContrib; jointGiaBC += jointGiaContrib; }
     }
