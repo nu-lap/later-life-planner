@@ -654,7 +654,7 @@ export default function Step4Dashboard({ onBack }: Props) {
   // ─── Tab definitions ──────────────────────────────────────────────────────────
   const tabs: { id: ActiveTab; label: string; badge?: string }[] = [
     { id: 'overview', label: 'Overview' },
-    ...(proEnabled ? [] : [{ id: 'strategy', label: 'Strategy' }]),
+    ...(proEnabled ? [] : [{ id: 'strategy' as ActiveTab, label: 'Strategy' }]),
     { id: 'goals', label: 'Goals', badge: 'Coming soon' },
     { id: 'iht', label: 'IHT & Estate' },
     { id: 'care', label: 'Care Reserve', badge: 'Coming soon' },
@@ -733,6 +733,15 @@ export default function Step4Dashboard({ onBack }: Props) {
             optimizerResult={optimizerResult ?? null}
             plannerState={deferredState}
             onProCta={() => setProModalSource('optimizer-explain')}
+            {...(proEnabled && {
+              drawdownStrategy,
+              setDrawdownStrategy,
+              pclsAge,
+              setPclsAge,
+              strategies,
+              effectiveDrawdownStrategy,
+              person1CurrentAge: person1.currentAge,
+            })}
           />
         )}
 
