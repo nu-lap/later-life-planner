@@ -195,6 +195,8 @@ export interface ISAAsset {
   enabled: boolean;
   totalValue: number;
   growthRate: number;
+  /** Yearly lump sum deposited in today's £ before reaching FI age. Optional — 0 / undefined = no contributions. */
+  annualContribution?: number;
 }
 
 export interface GIAAsset {
@@ -202,6 +204,8 @@ export interface GIAAsset {
   totalValue: number;
   baseCost: number;    // Purchase price — required for CGT calculation
   growthRate: number;
+  /** Yearly lump sum deposited in today's £ before reaching FI age. Optional — 0 / undefined = no contributions. */
+  annualContribution?: number;
 }
 
 export interface PropertyAsset {

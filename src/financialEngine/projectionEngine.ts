@@ -248,6 +248,16 @@ export function calculateProjections(state: PlannerState): YearlyProjection[] {
       if (person1.incomeSources.dcPension.enabled) {
         p1Dc += getAnnualDcContribution(person1.incomeSources.dcPension, y, inflation);
       }
+      // ISA and GIA annual contributions (pre-FI only, in today's £ — not inflation-linked)
+      const p1IsaContrib = person1.assets.isaInvestments.enabled
+        ? (person1.assets.isaInvestments.annualContribution ?? 0)
+        : 0;
+      if (p1IsaContrib > 0) p1Isa += p1IsaContrib;
+
+      const p1GiaContrib = person1.assets.generalInvestments.enabled
+        ? (person1.assets.generalInvestments.annualContribution ?? 0)
+        : 0;
+      if (p1GiaContrib > 0) { p1GiaV += p1GiaContrib; p1GiaBC += p1GiaContrib; }
     }
 
     // Person2 DC contributions use their own FI age (falls back to fiAge if not set)
@@ -256,6 +266,24 @@ export function calculateProjections(state: PlannerState): YearlyProjection[] {
       if (mode === 'couple' && person2.incomeSources.dcPension.enabled) {
         p2Dc += getAnnualDcContribution(person2.incomeSources.dcPension, y, inflation);
       }
+      // Person2 ISA and GIA annual contributions (pre-FI only, in today's £)
+      if (mode === 'couple') {
+        const p2IsaContrib = person2.assets.isaInvestments.enabled
+          ? (person2.assets.isaInvestments.annualContribution ?? 0)
+          : 0;
+        if (p2IsaContrib > 0) p2Isa += p2IsaContrib;
+
+        const p2GiaContrib = person2.assets.generalInvestments.enabled
+          ? (person2.assets.generalInvestments.annualContribution ?? 0)
+          : 0;
+        if (p2GiaContrib > 0) { p2GiaV += p2GiaContrib; p2GiaBC += p2GiaContrib; }
+      }
+    }
+
+    // Joint GIA contributions — applied pre-FI (household FI not yet started)
+    if (!householdFiStarted && mode === 'couple' && jointGia.enabled) {
+      const jointGiaContrib = jointGia.annualContribution ?? 0;
+      if (jointGiaContrib > 0) { jointGiaV += jointGiaContrib; jointGiaBC += jointGiaContrib; }
     }
 
     // ── DC pension source handles ─────────────────────────────────────────

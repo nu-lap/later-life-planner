@@ -922,3 +922,129 @@ describe('calculateProjections — gap-period spending', () => {
     expect(gapYear.gap).toBeGreaterThanOrEqual(0);
   });
 });
+
+// ─── ISA & GIA annual contributions ──────────────────────────────────────────
+
+describe('calculateProjections — ISA annual contributions', () => {
+  function isaContribState(currentAge: number, fiAge: number, isaValue: number, annualContribution: number): PlannerState {
+    const base = bareState(currentAge);
+    return {
+      ...base,
+      fiAge,
+      person1: {
+        ...base.person1,
+        assets: {
+          ...base.person1.assets,
+          isaInvestments: { enabled: true, totalValue: isaValue, growthRate: 0, annualContribution },
+        },
+      },
+    };
+  }
+
+  test('ISA balance grows by contribution each pre-FI year', () => {
+    // Age 55, FI at 58 → 3 pre-FI years (y=0,1,2)
+    const state = isaContribState(55, 58, 10_000, 5_000);
+    const projections = calculateProjections(state);
+
+    // At y=0 (age 55, pre-FI): 10_000 * (1+0) + 5_000 = 15_000
+    const year0 = projections.find(p => p.p1Age === 55)!;
+    expect(year0.p1IsaBalance).toBeCloseTo(15_000, 0);
+
+    // At y=1 (age 56): 15_000 + 5_000 = 20_000
+    const year1 = projections.find(p => p.p1Age === 56)!;
+    expect(year1.p1IsaBalance).toBeCloseTo(20_000, 0);
+  });
+
+  test('ISA contributions stop at FI age', () => {
+    const state = isaContribState(55, 58, 10_000, 5_000);
+    const projections = calculateProjections(state);
+
+    // At FI age (58): no contribution — balance is just from growth (growthRate=0 so flat at 25_000)
+    const yearFi = projections.find(p => p.p1Age === 58)!;
+    const yearFiMinus1 = projections.find(p => p.p1Age === 57)!;
+    // At 57 we get the last contribution: balance = 25_000
+    expect(yearFiMinus1.p1IsaBalance).toBeCloseTo(25_000, 0);
+    // At 58 (FI) no contribution, and drawdown may start — just verify balance didn't INCREASE by contribution
+    expect(yearFi.p1IsaBalance).toBeLessThanOrEqual(yearFiMinus1.p1IsaBalance + 1);
+  });
+
+  test('zero contribution is a no-op — same as omitting annualContribution', () => {
+    const withZero = isaContribState(55, 58, 10_000, 0);
+    const withUndefined = {
+      ...withZero,
+      person1: {
+        ...withZero.person1,
+        assets: {
+          ...withZero.person1.assets,
+          isaInvestments: { enabled: true, totalValue: 10_000, growthRate: 0 },
+        },
+      },
+    };
+    const projWith = calculateProjections(withZero);
+    const projWithout = calculateProjections(withUndefined);
+    projWith.forEach((row, i) => {
+      expect(row.p1IsaBalance).toBeCloseTo(projWithout[i].p1IsaBalance, 0);
+    });
+  });
+});
+
+describe('calculateProjections — GIA annual contributions', () => {
+  function giaContribState(currentAge: number, fiAge: number, giaValue: number, annualContribution: number): PlannerState {
+    const base = bareState(currentAge);
+    return {
+      ...base,
+      fiAge,
+      person1: {
+        ...base.person1,
+        assets: {
+          ...base.person1.assets,
+          generalInvestments: { enabled: true, totalValue: giaValue, baseCost: giaValue, growthRate: 0, annualContribution },
+        },
+      },
+    };
+  }
+
+  test('GIA value and base cost both increase by contribution each pre-FI year', () => {
+    // Age 55, FI at 57 → 2 pre-FI years
+    const state = giaContribState(55, 57, 20_000, 3_000);
+    const projections = calculateProjections(state);
+
+    // y=0 (age 55): 20_000 + 3_000 = 23_000
+    const year0 = projections.find(p => p.p1Age === 55)!;
+    expect(year0.p1GiaValue).toBeCloseTo(23_000, 0);
+    // Unrealised gain should stay ~0 because baseCost tracks contributions (cost=value)
+    expect(year0.p1GiaValue - year0.p1GiaBaseCost).toBeCloseTo(0, 0);
+
+    // y=1 (age 56): 23_000 + 3_000 = 26_000
+    const year1 = projections.find(p => p.p1Age === 56)!;
+    expect(year1.p1GiaValue).toBeCloseTo(26_000, 0);
+  });
+
+  test('GIA contributions stop at FI age', () => {
+    const state = giaContribState(55, 57, 20_000, 3_000);
+    const projections = calculateProjections(state);
+
+    const yearPreFi = projections.find(p => p.p1Age === 56)!; // last pre-FI year
+    const yearFi    = projections.find(p => p.p1Age === 57)!; // FI year — no contribution
+    expect(yearFi.p1GiaValue).toBeLessThanOrEqual(yearPreFi.p1GiaValue + 1);
+  });
+
+  test('undefined GIA contribution is a no-op', () => {
+    const withUndefined = giaContribState(55, 57, 20_000, 0);
+    const baseState = {
+      ...withUndefined,
+      person1: {
+        ...withUndefined.person1,
+        assets: {
+          ...withUndefined.person1.assets,
+          generalInvestments: { enabled: true, totalValue: 20_000, baseCost: 20_000, growthRate: 0 },
+        },
+      },
+    };
+    const projWith = calculateProjections(withUndefined);
+    const projWithout = calculateProjections(baseState);
+    projWith.forEach((row, i) => {
+      expect(row.p1GiaValue).toBeCloseTo(projWithout[i].p1GiaValue, 0);
+    });
+  });
+});
