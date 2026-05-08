@@ -21,9 +21,6 @@ const GLOSSARY: Record<string, string> = {
 };
 
 // Dynamic glossary entries that use financial constants
-function getCGTTooltip(): string {
-  return `Capital Gains Tax — tax on investment growth (up to £${CGT.ANNUAL_EXEMPT.toLocaleString('en-GB')} annual exempt)`;
-}
 
 function InfoIcon({ term, tooltip }: { term: string; tooltip: string }) {
   const [show, setShow] = useState(false);
