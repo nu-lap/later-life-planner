@@ -654,7 +654,7 @@ export default function Step4Dashboard({ onBack }: Props) {
   // ─── Tab definitions ──────────────────────────────────────────────────────────
   const tabs: { id: ActiveTab; label: string; badge?: string }[] = [
     { id: 'overview', label: 'Overview' },
-    { id: 'strategy', label: 'Strategy' },
+    ...(proEnabled ? [] : [{ id: 'strategy' as ActiveTab, label: 'Strategy' }]),
     { id: 'goals', label: 'Goals', badge: 'Coming soon' },
     { id: 'iht', label: 'IHT & Estate' },
     { id: 'care', label: 'Care Reserve', badge: 'Coming soon' },
@@ -733,85 +733,32 @@ export default function Step4Dashboard({ onBack }: Props) {
             optimizerResult={optimizerResult ?? null}
             plannerState={deferredState}
             onProCta={() => setProModalSource('optimizer-explain')}
+            {...(proEnabled && {
+              drawdownStrategy,
+              setDrawdownStrategy,
+              pclsAge,
+              setPclsAge,
+              strategies,
+              effectiveDrawdownStrategy,
+              effectivePclsAge,
+              person1CurrentAge: person1.currentAge,
+            })}
           />
         )}
 
-        {/* ── Strategy tab ──────────────────────────────────────────────────── */}
+        {/* ── Strategy tab (non-Pro only) ──────────────────────────────────────────────────── */}
         {activeTab === 'strategy' && (
           <div className="game-card space-y-4">
-            <div>
-              <h3 className="section-heading">Withdrawal Strategy</h3>
-              <p className="text-xs text-slate-500">Choose how you draw down your pension and investment accounts each year.</p>
-            </div>
-
-            <div className="space-y-3">
-              {strategies.map(option => (
-                <button
-                  key={option.id}
-                  onClick={() => {
-                    if (option.id === 'pcls-bed-isa' && !proEnabled) {
-                      setProModalSource('strategy-pcls-bed-isa');
-                      return;
-                    }
-                    setDrawdownStrategy(option.id);
-                  }}
-                  className={clsx(
-                    'w-full text-left rounded-xl border-2 p-4 transition-all hover:shadow-md',
-                    effectiveDrawdownStrategy === option.id
-                      ? 'border-orange-400 bg-orange-50'
-                      : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/50',
-                  )}
-                  aria-pressed={effectiveDrawdownStrategy === option.id}
-                  aria-label={`${option.label}. ${option.description}${option.id === 'pcls-bed-isa' && !proEnabled ? ' (Pro only)' : ''}${effectiveDrawdownStrategy === option.id ? ' (Active)' : ''}`}
-                >
-                  <div className="flex items-center gap-3 mb-2">
-                    <span className="text-xl" aria-hidden="true">{option.icon}</span>
-                    <span className={clsx('font-bold text-sm', effectiveDrawdownStrategy === option.id ? 'text-orange-800' : 'text-slate-800')} aria-hidden="true">
-                      {option.label}
-                    </span>
-                    {effectiveDrawdownStrategy === option.id && (
-                      <span className="ml-auto text-xs font-bold bg-orange-200 text-orange-700 px-2 py-0.5 rounded-full" aria-hidden="true">Active</span>
-                    )}
-                    {option.id === 'pcls-bed-isa' && !proEnabled && (
-                      <span className="ml-auto text-xs font-bold bg-violet-100 text-violet-700 px-2 py-0.5 rounded-full" aria-hidden="true">Pro</span>
-                    )}
-                  </div>
-                  <p className={clsx('text-sm leading-relaxed', effectiveDrawdownStrategy === option.id ? 'text-orange-700' : 'text-slate-500')}>
-                    {option.description}
-                  </p>
-                </button>
-              ))}
-            </div>
-
-            {effectiveDrawdownStrategy === 'pcls-bed-isa' && (
-              <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl">
-                <label className="text-sm font-semibold text-slate-700 block mb-2">
-                  Lump sum age
-                </label>
-                <input
-                  type="number"
-                  value={effectivePclsAge}
-                  onChange={(e) => setPclsAge(Math.max(person1.currentAge, parseInt(e.target.value) || effectivePclsAge))}
-                  min={person1.currentAge}
-                  max={120}
-                  className="w-32 px-3 py-2 text-sm border border-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
-                />
-                <p className="text-xs text-blue-600 mt-1">Strategy applies from age {effectivePclsAge}</p>
-              </div>
-            )}
-
-            {/* Simplified tax-efficient withdrawal strategy — shown only in non-Pro mode */}
-            {!proEnabled && (
-              <div className="mt-6 pt-6 border-t-2 border-t-orange-200 bg-gradient-to-br from-orange-50/30 to-transparent rounded-xl p-4">
-                <h3 className="section-heading mb-3 flex items-center gap-2">
-                  <span>💡</span>
-                  <span>Simplified tax-efficient withdrawal strategy</span>
-                </h3>
-                <p className="text-xs text-slate-500 mb-1">A simplified guide to how income is typically structured each year to reduce tax.</p>
-                <p className="text-xs text-slate-400 mb-4 italic">
-                  This is a simplified, typical ordering only — the most tax-efficient sequence and outcomes can vary based on your circumstances and current tax position.
-                </p>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
+            <div className="pt-0 bg-gradient-to-br from-orange-50/30 to-transparent rounded-xl p-4">
+              <h3 className="section-heading mb-3 flex items-center gap-2">
+                <span>💡</span>
+                <span>Simplified tax-efficient withdrawal strategy</span>
+              </h3>
+              <p className="text-xs text-slate-500 mb-1">A simplified guide to how income is typically structured each year to reduce tax.</p>
+              <p className="text-xs text-slate-400 mb-4 italic">
+                This is a simplified, typical ordering only — the most tax-efficient sequence and outcomes can vary based on your circumstances and current tax position.
+              </p>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
                   <div className="rounded-2xl p-3 bg-rose-50 border border-rose-100 hover:shadow-md hover:border-rose-200 transition-all duration-200 cursor-default">
                     <p className="text-xs text-rose-600 font-bold mb-1">Lifetime income tax</p>
                     <p className="text-xl font-black text-rose-800">{formatCurrency(lifetimeIncomeTax, true)}</p>
@@ -853,9 +800,8 @@ export default function Step4Dashboard({ onBack }: Props) {
                   ))}
                 </div>
               </div>
-            )}
-          </div>
-        )}
+            </div>
+          )}
 
         {/* ── Goals tab ─────────────────────────────────────────────────────── */}
         {activeTab === 'goals' && (

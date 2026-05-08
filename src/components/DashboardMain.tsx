@@ -87,6 +87,14 @@ interface DashboardMainProps {
   optimizerResult?: OptimizationResult | null;
   plannerState?: PlannerState;
   onProCta?: () => void;
+  drawdownStrategy?: DrawdownStrategy;
+  setDrawdownStrategy?: (v: DrawdownStrategy) => void;
+  pclsAge?: number | undefined;
+  setPclsAge?: (v: number | undefined) => void;
+  strategies?: ReadonlyArray<{ id: DrawdownStrategy; label: string; icon: string; description: string }>;
+  effectiveDrawdownStrategy?: DrawdownStrategy;
+  effectivePclsAge?: number;
+  person1CurrentAge?: number;
 }
 
 interface StatCardProps {
@@ -128,6 +136,14 @@ export default function DashboardMain({
   optimizerResult,
   plannerState,
   onProCta,
+  drawdownStrategy,
+  setDrawdownStrategy,
+  pclsAge,
+  setPclsAge,
+  strategies,
+  effectiveDrawdownStrategy,
+  effectivePclsAge,
+  person1CurrentAge,
 }: DashboardMainProps) {
   const firstStageId = lifeStages[0]?.id ?? 'active';
   const annualSpend = getStageTotalSpending(state, firstStageId);
@@ -206,6 +222,59 @@ export default function DashboardMain({
               Current target: {formatCurrency(state.careReserve.amount, true)} · If care costs never arise, it remains part of your estate.
             </p>
           </div>
+        </div>
+      )}
+
+      {/* Withdrawal Strategy selector — Pro mode only */}
+      {proEnabled && strategies && strategies.length > 0 && setDrawdownStrategy && (
+        <div className="game-card mb-6">
+          <h3 className="section-heading mb-1">Withdrawal Strategy</h3>
+          <p className="text-xs text-slate-500 mb-3">Choose how you draw down your pension and investment accounts each year.</p>
+          <div className="space-y-3">
+            {strategies.map(option => (
+              <button
+                key={option.id}
+                onClick={() => setDrawdownStrategy(option.id)}
+                className={clsx(
+                  'w-full text-left rounded-xl border-2 p-4 transition-all hover:shadow-md',
+                  effectiveDrawdownStrategy === option.id
+                    ? 'border-orange-400 bg-orange-50'
+                    : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/50',
+                )}
+                aria-pressed={effectiveDrawdownStrategy === option.id}
+                aria-label={`${option.label}. ${option.description}${effectiveDrawdownStrategy === option.id ? ' (Active)' : ''}`}
+              >
+                <div className="flex items-center gap-3 mb-2">
+                  <span className="text-xl" aria-hidden="true">{option.icon}</span>
+                  <span className={clsx('font-bold text-sm', effectiveDrawdownStrategy === option.id ? 'text-orange-800' : 'text-slate-800')} aria-hidden="true">
+                    {option.label}
+                  </span>
+                  {effectiveDrawdownStrategy === option.id && (
+                    <span className="ml-auto text-xs font-bold bg-orange-200 text-orange-700 px-2 py-0.5 rounded-full" aria-hidden="true">Active</span>
+                  )}
+                </div>
+                <p className={clsx('text-sm leading-relaxed', effectiveDrawdownStrategy === option.id ? 'text-orange-700' : 'text-slate-500')}>
+                  {option.description}
+                </p>
+              </button>
+            ))}
+          </div>
+          {effectiveDrawdownStrategy === 'pcls-bed-isa' && setPclsAge && person1CurrentAge !== undefined && (
+            <div className="mt-3 p-4 bg-blue-50 border border-blue-200 rounded-xl">
+              <label className="text-sm font-semibold text-slate-700 block mb-2">
+                Lump sum age
+              </label>
+              <input
+                type="number"
+                value={effectivePclsAge ?? state.fiAge}
+                onChange={(e) => setPclsAge(Math.max(person1CurrentAge, parseInt(e.target.value) || state.fiAge))}
+                min={person1CurrentAge}
+                max={120}
+                className="w-32 px-3 py-2 text-sm border border-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
+              />
+              <p className="text-xs text-blue-600 mt-1">Strategy applies from age {effectivePclsAge ?? state.fiAge}</p>
+            </div>
+          )}
         </div>
       )}
 
