@@ -439,7 +439,7 @@ function AssetsSection({ assets, set, mode, p1Label, p2Label, sharedGia, onShare
         </FieldRow>
       </SourceCard>
 
-      <SourceCard icon="📈" title="ISA & Investments"
+      <SourceCard icon="📈" title="ISA"
         desc="Stocks & Shares ISA — withdrawals are completely tax-free"
         enabled={isaInvestments.enabled} onToggle={(v) => set('isaInvestments', { enabled: v })}
       >
