@@ -5,7 +5,7 @@ import { usePlannerStore } from '@/store/plannerStore';
 import Toggle from '@/components/ui/Toggle';
 import CurrencyInput from '@/components/ui/CurrencyInput';
 import GuidedSetupWizard from '@/components/GuidedSetupWizard';
-import { CGT, STATE_PENSION } from '@/config/financialConstants';
+import { CGT, STATE_PENSION, ISA_ANNUAL_ALLOWANCE_BASE } from '@/config/financialConstants';
 import type { PersonIncomeSources, PersonAssets, AssetOwner } from '@/lib/types';
 import type { PrimaryResidenceAsset } from '@/models/types';
 import clsx from 'clsx';
@@ -449,6 +449,9 @@ function AssetsSection({ assets, set, mode, p1Label, p2Label, sharedGia, onShare
         <FieldRow label="Annual growth rate">
           <PctInput value={isaInvestments.growthRate} onChange={(v) => set('isaInvestments', { growthRate: v })} />
         </FieldRow>
+        <FieldRow label="Yearly contribution (pre-FI)" hint={`In today's £. Added each year until your FI age. ISA annual allowance is £${ISA_ANNUAL_ALLOWANCE_BASE.toLocaleString('en-GB')}.`}>
+          <CurrencyInput value={isaInvestments.annualContribution ?? 0} onChange={(v) => set('isaInvestments', { annualContribution: v || undefined })} step={500} />
+        </FieldRow>
         <div className="py-2 text-xs text-emerald-700 bg-emerald-50 rounded-xl px-3">
           Completely tax-free on withdrawal — no income tax, no CGT, no impact on personal allowance.
         </div>
@@ -467,6 +470,9 @@ function AssetsSection({ assets, set, mode, p1Label, p2Label, sharedGia, onShare
         </FieldRow>
         <FieldRow label="Annual growth rate">
           <PctInput value={generalInvestments.growthRate} onChange={(v) => set('generalInvestments', { growthRate: v })} />
+        </FieldRow>
+        <FieldRow label="Yearly contribution (pre-FI)" hint="In today's £. Added each year until your FI age.">
+          <CurrencyInput value={generalInvestments.annualContribution ?? 0} onChange={(v) => set('generalInvestments', { annualContribution: v || undefined })} step={500} />
         </FieldRow>
         {giaGain > 0 && (
           <div className="py-2 text-xs text-amber-700 bg-amber-50 rounded-xl px-3 border-l-4 border-amber-600">
@@ -489,6 +495,9 @@ function AssetsSection({ assets, set, mode, p1Label, p2Label, sharedGia, onShare
           </FieldRow>
           <FieldRow label="Annual growth rate">
             <PctInput value={sharedGia.growthRate} onChange={(v) => onSharedGiaChange({ growthRate: v })} />
+          </FieldRow>
+          <FieldRow label="Yearly contribution (pre-FI)" hint="In today's £. Added each year until your FI age.">
+            <CurrencyInput value={sharedGia.annualContribution ?? 0} onChange={(v) => onSharedGiaChange({ annualContribution: v || undefined })} step={500} />
           </FieldRow>
           {jointGiaGain > 0 && (
             <div className="py-2 text-xs text-amber-700 bg-amber-50 rounded-xl px-3 border-l-4 border-amber-600">
