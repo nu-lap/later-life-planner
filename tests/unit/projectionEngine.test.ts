@@ -931,6 +931,7 @@ describe('calculateProjections — ISA annual contributions', () => {
     return {
       ...base,
       fiAge,
+      assumptions: { ...base.assumptions, inflation: 0 },
       person1: {
         ...base.person1,
         assets: {
@@ -988,13 +989,14 @@ describe('calculateProjections — ISA annual contributions', () => {
   });
 
   test('end-of-year ordering: growth applied before contribution (ordinary annuity)', () => {
-    // growthRate=5, initialValue=10_000, contribution=2_000
+    // growthRate=5, initialValue=10_000, contribution=2_000, inflation=0 (inflFactor=1 always)
     // Year 1: 10_000 * 1.05 + 2_000 = 12_500 (grow-then-contribute)
     // vs contribute-then-grow: (10_000 + 2_000) * 1.05 = 12_600
     const base = bareState(55);
     const state: PlannerState = {
       ...base,
       fiAge: 58,
+      assumptions: { ...base.assumptions, inflation: 0 },
       person1: {
         ...base.person1,
         assets: {
@@ -1015,6 +1017,7 @@ describe('calculateProjections — GIA annual contributions', () => {
     return {
       ...base,
       fiAge,
+      assumptions: { ...base.assumptions, inflation: 0 },
       person1: {
         ...base.person1,
         assets: {
@@ -1071,10 +1074,11 @@ describe('calculateProjections — GIA annual contributions', () => {
 });
 
 describe('calculateProjections — couple mode ISA/GIA contributions', () => {
-  /** Zero out all spending categories so drawdown does not consume pre-FI contributions. */
+  /** Zero out spending and inflation so drawdown/inflFactor do not interfere with contribution tests. */
   function zeroSpending(state: PlannerState): PlannerState {
     return {
       ...state,
+      assumptions: { ...state.assumptions, inflation: 0 },
       spendingCategories: state.spendingCategories.map(c => ({
         ...c,
         amounts: Object.fromEntries(Object.keys(c.amounts).map(k => [k, 0])),

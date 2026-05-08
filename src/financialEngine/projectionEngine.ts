@@ -248,14 +248,14 @@ export function calculateProjections(state: PlannerState): YearlyProjection[] {
       if (person1.incomeSources.dcPension.enabled) {
         p1Dc += getAnnualDcContribution(person1.incomeSources.dcPension, y, inflation);
       }
-      // ISA and GIA annual contributions (pre-FI only, in today's £ — not inflation-linked)
+      // ISA and GIA annual contributions (pre-FI only; stored in today's £, inflation-adjusted)
       const p1IsaContrib = person1.assets.isaInvestments.enabled
-        ? (person1.assets.isaInvestments.annualContribution ?? 0)
+        ? (person1.assets.isaInvestments.annualContribution ?? 0) * inflFactor
         : 0;
       if (p1IsaContrib > 0) p1Isa += p1IsaContrib;
 
       const p1GiaContrib = person1.assets.generalInvestments.enabled
-        ? (person1.assets.generalInvestments.annualContribution ?? 0)
+        ? (person1.assets.generalInvestments.annualContribution ?? 0) * inflFactor
         : 0;
       if (p1GiaContrib > 0) { p1GiaV += p1GiaContrib; p1GiaBC += p1GiaContrib; }
     }
@@ -266,15 +266,15 @@ export function calculateProjections(state: PlannerState): YearlyProjection[] {
       if (mode === 'couple' && person2.incomeSources.dcPension.enabled) {
         p2Dc += getAnnualDcContribution(person2.incomeSources.dcPension, y, inflation);
       }
-      // Person2 ISA and GIA annual contributions (pre-FI only, in today's £)
+      // Person2 ISA and GIA annual contributions (pre-FI only; stored in today's £, inflation-adjusted)
       if (mode === 'couple') {
         const p2IsaContrib = person2.assets.isaInvestments.enabled
-          ? (person2.assets.isaInvestments.annualContribution ?? 0)
+          ? (person2.assets.isaInvestments.annualContribution ?? 0) * inflFactor
           : 0;
         if (p2IsaContrib > 0) p2Isa += p2IsaContrib;
 
         const p2GiaContrib = person2.assets.generalInvestments.enabled
-          ? (person2.assets.generalInvestments.annualContribution ?? 0)
+          ? (person2.assets.generalInvestments.annualContribution ?? 0) * inflFactor
           : 0;
         if (p2GiaContrib > 0) { p2GiaV += p2GiaContrib; p2GiaBC += p2GiaContrib; }
       }
@@ -284,7 +284,7 @@ export function calculateProjections(state: PlannerState): YearlyProjection[] {
     // Using householdFiStarted alone would stop contributions during the gap period
     // (P1 retired, P2 still working), inconsistent with how P2's individual GIA works.
     if ((!householdFiStarted || !p2FiStarted) && mode === 'couple' && jointGia.enabled) {
-      const jointGiaContrib = jointGia.annualContribution ?? 0;
+      const jointGiaContrib = (jointGia.annualContribution ?? 0) * inflFactor;
       if (jointGiaContrib > 0) { jointGiaV += jointGiaContrib; jointGiaBC += jointGiaContrib; }
     }
 
