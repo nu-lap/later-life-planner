@@ -56,6 +56,11 @@ const defaultState = bareState(65);
 const defaultLifeStages = [{ id: 'active', label: 'Go-Go', color: '#f97316' }];
 const projections = [makeProjection()];
 
+const testStrategies = [
+  { id: 'standard-ufpls' as const, label: 'Flexible pension drawdown',        icon: '💧', description: 'Draw flexibly from your pension.' },
+  { id: 'pcls-bed-isa'    as const, label: 'Tax-free lump sum + ISA transfer', icon: '🚀', description: 'Take your tax-free entitlement now.' },
+] as const;
+
 function renderDashboardMain(
   overrides: {
     proEnabled?: boolean;
@@ -76,12 +81,13 @@ function renderDashboardMain(
       optimizerEnabled={overrides.optimizerEnabled ?? false}
       proEnabled={overrides.proEnabled ?? false}
       // Strategy-related props for Pro mode
-      drawdownStrategy={overrides.proEnabled ? 'max-growth' : undefined}
+      drawdownStrategy={overrides.proEnabled ? 'standard-ufpls' : undefined}
       setDrawdownStrategy={overrides.proEnabled ? vi.fn() : undefined}
       pclsAge={overrides.proEnabled ? 65 : undefined}
       setPclsAge={overrides.proEnabled ? vi.fn() : undefined}
-      strategies={overrides.proEnabled ? [] : undefined}
-      effectiveDrawdownStrategy={overrides.proEnabled ? 'max-growth' : undefined}
+      strategies={overrides.proEnabled ? testStrategies : undefined}
+      effectiveDrawdownStrategy={overrides.proEnabled ? 'standard-ufpls' : undefined}
+      effectivePclsAge={overrides.proEnabled ? 65 : undefined}
       person1CurrentAge={overrides.proEnabled ? 65 : undefined}
     />,
   );
@@ -125,6 +131,26 @@ describe('DashboardMain chart toggle', () => {
     fireEvent.click(assetsBtn);
     expect(incomeBtn).toHaveAttribute('aria-pressed', 'false');
     expect(assetsBtn).toHaveAttribute('aria-pressed', 'true');
+  });
+});
+
+describe('DashboardMain Withdrawal Strategy (Pro mode)', () => {
+  test('shows Withdrawal Strategy heading and strategy buttons when Pro enabled', () => {
+    renderDashboardMain({ proEnabled: true });
+    expect(screen.getByText('Withdrawal Strategy')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Flexible pension drawdown/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Tax-free lump sum \+ ISA transfer/ })).toBeInTheDocument();
+  });
+
+  test('active strategy button has aria-pressed=true', () => {
+    renderDashboardMain({ proEnabled: true });
+    const activeBtn = screen.getByRole('button', { name: /Flexible pension drawdown/ });
+    expect(activeBtn).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  test('does not show Withdrawal Strategy selector in non-Pro mode', () => {
+    renderDashboardMain({ proEnabled: false });
+    expect(screen.queryByText('Withdrawal Strategy')).not.toBeInTheDocument();
   });
 });
 

@@ -740,6 +740,7 @@ export default function Step4Dashboard({ onBack }: Props) {
               setPclsAge,
               strategies,
               effectiveDrawdownStrategy,
+              effectivePclsAge,
               person1CurrentAge: person1.currentAge,
             })}
           />

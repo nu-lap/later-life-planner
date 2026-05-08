@@ -93,6 +93,7 @@ interface DashboardMainProps {
   setPclsAge?: (v: number | undefined) => void;
   strategies?: ReadonlyArray<{ id: DrawdownStrategy; label: string; icon: string; description: string }>;
   effectiveDrawdownStrategy?: DrawdownStrategy;
+  effectivePclsAge?: number;
   person1CurrentAge?: number;
 }
 
@@ -141,6 +142,7 @@ export default function DashboardMain({
   setPclsAge,
   strategies,
   effectiveDrawdownStrategy,
+  effectivePclsAge,
   person1CurrentAge,
 }: DashboardMainProps) {
   const firstStageId = lifeStages[0]?.id ?? 'active';
@@ -264,13 +266,13 @@ export default function DashboardMain({
               </label>
               <input
                 type="number"
-                value={pclsAge ?? state.fiAge}
+                value={effectivePclsAge ?? state.fiAge}
                 onChange={(e) => setPclsAge(Math.max(person1CurrentAge, parseInt(e.target.value) || state.fiAge))}
                 min={person1CurrentAge}
                 max={120}
                 className="w-32 px-3 py-2 text-sm border border-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
               />
-              <p className="text-xs text-blue-600 mt-1">Strategy applies from age {pclsAge ?? state.fiAge}</p>
+              <p className="text-xs text-blue-600 mt-1">Strategy applies from age {effectivePclsAge ?? state.fiAge}</p>
             </div>
           )}
         </div>

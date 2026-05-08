@@ -4,15 +4,48 @@ import { useState } from 'react';
 import { usePlannerStore } from '@/store/plannerStore';
 import Toggle from '@/components/ui/Toggle';
 import CurrencyInput from '@/components/ui/CurrencyInput';
-import InfoIcon from '@/components/ui/InfoIcon';
 import GuidedSetupWizard from '@/components/GuidedSetupWizard';
 import { CGT, STATE_PENSION } from '@/config/financialConstants';
-import { GLOSSARY } from '@/lib/glossary';
 import type { PersonIncomeSources, PersonAssets, AssetOwner } from '@/lib/types';
 import type { PrimaryResidenceAsset } from '@/models/types';
 import clsx from 'clsx';
 
 interface Props { onNext: () => void; onBack: () => void }
+
+// Glossary definitions for financial terms
+const GLOSSARY: Record<string, string> = {
+  LSA: 'Lump Sum Allowance (SIPP) — tax-free element of pension withdrawals',
+  RNRB: 'Residence Nil-Rate Band — IHT allowance for primary residence',
+  UFPLS: 'Uncrystallised Funds Pension Lump Sum — tax-free pension withdrawal option',
+  SIPP: 'Self-Invested Personal Pension — flexible pension pot you manage',
+};
+
+// Dynamic glossary entries that use financial constants
+function getCGTTooltip(): string {
+  return `Capital Gains Tax — tax on investment growth (up to £${CGT.ANNUAL_EXEMPT.toLocaleString('en-GB')} annual exempt)`;
+}
+
+function InfoIcon({ term, tooltip }: { term: string; tooltip: string }) {
+  const [show, setShow] = useState(false);
+  return (
+    <div className="relative inline-block">
+      <button
+        type="button"
+        onClick={() => setShow(!show)}
+        onBlur={() => setShow(false)}
+        title={tooltip}
+        className="inline-flex items-center justify-center w-5 h-5 ml-1 rounded-full bg-slate-200 hover:bg-slate-300 text-slate-600 hover:text-slate-800 text-xs font-bold flex-shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
+      >
+        ℹ
+      </button>
+      {show && (
+        <div className="absolute z-10 left-0 mt-1 w-48 p-2 text-xs text-slate-700 bg-white border border-slate-200 rounded-lg shadow-lg">
+          {tooltip}
+        </div>
+      )}
+    </div>
+  );
+}
 
 // ─── Primitives ───────────────────────────────────────────────────────────────
 
@@ -21,7 +54,7 @@ function FieldRow({ label, hint, children, labelExtra }: { label: string; hint?:
     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 py-3 border-b border-slate-100 last:border-0">
       <div className="flex-1">
         <div className="flex items-center gap-1">
-          <span className="text-sm font-semibold text-slate-700">{label}</span>
+          <label className="text-sm font-semibold text-slate-700">{label}</label>
           {labelExtra}
         </div>
         {hint && <p className="text-xs text-slate-500 mt-0.5">{hint}</p>}
@@ -308,7 +341,7 @@ function IncomeSection({ currentAge, fiAge, lifeExpectancy, src, assets, set }: 
             <span className="text-sm font-bold text-orange-600">Age {fiAge} <span className="font-normal text-slate-400">(your financial independence age)</span></span>
           </FieldRow>
           <div className="py-2 text-xs text-slate-500 bg-slate-50 rounded-xl px-3">
-            Workplace and SIPP contributions are projected only until FI age.
+            Each withdrawal is 25% tax-free and 75% taxable income. The full pot stays invested until needed. Workplace and SIPP contributions are projected only until FI age.
           </div>
         </SourceCard>
 
@@ -439,7 +472,7 @@ function AssetsSection({ assets, set, mode, p1Label, p2Label, sharedGia, onShare
           <PctInput value={generalInvestments.growthRate} onChange={(v) => set('generalInvestments', { growthRate: v })} />
         </FieldRow>
         {giaGain > 0 && (
-          <div className="py-2 text-xs text-amber-700 bg-amber-50 rounded-xl px-3">
+          <div className="py-2 text-xs text-amber-700 bg-amber-50 rounded-xl px-3 border-l-4 border-amber-600">
             Unrealised gain: <strong>£{giaGain.toLocaleString('en-GB')}</strong> · CGT applies on gains above the £{CGT.ANNUAL_EXEMPT.toLocaleString('en-GB')} annual exempt amount.
           </div>
         )}
@@ -461,7 +494,7 @@ function AssetsSection({ assets, set, mode, p1Label, p2Label, sharedGia, onShare
             <PctInput value={sharedGia.growthRate} onChange={(v) => onSharedGiaChange({ growthRate: v })} />
           </FieldRow>
           {jointGiaGain > 0 && (
-            <div className="py-2 text-xs text-amber-700 bg-amber-50 rounded-xl px-3">
+            <div className="py-2 text-xs text-amber-700 bg-amber-50 rounded-xl px-3 border-l-4 border-amber-600">
               Unrealised gain: <strong>£{jointGiaGain.toLocaleString('en-GB')}</strong> · Gains split equally across both persons&apos; CGT allowances.
             </div>
           )}
@@ -497,7 +530,7 @@ function AssetsSection({ assets, set, mode, p1Label, p2Label, sharedGia, onShare
           </FieldRow>
         )}
         {propGain > 0 && (
-          <div className="py-2 text-xs text-sky-700 bg-sky-50 rounded-xl px-3">
+          <div className="py-2 text-xs text-sky-700 bg-sky-50 rounded-xl px-3 border-l-4 border-sky-600">
             Unrealised gain: <strong>£{propGain.toLocaleString('en-GB')}</strong> · Base cost captured for future CGT planning.
           </div>
         )}
@@ -542,7 +575,6 @@ function AssetsSection({ assets, set, mode, p1Label, p2Label, sharedGia, onShare
 export default function Step3IncomeSources({ onNext, onBack }: Props) {
   const {
     mode, fiAge,
-    p2FiAge: p2FiAgeRaw,
     person1, setP1Income, setP1Asset,
     person2, setP2Income, setP2Asset,
     jointGia, setJointGia,
@@ -637,14 +669,7 @@ export default function Step3IncomeSources({ onNext, onBack }: Props) {
 
       {/* Content */}
       {activeTab === 'income' ? (
-        <IncomeSection
-          currentAge={person.currentAge}
-          fiAge={isPerson1 ? fiAge : (p2FiAgeRaw ?? fiAge)}
-          lifeExpectancy={assumptions.lifeExpectancy}
-          src={person.incomeSources}
-          assets={person.assets}
-          set={setIncome}
-        />
+        <IncomeSection currentAge={person.currentAge} fiAge={fiAge} lifeExpectancy={assumptions.lifeExpectancy} src={person.incomeSources} assets={person.assets} set={setIncome} />
       ) : (
         <AssetsSection
           assets={person.assets} set={setAsset} mode={mode}
