@@ -73,6 +73,53 @@ When touching the financial engine, always run:
 npx vitest run tests/unit/projectionEngine.test.ts tests/unit/taxCalculations.test.ts
 ```
 
+- When adding or changing behaviour, add corresponding tests using the frameworks already present.
+- Keep tests deterministic, isolated, and fast.
+- Favour small, focused tests that clearly document expected behaviour.
+- When unsure of existing patterns, find similar tests in the repo and mirror their style.
+
+## Code Style
+
+- Prefer clear and maintainable code over clever solutions.
+- Follow existing patterns and conventions you see in the codebase.
+- When modifying code, preserve current behaviour unless the change is explicitly requested.
+- Propose minimal, focused changes that directly address the problem at hand.
+
+## Security
+
+- Avoid insecure patterns: command injection, unsafe string interpolation into shell commands, unvalidated user input.
+- Prefer well-known, maintained libraries over custom security-sensitive code.
+- Validate and sanitise external inputs before use.
+- Handle errors explicitly — do not silently swallow exceptions.
+
+## Comments
+
+Add a comment only when the **why** is non-obvious: a hidden constraint, a subtle invariant, or a workaround for a specific bug. Do not describe what the code does — well-named identifiers already do that.
+
+## GitHub Actions Conventions
+
+- Use clear, descriptive names for workflows and jobs.
+- Minimise `permissions:` blocks to the principle of least privilege.
+- Prefer official `actions/*` and well-maintained third-party actions.
+- Reuse existing patterns for triggers, job naming, and status checks rather than inventing new conventions.
+
+## PR Review Format
+
+When writing PR review feedback, use this exact structure for each actionable finding:
+
+- `Severity: P0` / `P1` / `P2` / `P3` / `Nit`
+- `Impact: <one sentence explaining risk or regression>`
+- `Required action: <one concrete fix instruction>`
+
+Severity definitions:
+- **P0** — release-blocking, requires immediate remediation
+- **P1** — high-risk defect, security issue, data loss, or major correctness regression
+- **P2** — important correctness, reliability, or maintainability issue; fix before merge
+- **P3** — minor issue or improvement
+- **Nit** — style / documentation / readability suggestion
+
+Only create inline review comments for P0, P1, and P2 findings. Put P3 and Nit feedback in the top-level review summary. If no blocking issues are found, state that explicitly in the summary.
+
 ## Key Environment Variables
 
 See `.env.example`. Required for local dev:
@@ -85,9 +132,9 @@ See `.env.example`. Required for local dev:
 
 `@/*` resolves to `src/*` (configured in `tsconfig.json` baseUrl/paths).
 
-## Multi-Agent Isolation (CRITICAL for Copilot Instances)
+## Multi-Agent Isolation (CRITICAL)
 
-**Multiple Copilot instances often work on this repo concurrently.** Use git worktrees to work on different branches simultaneously without interference.
+**Multiple agents often work on this repo concurrently.** Use git worktrees to work on different branches simultaneously without interference.
 
 ### Quick Start
 
@@ -108,10 +155,35 @@ cd /Users/pauldurbin/github/later-life-planner
 git worktree remove ../llp-llp-myname
 ```
 
-### Key Practices
-- **Always use worktrees** for concurrent work — don't share the main checkout
-- **Never force-push** — create new commits instead of amending pushed commits
-- **Create PRs immediately** after first push to signal your intent
-- **Clean up temp files** at session end
+### Branch Rules
 
-**See `docs/COPILOT-ISOLATION.md` for full guidelines and worktree details.**
+- **Always work on a feature branch** — never directly on `master`
+- **Never force-push** to branches that already have a PR or have been pushed to origin
+- **Never rebase/amend pushed commits** — create a new commit instead
+- **Always `git pull` before editing** a branch that has been pushed
+
+### Pre-Work Checklist
+
+- [ ] `git status` and `git fetch origin`
+- [ ] Confirm current branch is not `master`
+- [ ] If on an existing pushed branch: `git pull origin <branch>`
+- [ ] Create a new feature branch if starting fresh: `git checkout -b feature/<name>`
+- [ ] Confirm working tree is clean: `git status`
+
+### After-Work Checklist
+
+- [ ] Commit all changes with a clear, atomic message
+- [ ] `git push origin <branch-name>`
+- [ ] Create or update PR: `gh pr create` or `gh pr view`
+- [ ] Clean up temporary files
+- [ ] Verify clean working tree: `git status`
+
+### Forbidden
+
+- `git push --force` / `git push -f`
+- `git commit --amend` or `git rebase` on pushed branches
+- Editing `.env*` or secrets files
+- Leaving uncommitted changes
+- Creating PRs from `master`
+
+**See `docs/COPILOT-ISOLATION.md` for full worktree details.**
