@@ -9,7 +9,6 @@ npm-debug.log*
 *.pem
 *.key
 *.p12
-tests
 coverage
 README.md
 docs
