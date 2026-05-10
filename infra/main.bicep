@@ -143,6 +143,10 @@ resource appKeyVault 'Microsoft.KeyVault/vaults@2023-07-01' = {
     softDeleteRetentionInDays: 90
     enablePurgeProtection: true
     publicNetworkAccess: 'Enabled'
+    networkAcls: {
+      bypass: 'AzureServices'
+      defaultAction: 'Deny'
+    }
   }
 }
 
@@ -158,6 +162,7 @@ resource webApp 'Microsoft.App/containerApps@2023-05-01' = {
         targetPort: 3000
         transport: 'auto'
         allowInsecure: false
+        clientCertificateMode: 'Ignore'
       }
       secrets: [
         { name: 'anthropic-api-key', value: anthropicApiKey }

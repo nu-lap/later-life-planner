@@ -109,15 +109,20 @@ jobs:
           docker buildx inspect --bootstrap
 
       - name: Build image for validation
+        env:
+          BUILD_TURNSTILE: ${{ secrets.NEXT_PUBLIC_TURNSTILE_SITE_KEY }}
+          BUILD_CLERK_KEY: ${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}
+          BUILD_OPTIMIZER: ${{ secrets.NEXT_PUBLIC_OPTIMIZER_ENABLED || 'true' }}
+          BUILD_PRO: ${{ secrets.NEXT_PUBLIC_PRO_ENABLED || 'false' }}
         run: |
           docker buildx build \
             --file Dockerfile \
             --load \
             --tag later-life-planner:pr-check \
-            --build-arg NEXT_PUBLIC_TURNSTILE_SITE_KEY="${{ secrets.NEXT_PUBLIC_TURNSTILE_SITE_KEY }}" \
-            --build-arg NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY="${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}" \
-            --build-arg NEXT_PUBLIC_OPTIMIZER_ENABLED="${{ secrets.NEXT_PUBLIC_OPTIMIZER_ENABLED || 'true' }}" \
-            --build-arg NEXT_PUBLIC_PRO_ENABLED="${{ secrets.NEXT_PUBLIC_PRO_ENABLED || 'false' }}" \
+            --build-arg "NEXT_PUBLIC_TURNSTILE_SITE_KEY=${BUILD_TURNSTILE}" \
+            --build-arg "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=${BUILD_CLERK_KEY}" \
+            --build-arg "NEXT_PUBLIC_OPTIMIZER_ENABLED=${BUILD_OPTIMIZER}" \
+            --build-arg "NEXT_PUBLIC_PRO_ENABLED=${BUILD_PRO}" \
             --build-arg NEXT_PUBLIC_CLERK_SIGN_IN_URL="/sign-in" \
             --build-arg NEXT_PUBLIC_CLERK_SIGN_UP_URL="/sign-up" \
             --build-arg NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL="/" \
@@ -306,6 +311,13 @@ jobs:
 
       - name: Update ACA secret and deploy
         id: deploy
+        env:
+          SECRET_ANTHROPIC: ${{ secrets.ANTHROPIC_API_KEY }}
+          SECRET_TURNSTILE: ${{ secrets.TURNSTILE_SECRET_KEY }}
+          SECRET_CLERK: ${{ secrets.CLERK_SECRET_KEY }}
+          BUILD_CLERK_KEY: ${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}
+          BUILD_OPTIMIZER: ${{ secrets.NEXT_PUBLIC_OPTIMIZER_ENABLED || 'true' }}
+          BUILD_PRO: ${{ secrets.NEXT_PUBLIC_PRO_ENABLED || 'false' }}
         run: |
           COSMOS_ENDPOINT=$(az cosmosdb show \
             --name "$COSMOS_ACCOUNT" \
@@ -325,9 +337,9 @@ jobs:
             --name "$APP_NAME" \
             --resource-group "$APP_RESOURCE_GROUP" \
             --secrets \
-              "anthropic-api-key=${{ secrets.ANTHROPIC_API_KEY }}" \
-              "turnstile-secret-key=${{ secrets.TURNSTILE_SECRET_KEY }}" \
-              "clerk-secret-key=${{ secrets.CLERK_SECRET_KEY }}"
+              "anthropic-api-key=${SECRET_ANTHROPIC}" \
+              "turnstile-secret-key=${SECRET_TURNSTILE}" \
+              "clerk-secret-key=${SECRET_CLERK}"
           az containerapp update \
             --name "$APP_NAME" \
             --resource-group "$APP_RESOURCE_GROUP" \
@@ -336,9 +348,9 @@ jobs:
               "ANTHROPIC_API_KEY=secretref:anthropic-api-key" \
               "TURNSTILE_SECRET_KEY=secretref:turnstile-secret-key" \
               "CLERK_SECRET_KEY=secretref:clerk-secret-key" \
-              "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}" \
-              "NEXT_PUBLIC_OPTIMIZER_ENABLED=${{ secrets.NEXT_PUBLIC_OPTIMIZER_ENABLED || 'true' }}" \
-              "NEXT_PUBLIC_PRO_ENABLED=${{ secrets.NEXT_PUBLIC_PRO_ENABLED || 'false' }}" \
+              "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=${BUILD_CLERK_KEY}" \
+              "NEXT_PUBLIC_OPTIMIZER_ENABLED=${BUILD_OPTIMIZER}" \
+              "NEXT_PUBLIC_PRO_ENABLED=${BUILD_PRO}" \
               "NEXT_PUBLIC_LLM_PROVIDER=azure-openai" \
               "LLM_PROVIDER=azure-openai" \
               "AZURE_OPENAI_ENDPOINT=https://hmrc-tax-openai.openai.azure.com/" \
