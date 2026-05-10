@@ -82,9 +82,16 @@ jobs:
 
       - run: npm run lint
 
-      - run: npm test
+      - run: npm run test:coverage
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage/lcov.info
+          retention-days: 1
 
   container-build-check:
     runs-on: ubuntu-latest
@@ -152,9 +159,33 @@ jobs:
         env:
           NODE_ENV: test
 
+  sonar:
+    name: SonarCloud Analysis
+    runs-on: ubuntu-latest
+    needs: [changes, test]
+    if: needs.changes.outputs.ci == 'true' && needs.test.result == 'success'
+    permissions:
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Download coverage report
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage
+
+      - name: SonarCloud Scan
+        uses: SonarSource/sonarcloud-github-action@383f7e52eae3ab0510c3cb0e7d9d150bbaeab838 # v3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
   merge-gate:
     runs-on: ubuntu-latest
-    needs: [changes, test, container-build-check, validate-tax-rules]
+    needs: [changes, test, container-build-check, validate-tax-rules, sonar]
     if: ${{ always() && github.event_name == 'pull_request' }}
     steps:
       - name: Fail if any CI prerequisite failed
@@ -163,6 +194,7 @@ jobs:
           TEST_RESULT: ${{ needs.test.result }}
           CONTAINER_BUILD_RESULT: ${{ needs.container-build-check.result }}
           VALIDATE_TAX_RESULT: ${{ needs.validate-tax-rules.result }}
+          SONAR_RESULT: ${{ needs.sonar.result }}
         run: |
           if [ "$CHANGES_RESULT" != "success" ]; then
             echo "::error::changes job ended with result: $CHANGES_RESULT"
@@ -181,6 +213,11 @@ jobs:
 
           if [ "$VALIDATE_TAX_RESULT" != "success" ] && [ "$VALIDATE_TAX_RESULT" != "skipped" ]; then
             echo "::error::validate-tax-rules job ended with result: $VALIDATE_TAX_RESULT"
+            exit 1
+          fi
+
+          if [ "$SONAR_RESULT" != "success" ] && [ "$SONAR_RESULT" != "skipped" ]; then
+            echo "::error::sonar job ended with result: $SONAR_RESULT"
             exit 1
           fi
 
