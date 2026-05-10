@@ -6,6 +6,10 @@ npm-debug.log*
 .env
 .env.*
 !.env.example
+*.pem
+*.key
+*.p12
+coverage
 README.md
 docs
 infra
