@@ -1,1 +1,13 @@
-{"defaultMode": "bypassPermissions"}
+{
+  "defaultMode": "bypassPermissions",
+  "permissions": {
+    "allow": [
+      "mcp__copilot-readonly__*",
+      "Read",
+      "Bash(git *)",
+      "Bash(az *)",
+      "WebFetch",
+      "WebSearch"
+    ]
+  }
+}

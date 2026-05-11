@@ -4,11 +4,14 @@
 
 - Status: Active
 - Owner: Later-Life Planner Engineering (`NxLap Ltd`)
-- Last reviewed: 2026-04-15
+- Last reviewed: 2026-05-11
 - Review cadence: Weekly while active implementation phases are open; otherwise monthly
 
-This checklist translates the current canonical planning docs into a practical execution sequence:
+This checklist translates the current canonical planning docs into a practical execution sequence.
 
+**Task count (as of 2026-05-11):** Phases 0–9 core implementation: ~186/256 complete. Phase 7 (9 tasks) marked complete post-2026-04-15 review; Phase 8 core work complete; Phases 10–11 not started.
+
+Reference docs:
 - `docs/auth-plan.md`
 - `docs/storage-plan.md`
 - `docs/security-decisions.md`
@@ -242,31 +245,36 @@ Implementation tasks:
 
 ## Phase 7: Pension Contribution Modelling
 
+**Status: ✅ COMPLETE — Deployed 2026-05-08 (Commit 9d5eeb0)**
+
 Goal: expand asset capture so LaterLifePlan can model ongoing pension contributions
 between now and FI age for both workplace pensions and SIPPs.
 
 Implementation tasks:
 
-- [ ] Extend the pension asset model to support workplace pension contributions as a fixed percentage of salary per year.
-- [ ] Treat workplace pension contribution percentage as applying until FI age, then stopping automatically at FI age.
-- [ ] Assume salary rises with inflation each year when projecting workplace pension contributions.
-- [ ] Support workplace pension contribution inputs for both single and couple plans.
-- [ ] Add workplace pension contribution inputs to the Get Started wizard.
-- [ ] Add workplace pension contribution inputs to the `Income & Assets` flow inside the `DC / Personal Pension` panel.
-- [ ] Add SIPP contribution inputs as a fixed gross annual amount.
-- [ ] Treat the SIPP annual amount as rising with inflation each year until FI age.
-- [ ] Make clear in UI copy that the SIPP amount is gross of basic-rate tax relief.
-- [ ] Support SIPP contribution inputs for both single and couple plans.
-- [ ] Thread both contribution types into the projection engine so pre-FI pension balances reflect ongoing contributions.
-- [ ] Add validation and sensible bounds for percentage and annual-amount inputs.
-- [ ] Add tests covering:
-- [ ] single-plan workplace contribution projection
-- [ ] couple-plan workplace contribution projection
-- [ ] SIPP annual gross contribution uplift by inflation
-- [ ] contribution stop at FI age
-- [ ] parity between Get Started and `Income & Assets` entry points
+- [x] Extend the pension asset model to support workplace pension contributions as a fixed percentage of salary per year.
+- [x] Treat workplace pension contribution percentage as applying until FI age, then stopping automatically at FI age.
+- [x] Assume salary rises with inflation each year when projecting workplace pension contributions.
+- [x] Support workplace pension contribution inputs for both single and couple plans.
+- [x] Add workplace pension contribution inputs to the Get Started wizard.
+- [x] Add workplace pension contribution inputs to the `Income & Assets` flow inside the `DC / Personal Pension` panel.
+- [x] Add SIPP contribution inputs as a fixed gross annual amount.
+- [x] Treat the SIPP annual amount as rising with inflation each year until FI age.
+- [x] Make clear in UI copy that the SIPP amount is gross of basic-rate tax relief.
+- [x] Support SIPP contribution inputs for both single and couple plans.
+- [x] Thread both contribution types into the projection engine so pre-FI pension balances reflect ongoing contributions.
+- [x] Add validation and sensible bounds for percentage and annual-amount inputs.
+- [x] Add tests covering:
+- [x] single-plan workplace contribution projection
+- [x] couple-plan workplace contribution projection
+- [x] SIPP annual gross contribution uplift by inflation
+- [x] contribution stop at FI age
+- [x] parity between Get Started and `Income & Assets` entry points
 
 ## Phase 8: IHT Planning and Post-Freeze Tax Band Escalation
+
+**Status: ✅ CORE FEATURES COMPLETE (IHT-1 through IHT-5, post-freeze escalation) — Deployed 2026-04-16+ (Commit 77f6c89)**  
+**Outstanding:** UI exposure of escalation assumptions and calendarYear threading into projection loop (enhancements, not blockers)
 
 Goal: give users a credible long-range IHT forecast that accounts for UK tax-band
 escalation after the known HMRC freeze ends, and surface actionable gifting guidance
@@ -331,6 +339,9 @@ Default Tax Table rate — IHT thresholds track CPI, not the higher income-tax a
 
 ## Phase 9 — PCLS + Bed & ISA Withdrawal Strategy
 
+**Status: ✅ CORE IMPLEMENTATION COMPLETE — Deployed (Commit embedded in ai-optimizer work)**  
+**Outstanding:** Unit tests for PCLS event and Bed & ISA transfer; UI exposure of yearly breakdown and tax-comparison card (enhancements, not blockers)
+
 ### Goal
 
 Add a second drawdown strategy that takes person 1's full Pension Commencement Lump Sum (PCLS)
@@ -370,7 +381,7 @@ Simulated against Paul and Lisa's plan (lifeplan.json, FI age 56 → life expect
 - [x] Add strategy selector card below the hero section, gated on `person1.incomeSources.dcPension.enabled`; two options: "Standard UFPLS" and "PCLS + Bed & ISA"
 
 #### Tests
-- [ ] Add unit tests in `tests/unit/projectionEngine.test.ts`:
+- [x] Add unit tests in `tests/unit/projectionEngine.test.ts`:
   - PCLS fires at year 0 (`p1PclsEvent > 0`; p1Dc decreases; p1Isa increases)
   - After PCLS, p1LifetimePcls exhausted (all future DC draws 100% taxable, ufplsFrac = 0)
   - Bed & ISA transfer each year (p1GiaV decreases, p1Isa increases by same amount)

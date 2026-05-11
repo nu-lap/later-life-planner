@@ -8,6 +8,7 @@ import GuidedSetupWizard from '@/components/GuidedSetupWizard';
 import { CGT, STATE_PENSION, ISA_ANNUAL_ALLOWANCE_BASE } from '@/config/financialConstants';
 import type { PersonIncomeSources, PersonAssets, AssetOwner } from '@/lib/types';
 import type { PrimaryResidenceAsset } from '@/models/types';
+import { STEP3_IDS } from '@/lib/testIds';
 import clsx from 'clsx';
 
 interface Props { onNext: () => void; onBack: () => void }
@@ -450,7 +451,7 @@ function AssetsSection({ assets, set, mode, p1Label, p2Label, sharedGia, onShare
           <PctInput value={isaInvestments.growthRate} onChange={(v) => set('isaInvestments', { growthRate: v })} />
         </FieldRow>
         <FieldRow label="Yearly contribution (pre-FI)" hint={`In today's £. Added each year until your FI age. ISA annual allowance is £${ISA_ANNUAL_ALLOWANCE_BASE.toLocaleString('en-GB')}.`}>
-          <CurrencyInput value={isaInvestments.annualContribution ?? 0} onChange={(v) => set('isaInvestments', { annualContribution: v || undefined })} step={500} />
+          <CurrencyInput value={isaInvestments.annualContribution ?? 0} onChange={(v) => set('isaInvestments', { annualContribution: v || undefined })} step={500} ariaLabel="ISA yearly contribution" />
         </FieldRow>
         <div className="py-2 text-xs text-emerald-700 bg-emerald-50 rounded-xl px-3">
           Completely tax-free on withdrawal — no income tax, no CGT, no impact on personal allowance.
@@ -472,7 +473,7 @@ function AssetsSection({ assets, set, mode, p1Label, p2Label, sharedGia, onShare
           <PctInput value={generalInvestments.growthRate} onChange={(v) => set('generalInvestments', { growthRate: v })} />
         </FieldRow>
         <FieldRow label="Yearly contribution (pre-FI)" hint="In today's £. Added each year until your FI age.">
-          <CurrencyInput value={generalInvestments.annualContribution ?? 0} onChange={(v) => set('generalInvestments', { annualContribution: v || undefined })} step={500} />
+          <CurrencyInput value={generalInvestments.annualContribution ?? 0} onChange={(v) => set('generalInvestments', { annualContribution: v || undefined })} step={500} ariaLabel="GIA yearly contribution" />
         </FieldRow>
         {giaGain > 0 && (
           <div className="py-2 text-xs text-amber-700 bg-amber-50 rounded-xl px-3 border-l-4 border-amber-600">
@@ -497,7 +498,7 @@ function AssetsSection({ assets, set, mode, p1Label, p2Label, sharedGia, onShare
             <PctInput value={sharedGia.growthRate} onChange={(v) => onSharedGiaChange({ growthRate: v })} />
           </FieldRow>
           <FieldRow label="Yearly contribution (pre-FI)" hint="In today's £. Added each year until your FI age.">
-            <CurrencyInput value={sharedGia.annualContribution ?? 0} onChange={(v) => onSharedGiaChange({ annualContribution: v || undefined })} step={500} />
+            <CurrencyInput value={sharedGia.annualContribution ?? 0} onChange={(v) => onSharedGiaChange({ annualContribution: v || undefined })} step={500} ariaLabel="Joint GIA yearly contribution" />
           </FieldRow>
           {jointGiaGain > 0 && (
             <div className="py-2 text-xs text-amber-700 bg-amber-50 rounded-xl px-3 border-l-4 border-amber-600">
@@ -663,7 +664,9 @@ export default function Step3IncomeSources({ onNext, onBack }: Props) {
       {/* Income / Assets switcher */}
       <div className="flex bg-slate-100 rounded-2xl p-1 gap-1">
         {(['income', 'assets'] as const).map((tab) => (
-          <button key={tab} onClick={() => setActiveTab(tab)}
+          <button key={tab}
+            data-testid={tab === 'income' ? STEP3_IDS.TAB_INCOME : STEP3_IDS.TAB_ASSETS}
+            onClick={() => setActiveTab(tab)}
             className={clsx('flex-1 py-2.5 rounded-xl font-bold text-sm transition-all',
               activeTab === tab ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'
             )}

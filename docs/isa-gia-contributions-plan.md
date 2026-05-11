@@ -1,12 +1,14 @@
-# ISA & GIA Annual Contributions
+# ISA & GIA Annual Contributions — Phase 7
 
-## Problem
+**Status:** ✅ **COMPLETE** — Deployed 2026-05-08 (Commit 9d5eeb0)
 
-Users currently have no way to model ongoing saving into an ISA or GIA before they reach their FI age. Only the DC pension has pre-FI contribution fields (`workplaceContributionPercent`, `sippContributionAnnualGross`). This means the projection understates wealth accumulation for users who are still actively building their investment portfolios.
+## Problem (Solved)
 
-## Goal
+Users previously had no way to model ongoing saving into an ISA or GIA before they reach their FI age. Only the DC pension had pre-FI contribution fields (`workplaceContributionPercent`, `sippContributionAnnualGross`). This meant the projection understated wealth accumulation for users who are still actively building their investment portfolios.
 
-Add a simple, optional yearly contribution field to ISA and GIA assets. The field represents the amount the user plans to deposit each year until they stop work (FI age). The projection engine applies these contributions in pre-FI years, growing the opening balance before drawdown begins.
+## Solution
+
+Added a simple, optional yearly contribution field to ISA and GIA assets. The field represents the amount the user plans to deposit each year until they stop work (FI age). The projection engine applies these contributions in pre-FI years, growing the opening balance before drawdown begins.
 
 ## Decisions
 
@@ -19,9 +21,11 @@ Add a simple, optional yearly contribution field to ISA and GIA assets. The fiel
 | Joint GIA | Supported — single contribution field for the jointly-held account | Consistent with how joint GIA is modelled elsewhere |
 | Missing/zero field | `undefined` treated as 0 | No data migration required; backwards-compatible |
 
-## Implementation
+## Implementation Status
 
-### 1. Types (`src/models/types.ts`)
+✅ **All tasks completed and deployed (2026-05-08)**
+
+### 1. Types (`src/models/types.ts`) — ✅ IMPLEMENTED
 
 Add `annualContribution?: number` to `ISAAsset` and `GIAAsset`:
 

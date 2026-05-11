@@ -11,6 +11,7 @@ import { RLSS_STANDARDS } from '@/lib/mockData';
 
 import InfoIcon from '@/components/ui/InfoIcon';
 import { GLOSSARY } from '@/lib/glossary';
+import { STEP4_IDS } from '@/lib/testIds';
 import OptimizerPanel from '@/components/OptimizerPanel';
 import clsx from 'clsx';
 
@@ -234,6 +235,7 @@ export default function DashboardMain({
             {strategies.map(option => (
               <button
                 key={option.id}
+                data-testid={STEP4_IDS.STRATEGY_BUTTON(option.id)}
                 onClick={() => setDrawdownStrategy(option.id)}
                 className={clsx(
                   'w-full text-left rounded-xl border-2 p-4 transition-all hover:shadow-md',

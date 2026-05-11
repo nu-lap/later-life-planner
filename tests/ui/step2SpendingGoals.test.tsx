@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, test, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { createDefaultState } from '@/lib/mockData';
 import { CARE_RESERVE } from '@/config/financialConstants';
+import { STEP2_IDS } from '@/lib/testIds';
 
 const setCareReserveMock = vi.fn();
 const setGoalRegistryMock = vi.fn();
@@ -73,6 +74,41 @@ describe('Step2SpendingGoals', () => {
         targetValue: CARE_RESERVE.MAX_AMOUNT,
       }),
     ]));
+  });
+
+  test('RLSS standard buttons are rendered and call applyRlssTemplate', () => {
+    render(<Step2SpendingGoals onBack={vi.fn()} onNext={vi.fn()} />);
+    const moderate = screen.getByTestId(STEP2_IDS.RLSS_BUTTON('moderate'));
+    expect(moderate).toBeInTheDocument();
+    fireEvent.click(moderate);
+    expect(plannerState.applyRlssTemplate).toHaveBeenCalledWith('moderate');
+  });
+
+  test('life stage tabs are rendered for each stage', () => {
+    render(<Step2SpendingGoals onBack={vi.fn()} onNext={vi.fn()} />);
+    const stages = plannerState.lifeStages as Array<{ id: string }>;
+    stages.forEach(stage => {
+      expect(screen.getByTestId(STEP2_IDS.STAGE_TAB(stage.id))).toBeInTheDocument();
+    });
+  });
+
+  test('care reserve toggle calls setCareReserve with toggled enabled state', () => {
+    render(<Step2SpendingGoals onBack={vi.fn()} onNext={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: /advanced planning/i }));
+    const toggle = screen.getByTestId(STEP2_IDS.CARE_RESERVE_TOGGLE);
+    fireEvent.click(toggle);
+    expect(setCareReserveMock).toHaveBeenCalledWith(expect.objectContaining({ enabled: false }));
+  });
+
+  test('care reserve amount input is present when care reserve enabled', () => {
+    render(<Step2SpendingGoals onBack={vi.fn()} onNext={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: /advanced planning/i }));
+    expect(screen.getByTestId(STEP2_IDS.CARE_RESERVE_AMOUNT)).toBeInTheDocument();
+  });
+
+  test('add planned event button is rendered', () => {
+    render(<Step2SpendingGoals onBack={vi.fn()} onNext={vi.fn()} />);
+    expect(screen.getByTestId(STEP2_IDS.ADD_PLANNED_EVENT)).toBeInTheDocument();
   });
 
   test('hides Reset link when user moves slider to smart default', async () => {

@@ -30,6 +30,7 @@ import type { OptimizationResult, OptimizerPolicyOverride } from '@/financialEng
 import type { CareReserve, DrawdownStrategy, GoalConfig, GoalId } from '@/models/types';
 import InfoIcon from '@/components/ui/InfoIcon';
 import { GLOSSARY } from '@/lib/glossary';
+import { STEP4_IDS } from '@/lib/testIds';
 import clsx from 'clsx';
 
 interface Props { onBack: () => void }
@@ -690,6 +691,7 @@ export default function Step4Dashboard({ onBack }: Props) {
             {tabs.map(tab => (
               <button
                 key={tab.id}
+                data-testid={STEP4_IDS.TAB_BUTTON(tab.id)}
                 onClick={() => setActiveTab(tab.id)}
                 className={clsx(
                   'flex-shrink-0 px-4 py-2 rounded-lg text-sm font-semibold transition-colors whitespace-nowrap flex items-center gap-2',

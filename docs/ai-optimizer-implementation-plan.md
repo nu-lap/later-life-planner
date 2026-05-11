@@ -2,10 +2,10 @@
 
 ## Document Control
 
-- Status: Active
+- Status: Active (Phases 1-7, 9, 13 complete; 8, 10-12, 14-15 pending)
 - Owner: Later-Life Planner Engineering (`NxLap Ltd`)
 - Created: 2026-04-05
-- Last reviewed: 2026-04-07
+- Last reviewed: 2026-05-11 (Updated: Current State table corrected to match Phase checklist)
 - Review cadence: On phase completion or architecture change
 
 This document is the implementation plan for delivering the full AI-enabled drawdown
@@ -16,23 +16,40 @@ files, dependencies, and acceptance criteria for each work item.
 
 ---
 
-## Current State
+## Current State (Corrected — Last Updated: 2026-05-11)
 
-| Component | Status | Location |
-|---|---|---|
-| HMRC tax snapshot | ✅ Live | `src/config/taxRuleSnapshot.ts` |
-| Financial constants | ✅ Live | `src/config/financialConstants.ts` |
-| Projection engine | ✅ Live | `src/financialEngine/projectionEngine.ts` |
-| Tax calculations | ✅ Live | `src/financialEngine/taxCalculations.ts` |
-| Auth (Clerk), persistence (Cosmos DB), encryption | ✅ Live | `src/lib/`, `src/app/api/` |
-| Waterfall optimizer logic | ⚠️ Script only | `scripts/combined-strategy.ts` |
-| `src/financialEngine/withdrawalOptimizer.ts` | ❌ Not yet | — |
-| `POST /api/optimizer-explain` | ❌ Not yet | — |
-| `src/lib/llm.ts` (provider-agnostic wrapper) | ❌ Not yet | — |
-| `src/lib/hmrcRag.ts` (Cosmos vector retrieval) | ❌ Not yet | — |
-| `GET /api/tax-trace` (audit route) | ❌ Not yet | — |
-| Goal orchestration | ❌ Future | — |
-| Scotland jurisdiction support | ❌ Not yet | — |
+### Foundation Layer (Always On)
+| Component | Status | Location | Phase |
+|---|---|---|---|
+| HMRC tax snapshot | ✅ Live | `src/config/taxRuleSnapshot.ts` | Snapshot |
+| Financial constants | ✅ Live | `src/config/financialConstants.ts` | Snapshot |
+| Projection engine | ✅ Live | `src/financialEngine/projectionEngine.ts` | Snapshot |
+| Tax calculations | ✅ Live | `src/financialEngine/taxCalculations.ts` | Snapshot |
+| IHT projection + gifting | ✅ Live | `src/financialEngine/ihtProjection.ts`, `giftingOptimiser.ts` | Phase 8 (IHT) |
+| Auth, persistence, encryption | ✅ Live | `src/lib/`, `src/app/api/` | Phase 3.5 |
+
+### Optimizer Core (Phases 1-7, 9, 13 — ✅ COMPLETE)
+| Component | Status | Location | Phase |
+|---|---|---|---|
+| Optimizer core port | ✅ Live | `src/financialEngine/projectionEngine.ts` | Phase 1 |
+| OptimizerPanel in Step 4 | ✅ Live | `src/components/OptimizerPanel.tsx` | Phase 2 |
+| `POST /api/optimizer-explain` | ✅ Live | `src/app/api/optimizer-explain/route.ts` | Phase 3 |
+| Cosmos RAG retrieval | ✅ Live | Uses `src/lib/cosmos.ts` with vectors | Phase 4 |
+| Year-by-year action plan | ✅ Live | OptimizerPanel draws down breakdown | Phase 5 |
+| Mode-aware strategies (Standard UFPLS, PCLS) | ✅ Live | `drawdownStrategy` in engine | Phase 6 |
+| Dashboard UI cleanup (sidebar) | ✅ Live | `DashboardSidebar.tsx` component | Phase 7 |
+| Goal orchestration (basic) | ✅ Live | Goals framework in place | Phase 9 |
+| Explanation timeline facts | ✅ Live | Explanation route context | Phase 13 |
+
+### Not Yet Implemented
+| Component | Status | Location | Phase | Notes |
+|---|---|---|---|---|
+| `GET /api/tax-trace` (audit route) | ❌ Pending | — | Phase 8 | Deferred; audit trail not prioritized |
+| Scotland jurisdiction support | ❌ Pending | — | Phase 10 | Scottish tax rules deferred |
+| Couple ISA ordering follow-up | ❌ Pending | — | Phase 11 | ISA ordering optimization follow-up |
+| Goal priority semantics | ❌ Pending | — | Phase 12 | Goal prioritization refinements |
+| Derived state pension age | ❌ Pending | — | Phase 14 | Calculated SPA insertion |
+| Advanced optimizer feature flag | ❌ Pending | — | Phase 15 | Pro-tier gating for advanced optimizer |
 
 ---
 

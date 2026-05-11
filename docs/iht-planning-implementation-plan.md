@@ -41,11 +41,12 @@ HMRC citations:
 | `PrimaryResidenceAsset` type | ✅ Live | `src/models/types.ts` |
 | Primary residence in `PlannerState` | ✅ Live | `primaryResidence` field; normalised on hydration |
 | Primary residence UI (Step 3) | ✅ Live | Primary Residence card in Step 3 assets tab |
-| IHT constants in `financialConstants.ts` | ❌ Not yet | — |
-| `src/financialEngine/ihtProjection.ts` | ❌ Not yet | — |
-| `IHTOutlookPanel.tsx` in Step 4 | ❌ Not yet | — |
+| IHT constants in `financialConstants.ts` | ✅ Live | IHT rates, NRB, RNRB, escalation rules |
+| `src/financialEngine/ihtProjection.ts` | ✅ Live | Added 2026-04-16; calculateIHTProjection() |
+| `src/financialEngine/giftingOptimiser.ts` | ✅ Live | calculateGiftingOptimisation(); tests passing |
+| `IHTOutlookPanel.tsx` in Step 4 | ✅ Live | Integrated in Step4Dashboard; estate projection + gifting |
 | `NEXT_PUBLIC_IHT_ADVANCED_ENABLED` flag | ✅ Removed | Superseded by `NEXT_PUBLIC_PRO_ENABLED` (Phase 15) |
-| `NEXT_PUBLIC_PRO_ENABLED` gate + IHT teaser | ✅ Live | Pro upgrade overlay + blurred IHT teaser in Step 4 |
+| `NEXT_PUBLIC_PRO_ENABLED` gate + IHT teaser | ✅ Live | Pro upgrade overlay + IHT OutlookPanel in Step 4 (Pro mode) |
 
 ---
 
@@ -75,11 +76,11 @@ to land behind the flag without a separate infrastructure change.
 
 ## Phase Checklist
 
-- [x] Phase IHT-1 — Primary Residence Data Model
-- [x] Phase IHT-2 — Feature Flag (superseded by `NEXT_PUBLIC_PRO_ENABLED`; Pro gate live in Phase 15)
-- [x] Phase IHT-3 — IHT Constants + Calculation Engine
-- [x] Phase IHT-4 — IHT Outlook Panel in Step 4
-- [ ] Phase IHT-5 — Gifting Optimiser
+- [x] Phase IHT-1 — Primary Residence Data Model ✅ COMPLETE
+- [x] Phase IHT-2 — Feature Flag (superseded by `NEXT_PUBLIC_PRO_ENABLED`; Pro gate live in Phase 15) ✅ COMPLETE
+- [x] Phase IHT-3 — IHT Constants + Calculation Engine ✅ COMPLETE (deployed 2026-04-16)
+- [x] Phase IHT-4 — IHT Outlook Panel in Step 4 ✅ COMPLETE (live in Step4Dashboard)
+- [x] Phase IHT-5 — Gifting Optimiser ✅ COMPLETE (calculateGiftingOptimisation() live, integrated in IHTOutlookPanel)
 
 ---
 
