@@ -993,18 +993,18 @@ export function usePlanSync(): UsePlanSyncResult {
   }, [canonicalPlannerState]);
 
   const importPlanFromJson = useCallback((file: File) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
+    file.text().then((content) => {
       try {
-        const parsed = JSON.parse(e.target?.result as string) as Partial<PersistedPlannerState>;
+        const parsed = JSON.parse(content) as Partial<PersistedPlannerState>;
         const currentState = usePlannerStore.getState();
         const hydrated = hydratePlannerState(currentState, parsed);
         usePlannerStore.setState(hydrated);
       } catch {
         // Invalid JSON or schema mismatch — silently ignore to avoid crashing the page
       }
-    };
-    reader.readAsText(file);
+    }).catch(() => {
+      // File read failed — silently ignore
+    });
   }, []);
 
   return {

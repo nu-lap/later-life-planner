@@ -22,14 +22,6 @@ test('reset plan returns to blank state', async ({ page }) => {
   await expect(page.getByTestId('step1-p1-name')).toHaveValue('');
 });
 
-test('plan export downloads a JSON file with correct filename', async ({ page }) => {
-  // The export button is on the account page which is disabled without Clerk.
-  // Test by injecting a plan and triggering exportCanonicalPlan directly via
-  // the wizard's account link is not viable without auth.
-  // This test is a placeholder — run against a Clerk-enabled environment.
-  test.skip(!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY, 'Requires Clerk auth');
-});
-
 test('plan import restores state from JSON backup', async ({ page }) => {
   // Navigate away from the pre-seeded couple plan and verify blank state
   await page.addInitScript(() => localStorage.clear());
