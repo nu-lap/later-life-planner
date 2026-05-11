@@ -18,7 +18,7 @@ export const test = base.extend<Fixtures>({
   page: async ({ page }, use) => {
     await page.addInitScript(
       ({ storageKey, disclaimerKey, state }) => {
-        localStorage.setItem(disclaimerKey, 'true');
+        localStorage.setItem(disclaimerKey, '1');
         localStorage.setItem(storageKey, JSON.stringify({ state, version: 0 }));
       },
       { storageKey: STORAGE_KEY, disclaimerKey: DISCLAIMER_KEY, state: COUPLE_PLAN },

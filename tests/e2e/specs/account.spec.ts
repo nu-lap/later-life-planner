@@ -25,7 +25,7 @@ test('reset plan returns to blank state', async ({ page }) => {
 test('plan import restores state from JSON backup', async ({ page }) => {
   // Navigate away from the pre-seeded couple plan and verify blank state
   await page.addInitScript(() => localStorage.clear());
-  await page.addInitScript(() => localStorage.setItem('llp-disclaimer-accepted', 'true'));
+  await page.addInitScript(() => localStorage.setItem('llp-disclaimer-accepted', '1'));
   await page.goto('/');
 
   // Verify blank state — P1 name is empty

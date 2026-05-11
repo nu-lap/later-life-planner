@@ -18,7 +18,7 @@ type Fixtures = {
 export const test = base.extend<Fixtures>({
   page: async ({ page }, use) => {
     await page.addInitScript(
-      ({ disclaimerKey }) => { localStorage.setItem(disclaimerKey, 'true'); },
+      ({ disclaimerKey }) => { localStorage.setItem(disclaimerKey, '1'); },
       { disclaimerKey: DISCLAIMER_KEY },
     );
     await setupClerkTestingToken({ page });
