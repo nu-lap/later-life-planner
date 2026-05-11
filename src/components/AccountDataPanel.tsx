@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { PLANNER_SAVE_STATUS_LABELS, plannerSyncMessageClass } from '@/lib/plannerSaveStatus';
 import type { PlannerSaveStatus } from '@/models/types';
 import type { DeviceRegistrationDocument } from '@/lib/cosmos';
+import { ACCOUNT_IDS } from '@/lib/testIds';
 
 interface Props {
   saveStatus: PlannerSaveStatus;
@@ -13,6 +14,7 @@ interface Props {
   devices: DeviceRegistrationDocument[];
   onReloadRemote: () => void | Promise<void>;
   onExportPlan: () => void;
+  onImportPlan: (file: File) => void;
   onRefreshDevices: () => void | Promise<void>;
   onApproveDevice: (approvalCode: string) => void | Promise<void>;
 }
@@ -32,6 +34,7 @@ export default function AccountDataPanel({
   devices,
   onReloadRemote,
   onExportPlan,
+  onImportPlan,
   onRefreshDevices,
   onApproveDevice,
 }: Props) {
@@ -57,9 +60,32 @@ export default function AccountDataPanel({
         </div>
 
         <div className="flex gap-2">
-          <button onClick={onExportPlan} className="btn-secondary py-2.5 text-sm">
+          <button
+            data-testid={ACCOUNT_IDS.EXPORT_PLAN}
+            onClick={onExportPlan}
+            className="btn-secondary py-2.5 text-sm"
+          >
             Export JSON
           </button>
+          <button
+            data-testid={ACCOUNT_IDS.IMPORT_PLAN}
+            onClick={() => document.getElementById('account-import-input-data')?.click()}
+            className="btn-secondary py-2.5 text-sm"
+          >
+            Import JSON
+          </button>
+          <input
+            id="account-import-input-data"
+            data-testid={ACCOUNT_IDS.IMPORT_INPUT}
+            type="file"
+            accept=".json"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) onImportPlan(file);
+              e.target.value = '';
+            }}
+          />
           <button onClick={onReloadRemote} className="btn-secondary py-2.5 text-sm">
             Reload remote
           </button>

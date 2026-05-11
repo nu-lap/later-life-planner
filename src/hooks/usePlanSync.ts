@@ -100,6 +100,7 @@ interface UsePlanSyncResult {
   startFreshPlan: () => void;
   keepRemotePlan: () => void;
   exportCanonicalPlan: () => void;
+  importPlanFromJson: (file: File) => void;
 }
 
 const ApprovalCodeSchema = z.object({
@@ -991,6 +992,21 @@ export function usePlanSync(): UsePlanSyncResult {
     URL.revokeObjectURL(url);
   }, [canonicalPlannerState]);
 
+  const importPlanFromJson = useCallback((file: File) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const parsed = JSON.parse(e.target?.result as string) as Partial<PersistedPlannerState>;
+        const currentState = usePlannerStore.getState();
+        const hydrated = hydratePlannerState(currentState, parsed);
+        usePlannerStore.setState(hydrated);
+      } catch {
+        // Invalid JSON or schema mismatch — silently ignore to avoid crashing the page
+      }
+    };
+    reader.readAsText(file);
+  }, []);
+
   return {
     isSyncReady,
     saveStatus,
@@ -1008,5 +1024,6 @@ export function usePlanSync(): UsePlanSyncResult {
     startFreshPlan,
     keepRemotePlan,
     exportCanonicalPlan,
+    importPlanFromJson,
   };
 }

@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { PLANNER_SAVE_STATUS_LABELS, plannerSyncMessageClass } from '@/lib/plannerSaveStatus';
 import type { PlannerSaveStatus } from '@/models/types';
+import { ACCOUNT_IDS } from '@/lib/testIds';
 
 interface Props {
   saveStatus: PlannerSaveStatus;
@@ -12,6 +13,7 @@ interface Props {
   pendingApprovals: number;
   onReloadRemote: () => void | Promise<void>;
   onExportPlan: () => void;
+  onImportPlan: (file: File) => void;
 }
 
 function formatTimestamp(value: string | null): string {
@@ -29,6 +31,7 @@ export default function AccountOverviewPanel({
   pendingApprovals,
   onReloadRemote,
   onExportPlan,
+  onImportPlan,
 }: Props) {
   const isCorruptPayload = Boolean(syncError?.includes('corrupted or unreadable'));
   const isReloadBlocked = isCorruptPayload;
@@ -45,9 +48,32 @@ export default function AccountOverviewPanel({
         </div>
 
         <div className="flex gap-2 flex-shrink-0">
-          <button onClick={onExportPlan} className="btn-secondary py-2.5 text-sm whitespace-nowrap">
+          <button
+            data-testid={ACCOUNT_IDS.EXPORT_PLAN}
+            onClick={onExportPlan}
+            className="btn-secondary py-2.5 text-sm whitespace-nowrap"
+          >
             Export JSON
           </button>
+          <button
+            data-testid={ACCOUNT_IDS.IMPORT_PLAN}
+            onClick={() => document.getElementById('account-import-input-overview')?.click()}
+            className="btn-secondary py-2.5 text-sm whitespace-nowrap"
+          >
+            Import JSON
+          </button>
+          <input
+            id="account-import-input-overview"
+            data-testid={ACCOUNT_IDS.IMPORT_INPUT}
+            type="file"
+            accept=".json"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) onImportPlan(file);
+              e.target.value = '';
+            }}
+          />
           <button
             onClick={isReloadBlocked ? undefined : onReloadRemote}
             disabled={isReloadBlocked}

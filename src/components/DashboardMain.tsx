@@ -179,7 +179,7 @@ export default function DashboardMain({
       )}
 
       {/* KPI stat cards */}
-      <div id="section-overview" className="scroll-mt-32 grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+      <div id="section-overview" data-testid={STEP4_IDS.KPI_CARDS} className="scroll-mt-32 grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
         <StatCard 
           icon="💰" 
           label="Required net spending" 

@@ -48,3 +48,10 @@ export const HEADER_IDS = {
   SAVE_STATUS:   'header-save-status',
   ACCOUNT_LINK:  'header-account-link',
 } as const;
+
+export const ACCOUNT_IDS = {
+  EXPORT_PLAN:  'account-export-plan',
+  IMPORT_PLAN:  'account-import-plan',
+  IMPORT_INPUT: 'account-import-input',
+  RESET_PLAN:   'account-reset-plan',
+} as const;
