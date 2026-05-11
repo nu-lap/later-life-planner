@@ -1,5 +1,6 @@
 import { test, expect } from '../fixtures/syncTest';
 import { mockApiRoutes } from '../fixtures/apiMocks';
+import { STORAGE_KEY } from '../fixtures/planFixtures';
 
 // These tests require Clerk test credentials and a live Cosmos DB endpoint.
 // They are skipped in CI unless CLERK_SECRET_KEY is set.
@@ -43,9 +44,12 @@ test('import replaces plan and saves the new state', async ({ page, account, ste
 });
 
 test('export produces a valid JSON file', async ({ page, account }) => {
-  await page.goto('/');
-  // Seed a plan first by completing the wizard
-  // ...then navigate to account and export
+  // Seed the sample plan directly so we have known non-empty state to export
+  const samplePlan = require('../fixtures/sample-plan.json');
+  await page.evaluate(({ key, state }) => {
+    localStorage.setItem(key, JSON.stringify({ state, version: 0 }));
+  }, { key: STORAGE_KEY, state: samplePlan });
+
   await page.goto('/account');
 
   const [download] = await Promise.all([

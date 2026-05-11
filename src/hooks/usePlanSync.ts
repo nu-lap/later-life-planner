@@ -101,6 +101,7 @@ interface UsePlanSyncResult {
   keepRemotePlan: () => void;
   exportCanonicalPlan: () => void;
   importPlanFromJson: (file: File) => void;
+  importError: string | null;
 }
 
 const ApprovalCodeSchema = z.object({
@@ -230,6 +231,7 @@ export function usePlanSync(): UsePlanSyncResult {
     error: null,
   });
   const [devices, setDevices] = useState<DeviceRegistrationDocument[]>([]);
+  const [importError, setImportError] = useState<string | null>(null);
 
   const lastSavedSerializedRef = useRef<string | null>(null);
   const currentRevisionRef = useRef<number | null>(null);
@@ -993,17 +995,21 @@ export function usePlanSync(): UsePlanSyncResult {
   }, [canonicalPlannerState]);
 
   const importPlanFromJson = useCallback((file: File) => {
+    setImportError(null);
     file.text().then((content) => {
       try {
-        const parsed = JSON.parse(content) as Partial<PersistedPlannerState>;
+        const parsed: unknown = JSON.parse(content);
+        if (typeof parsed !== 'object' || parsed === null) {
+          throw new Error('File does not contain a valid plan object');
+        }
         const currentState = usePlannerStore.getState();
-        const hydrated = hydratePlannerState(currentState, parsed);
+        const hydrated = hydratePlannerState(currentState, parsed as Partial<PersistedPlannerState>);
         usePlannerStore.setState(hydrated);
       } catch {
-        // Invalid JSON or schema mismatch — silently ignore to avoid crashing the page
+        setImportError('Could not import plan — the file may be corrupt or from an incompatible version.');
       }
     }).catch(() => {
-      // File read failed — silently ignore
+      setImportError('Could not read the file. Please try again.');
     });
   }, []);
 
@@ -1025,5 +1031,6 @@ export function usePlanSync(): UsePlanSyncResult {
     keepRemotePlan,
     exportCanonicalPlan,
     importPlanFromJson,
+    importError,
   };
 }

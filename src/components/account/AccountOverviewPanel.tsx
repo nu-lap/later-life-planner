@@ -1,5 +1,6 @@
 'use client';
 
+import { useRef } from 'react';
 import Link from 'next/link';
 import { PLANNER_SAVE_STATUS_LABELS, plannerSyncMessageClass } from '@/lib/plannerSaveStatus';
 import type { PlannerSaveStatus } from '@/models/types';
@@ -14,6 +15,7 @@ interface Props {
   onReloadRemote: () => void | Promise<void>;
   onExportPlan: () => void;
   onImportPlan: (file: File) => void;
+  importError?: string | null;
 }
 
 function formatTimestamp(value: string | null): string {
@@ -32,7 +34,9 @@ export default function AccountOverviewPanel({
   onReloadRemote,
   onExportPlan,
   onImportPlan,
+  importError,
 }: Props) {
+  const importInputRef = useRef<HTMLInputElement>(null);
   const isCorruptPayload = Boolean(syncError?.includes('corrupted or unreadable'));
   const isReloadBlocked = isCorruptPayload;
 
@@ -57,13 +61,13 @@ export default function AccountOverviewPanel({
           </button>
           <button
             data-testid={ACCOUNT_IDS.IMPORT_PLAN}
-            onClick={() => document.getElementById('account-import-input-overview')?.click()}
+            onClick={() => importInputRef.current?.click()}
             className="btn-secondary py-2.5 text-sm whitespace-nowrap"
           >
             Import JSON
           </button>
           <input
-            id="account-import-input-overview"
+            ref={importInputRef}
             data-testid={ACCOUNT_IDS.IMPORT_INPUT}
             type="file"
             accept=".json"
@@ -103,6 +107,12 @@ export default function AccountOverviewPanel({
       {syncError ? (
         <p className={`mt-4 ${plannerSyncMessageClass(saveStatus)}`}>
           {syncError}
+        </p>
+      ) : null}
+
+      {importError ? (
+        <p className="mt-4 rounded-2xl border border-rose-100 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+          {importError}
         </p>
       ) : null}
 

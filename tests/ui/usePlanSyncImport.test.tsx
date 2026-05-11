@@ -59,9 +59,10 @@ describe('usePlanSync importPlanFromJson', () => {
     expect(usePlannerStore.getState().person1.name).toBe(before);
   });
 
-  test('file read failure does not crash', async () => {
+  test('file read failure does not crash and leaves store unchanged', async () => {
     render(<Harness />);
 
+    const before = usePlannerStore.getState().person1.name;
     const file = new File(['{}'], 'plan.json', { type: 'application/json' });
     vi.spyOn(file, 'text').mockRejectedValueOnce(new Error('read error'));
 
@@ -70,7 +71,6 @@ describe('usePlanSync importPlanFromJson', () => {
       await new Promise((r) => setTimeout(r, 0));
     });
 
-    // No assertion needed — test passes if no uncaught exception is thrown
-    expect(true).toBe(true);
+    expect(usePlannerStore.getState().person1.name).toBe(before);
   });
 });

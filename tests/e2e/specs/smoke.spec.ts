@@ -15,7 +15,7 @@ test('/api/data returns 4xx without auth, not 5xx', async ({ page }) => {
 });
 
 test('wizard step 1 renders without errors', async ({ page }) => {
-  await page.addInitScript(() => localStorage.setItem('llp-disclaimer-accepted', 'true'));
+  await page.addInitScript(() => localStorage.setItem('llp-disclaimer-accepted', '1'));
   await page.goto('/');
   await expect(page.getByTestId('step1-mode-single')).toBeVisible();
   await expect(page.getByTestId('step1-mode-couple')).toBeVisible();
