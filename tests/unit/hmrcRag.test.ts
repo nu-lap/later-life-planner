@@ -141,7 +141,7 @@ describe('retrieveHmrcChunks', () => {
     );
 
     expect(itemsQueryMock).toHaveBeenCalledTimes(2);
-    expect(itemsQueryMock.mock.calls[1]?.[0]).toMatchObject({
+    expect((itemsQueryMock.mock.calls as unknown[][])[1]?.[0]).toMatchObject({
       query: expect.not.stringContaining('ARRAY_CONTAINS(c.rule_ids'),
       parameters: [
         { name: '@taxYear', value: '2025-26' },

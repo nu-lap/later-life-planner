@@ -65,7 +65,7 @@ describe('/api/devices/:deviceId/approve route', () => {
 
     const response = await POST(
       new Request('http://localhost/api/devices/device-1/approve', { method: 'POST', body: '{}' }),
-      { params: { deviceId: 'device-1' } },
+      { params: Promise.resolve({ deviceId: 'device-1' }) },
     );
 
     expect(response.status).toBe(401);
@@ -76,7 +76,7 @@ describe('/api/devices/:deviceId/approve route', () => {
 
     const response = await POST(
       new Request('http://localhost/api/devices/device-1/approve', { method: 'POST', body: '{}' }),
-      { params: { deviceId: 'device-1' } },
+      { params: Promise.resolve({ deviceId: 'device-1' }) },
     );
 
     expect(response.status).toBe(400);
@@ -105,7 +105,7 @@ describe('/api/devices/:deviceId/approve route', () => {
           },
         }),
       }),
-      { params: { deviceId: 'device-1' } },
+      { params: Promise.resolve({ deviceId: 'device-1' }) },
     );
 
     expect(response.status).toBe(403);
@@ -134,7 +134,7 @@ describe('/api/devices/:deviceId/approve route', () => {
           },
         }),
       }),
-      { params: { deviceId: 'device-1' } },
+      { params: Promise.resolve({ deviceId: 'device-1' }) },
     );
 
     expect(response.status).toBe(400);
@@ -165,7 +165,7 @@ describe('/api/devices/:deviceId/approve route', () => {
         method: 'POST',
         body: JSON.stringify(payload),
       }),
-      { params: { deviceId: 'device-1' } },
+      { params: Promise.resolve({ deviceId: 'device-1' }) },
     );
 
     expect(response.status).toBe(204);
@@ -206,7 +206,7 @@ describe('/api/devices/:deviceId/approve route', () => {
         method: 'POST',
         body: JSON.stringify(payload),
       }),
-      { params: { deviceId: 'device-1' } },
+      { params: Promise.resolve({ deviceId: 'device-1' }) },
     );
 
     expect(response.status).toBe(404);

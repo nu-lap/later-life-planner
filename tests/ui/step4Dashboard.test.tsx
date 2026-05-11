@@ -365,7 +365,7 @@ describe('Step4Dashboard', () => {
   });
 
   test.skip('normalizes out-of-range goal target values when rendered with an over-limit stored value', () => {
-    const goalRegistryWithOverLimit = plannerState.goalRegistry.map((goal: { id: string }) =>
+    const goalRegistryWithOverLimit = plannerState.goalRegistry.map((goal) =>
       goal.id === 'longevity_protection' ? { ...goal, targetValue: 9_999_999 } : goal
     );
     plannerState = {
@@ -397,7 +397,7 @@ describe('Step4Dashboard', () => {
   });
 
   test.skip('does not commit goal target on blur when the typed value matches the stored value', () => {
-    const goalRegistryWithTarget = plannerState.goalRegistry.map((goal: { id: string }) =>
+    const goalRegistryWithTarget = plannerState.goalRegistry.map((goal) =>
       goal.id === 'longevity_protection' ? { ...goal, targetValue: 1_200, enabled: true } : goal
     );
     plannerState = { ...plannerState, goalRegistry: goalRegistryWithTarget };

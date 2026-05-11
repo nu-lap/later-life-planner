@@ -398,7 +398,7 @@ describe('InfoIcon', () => {
   // so the tooltip DOM is accessible via screen queries.
   beforeEach(() => {
     vi.spyOn(require('react-dom'), 'createPortal').mockImplementation(
-      (children: React.ReactNode) => children as React.ReactElement,
+      (children: unknown) => children as React.ReactElement,
     );
   });
 
