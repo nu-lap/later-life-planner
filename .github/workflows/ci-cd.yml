@@ -125,9 +125,8 @@ jobs:
         env:
           CI: true
 
-      # Sync/encryption spec: only runs when Clerk test credentials are configured
+      # Sync/encryption spec: tests self-skip via test.skip() when CLERK_SECRET_KEY is empty
       - name: Run sync e2e tests
-        if: ${{ secrets.CLERK_SECRET_KEY_TEST != '' }}
         run: npx playwright test tests/e2e/specs/sync.spec.ts
         env:
           CI: true
