@@ -8,6 +8,7 @@ import { RLSS_STANDARDS } from '@/lib/mockData';
 import { syncCareReserveGoal } from '@/lib/goalOrchestration';
 import { CARE_RESERVE, GAP_PERIOD_NET_SALARY_FACTOR } from '@/config/financialConstants';
 import type { SpendingTier, RlssStandard, PlannedEvent } from '@/models/types';
+import { STEP2_IDS } from '@/lib/testIds';
 import clsx from 'clsx';
 import { newId } from '@/lib/ids';
 
@@ -180,6 +181,7 @@ export default function Step2SpendingGoals({ onNext, onBack }: Props) {
             return (
               <button
                 key={key}
+                data-testid={STEP2_IDS.RLSS_BUTTON(key)}
                 onClick={() => applyRlssTemplate(key)}
                 className={clsx(
                   'relative text-left p-3 rounded-2xl border-2 transition-all focus:outline-none',
@@ -228,6 +230,7 @@ export default function Step2SpendingGoals({ onNext, onBack }: Props) {
         {lifeStages.map(stage => (
           <button
             key={stage.id}
+            data-testid={STEP2_IDS.STAGE_TAB(stage.id)}
             onClick={() => setActiveStageId(stage.id)}
             className={clsx(
               'flex-1 py-2.5 px-3 rounded-2xl font-semibold text-sm transition-all border-2',
@@ -393,6 +396,7 @@ export default function Step2SpendingGoals({ onNext, onBack }: Props) {
               </div>
               <button
                 aria-label={careReserve?.enabled ? 'Disable care reserve' : 'Enable care reserve'}
+                data-testid={STEP2_IDS.CARE_RESERVE_TOGGLE}
                 onClick={() => updateCareReserve({ enabled: !careReserve?.enabled })}
                 className={clsx(
                   'flex-shrink-0 ml-4 w-12 h-6 rounded-full transition-colors relative',
@@ -424,6 +428,7 @@ export default function Step2SpendingGoals({ onNext, onBack }: Props) {
                       <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">£</span>
                       <input
                         id="care-reserve-amount"
+                        data-testid={STEP2_IDS.CARE_RESERVE_AMOUNT}
                         type="number"
                         min={0}
                         max={CARE_RESERVE.MAX_AMOUNT}
@@ -483,6 +488,7 @@ export default function Step2SpendingGoals({ onNext, onBack }: Props) {
             </p>
           </div>
           <button
+            data-testid={STEP2_IDS.ADD_PLANNED_EVENT}
             onClick={() => openNewEvent()}
             className="shrink-0 ml-3 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold px-3 py-1.5 transition-colors"
           >

@@ -9,6 +9,7 @@ import {
   getRangeProgress,
   MAX_PLANNING_HORIZON,
 } from '@/lib/planningBounds';
+import { STEP1_IDS } from '@/lib/testIds';
 import clsx from 'clsx';
 
 interface Props { onNext: () => void }
@@ -73,6 +74,7 @@ export default function Step1HouseholdSetup({ onNext }: Props) {
           {(['single', 'couple'] as const).map((m) => (
             <button
               key={m}
+              data-testid={m === 'single' ? STEP1_IDS.MODE_SINGLE : STEP1_IDS.MODE_COUPLE}
               onClick={() => { setMode(m); if (rlssStandard) applyRlssTemplate(rlssStandard); }}
               className={clsx(
                 'flex flex-col items-center gap-2 p-5 rounded-2xl border-2 font-semibold transition-all',
@@ -106,6 +108,7 @@ export default function Step1HouseholdSetup({ onNext }: Props) {
             </label>
             <input
               type="text"
+              data-testid={STEP1_IDS.P1_NAME}
               value={person1.name}
               onChange={(e) => setP1Name(e.target.value)}
               placeholder={mode === 'couple' ? 'e.g. Alex' : 'e.g. Alex'}
@@ -119,6 +122,7 @@ export default function Step1HouseholdSetup({ onNext }: Props) {
             </label>
             <input
               type="date"
+              data-testid={STEP1_IDS.P1_DOB}
               value={person1.dateOfBirth}
               onChange={(e) => setP1Dob(e.target.value)}
               min={minSupportedDob}
@@ -147,6 +151,7 @@ export default function Step1HouseholdSetup({ onNext }: Props) {
               </label>
               <input
                 type="text"
+                data-testid={STEP1_IDS.P2_NAME}
                 value={person2.name}
                 onChange={(e) => setP2Name(e.target.value)}
                 placeholder="e.g. Sam"
@@ -160,6 +165,7 @@ export default function Step1HouseholdSetup({ onNext }: Props) {
               </label>
               <input
                 type="date"
+                data-testid={STEP1_IDS.P2_DOB}
                 value={person2.dateOfBirth}
                 onChange={(e) => setP2Dob(e.target.value)}
                 min={minSupportedDob}
@@ -192,6 +198,7 @@ export default function Step1HouseholdSetup({ onNext }: Props) {
           <div className="flex items-center gap-4">
             <input
               type="range"
+              data-testid={STEP1_IDS.P1_FI_AGE}
               min={fiAgeMin}
               max={fiAgeMax}
               step={1}
@@ -224,6 +231,7 @@ export default function Step1HouseholdSetup({ onNext }: Props) {
             <div className="flex items-center gap-4">
               <input
                 type="range"
+                data-testid={STEP1_IDS.P2_FI_AGE}
                 min={p2FiAgeMin}
                 max={p2FiAgeMax}
                 step={1}
@@ -256,6 +264,7 @@ export default function Step1HouseholdSetup({ onNext }: Props) {
         <div className="flex items-center gap-4">
           <input
             type="range"
+            data-testid={STEP1_IDS.LIFE_EXPECTANCY}
             min={planningHorizonMin}
             max={MAX_PLANNING_HORIZON}
             step={1}
@@ -272,7 +281,7 @@ export default function Step1HouseholdSetup({ onNext }: Props) {
       </div>
 
       <div className="flex justify-end pt-2">
-        <button onClick={onNext} className="btn-primary px-12 text-lg">
+        <button data-testid={STEP1_IDS.NEXT} onClick={onNext} className="btn-primary px-12 text-lg">
           Set your life vision →
         </button>
       </div>
