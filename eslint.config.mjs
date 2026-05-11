@@ -13,7 +13,7 @@ const compat = new FlatCompat({
 
 const config = [
   {
-    ignores: ['.next/**', 'node_modules/**', 'dist/**', 'build/**', '.eslintrc.cjs'],
+    ignores: ['.next/**', 'node_modules/**', 'dist/**', 'build/**', '.eslintrc.cjs', 'tests/e2e/**'],
   },
   ...compat.extends('next/core-web-vitals'),
 ]
