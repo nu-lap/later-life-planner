@@ -50,10 +50,10 @@ test('step 3 assets tab toggle works', async ({ page, step3 }) => {
 
   await page.goto('/');
   await step3.tabAssets.click();
-  await expect(page.getByText('ISA')).toBeVisible();
+  await expect(page.getByText('ISA', { exact: true }).first()).toBeVisible();
 
   await step3.tabIncome.click();
-  await expect(page.getByText('DC / Personal Pension')).toBeVisible();
+  await expect(page.getByText('DC / Personal Pension', { exact: true }).first()).toBeVisible();
 });
 
 // Inject directly at step 2 (Spending Goals) to avoid Turnstile on Life Vision.
