@@ -350,9 +350,7 @@ describe('getSnapshotForYear — fallback behaviour', () => {
   });
 
   test('future-year fallback warnings are emitted once per fallback group', async () => {
-    const originalNodeEnv = process.env.NODE_ENV;
-    process.env.NODE_ENV = 'development';
-
+    vi.stubEnv('NODE_ENV', 'development');
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
     try {
@@ -371,11 +369,7 @@ describe('getSnapshotForYear — fallback behaviour', () => {
       expect(messages.some((message) => message.includes('State pension annual amount not confirmed'))).toBe(true);
     } finally {
       warnSpy.mockRestore();
-      if (originalNodeEnv === undefined) {
-        delete process.env.NODE_ENV;
-      } else {
-        process.env.NODE_ENV = originalNodeEnv;
-      }
+      vi.unstubAllEnvs();
       vi.resetModules();
     }
   });

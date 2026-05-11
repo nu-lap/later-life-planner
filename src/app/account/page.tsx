@@ -42,6 +42,8 @@ function AccountPageWithClerk() {
         pendingApprovals={pendingApprovals}
         onReloadRemote={sync.reloadRemotePlan}
         onExportPlan={sync.exportCanonicalPlan}
+        onImportPlan={sync.importPlanFromJson}
+        importError={sync.importError}
       />
     </AccountLayoutShell>
   );

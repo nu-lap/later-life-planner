@@ -13,8 +13,8 @@ export default defineConfig({
     // UI component tests run in jsdom
     environmentMatchGlobs: [['tests/ui/**', 'jsdom']],
     setupFiles: ['./tests/ui/setup.ts'],
-    // Exclude the legacy node:test file — it has been superseded by the vitest suites
-    exclude: ['tests/financialEngine.test.ts', 'node_modules/**'],
+    // Exclude the legacy node:test file and Playwright e2e specs
+    exclude: ['tests/financialEngine.test.ts', 'tests/e2e/**', 'node_modules/**'],
     coverage: {
       provider: 'v8',
       reporter: ['lcov', 'text-summary'],

@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { PLANNER_SAVE_STATUS_LABELS, plannerSyncMessageClass } from '@/lib/plannerSaveStatus';
 import type { PlannerSaveStatus } from '@/models/types';
 import type { DeviceRegistrationDocument } from '@/lib/cosmos';
+import { ACCOUNT_IDS } from '@/lib/testIds';
 
 interface Props {
   saveStatus: PlannerSaveStatus;
@@ -13,6 +14,8 @@ interface Props {
   devices: DeviceRegistrationDocument[];
   onReloadRemote: () => void | Promise<void>;
   onExportPlan: () => void;
+  onImportPlan: (file: File) => void;
+  importError?: string | null;
   onRefreshDevices: () => void | Promise<void>;
   onApproveDevice: (approvalCode: string) => void | Promise<void>;
 }
@@ -32,9 +35,12 @@ export default function AccountDataPanel({
   devices,
   onReloadRemote,
   onExportPlan,
+  onImportPlan,
+  importError,
   onRefreshDevices,
   onApproveDevice,
 }: Props) {
+  const importInputRef = useRef<HTMLInputElement>(null);
   const [approvalCode, setApprovalCode] = useState('');
   const [approvalError, setApprovalError] = useState<string | null>(null);
 
@@ -57,9 +63,32 @@ export default function AccountDataPanel({
         </div>
 
         <div className="flex gap-2">
-          <button onClick={onExportPlan} className="btn-secondary py-2.5 text-sm">
+          <button
+            data-testid={ACCOUNT_IDS.EXPORT_PLAN}
+            onClick={onExportPlan}
+            className="btn-secondary py-2.5 text-sm"
+          >
             Export JSON
           </button>
+          <button
+            data-testid={ACCOUNT_IDS.IMPORT_PLAN}
+            onClick={() => importInputRef.current?.click()}
+            className="btn-secondary py-2.5 text-sm"
+          >
+            Import JSON
+          </button>
+          <input
+            ref={importInputRef}
+            data-testid={ACCOUNT_IDS.IMPORT_INPUT}
+            type="file"
+            accept=".json"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) onImportPlan(file);
+              e.target.value = '';
+            }}
+          />
           <button onClick={onReloadRemote} className="btn-secondary py-2.5 text-sm">
             Reload remote
           </button>
@@ -84,6 +113,12 @@ export default function AccountDataPanel({
       {syncError && (
         <p className={`mt-4 ${plannerSyncMessageClass(saveStatus)}`}>
           {syncError}
+        </p>
+      )}
+
+      {importError && (
+        <p className="mt-4 rounded-2xl border border-rose-100 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+          {importError}
         </p>
       )}
 

@@ -1,0 +1,479 @@
+{
+  "currentStep": 0,
+  "maxVisitedStep": 0,
+  "mode": "couple",
+  "person1": {
+    "name": "Alex",
+    "dateOfBirth": "1969-01-01",
+    "currentAge": 57,
+    "incomeSources": {
+      "statePension": {
+        "enabled": true,
+        "weeklyAmount": 221.2,
+        "startAge": 67
+      },
+      "dbPension": {
+        "enabled": false,
+        "annualIncome": 0,
+        "startAge": 65
+      },
+      "annuity": {
+        "enabled": false,
+        "annualIncome": 0,
+        "startAge": 65
+      },
+      "dcPension": {
+        "enabled": true,
+        "totalValue": 320000,
+        "growthRate": 4,
+        "workplaceContributionPercent": 5,
+        "workplaceSalary": 72000,
+        "sippContributionAnnualGross": 0
+      },
+      "partTimeWork": {
+        "enabled": true,
+        "annualIncome": 22000,
+        "stopAge": 65
+      },
+      "otherIncome": {
+        "enabled": false,
+        "annualAmount": 0,
+        "description": "",
+        "startAge": 57,
+        "stopAge": 0
+      }
+    },
+    "assets": {
+      "cashSavings": {
+        "enabled": true,
+        "totalValue": 25000
+      },
+      "isaInvestments": {
+        "enabled": true,
+        "totalValue": 85000,
+        "growthRate": 4
+      },
+      "generalInvestments": {
+        "enabled": true,
+        "totalValue": 30000,
+        "baseCost": 18000,
+        "growthRate": 4
+      },
+      "property": {
+        "enabled": true,
+        "propertyValue": 450000,
+        "baseCost": 220000,
+        "annualRent": 0,
+        "durationYears": 0,
+        "owner": "p1"
+      }
+    }
+  },
+  "person2": {
+    "name": "Sam",
+    "dateOfBirth": "1971-01-01",
+    "currentAge": 55,
+    "incomeSources": {
+      "statePension": {
+        "enabled": true,
+        "weeklyAmount": 195,
+        "startAge": 67
+      },
+      "dbPension": {
+        "enabled": true,
+        "annualIncome": 8000,
+        "startAge": 65
+      },
+      "annuity": {
+        "enabled": false,
+        "annualIncome": 0,
+        "startAge": 65
+      },
+      "dcPension": {
+        "enabled": true,
+        "totalValue": 150000,
+        "growthRate": 4,
+        "workplaceContributionPercent": 4,
+        "workplaceSalary": 48000,
+        "sippContributionAnnualGross": 3600
+      },
+      "partTimeWork": {
+        "enabled": true,
+        "annualIncome": 18000,
+        "stopAge": 63
+      },
+      "otherIncome": {
+        "enabled": false,
+        "annualAmount": 0,
+        "description": "",
+        "startAge": 55,
+        "stopAge": 0
+      }
+    },
+    "assets": {
+      "cashSavings": {
+        "enabled": true,
+        "totalValue": 20000
+      },
+      "isaInvestments": {
+        "enabled": true,
+        "totalValue": 40000,
+        "growthRate": 4
+      },
+      "generalInvestments": {
+        "enabled": true,
+        "totalValue": 15000,
+        "baseCost": 10000,
+        "growthRate": 4
+      },
+      "property": {
+        "enabled": false,
+        "propertyValue": 0,
+        "baseCost": 0,
+        "annualRent": 0,
+        "durationYears": 0,
+        "owner": "p2"
+      }
+    }
+  },
+  "fiAge": 65,
+  "lifeVision": "We want to travel widely while we still have the energy, spend time with our grandchildren, and pursue our passions for photography and sailing. In later years we want comfort, community and peace of mind.",
+  "aspirations": [
+    "travel",
+    "family",
+    "hobbies",
+    "fitness",
+    "giving"
+  ],
+  "lifeStages": [
+    {
+      "id": "go-go",
+      "label": "Go-Go Years",
+      "startAge": 65,
+      "endAge": 75,
+      "color": "#f97316"
+    },
+    {
+      "id": "slo-go",
+      "label": "Slo-Go Years",
+      "startAge": 76,
+      "endAge": 85,
+      "color": "#10b981"
+    },
+    {
+      "id": "no-go",
+      "label": "No-Go Years",
+      "startAge": 86,
+      "endAge": 95,
+      "color": "#8b5cf6"
+    }
+  ],
+  "spendingCategories": [
+    {
+      "id": "housing",
+      "name": "Housing",
+      "tier": "essential",
+      "icon": "🏠",
+      "maxValue": 30000,
+      "description": "Rent, mortgage or property running costs",
+      "amounts": {
+        "go-go": 10400,
+        "slo-go": 9200,
+        "no-go": 7600
+      }
+    },
+    {
+      "id": "food",
+      "name": "Food & Groceries",
+      "tier": "essential",
+      "icon": "🛒",
+      "maxValue": 12000,
+      "description": "Weekly shopping and household basics",
+      "amounts": {
+        "go-go": 4900,
+        "slo-go": 4500,
+        "no-go": 3900
+      }
+    },
+    {
+      "id": "utilities",
+      "name": "Utilities & Bills",
+      "tier": "essential",
+      "icon": "⚡",
+      "maxValue": 8000,
+      "description": "Energy, water, council tax, broadband",
+      "amounts": {
+        "go-go": 3300,
+        "slo-go": 3100,
+        "no-go": 2900
+      }
+    },
+    {
+      "id": "transport",
+      "name": "Transport",
+      "tier": "essential",
+      "icon": "🚗",
+      "maxValue": 10000,
+      "description": "Car, fuel, public transport",
+      "amounts": {
+        "go-go": 3600,
+        "slo-go": 2500,
+        "no-go": 1500
+      }
+    },
+    {
+      "id": "insurance",
+      "name": "Insurance",
+      "tier": "essential",
+      "icon": "🛡️",
+      "maxValue": 6000,
+      "description": "Home, car, life, travel insurance",
+      "amounts": {
+        "go-go": 1800,
+        "slo-go": 1800,
+        "no-go": 2000
+      }
+    },
+    {
+      "id": "healthcare",
+      "name": "Healthcare",
+      "tier": "essential",
+      "icon": "🏥",
+      "maxValue": 12000,
+      "description": "Dental, opticians, prescriptions, top-ups",
+      "amounts": {
+        "go-go": 1200,
+        "slo-go": 1800,
+        "no-go": 3600
+      }
+    },
+    {
+      "id": "eating_out",
+      "name": "Dining Out",
+      "tier": "moderate",
+      "icon": "🍽️",
+      "maxValue": 8000,
+      "description": "Restaurants, cafés, takeaways",
+      "amounts": {
+        "go-go": 1800,
+        "slo-go": 1500,
+        "no-go": 1000
+      }
+    },
+    {
+      "id": "uk_travel",
+      "name": "UK Breaks",
+      "tier": "moderate",
+      "icon": "🚂",
+      "maxValue": 10000,
+      "description": "UK holidays, weekend breaks, day trips",
+      "amounts": {
+        "go-go": 2000,
+        "slo-go": 2500,
+        "no-go": 2000
+      }
+    },
+    {
+      "id": "intl_travel",
+      "name": "International Travel",
+      "tier": "moderate",
+      "icon": "✈️",
+      "maxValue": 20000,
+      "description": "Overseas holidays and adventures",
+      "amounts": {
+        "go-go": 3100,
+        "slo-go": 3600,
+        "no-go": 1500
+      }
+    },
+    {
+      "id": "leisure",
+      "name": "Hobbies & Leisure",
+      "tier": "moderate",
+      "icon": "🎨",
+      "maxValue": 10000,
+      "description": "Sports, arts, gardening, classes",
+      "amounts": {
+        "go-go": 2000,
+        "slo-go": 2500,
+        "no-go": 2000
+      }
+    },
+    {
+      "id": "entertain",
+      "name": "Entertainment",
+      "tier": "moderate",
+      "icon": "📺",
+      "maxValue": 4000,
+      "description": "Streaming, cinema, events, subscriptions",
+      "amounts": {
+        "go-go": 800,
+        "slo-go": 800,
+        "no-go": 600
+      }
+    },
+    {
+      "id": "family",
+      "name": "Family Support",
+      "tier": "aspirational",
+      "icon": "👨‍👩‍👧",
+      "maxValue": 20000,
+      "description": "Helping children, grandchildren, relatives",
+      "amounts": {
+        "go-go": 2000,
+        "slo-go": 2000,
+        "no-go": 1500
+      }
+    },
+    {
+      "id": "gifts",
+      "name": "Gifts & Celebrations",
+      "tier": "aspirational",
+      "icon": "🎁",
+      "maxValue": 10000,
+      "description": "Birthdays, Christmas, milestone occasions",
+      "amounts": {
+        "go-go": 1500,
+        "slo-go": 1500,
+        "no-go": 1200
+      }
+    },
+    {
+      "id": "charity",
+      "name": "Charitable Giving",
+      "tier": "aspirational",
+      "icon": "💝",
+      "maxValue": 10000,
+      "description": "Regular giving, charitable donations",
+      "amounts": {
+        "go-go": 600,
+        "slo-go": 800,
+        "no-go": 1200
+      }
+    },
+    {
+      "id": "legacy",
+      "name": "Legacy & Philanthropy",
+      "tier": "aspirational",
+      "icon": "🤝",
+      "maxValue": 10000,
+      "description": "Planned gifting, estate giving, foundations",
+      "amounts": {
+        "go-go": 400,
+        "slo-go": 600,
+        "no-go": 1000
+      }
+    },
+    {
+      "id": "home_impr",
+      "name": "Home Improvements",
+      "tier": "variable",
+      "icon": "🔨",
+      "maxValue": 20000,
+      "description": "Renovations, repairs, adaptations",
+      "amounts": {
+        "go-go": 2000,
+        "slo-go": 1000,
+        "no-go": 500
+      }
+    },
+    {
+      "id": "major_purch",
+      "name": "Major Purchases",
+      "tier": "variable",
+      "icon": "📦",
+      "maxValue": 30000,
+      "description": "New car, furniture, large one-off items",
+      "amounts": {
+        "go-go": 1500,
+        "slo-go": 500,
+        "no-go": 0
+      }
+    },
+    {
+      "id": "buffer",
+      "name": "Contingency Buffer",
+      "tier": "variable",
+      "icon": "🛟",
+      "maxValue": 10000,
+      "description": "Unexpected expenses and peace-of-mind buffer",
+      "amounts": {
+        "go-go": 1000,
+        "slo-go": 1000,
+        "no-go": 1000
+      }
+    }
+  ],
+  "assumptions": {
+    "investmentGrowth": 4,
+    "inflation": 2.5,
+    "lifeExpectancy": 95,
+    "statePensionSoleIncomeExempt": true
+  },
+  "rlssStandard": "moderate",
+  "goalRegistry": [
+    {
+      "id": "tax_efficiency",
+      "priority": 1,
+      "enabled": true
+    },
+    {
+      "id": "longevity_protection",
+      "priority": 2,
+      "enabled": false
+    },
+    {
+      "id": "spending_floor",
+      "priority": 3,
+      "enabled": false
+    },
+    {
+      "id": "liquidity_preservation",
+      "priority": 4,
+      "enabled": false
+    },
+    {
+      "id": "survivorship",
+      "priority": 5,
+      "enabled": false
+    },
+    {
+      "id": "care_reserve",
+      "priority": 6,
+      "enabled": false
+    },
+    {
+      "id": "bequest",
+      "priority": 7,
+      "enabled": false
+    },
+    {
+      "id": "inflation_resilience",
+      "priority": 8,
+      "enabled": false
+    },
+    {
+      "id": "aspirational_spending",
+      "priority": 9,
+      "enabled": false
+    }
+  ],
+  "jointGia": {
+    "enabled": true,
+    "totalValue": 50000,
+    "baseCost": 35000,
+    "growthRate": 4
+  },
+  "careReserve": {
+    "enabled": false,
+    "amount": 100000
+  },
+  "primaryResidence": {
+    "enabled": false,
+    "currentValue": 0,
+    "mortgageOutstanding": 0,
+    "leavesToDescendants": false
+  },
+  "drawdownStrategy": "standard-ufpls",
+  "plannedEvents": []
+}

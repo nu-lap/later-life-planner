@@ -63,7 +63,6 @@ export default function InfoIcon({ term, tooltip, testId }: InfoIconProps) {
         window.cancelAnimationFrame(frameId);
       }
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [show]);
 
   function open() {

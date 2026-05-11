@@ -248,7 +248,7 @@ export default function Step2SpendingGoals({ onNext, onBack }: Props) {
       <div className="bg-slate-800 text-white rounded-2xl p-4 flex items-center justify-between">
         <div>
           <p className="text-xs text-slate-400 mb-1">Annual spending · {activeStage?.label}</p>
-          <p className="text-3xl font-black">{formatCurrency(totalSpend, true)}</p>
+          <p data-testid={STEP2_IDS.TOTAL_SPEND_DISPLAY} className="text-3xl font-black">{formatCurrency(totalSpend, true)}</p>
         </div>
         <p className={clsx('text-sm font-semibold', benchmarkColor)}>{benchmarkLabel}</p>
       </div>

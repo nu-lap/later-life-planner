@@ -61,7 +61,7 @@ describe('/api/devices/:deviceId/wrapped-dek route', () => {
 
     const response = await GET(
       new Request('http://localhost/api/devices/device-1/wrapped-dek?requestId=req-uuid-1234'),
-      { params: { deviceId: 'device-1' } },
+      { params: Promise.resolve({ deviceId: 'device-1' }) },
     );
 
     expect(response.status).toBe(401);
@@ -72,7 +72,7 @@ describe('/api/devices/:deviceId/wrapped-dek route', () => {
 
     const response = await GET(
       new Request('http://localhost/api/devices/device-1/wrapped-dek'),
-      { params: { deviceId: 'device-1' } },
+      { params: Promise.resolve({ deviceId: 'device-1' }) },
     );
 
     expect(response.status).toBe(400);
@@ -85,7 +85,7 @@ describe('/api/devices/:deviceId/wrapped-dek route', () => {
 
     const response = await GET(
       new Request(`http://localhost/api/devices/${long}/wrapped-dek?requestId=${long}`),
-      { params: { deviceId: long } },
+      { params: Promise.resolve({ deviceId: long }) },
     );
 
     expect(response.status).toBe(400);
@@ -98,7 +98,7 @@ describe('/api/devices/:deviceId/wrapped-dek route', () => {
 
     const response = await GET(
       new Request('http://localhost/api/devices/device-1/wrapped-dek?requestId=req-uuid-1234'),
-      { params: { deviceId: 'device-1' } },
+      { params: Promise.resolve({ deviceId: 'device-1' }) },
     );
 
     expect(response.status).toBe(204);
@@ -119,7 +119,7 @@ describe('/api/devices/:deviceId/wrapped-dek route', () => {
 
     const response = await GET(
       new Request('http://localhost/api/devices/device-1/wrapped-dek?requestId=req-uuid-1234'),
-      { params: { deviceId: 'device-1' } },
+      { params: Promise.resolve({ deviceId: 'device-1' }) },
     );
 
     expect(response.status).toBe(200);
@@ -150,7 +150,7 @@ describe('/api/devices/:deviceId/wrapped-dek route', () => {
 
     const response = await GET(
       new Request('http://localhost/api/devices/device-1/wrapped-dek?requestId=req-uuid-1234'),
-      { params: { deviceId: 'device-1' } },
+      { params: Promise.resolve({ deviceId: 'device-1' }) },
     );
 
     expect(response.status).toBe(204);
@@ -170,7 +170,7 @@ describe('/api/devices/:deviceId/wrapped-dek route', () => {
         method: 'POST',
         body: JSON.stringify({ requestId: 'req-uuid-1234' }),
       }),
-      { params: { deviceId: 'device-1' } },
+      { params: Promise.resolve({ deviceId: 'device-1' }) },
     );
 
     expect(response.status).toBe(204);
@@ -192,7 +192,7 @@ describe('/api/devices/:deviceId/wrapped-dek route', () => {
         method: 'POST',
         body: JSON.stringify({ requestId: 'req-uuid-1234' }),
       }),
-      { params: { deviceId: 'device-1' } },
+      { params: Promise.resolve({ deviceId: 'device-1' }) },
     );
 
     expect(response.status).toBe(404);
@@ -212,7 +212,7 @@ describe('/api/devices/:deviceId/wrapped-dek route', () => {
         method: 'POST',
         body: JSON.stringify({ requestId: 'req-uuid-1234' }),
       }),
-      { params: { deviceId: 'device-1' } },
+      { params: Promise.resolve({ deviceId: 'device-1' }) },
     );
 
     expect(response.status).toBe(404);

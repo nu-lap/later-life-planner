@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Image from 'next/image';
 import { usePlannerStore } from '@/store/plannerStore';
 import ConfirmModal from '@/components/ui/ConfirmModal';
+import { ACCOUNT_IDS } from '@/lib/testIds';
 import {
   PLANNER_SAVE_STATUS_LABELS,
   PLANNER_SAVE_STATUS_LABELS_COMPACT,
@@ -82,6 +83,7 @@ export default function Header({
                   ✨ Demo
                 </button>
                 <button
+                  data-testid={ACCOUNT_IDS.RESET_PLAN}
                   onClick={() => setPending('reset')}
                   className="btn-ghost text-slate-400 hover:text-rose-500"
                 >

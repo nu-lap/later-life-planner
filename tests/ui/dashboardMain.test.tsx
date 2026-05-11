@@ -53,7 +53,7 @@ function makeProjection(overrides: Partial<YearlyProjection> = {}): YearlyProjec
 }
 
 const defaultState = bareState(65);
-const defaultLifeStages = [{ id: 'active', label: 'Go-Go', color: '#f97316' }];
+const defaultLifeStages = [{ id: 'active', label: 'Go-Go', color: '#f97316', startAge: 65, endAge: 95 }];
 const projections = [makeProjection()];
 
 const testStrategies = [

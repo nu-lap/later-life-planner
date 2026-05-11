@@ -2,6 +2,7 @@ import React from 'react';
 import { describe, expect, test, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import Header from '@/components/Header';
+import { ACCOUNT_IDS } from '@/lib/testIds';
 
 describe('Header', () => {
   test('hides planner actions when showPlannerActions is false', () => {
@@ -28,6 +29,19 @@ describe('Header', () => {
     // Demo and Reset are only shown in development mode; in the test environment they are hidden.
     expect(screen.queryByText('Reset')).toBeNull();
     expect(screen.queryByText(/demo/i)).toBeNull();
+  });
+
+  test('shows reset button with correct testid in development mode', () => {
+    vi.stubEnv('NODE_ENV', 'development');
+    render(
+      <Header
+        onReset={vi.fn()}
+        saveStatus="local"
+        showPlannerActions
+      />,
+    );
+    expect(screen.getByTestId(ACCOUNT_IDS.RESET_PLAN)).toBeInTheDocument();
+    vi.unstubAllEnvs();
   });
 });
 

@@ -94,7 +94,7 @@ describe('/api/data route', () => {
   test('GET returns 401 for unauthenticated requests', async () => {
     requireUserMock.mockRejectedValue(new UnauthorizedError());
 
-    const response = await GET();
+    const response = await GET(new Request('http://localhost/api/data'));
 
     expect(response.status).toBe(401);
     await expect(response.json()).resolves.toEqual({ error: 'Authentication required.' });
@@ -104,7 +104,7 @@ describe('/api/data route', () => {
     requireUserMock.mockResolvedValue({ userId: 'user_123' });
     getPlannerPersistenceDocumentMock.mockResolvedValue(null);
 
-    const response = await GET();
+    const response = await GET(new Request('http://localhost/api/data'));
 
     expect(response.status).toBe(404);
   });
@@ -121,7 +121,7 @@ describe('/api/data route', () => {
       updatedAt: '2026-03-20T11:00:00.000Z',
     });
 
-    const response = await GET();
+    const response = await GET(new Request('http://localhost/api/data'));
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({
@@ -148,7 +148,7 @@ describe('/api/data route', () => {
       updatedAt: '2026-03-20T10:00:00.000Z',
     });
 
-    const response = await GET();
+    const response = await GET(new Request('http://localhost/api/data'));
 
     expect(response.status).toBe(500);
     await expect(response.json()).resolves.toEqual({ error: 'Corrupt planner payload.' });
@@ -163,7 +163,7 @@ describe('/api/data route', () => {
     requireUserMock.mockResolvedValue({ userId: 'user_123' });
     rateLimitMock.mockReturnValue({ ok: false, remaining: 0, resetInMs: 12_000 });
 
-    const response = await GET();
+    const response = await GET(new Request('http://localhost/api/data'));
 
     expect(response.status).toBe(429);
     expect(response.headers.get('Retry-After')).toBe('12');

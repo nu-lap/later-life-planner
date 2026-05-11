@@ -1,8 +1,10 @@
 'use client';
 
+import { useRef } from 'react';
 import Link from 'next/link';
 import { PLANNER_SAVE_STATUS_LABELS, plannerSyncMessageClass } from '@/lib/plannerSaveStatus';
 import type { PlannerSaveStatus } from '@/models/types';
+import { ACCOUNT_IDS } from '@/lib/testIds';
 
 interface Props {
   saveStatus: PlannerSaveStatus;
@@ -12,6 +14,8 @@ interface Props {
   pendingApprovals: number;
   onReloadRemote: () => void | Promise<void>;
   onExportPlan: () => void;
+  onImportPlan: (file: File) => void;
+  importError?: string | null;
 }
 
 function formatTimestamp(value: string | null): string {
@@ -29,7 +33,10 @@ export default function AccountOverviewPanel({
   pendingApprovals,
   onReloadRemote,
   onExportPlan,
+  onImportPlan,
+  importError,
 }: Props) {
+  const importInputRef = useRef<HTMLInputElement>(null);
   const isCorruptPayload = Boolean(syncError?.includes('corrupted or unreadable'));
   const isReloadBlocked = isCorruptPayload;
 
@@ -45,9 +52,32 @@ export default function AccountOverviewPanel({
         </div>
 
         <div className="flex gap-2 flex-shrink-0">
-          <button onClick={onExportPlan} className="btn-secondary py-2.5 text-sm whitespace-nowrap">
+          <button
+            data-testid={ACCOUNT_IDS.EXPORT_PLAN}
+            onClick={onExportPlan}
+            className="btn-secondary py-2.5 text-sm whitespace-nowrap"
+          >
             Export JSON
           </button>
+          <button
+            data-testid={ACCOUNT_IDS.IMPORT_PLAN}
+            onClick={() => importInputRef.current?.click()}
+            className="btn-secondary py-2.5 text-sm whitespace-nowrap"
+          >
+            Import JSON
+          </button>
+          <input
+            ref={importInputRef}
+            data-testid={ACCOUNT_IDS.IMPORT_INPUT}
+            type="file"
+            accept=".json"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) onImportPlan(file);
+              e.target.value = '';
+            }}
+          />
           <button
             onClick={isReloadBlocked ? undefined : onReloadRemote}
             disabled={isReloadBlocked}
@@ -77,6 +107,12 @@ export default function AccountOverviewPanel({
       {syncError ? (
         <p className={`mt-4 ${plannerSyncMessageClass(saveStatus)}`}>
           {syncError}
+        </p>
+      ) : null}
+
+      {importError ? (
+        <p className="mt-4 rounded-2xl border border-rose-100 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+          {importError}
         </p>
       ) : null}
 
