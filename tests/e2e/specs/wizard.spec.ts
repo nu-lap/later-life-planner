@@ -1,5 +1,6 @@
 import { test, expect } from '../fixtures/localTest';
 import { mockApiRoutes } from '../fixtures/apiMocks';
+import { DISCLAIMER_KEY } from '../fixtures/planFixtures';
 
 test.beforeEach(async ({ page }) => {
   await mockApiRoutes(page);
@@ -12,8 +13,10 @@ test('JSON-injected couple plan loads dashboard directly', async ({ page, step4 
 
 test('single user — completes all four steps via UI', async ({ page, step1, step2, step3, step4 }) => {
   // Override the injected couple plan with a fresh navigation (no local state)
-  await page.addInitScript(() => localStorage.clear());
-  await page.addInitScript(() => localStorage.setItem('llp-disclaimer-accepted', 'true'));
+  await page.addInitScript(({ disclaimerKey }) => {
+    localStorage.clear();
+    localStorage.setItem(disclaimerKey, '1');
+  }, { disclaimerKey: DISCLAIMER_KEY });
 
   await step1.goto();
   await step1.fillSingleMode('Alex', '1970-06-15');
@@ -28,8 +31,10 @@ test('single user — completes all four steps via UI', async ({ page, step1, st
 });
 
 test('couple mode — P2 fields are visible after switching mode', async ({ page, step1 }) => {
-  await page.addInitScript(() => localStorage.clear());
-  await page.addInitScript(() => localStorage.setItem('llp-disclaimer-accepted', 'true'));
+  await page.addInitScript(({ disclaimerKey }) => {
+    localStorage.clear();
+    localStorage.setItem(disclaimerKey, '1');
+  }, { disclaimerKey: DISCLAIMER_KEY });
 
   await step1.goto();
   await step1.modeCouple.click();
@@ -38,6 +43,12 @@ test('couple mode — P2 fields are visible after switching mode', async ({ page
 });
 
 test('step 3 assets tab toggle works', async ({ page, step3 }) => {
+  // COUPLE_PLAN starts at step 4; clear localStorage so we start fresh at step 1
+  await page.addInitScript(({ disclaimerKey }) => {
+    localStorage.clear();
+    localStorage.setItem(disclaimerKey, '1');
+  }, { disclaimerKey: DISCLAIMER_KEY });
+
   await page.goto('/');
   // Navigate to step 3
   await page.getByTestId('step1-next').click();
@@ -57,8 +68,10 @@ test('step 4 strategy buttons are rendered', async ({ page, step4 }) => {
 });
 
 test('RLSS moderate template updates spend display', async ({ page, step1, step2 }) => {
-  await page.addInitScript(() => localStorage.clear());
-  await page.addInitScript(() => localStorage.setItem('llp-disclaimer-accepted', 'true'));
+  await page.addInitScript(({ disclaimerKey }) => {
+    localStorage.clear();
+    localStorage.setItem(disclaimerKey, '1');
+  }, { disclaimerKey: DISCLAIMER_KEY });
 
   await step1.goto();
   await step1.fillSingleMode('Alex', '1970-06-15');
