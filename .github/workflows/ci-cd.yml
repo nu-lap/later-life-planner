@@ -593,7 +593,7 @@ jobs:
           URL="${{ steps.url.outputs.url }}"
           for i in $(seq 1 36); do
             STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$URL" || echo "000")
-            if [ "$STATUS" -ge 200 ] && [ "$STATUS" -lt 500 ]; then
+            if [ "$STATUS" -ge 200 ] && [ "$STATUS" -lt 400 ]; then
               echo "App ready (HTTP $STATUS) after attempt $i"
               exit 0
             fi
