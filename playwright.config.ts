@@ -33,10 +33,14 @@ export default defineConfig({
       },
     ] : []),
 
-    // All other specs (wizard, account, smoke) — no auth required
+    // Unauthenticated specs. When Clerk creds are present, sync.spec.ts runs in
+    // 'authenticated' instead — exclude it here to avoid double-running. Without
+    // creds, include it so test.skip() can fire rather than "No tests found".
     {
       name: 'chromium',
-      testMatch: /\/(wizard|account|smoke)\.spec\.ts/,
+      testMatch: hasClerkCreds
+        ? /\/(wizard|account|smoke)\.spec\.ts/
+        : /\/(wizard|account|smoke|sync)\.spec\.ts/,
       use: { ...devices['Desktop Chrome'] },
     },
   ],
