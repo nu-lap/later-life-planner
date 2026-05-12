@@ -47,6 +47,10 @@ test('import replaces plan and saves the new state', async ({ page, account }) =
   // Import a known fixture (sample-plan.json has currentStep: 0, person1.name: 'Alex')
   await account.importFromFile('tests/e2e/fixtures/sample-plan.json');
 
+  // importPlanFromJson is async (file.text() promise) — wait for the save cycle to
+  // complete so localStorage is flushed before we navigate away.
+  await expect(page.getByTestId('header-save-status')).toHaveText(/saved/i, { timeout: 15_000 });
+
   // Navigate to root — wizard shows at step 0 (Household) because the imported
   // plan has currentStep: 0. Verify the imported name was hydrated into the store.
   await page.goto('/');
