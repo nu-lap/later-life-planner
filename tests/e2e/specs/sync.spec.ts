@@ -14,6 +14,54 @@ test.beforeEach(async ({ page }) => {
 });
 
 test('plan survives full encrypt → save → reload → decrypt cycle', async ({ page, step1, step2, step3, step4 }) => {
+  // Replace the static GET→404 stub with a stateful intercept:
+  //   - GET before save  → 404 (no device-approval modal)
+  //   - PUT              → capture encrypted payload, return success
+  //   - GET after reload → serve captured payload so decrypt cycle runs against real crypto
+  await page.unroute('/api/data');
+
+  type PutBody = {
+    schemaVersion?: number;
+    iv?: string;
+    ciphertext?: string;
+    keyVersion?: number;
+    wrappedKey?: string;
+  };
+  let captured: PutBody | null = null;
+  const now = new Date().toISOString();
+
+  await page.route('/api/data', async (route) => {
+    const method = route.request().method();
+    if (method === 'GET') {
+      if (captured) {
+        return route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            schemaVersion: captured.schemaVersion,
+            revision: 1,
+            iv: captured.iv,
+            ciphertext: captured.ciphertext,
+            keyVersion: captured.keyVersion,
+            wrappedKey: captured.wrappedKey,
+            createdAt: now,
+            updatedAt: now,
+          }),
+        });
+      }
+      return route.fulfill({ status: 404 });
+    }
+    if (method === 'PUT' || method === 'POST') {
+      captured = await route.request().postDataJSON() as PutBody;
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ schemaVersion: captured.schemaVersion, revision: 1, createdAt: now, updatedAt: now }),
+      });
+    }
+    return route.continue();
+  });
+
   await step1.goto();
   await step1.fillSingleMode('Alex', '1970-06-15');
   await step1.nextButton.click();
@@ -32,10 +80,7 @@ test('plan survives full encrypt → save → reload → decrypt cycle', async (
   // Wait for plan to save — header shows "Saved"
   await expect(page.getByTestId('header-save-status')).toHaveText(/saved/i, { timeout: 15_000 });
 
-  // Remove the GET /api/data stub so the reload fetches the real plan from Cosmos.
-  await page.unroute('/api/data');
-
-  // Reload and verify plan persists through decrypt cycle
+  // Reload — GET /api/data now returns the captured encrypted payload
   await page.reload();
   await expect(step4.kpiCards).toBeVisible();
   await expect(page.getByTestId('step1-p1-name')).toHaveValue('Alex');
