@@ -12,9 +12,23 @@ test.beforeEach(async ({ page }) => {
 });
 
 test('plan survives full encrypt → save → reload → decrypt cycle', async ({ page, step1, step2, step3, step4 }) => {
+  // Mock GET /api/data → 404 so usePlanSync sees no remote plan and starts fresh,
+  // regardless of any plan left in Cosmos by a previous run.
+  // PUT requests are passed through so the save actually lands in Cosmos.
+  await page.route('/api/data', (route) => {
+    if (route.request().method() === 'GET') {
+      return route.fulfill({ status: 404 });
+    }
+    return route.continue();
+  });
+
   await step1.goto();
   await step1.fillSingleMode('Alex', '1970-06-15');
   await step1.nextButton.click();
+
+  // Life Vision (step 1) — the "Set spending goals" button is always clickable;
+  // Turnstile only gates the AI-generation feature, not manual navigation.
+  await page.getByRole('button', { name: /set spending goals/i }).click();
 
   await step2.rlssButton('moderate').click();
   await step2.nextButton.click();
@@ -25,6 +39,9 @@ test('plan survives full encrypt → save → reload → decrypt cycle', async (
 
   // Wait for plan to save — header shows "Saved"
   await expect(page.getByTestId('header-save-status')).toHaveText(/saved/i, { timeout: 15_000 });
+
+  // Remove the GET mock so the reload fetches the real plan from Cosmos.
+  await page.unroute('/api/data');
 
   // Reload and verify plan persists through decrypt cycle
   await page.reload();
