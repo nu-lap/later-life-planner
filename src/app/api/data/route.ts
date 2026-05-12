@@ -3,6 +3,7 @@ import { UnauthorizedError, requireUser } from '@/lib/auth/requireUser';
 import {
   PersistenceConfigError,
   RevisionConflictError,
+  deletePlannerPersistenceDocument,
   getPlannerPersistenceDocument,
   savePlannerPersistenceDocument,
 } from '@/lib/cosmos';
@@ -260,6 +261,20 @@ export async function PUT(request: Request) {
       });
     }
     return responseForKnownError(error, traceId);
+  }
+}
+
+// Only available when using Clerk test keys — prevents accidental use in production.
+export async function DELETE() {
+  if (!process.env.CLERK_SECRET_KEY?.startsWith('sk_test_')) {
+    return Response.json({ error: 'Not found.' }, { status: 404 });
+  }
+  try {
+    const { userId } = await requireUser();
+    await deletePlannerPersistenceDocument(userId);
+    return Response.json({ deleted: true });
+  } catch (error) {
+    return responseForKnownError(error);
   }
 }
 

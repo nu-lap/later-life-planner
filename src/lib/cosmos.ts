@@ -176,6 +176,15 @@ export async function getPlannerPersistenceDocument(
   return existing?.document ?? null;
 }
 
+export async function deletePlannerPersistenceDocument(userId: string): Promise<void> {
+  try {
+    await getPlannerContainer().item(userId, userId).delete();
+  } catch (error) {
+    if (isStatusCode(error, 404)) return;
+    throw error;
+  }
+}
+
 function buildDeviceDocumentId(userId: string, deviceId: string): string {
   return `${userId}:device:${deviceId}`;
 }
