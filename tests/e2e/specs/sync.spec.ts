@@ -8,20 +8,12 @@ import { STORAGE_KEY } from '../fixtures/planFixtures';
 test.skip(!process.env.CLERK_SECRET_KEY, 'Requires Clerk test credentials');
 
 test.beforeEach(async ({ page }) => {
+  // mockApiRoutes registers a GET /api/data → 404 stub so usePlanSync starts fresh
+  // and no device-approval modal blocks the UI regardless of prior Cosmos state.
   await mockApiRoutes(page);
 });
 
 test('plan survives full encrypt → save → reload → decrypt cycle', async ({ page, step1, step2, step3, step4 }) => {
-  // Mock GET /api/data → 404 so usePlanSync sees no remote plan and starts fresh,
-  // regardless of any plan left in Cosmos by a previous run.
-  // PUT requests are passed through so the save actually lands in Cosmos.
-  await page.route('/api/data', (route) => {
-    if (route.request().method() === 'GET') {
-      return route.fulfill({ status: 404 });
-    }
-    return route.continue();
-  });
-
   await step1.goto();
   await step1.fillSingleMode('Alex', '1970-06-15');
   await step1.nextButton.click();
@@ -40,7 +32,7 @@ test('plan survives full encrypt → save → reload → decrypt cycle', async (
   // Wait for plan to save — header shows "Saved"
   await expect(page.getByTestId('header-save-status')).toHaveText(/saved/i, { timeout: 15_000 });
 
-  // Remove the GET mock so the reload fetches the real plan from Cosmos.
+  // Remove the GET /api/data stub so the reload fetches the real plan from Cosmos.
   await page.unroute('/api/data');
 
   // Reload and verify plan persists through decrypt cycle
@@ -49,24 +41,28 @@ test('plan survives full encrypt → save → reload → decrypt cycle', async (
   await expect(page.getByTestId('step1-p1-name')).toHaveValue('Alex');
 });
 
-test('import replaces plan and saves the new state', async ({ page, account, step4 }) => {
+test('import replaces plan and saves the new state', async ({ page, account }) => {
   await page.goto('/account');
 
-  // Import a known fixture
+  // Import a known fixture (sample-plan.json has currentStep: 0, person1.name: 'Alex')
   await account.importFromFile('tests/e2e/fixtures/sample-plan.json');
 
-  // Navigate to dashboard and verify the imported state is active
+  // Navigate to root — wizard shows at step 0 (Household) because the imported
+  // plan has currentStep: 0. Verify the imported name was hydrated into the store.
   await page.goto('/');
-  await expect(step4.kpiCards).toBeVisible();
   await expect(page.getByTestId('step1-p1-name')).toHaveValue('Alex');
 });
 
 test('export produces a valid JSON file with expected plan fields', async ({ page, account }) => {
+  // Navigate to the app first to establish the correct origin for localStorage access.
+  await page.goto('/');
+
   const samplePlan = require('../fixtures/sample-plan.json');
   await page.evaluate(({ key, state }) => {
     localStorage.setItem(key, JSON.stringify({ state, version: 0 }));
   }, { key: STORAGE_KEY, state: samplePlan });
 
+  // Reload the account page so Zustand picks up the localStorage state.
   await page.goto('/account');
 
   const [download] = await Promise.all([

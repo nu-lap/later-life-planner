@@ -10,6 +10,6 @@ export class Step3Page {
   }
 
   get nextButton() {
-    return this.page.getByRole('button', { name: /next/i }).last();
+    return this.page.getByRole('button', { name: /see my dashboard/i });
   }
 }
