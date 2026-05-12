@@ -285,7 +285,7 @@ describe('/api/data route', () => {
   });
 
   test('DELETE returns 404 when CLERK_SECRET_KEY is not a test key', async () => {
-    process.env.CLERK_SECRET_KEY = 'sk_live_TESTKEYFORTESTING';
+    process.env.CLERK_SECRET_KEY = 'sk_live_TESTKEYFORTESTING'; // gitleaks:allow
 
     const response = await DELETE();
 
@@ -301,7 +301,7 @@ describe('/api/data route', () => {
   });
 
   test('DELETE returns 401 for unauthenticated requests with test key', async () => {
-    process.env.CLERK_SECRET_KEY = 'sk_test_TESTKEYFORTESTING';
+    process.env.CLERK_SECRET_KEY = 'sk_test_TESTKEYFORTESTING'; // gitleaks:allow
     requireUserMock.mockRejectedValue(new UnauthorizedError());
 
     const response = await DELETE();
@@ -311,7 +311,7 @@ describe('/api/data route', () => {
   });
 
   test('DELETE deletes plan and returns 200 with test key', async () => {
-    process.env.CLERK_SECRET_KEY = 'sk_test_TESTKEYFORTESTING';
+    process.env.CLERK_SECRET_KEY = 'sk_test_TESTKEYFORTESTING'; // gitleaks:allow
     requireUserMock.mockResolvedValue({ userId: 'user_123' });
     deletePlannerPersistenceDocumentMock.mockResolvedValue(undefined);
 
@@ -323,7 +323,7 @@ describe('/api/data route', () => {
   });
 
   test('DELETE returns 503 when persistence is not configured', async () => {
-    process.env.CLERK_SECRET_KEY = 'sk_test_TESTKEYFORTESTING';
+    process.env.CLERK_SECRET_KEY = 'sk_test_TESTKEYFORTESTING'; // gitleaks:allow
     requireUserMock.mockResolvedValue({ userId: 'user_123' });
     deletePlannerPersistenceDocumentMock.mockRejectedValue(
       new PersistenceConfigError('missing env'),
