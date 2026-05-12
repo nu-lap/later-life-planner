@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Image from 'next/image';
 import { usePlannerStore } from '@/store/plannerStore';
 import ConfirmModal from '@/components/ui/ConfirmModal';
-import { ACCOUNT_IDS } from '@/lib/testIds';
+import { ACCOUNT_IDS, HEADER_IDS } from '@/lib/testIds';
 import {
   PLANNER_SAVE_STATUS_LABELS,
   PLANNER_SAVE_STATUS_LABELS_COMPACT,
@@ -54,6 +54,7 @@ export default function Header({
 
 	          <div className="flex items-center gap-2 self-end sm:self-auto">
 	            <div
+	              data-testid={HEADER_IDS.SAVE_STATUS}
 	              className={`rounded-full px-2 py-1 text-[11px] font-semibold sm:px-3 sm:text-xs ${PLANNER_SAVE_STATUS_STYLES[saveStatus]}`}
 	              aria-label={`Save status: ${PLANNER_SAVE_STATUS_LABELS[saveStatus]}`}
 	              title={PLANNER_SAVE_STATUS_LABELS[saveStatus]}
