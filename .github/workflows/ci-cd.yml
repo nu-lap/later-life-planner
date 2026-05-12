@@ -589,7 +589,19 @@ jobs:
           echo "url=https://$FQDN" >> "$GITHUB_OUTPUT"
 
       - name: Wait for app to be ready
-        run: npx wait-on "${{ steps.url.outputs.url }}" --timeout 90000
+        run: |
+          URL="${{ steps.url.outputs.url }}"
+          for i in $(seq 1 36); do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$URL" || echo "000")
+            if [ "$STATUS" -ge 200 ] && [ "$STATUS" -lt 500 ]; then
+              echo "App ready (HTTP $STATUS) after attempt $i"
+              exit 0
+            fi
+            echo "Attempt $i: HTTP $STATUS — waiting..."
+            sleep 5
+          done
+          echo "App not ready after 180s"
+          exit 1
 
       - name: Run Playwright smoke tests
         run: npx playwright test tests/e2e/specs/smoke.spec.ts
