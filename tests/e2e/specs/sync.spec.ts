@@ -87,17 +87,51 @@ test('plan survives full encrypt → save → reload → decrypt cycle', async (
 });
 
 test('import replaces plan and saves the new state', async ({ page, account }) => {
+  // When HAS_CLERK_SYNC is true, localStorage only stores UI state (not plan data).
+  // The plan must round-trip through Cosmos (encrypt → save → decrypt on reload).
+  // Use the same stateful intercept as the decrypt-cycle test: capture the PUT
+  // payload and serve it back on GET so the decrypt restores the imported plan.
+  await page.unroute('/api/data');
+
+  type PutBody = { schemaVersion?: number; iv?: string; ciphertext?: string; keyVersion?: number; wrappedKey?: string; };
+  let captured: PutBody | null = null;
+  const now = new Date().toISOString();
+
+  await page.route('/api/data', async (route) => {
+    const method = route.request().method();
+    if (method === 'GET') {
+      if (captured) {
+        return route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ ...captured, revision: 1, createdAt: now, updatedAt: now }),
+        });
+      }
+      return route.fulfill({ status: 404 });
+    }
+    if (method === 'PUT' || method === 'POST') {
+      captured = await route.request().postDataJSON() as PutBody;
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ revision: 1, createdAt: now, updatedAt: now }),
+      });
+    }
+    return route.continue();
+  });
+
   await page.goto('/account');
 
   // Import a known fixture (sample-plan.json has currentStep: 0, person1.name: 'Alex')
   await account.importFromFile('tests/e2e/fixtures/sample-plan.json');
 
-  // importPlanFromJson is async (file.text() promise) — wait for the save cycle to
-  // complete so localStorage is flushed before we navigate away.
+  // Wait for the save cycle: importPlanFromJson is async, usePlanSync then encrypts
+  // and saves. Only once 'saved' is shown is the captured payload ready.
   await expect(page.getByTestId('header-save-status')).toHaveText(/saved/i, { timeout: 15_000 });
 
-  // Navigate to root — wizard shows at step 0 (Household) because the imported
-  // plan has currentStep: 0. Verify the imported name was hydrated into the store.
+  // Navigate to root — GET /api/data returns the captured encrypted payload.
+  // DEK is still in IndexedDB so decrypt succeeds; sample-plan has currentStep: 0
+  // so wizard shows Household Setup and step1-p1-name should resolve to 'Alex'.
   await page.goto('/');
   await expect(page.getByTestId('step1-p1-name')).toHaveValue('Alex');
 });
