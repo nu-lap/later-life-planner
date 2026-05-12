@@ -22,6 +22,11 @@ setup('authenticate', async ({ page }) => {
     page,
     emailAddress: process.env.E2E_CLERK_USER_EMAIL!,
   });
+  // Wipe any stale plan from a previous run so tests start clean.
+  // Without this, the device approval modal blocks the UI (existing encrypted
+  // plan in Cosmos, no DEK in fresh IndexedDB = can't decrypt = modal appears).
+  await page.request.delete('/api/data');
+
   fs.mkdirSync(path.dirname(authFile), { recursive: true });
   await page.context().storageState({ path: authFile });
 });
