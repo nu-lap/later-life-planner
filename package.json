@@ -13,6 +13,7 @@
     "test:e2e": "playwright test",
     "test:e2e:headed": "playwright test --headed",
     "test:e2e:smoke": "E2E_BASE_URL=$DEPLOYED_URL playwright test tests/e2e/specs/smoke.spec.ts",
+    "test:e2e:smoke:debug": "playwright test tests/e2e/specs/smoke.spec.ts --project=chromium --headed --timeout=60000",
     "gen:tax-snapshot": "npx tsx scripts/gen-tax-snapshot.ts"
   },
   "dependencies": {
