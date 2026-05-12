@@ -1,5 +1,4 @@
 import { test as base } from '@playwright/test';
-import { clerk } from '@clerk/testing/playwright';
 import { Step1Page } from '../pages/step1.page';
 import { Step2Page } from '../pages/step2.page';
 import { Step3Page } from '../pages/step3.page';
@@ -21,16 +20,6 @@ export const test = base.extend<Fixtures>({
       ({ disclaimerKey }) => { localStorage.setItem(disclaimerKey, '1'); },
       { disclaimerKey: DISCLAIMER_KEY },
     );
-    // Navigate to a public page so Clerk loads before sign-in
-    await page.goto('/');
-    await clerk.signIn({
-      page,
-      signInParams: {
-        strategy: 'password',
-        identifier: process.env.E2E_CLERK_USER_EMAIL!,
-        password: process.env.E2E_CLERK_USER_PASSWORD!,
-      },
-    });
     await use(page);
   },
   step1:   async ({ page }, use) => { await use(new Step1Page(page)); },

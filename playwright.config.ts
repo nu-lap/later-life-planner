@@ -1,8 +1,9 @@
 import { defineConfig, devices } from '@playwright/test';
 
+const hasClerkCreds = !!process.env.CLERK_SECRET_KEY;
+
 export default defineConfig({
   testDir: 'tests/e2e',
-  globalSetup: process.env.CLERK_SECRET_KEY ? './tests/e2e/global-setup.ts' : undefined,
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
@@ -13,7 +14,31 @@ export default defineConfig({
     trace: 'on-first-retry',
   },
   projects: [
-    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
+    // Project-based setup: clerkSetup() + sign-in → storageState saved to disk.
+    // Only created when CLERK_SECRET_KEY is present (sync tests self-skip otherwise).
+    ...(hasClerkCreds ? [
+      {
+        name: 'setup',
+        testMatch: /global\.setup\.ts/,
+        use: { ...devices['Desktop Chrome'] },
+      },
+      {
+        name: 'authenticated',
+        testMatch: /sync\.spec\.ts/,
+        use: {
+          ...devices['Desktop Chrome'],
+          storageState: 'playwright/.clerk/user.json',
+        },
+        dependencies: ['setup'],
+      },
+    ] : []),
+
+    // All other specs (wizard, account, smoke) — no auth required
+    {
+      name: 'chromium',
+      testMatch: /\/(wizard|account|smoke)\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'] },
+    },
   ],
   // Uses dev server so NODE_ENV=development and the Reset button is visible
   webServer: process.env.E2E_BASE_URL ? undefined : {
