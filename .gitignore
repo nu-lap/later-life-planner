@@ -37,6 +37,7 @@ codex-review*.md
 # Playwright artifacts
 .playwright-mcp/
 playwright-report/
+playwright/.clerk/
 test-results/
 
 optimizer-explain-requests.txt

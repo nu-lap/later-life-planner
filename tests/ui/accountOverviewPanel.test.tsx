@@ -69,6 +69,16 @@ describe('AccountOverviewPanel', () => {
     expect(screen.queryByText('Not saved yet')).toBeNull();
   });
 
+  test('displays import error when importError prop is set', () => {
+    render(
+      <AccountOverviewPanel
+        {...defaultProps}
+        importError="Could not import plan — the file may be corrupt or from an incompatible version."
+      />,
+    );
+    expect(screen.getByText('Could not import plan — the file may be corrupt or from an incompatible version.')).toBeInTheDocument();
+  });
+
   test('reload remote button is disabled when syncError contains corrupted payload message', () => {
     render(
       <AccountOverviewPanel

@@ -1,5 +1,4 @@
 import { test as base } from '@playwright/test';
-import { setupClerkTestingToken } from '@clerk/testing/playwright';
 import { Step1Page } from '../pages/step1.page';
 import { Step2Page } from '../pages/step2.page';
 import { Step3Page } from '../pages/step3.page';
@@ -21,7 +20,6 @@ export const test = base.extend<Fixtures>({
       ({ disclaimerKey }) => { localStorage.setItem(disclaimerKey, '1'); },
       { disclaimerKey: DISCLAIMER_KEY },
     );
-    await setupClerkTestingToken({ page });
     await use(page);
   },
   step1:   async ({ page }, use) => { await use(new Step1Page(page)); },

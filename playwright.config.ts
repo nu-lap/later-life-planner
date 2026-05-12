@@ -1,5 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
+const hasClerkCreds = !!process.env.CLERK_SECRET_KEY;
+
 export default defineConfig({
   testDir: 'tests/e2e',
   fullyParallel: true,
@@ -12,7 +14,35 @@ export default defineConfig({
     trace: 'on-first-retry',
   },
   projects: [
-    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
+    // Project-based setup: clerkSetup() + sign-in → storageState saved to disk.
+    // Only created when CLERK_SECRET_KEY is present (sync tests self-skip otherwise).
+    ...(hasClerkCreds ? [
+      {
+        name: 'setup',
+        testMatch: /global\.setup\.ts/,
+        use: { ...devices['Desktop Chrome'] },
+      },
+      {
+        name: 'authenticated',
+        testMatch: /sync\.spec\.ts/,
+        use: {
+          ...devices['Desktop Chrome'],
+          storageState: 'playwright/.clerk/user.json',
+        },
+        dependencies: ['setup'],
+      },
+    ] : []),
+
+    // Unauthenticated specs. When Clerk creds are present, sync.spec.ts runs in
+    // 'authenticated' instead — exclude it here to avoid double-running. Without
+    // creds, include it so test.skip() can fire rather than "No tests found".
+    {
+      name: 'chromium',
+      testMatch: hasClerkCreds
+        ? /\/(wizard|account|smoke)\.spec\.ts/
+        : /\/(wizard|account|smoke|sync)\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'] },
+    },
   ],
   // Uses dev server so NODE_ENV=development and the Reset button is visible
   webServer: process.env.E2E_BASE_URL ? undefined : {

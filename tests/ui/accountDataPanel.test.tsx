@@ -63,4 +63,14 @@ describe('AccountDataPanel', () => {
     render(<AccountDataPanel {...defaultProps} devices={[]} />);
     expect(screen.getByText('No pending device approvals.')).toBeInTheDocument();
   });
+
+  test('displays import error when importError prop is set', () => {
+    render(
+      <AccountDataPanel
+        {...defaultProps}
+        importError="Could not import plan — the file may be corrupt or from an incompatible version."
+      />,
+    );
+    expect(screen.getByText('Could not import plan — the file may be corrupt or from an incompatible version.')).toBeInTheDocument();
+  });
 });

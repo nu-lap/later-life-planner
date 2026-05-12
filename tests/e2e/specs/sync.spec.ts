@@ -1,3 +1,4 @@
+import fs from 'fs';
 import { test, expect } from '../fixtures/syncTest';
 import { mockApiRoutes } from '../fixtures/apiMocks';
 import { STORAGE_KEY } from '../fixtures/planFixtures';
@@ -43,8 +44,7 @@ test('import replaces plan and saves the new state', async ({ page, account, ste
   await expect(page.getByTestId('step1-p1-name')).toHaveValue('Alex');
 });
 
-test('export produces a valid JSON file', async ({ page, account }) => {
-  // Seed the sample plan directly so we have known non-empty state to export
+test('export produces a valid JSON file with expected plan fields', async ({ page, account }) => {
   const samplePlan = require('../fixtures/sample-plan.json');
   await page.evaluate(({ key, state }) => {
     localStorage.setItem(key, JSON.stringify({ state, version: 0 }));
@@ -58,4 +58,24 @@ test('export produces a valid JSON file', async ({ page, account }) => {
   ]);
 
   expect(download.suggestedFilename()).toMatch(/later-life-plan-\d{4}-\d{2}-\d{2}\.json/);
+
+  const filePath = await download.path();
+  expect(filePath).toBeTruthy();
+  const content = JSON.parse(fs.readFileSync(filePath!, 'utf-8'));
+  expect(content).toMatchObject({
+    person1: { name: 'Alex' },
+    mode: 'couple',
+  });
+});
+
+test('importing an invalid file surfaces an error message', async ({ page, account }) => {
+  await page.goto('/account');
+
+  await account.importInput.setInputFiles({
+    name: 'bad.json',
+    mimeType: 'application/json',
+    buffer: Buffer.from('not valid json {{{'),
+  });
+
+  await expect(page.getByText(/could not import plan/i)).toBeVisible();
 });
