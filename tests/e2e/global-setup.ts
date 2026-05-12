@@ -13,7 +13,10 @@ setup('global setup', async ({}) => {
 });
 
 setup('authenticate', async ({ page }) => {
-  await page.goto('/');
+  // Navigate to /sign-in (public route) so Clerk loads.
+  // '/' is protected — auth.protect() rewrites to 404 on production domains,
+  // so Clerk never loads and clerk.signIn() has no context to work with.
+  await page.goto('/sign-in');
   // emailAddress strategy uses a server-side token — bypasses all verification and MFA
   await clerk.signIn({
     page,
