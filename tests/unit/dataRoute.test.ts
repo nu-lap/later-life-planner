@@ -4,6 +4,7 @@ const {
   requireUserMock,
   getPlannerPersistenceDocumentMock,
   savePlannerPersistenceDocumentMock,
+  deletePlannerPersistenceDocumentMock,
   rateLimitMock,
   auditLogMock,
   fingerprintMock,
@@ -11,6 +12,7 @@ const {
   requireUserMock: vi.fn(),
   getPlannerPersistenceDocumentMock: vi.fn(),
   savePlannerPersistenceDocumentMock: vi.fn(),
+  deletePlannerPersistenceDocumentMock: vi.fn(),
   rateLimitMock: vi.fn(),
   auditLogMock: vi.fn(),
   fingerprintMock: vi.fn(),
@@ -53,6 +55,7 @@ vi.mock('@/lib/cosmos', () => {
     RevisionConflictError,
     getPlannerPersistenceDocument: getPlannerPersistenceDocumentMock,
     savePlannerPersistenceDocument: savePlannerPersistenceDocumentMock,
+    deletePlannerPersistenceDocument: deletePlannerPersistenceDocumentMock,
   };
 });
 
@@ -65,7 +68,7 @@ vi.mock('@/lib/auditLog', () => ({
   sha256Base64FingerprintFromBase64Payload: fingerprintMock,
 }));
 
-import { GET, PUT } from '@/app/api/data/route';
+import { DELETE, GET, PUT } from '@/app/api/data/route';
 import { UnauthorizedError } from '@/lib/auth/requireUser';
 import { PersistenceConfigError, RevisionConflictError } from '@/lib/cosmos';
 
@@ -84,11 +87,13 @@ describe('/api/data route', () => {
     requireUserMock.mockReset();
     getPlannerPersistenceDocumentMock.mockReset();
     savePlannerPersistenceDocumentMock.mockReset();
+    deletePlannerPersistenceDocumentMock.mockReset();
     rateLimitMock.mockReset();
     rateLimitMock.mockReturnValue({ ok: true, remaining: 1, resetInMs: 60_000 });
     auditLogMock.mockReset();
     fingerprintMock.mockReset();
     fingerprintMock.mockReturnValue('fingerprint');
+    delete process.env.CLERK_SECRET_KEY;
   });
 
   test('GET returns 401 for unauthenticated requests', async () => {
@@ -272,6 +277,59 @@ describe('/api/data route', () => {
         body: JSON.stringify(createPayload()),
       }),
     );
+
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toEqual({
+      error: 'Persistence is not configured.',
+    });
+  });
+
+  test('DELETE returns 404 when CLERK_SECRET_KEY is not a test key', async () => {
+    process.env.CLERK_SECRET_KEY = 'sk_live_abc123';
+
+    const response = await DELETE();
+
+    expect(response.status).toBe(404);
+    expect(deletePlannerPersistenceDocumentMock).not.toHaveBeenCalled();
+  });
+
+  test('DELETE returns 404 when CLERK_SECRET_KEY is absent', async () => {
+    const response = await DELETE();
+
+    expect(response.status).toBe(404);
+    expect(deletePlannerPersistenceDocumentMock).not.toHaveBeenCalled();
+  });
+
+  test('DELETE returns 401 for unauthenticated requests with test key', async () => {
+    process.env.CLERK_SECRET_KEY = 'sk_test_abc123';
+    requireUserMock.mockRejectedValue(new UnauthorizedError());
+
+    const response = await DELETE();
+
+    expect(response.status).toBe(401);
+    expect(deletePlannerPersistenceDocumentMock).not.toHaveBeenCalled();
+  });
+
+  test('DELETE deletes plan and returns 200 with test key', async () => {
+    process.env.CLERK_SECRET_KEY = 'sk_test_abc123';
+    requireUserMock.mockResolvedValue({ userId: 'user_123' });
+    deletePlannerPersistenceDocumentMock.mockResolvedValue(undefined);
+
+    const response = await DELETE();
+
+    expect(response.status).toBe(200);
+    expect(deletePlannerPersistenceDocumentMock).toHaveBeenCalledWith('user_123');
+    await expect(response.json()).resolves.toEqual({ deleted: true });
+  });
+
+  test('DELETE returns 503 when persistence is not configured', async () => {
+    process.env.CLERK_SECRET_KEY = 'sk_test_abc123';
+    requireUserMock.mockResolvedValue({ userId: 'user_123' });
+    deletePlannerPersistenceDocumentMock.mockRejectedValue(
+      new PersistenceConfigError('missing env'),
+    );
+
+    const response = await DELETE();
 
     expect(response.status).toBe(503);
     await expect(response.json()).resolves.toEqual({
