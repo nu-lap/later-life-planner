@@ -604,6 +604,7 @@ export default function Step2SpendingGoals({ onNext, onBack }: Props) {
 
             <input
               type="range"
+              data-testid={STEP2_IDS.GAP_SPENDING_INPUT}
               aria-labelledby="gap-spending-label"
               min={0}
               max={goGoSpend}
