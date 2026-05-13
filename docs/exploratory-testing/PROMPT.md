@@ -111,9 +111,13 @@ For each charter below:
      --project=chromium \
      --trace=on \
      --reporter=json \
+     --timeout=45000 \
+     --global-timeout=300000 \
      --output=tests/e2e/exploratory/output/ 2>&1
    ```
    For charters requiring Clerk auth (8), use `--project=authenticated` instead.
+
+   **Time limits:** `--timeout=45000` caps each individual test at 45 seconds. `--global-timeout=300000` caps the entire charter at 5 minutes. A charter that hits the global timeout is still recorded as a finding — note which tests didn't complete.
 3. **Read** the JSON output and test-results directory
 4. **Record** every failure, unexpected behaviour, or console error in `session-notes.md`
 5. **Save** screenshots of interesting states to `$SESSION_DIR/screenshots/`
@@ -129,6 +133,9 @@ Include these in every charter spec file:
 import { test, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import { faker } from '@faker-js/faker';
+
+// Cap each test at 45 seconds — overrides the Playwright config default
+test.setTimeout(45_000);
 
 // Console error tracking — attach to every test
 test.beforeEach(async ({ page }) => {
