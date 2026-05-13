@@ -92,6 +92,8 @@ These are used across all charter spec files:
 // Use these in every charter spec file
 const STORAGE_KEY = 'life-planner-v6';
 const DISCLAIMER_KEY = 'llp-disclaimer-accepted';
+// Suppress migration modal for the test user (user ID from playwright/.clerk/user.json JWT sub field)
+const MIGRATION_KEY = 'llp-sync-migration-v1:user_3DdagRPqqvia9Ca3SThV7WjXMTj';
 const BASE_URL = process.env.E2E_BASE_URL ?? 'http://localhost:3000';
 const SESSION_DIR = process.env.EXPLORATORY_SESSION_DIR ?? 'docs/exploratory-testing/sessions/unknown';
 ```
@@ -215,11 +217,12 @@ async function seedAndNavigate(page: any, stepOverride: number, extraState: obje
   };
   const state = deepMerge(baseState, extraState);
   await page.addInitScript(
-    ({ sk, dk, s }: any) => {
+    ({ sk, dk, s, mk }: any) => {
       localStorage.setItem(dk, '1');
       localStorage.setItem(sk, JSON.stringify({ state: s, version: 0 }));
+      localStorage.setItem(mk, 'start-fresh');
     },
-    { sk: STORAGE_KEY, dk: DISCLAIMER_KEY, s: state },
+    { sk: STORAGE_KEY, dk: DISCLAIMER_KEY, s: state, mk: MIGRATION_KEY },
   );
   await page.goto(process.env.E2E_BASE_URL ?? 'http://localhost:3000', { timeout: 20000 });
 }
@@ -251,19 +254,20 @@ async function screenshot(page: any, name: string) {
 
 ```typescript
 test('charter1: happy path single mode — full wizard completion', async ({ page }) => {
-  // Pre-accept the disclaimer via addInitScript so the wizard loads at step 1
-  // reliably. The disclaimer checkbox is sr-only and cannot be checked via
-  // Playwright pointer actions; and bare URL navigation hits Clerk sign-in when
-  // auth is configured.
   await page.addInitScript(
-    (dk: string) => { localStorage.setItem(dk, '1'); },
-    DISCLAIMER_KEY,
+    ({ dk, mk }: any) => { localStorage.setItem(dk, '1'); localStorage.setItem(mk, 'start-fresh'); },
+    { dk: DISCLAIMER_KEY, mk: MIGRATION_KEY },
   );
-  await page.goto(process.env.E2E_BASE_URL ?? 'http://localhost:3000');
+  await page.goto(process.env.E2E_BASE_URL ?? 'http://localhost:3000', { timeout: 20000 });
   await screenshot(page, 'c1-after-disclaimer');
 
   // Step 1
-  await page.waitForSelector('[data-testid="step1-mode-single"]', { timeout: 10000 });
+  const onStep1 = await page.getByTestId('step1-mode-single').isVisible({ timeout: 12000 }).catch(() => false);
+  if (!onStep1) {
+    console.log(`CANDIDATE BUG: step 1 mode selector not visible after loading — URL: ${page.url()}`);
+    await screenshot(page, 'c1-step1-not-loaded');
+    return;
+  }
   await page.getByTestId('step1-mode-single').click();
   await page.getByTestId('step1-p1-name').fill('Alex');
   await page.getByTestId('step1-p1-dob').fill('1966-03-15');
@@ -342,15 +346,17 @@ test('charter1: export plan produces valid JSON', async ({ page }) => {
 
 ```typescript
 test('charter2: couple mode — P2 fields and gap period', async ({ page }) => {
-  // Pre-accept the disclaimer — the checkbox is sr-only and cannot be checked
-  // via Playwright pointer actions; bare URL navigation also hits Clerk sign-in
-  // when auth is configured.
   await page.addInitScript(
-    (dk: string) => { localStorage.setItem(dk, '1'); },
-    DISCLAIMER_KEY,
+    ({ dk, mk }: any) => { localStorage.setItem(dk, '1'); localStorage.setItem(mk, 'start-fresh'); },
+    { dk: DISCLAIMER_KEY, mk: MIGRATION_KEY },
   );
-  await page.goto(process.env.E2E_BASE_URL ?? 'http://localhost:3000');
-  await page.waitForSelector('[data-testid="step1-mode-couple"]', { timeout: 15000 });
+  await page.goto(process.env.E2E_BASE_URL ?? 'http://localhost:3000', { timeout: 20000 });
+  const onStep1 = await page.getByTestId('step1-mode-couple').isVisible({ timeout: 12000 }).catch(() => false);
+  if (!onStep1) {
+    console.log(`CANDIDATE BUG: step 1 mode selector not visible after loading — URL: ${page.url()}`);
+    await screenshot(page, 'c2-step1-not-loaded');
+    return;
+  }
   await page.getByTestId('step1-mode-couple').click();
 
   // P2 fields should now be visible
@@ -1013,12 +1019,11 @@ test('charter9: income at PA taper boundary — £100k triggers 60% effective ra
 
 ```typescript
 test('charter10: direct navigation to step 4 URL without prior steps', async ({ page }) => {
-  // Navigate directly — no localStorage seeding except disclaimer
   await page.addInitScript(
-    (dk: string) => { localStorage.setItem(dk, '1'); },
-    'llp-disclaimer-accepted',
+    ({ dk, mk }: any) => { localStorage.setItem(dk, '1'); localStorage.setItem(mk, 'start-fresh'); },
+    { dk: DISCLAIMER_KEY, mk: MIGRATION_KEY },
   );
-  await page.goto(process.env.E2E_BASE_URL ?? 'http://localhost:3000');
+  await page.goto(process.env.E2E_BASE_URL ?? 'http://localhost:3000', { timeout: 20000 });
   await page.waitForTimeout(2000);
   await screenshot(page, 'c10-direct-nav-no-state');
   const errors = (page as any).__consoleErrors;

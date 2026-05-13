@@ -20,6 +20,7 @@ export default defineConfig({
       testMatch: /charter-(?!8)\d+\.spec\.ts/,
       use: {
         ...devices['Desktop Chrome'],
+        storageState: 'playwright/.clerk/user.json',
       },
     },
     {
