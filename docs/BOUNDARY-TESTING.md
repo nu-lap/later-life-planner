@@ -33,6 +33,15 @@ npx vitest run --config tests/boundaries/vitest.boundaries.config.mjs \
 npx vitest --config tests/boundaries/vitest.boundaries.config.mjs
 ```
 
+### Running via GitHub Actions
+
+A dedicated `workflow_dispatch`-only workflow is available at `.github/workflows/boundary-tests.yml`. To trigger it:
+
+1. Go to **Actions** → **Boundary Tests** in the GitHub UI.
+2. Click **Run workflow**, select the branch, and click **Run workflow**.
+
+This is useful for verifying boundary behaviour in CI without waiting for a full PR run.
+
 ## What each file covers
 
 ### UI tests (jsdom + React Testing Library)
