@@ -39,6 +39,8 @@ codex-review*.md
 playwright-report/
 playwright/.clerk/
 test-results/
+# Exploratory test session scripts (ephemeral, written at runtime)
+tests/e2e/exploratory/
 
 optimizer-explain-requests.txt
 optimizer-dialog-layout.json
