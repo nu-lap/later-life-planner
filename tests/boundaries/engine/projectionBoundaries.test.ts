@@ -1,6 +1,5 @@
 import { describe, test, expect } from 'vitest';
 import { calculateProjections } from '@/financialEngine/projectionEngine';
-import { PENSION_RULES, STATE_PENSION } from '@/config/financialConstants';
 import { bareState, dcOnlyState, spOnlyState, bareCoupleState } from '../../fixtures/states';
 import { yearAt, withSpending } from '../../fixtures/helpers';
 
