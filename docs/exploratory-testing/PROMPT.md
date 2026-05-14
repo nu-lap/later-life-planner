@@ -1135,6 +1135,46 @@ test('charter10: change FI age in Step 1 then return to dashboard — projection
 
 ---
 
+## Charter 11 — New User Persona Journey Tests
+
+**Goal:** Simulate 5 real-world personas navigating the full wizard from scratch (no pre-seeded state), entering data through the UI. Identify where the flow is confusing, jargon is inaccessible, defaults are misleading, or the step ordering feels wrong.
+
+**Technique:** UX flow observation. Tests log `CANDIDATE BUG` for broken behaviour and `UX OBSERVATION` for valid-but-confusing design choices. Both types are findings to triage.
+
+**Personas:**
+
+| Persona | Mode | Age | Net Worth | Financial Literacy | FI Age |
+|---------|------|-----|-----------|-------------------|--------|
+| Margaret | Single | 62 | Low (£12k cash) | Very low | 67 (SPA) |
+| David | Single | 58 | Medium (£280k DC + ISA) | Medium | 63 (semi-retirement) |
+| Helen & Robert | Couple | 63/61 | High (ISA + DC + joint GIA) | High | 63/65 (gap period) |
+| Patricia & James | Couple | 55/57 | Low-medium (£65k DC + cash) | Very low | 67/67 |
+| Raj | Single | 57 | Very high (ISA + GIA + DC + BTL) | Very high | 57 (already FI) |
+
+**Key flow questions to observe:**
+- Is "Financial Independence age" label clear to non-financial users (vs "retirement age")?
+- Do life stage defaults make sense for the persona's age and FI age?
+- Is the RLSS tier selection description accessible to low-literacy users?
+- Is the income step's guaranteed → flexible ordering intuitive?
+- Are DC pension labels (growth rate, SIPP contribution) explained adequately?
+- Does the GIA base cost (CGT) field appear prominently for asset-rich users?
+- Does the dashboard make sense without prior drawdown knowledge?
+- For couples: are per-person fields clearly labelled? Does the gap period appear?
+
+See `tests/e2e/exploratory/charter-11.spec.ts` for the full implementation.
+
+Run with:
+```bash
+EXPLORATORY_SESSION_DIR=$SESSION_DIR \
+E2E_BASE_URL=$E2E_BASE_URL \
+  npx playwright test tests/e2e/exploratory/charter-11.spec.ts \
+    --config=playwright.exploratory.config.ts \
+    --project=chromium \
+    --reporter=list
+```
+
+---
+
 ## Post-Charter: Bug Triage & Report Generation
 
 After all charters complete, review `session-notes.md` and produce the bug report.
@@ -1157,7 +1197,7 @@ Write `$SESSION_DIR/bug-report.md`:
 # LLP Exploratory Testing — Bug Report
 **Session:** [timestamp]
 **Target:** [E2E_BASE_URL]
-**Charters run:** 1–10
+**Charters run:** 1–11
 **Total candidate bugs found:** N
 **Tester:** Claude Code (automated exploratory session)
 
@@ -1233,7 +1273,7 @@ Based on what was found, the highest-value areas for the next session are:
 
 ## Final Checklist Before Ending the Session
 
-- [ ] All 10 charters executed (even if some tests failed — note which failed)
+- [ ] All 11 charters executed (even if some tests failed — note which failed)
 - [ ] `session-notes.md` updated with all candidate bugs
 - [ ] Screenshots saved for every candidate bug
 - [ ] `bug-report.md` written with all bugs prioritised
