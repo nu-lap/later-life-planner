@@ -54,7 +54,7 @@ Screenshots land in `docs/ui-reference-images/<YYYY-MM-DD>/` as numbered PNGs:
 | `03-step0-couple-filled.png` | Step 0 — couple mode with both persons |
 | `04-step1-life-vision.png` | Step 1 — life vision panel |
 | `05-step2-spending-gogo.png` | Step 2 — Go-Go spending with RLSS moderate |
-| `06-step2-spending-comfortable.png` | Step 2 — Comfortable RLSS standard applied |
+| `06-step2-spending-slowo.png` | Step 2 — Slo-Go tab active |
 | `07-step2-spending-events.png` | Step 2 — with 3 planned events |
 | `08-step3-income-assets.png` | Step 3 — income sources + assets panel |
 | `09-step4-dashboard-healthy.png` | Step 4 — healthy plan with surplus |

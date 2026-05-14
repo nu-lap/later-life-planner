@@ -9,6 +9,7 @@
  * Requires playwright/.clerk/user.json (run global.setup.ts first if missing).
  */
 import { test } from '@playwright/test';
+import { mockApiRoutes } from './fixtures/apiMocks';
 
 const STORAGE_KEY = 'life-planner-v6';
 const DISCLAIMER_KEY = 'llp-disclaimer-accepted';
@@ -18,6 +19,12 @@ const MIGRATION_KEY = 'llp-sync-migration-v1:user_3DdagRPqqvia9Ca3SThV7WjXMTj';
 const OUT_DIR =
   process.env.UI_SCREENSHOTS_DIR ??
   `docs/ui-reference-images/${new Date().toISOString().slice(0, 10)}`;
+
+// Mock API routes so the device-approval and migration modals never appear.
+// Must be registered before page.goto — beforeEach runs before addInitScript calls.
+test.beforeEach(async ({ page }) => {
+  await mockApiRoutes(page);
+});
 
 async function shot(page: any, name: string) {
   await page.screenshot({
@@ -128,13 +135,16 @@ test('step0-mode-selector', async ({ page }) => {
 });
 
 test('step0-single-mode-filled', async ({ page }) => {
-  // Seed with mode already 'single' — avoids interacting through any auth modal
   await seed(page, 0, { mode: 'single', currentStep: 0, maxVisitedStep: 0 });
+  const singleBtn = page.getByTestId('step1-mode-single');
+  if (await singleBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
+    await singleBtn.click();
+    await page.waitForTimeout(400);
+  }
   await shot(page, '02-step0-single-filled');
 });
 
 test('step0-couple-mode-filled', async ({ page }) => {
-  // Seed with mode already 'couple' — avoids interacting through any auth modal
   await seed(page, 0, {
     mode: 'couple',
     fiAge: 60,
@@ -168,6 +178,11 @@ test('step0-couple-mode-filled', async ({ page }) => {
       },
     },
   });
+  const coupleBtn = page.getByTestId('step1-mode-couple');
+  if (await coupleBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
+    await coupleBtn.click();
+    await page.waitForTimeout(400);
+  }
   await shot(page, '03-step0-couple-filled');
 });
 
@@ -185,10 +200,14 @@ test('step2-spending-gogo', async ({ page }) => {
   await shot(page, '05-step2-spending-gogo');
 });
 
-test('step2-spending-comfortable-template', async ({ page }) => {
-  // Shows the comfortable RLSS standard — different spend values from moderate
-  await seed(page, 2, { currentStep: 2, maxVisitedStep: 2, rlssStandard: 'comfortable' });
-  await shot(page, '06-step2-spending-comfortable');
+test('step2-spending-slowo-tab', async ({ page }) => {
+  await seed(page, 2, { currentStep: 2, maxVisitedStep: 2, rlssStandard: 'moderate' });
+  const sloGoTab = page.locator('[data-testid^="step2-stage-"]').nth(1);
+  if (await sloGoTab.isVisible({ timeout: 3000 }).catch(() => false)) {
+    await sloGoTab.click();
+    await page.waitForTimeout(400);
+  }
+  await shot(page, '06-step2-spending-slowo');
 });
 
 test('step2-spending-with-events', async ({ page }) => {
