@@ -77,6 +77,52 @@ describe('Step3IncomeSources — ISA and GIA annual contributions', () => {
   });
 });
 
+// ─── BUG-017: GIA base cost callout ──────────────────────────────────────────
+
+describe('Step3IncomeSources — GIA base cost callout (BUG-017)', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    usePlannerStore.getState().resetPlan();
+    usePlannerStore.persist.clearStorage();
+  });
+
+  test('shows base cost warning when GIA has value > 0 and baseCost = 0', async () => {
+    usePlannerStore.getState().setP1Asset('generalInvestments', { enabled: true, totalValue: 50000, baseCost: 0 });
+    render(<Step3IncomeSources onBack={vi.fn()} onNext={vi.fn()} />);
+    fireEvent.click(screen.getByTestId(STEP3_IDS.TAB_ASSETS));
+    expect(await screen.findByText(/Enter your original purchase price above/i)).toBeInTheDocument();
+  });
+
+  test('hides base cost warning and shows unrealised gain when baseCost > 0', async () => {
+    usePlannerStore.getState().setP1Asset('generalInvestments', { enabled: true, totalValue: 50000, baseCost: 20000 });
+    render(<Step3IncomeSources onBack={vi.fn()} onNext={vi.fn()} />);
+    fireEvent.click(screen.getByTestId(STEP3_IDS.TAB_ASSETS));
+    expect(await screen.findByText(/Unrealised gain/i)).toBeInTheDocument();
+    expect(screen.queryByText(/Enter your original purchase price above/i)).not.toBeInTheDocument();
+  });
+
+  test('no callout when GIA totalValue is 0', async () => {
+    usePlannerStore.getState().setP1Asset('generalInvestments', { enabled: true, totalValue: 0, baseCost: 0 });
+    render(<Step3IncomeSources onBack={vi.fn()} onNext={vi.fn()} />);
+    fireEvent.click(screen.getByTestId(STEP3_IDS.TAB_ASSETS));
+    // give the component time to settle
+    await screen.findByRole('switch', { name: 'Enable GIA — Individual' });
+    expect(screen.queryByText(/Enter your original purchase price above/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Unrealised gain/i)).not.toBeInTheDocument();
+  });
+
+  test('shows joint GIA base cost warning in couple mode when baseCost = 0 and value > 0', async () => {
+    usePlannerStore.setState({ mode: 'couple' });
+    usePlannerStore.setState((s) => ({
+      jointGia: { ...s.jointGia, enabled: true, totalValue: 200000, baseCost: 0 },
+    }));
+    render(<Step3IncomeSources onBack={vi.fn()} onNext={vi.fn()} />);
+    fireEvent.click(screen.getByTestId(STEP3_IDS.TAB_ASSETS));
+    const warnings = await screen.findAllByText(/Enter your original purchase price above/i);
+    expect(warnings.length).toBeGreaterThanOrEqual(1);
+  });
+});
+
 describe('Step3IncomeSources primary residence card', () => {
   beforeEach(() => {
     localStorage.clear();
