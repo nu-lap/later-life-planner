@@ -339,7 +339,11 @@ export default function DashboardMain({
                 ? 'This chart uses the optimiser-selected strategy, so it matches the withdrawal plan optimisation above. Tax reduces spendable cash, so gross income can be higher than required spending.'
                 : 'Stacked bars = gross income sources. Dashed line = required spending — the cash need the plan must meet after tax. Tax reduces spendable cash, so gross income can be higher than spending in a given year.'}
             </p>
-            <LifetimeChart projections={displayProjections} mode={mode} p1Name={p1Name} p2Name={p2Name} />
+            <div className="overflow-x-auto -mx-1">
+              <div className="min-w-[480px]">
+                <LifetimeChart projections={displayProjections} mode={mode} p1Name={p1Name} p2Name={p2Name} />
+              </div>
+            </div>
             <p className="mt-3 text-xs text-slate-400 text-center">
               Bars above the dashed line indicate surplus income; bars below indicate a shortfall.
             </p>
@@ -354,7 +358,11 @@ export default function DashboardMain({
                 <span className="ml-1 text-teal-600 font-semibold">Care Reserve shown separately — earmarked, not drawn for spending.</span>
               )}
             </p>
-            <AssetChart projections={displayProjections} />
+            <div className="overflow-x-auto -mx-1">
+              <div className="min-w-[480px]">
+                <AssetChart projections={displayProjections} />
+              </div>
+            </div>
           </>
         )}
       </div>
@@ -369,8 +377,9 @@ export default function DashboardMain({
         <div className="game-card mb-6">
           <div className="text-center py-8">
             <p className="text-sm text-slate-600 mb-4">View detailed year-by-year financial data for your entire projection period.</p>
-            <button 
+            <button
               type="button"
+              data-testid="step4-show-projection-table"
               aria-expanded={showDetailedTable}
               aria-controls="projection-table"
               onClick={() => setShowDetailedTable(true)}

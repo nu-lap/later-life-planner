@@ -182,7 +182,10 @@ export default function Step1HouseholdSetup({ onNext }: Props) {
 
       {/* Financial independence age */}
       <div className="game-card">
-        <h3 className="section-heading">Financial independence age</h3>
+        <h3 className="section-heading">
+          Financial independence age
+          <span className="font-normal text-slate-400 text-sm ml-2">— when work becomes a choice</span>
+        </h3>
         <p className="section-subheading">
           The age from which work becomes a choice, not a necessity. Life stages — Go-Go Years, Slo-Go Years,
           No-Go Years — begin here. You can still work beyond this age if you want to — this is about having options.
@@ -215,7 +218,7 @@ export default function Step1HouseholdSetup({ onNext }: Props) {
           </div>
           <div className="mt-3 flex items-center justify-between text-xs text-slate-400">
             {fiAge > person1.currentAge
-              ? <span>Building phase: age {person1.currentAge} → {fiAge - 1}</span>
+              ? <span>Building phase: age {person1.currentAge} → {fiAge - 1}{fiAge - person1.currentAge >= 7 ? ' · Drag left to explore early retirement' : ''}</span>
               : <span>Freedom phase starts now</span>
             }
             <span>Freedom phase starts: age {fiAge}</span>

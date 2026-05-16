@@ -248,9 +248,12 @@ export default function Step2SpendingGoals({ onNext, onBack }: Props) {
       <div className="bg-slate-800 text-white rounded-2xl p-4 flex items-center justify-between">
         <div>
           <p className="text-xs text-slate-400 mb-1">Annual spending · {activeStage?.label}</p>
-          <p data-testid={STEP2_IDS.TOTAL_SPEND_DISPLAY} className="text-3xl font-black">{formatCurrency(totalSpend, true)}</p>
+          {rlssStandard === null
+            ? <p data-testid={STEP2_IDS.TOTAL_SPEND_DISPLAY} className="text-lg font-bold text-slate-400">Choose a lifestyle above to set your budget</p>
+            : <p data-testid={STEP2_IDS.TOTAL_SPEND_DISPLAY} className="text-3xl font-black">{formatCurrency(totalSpend, true)}</p>
+          }
         </div>
-        <p className={clsx('text-sm font-semibold', benchmarkColor)}>{benchmarkLabel}</p>
+        {rlssStandard !== null && <p className={clsx('text-sm font-semibold', benchmarkColor)}>{benchmarkLabel}</p>}
       </div>
 
       {/* Advanced planning toggle */}

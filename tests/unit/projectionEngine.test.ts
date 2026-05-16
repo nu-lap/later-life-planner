@@ -252,6 +252,27 @@ describe('calculateProjections — financial invariants', () => {
   });
 });
 
+// ─── BUG-001: future / invalid DOB guard ──────────────────────────────────────
+
+describe('calculateProjections — invalid dateOfBirth guard', () => {
+  test('future DOB in plan state does not produce NaN in any projection field', () => {
+    const state: PlannerState = { ...createDefaultState(60), person1: { ...createDefaultState(60).person1, dateOfBirth: '2099-01-01' } };
+    const projections = calculateProjections(state);
+    projections.forEach(p => {
+      expect(Number.isFinite(p.totalIncome)).toBe(true);
+      expect(Number.isFinite(p.totalTaxPaid)).toBe(true);
+      expect(Number.isFinite(p.netIncome)).toBe(true);
+      expect(Number.isFinite(p.totalAssets)).toBe(true);
+    });
+  });
+
+  test('formatCurrency handles NaN and Infinity without rendering garbage', () => {
+    expect(formatCurrency(NaN)).toBe('£0');
+    expect(formatCurrency(Infinity)).toBe('£0');
+    expect(formatCurrency(-Infinity)).toBe('£0');
+  });
+});
+
 // ─── formatCurrency ───────────────────────────────────────────────────────────
 
 describe('formatCurrency', () => {

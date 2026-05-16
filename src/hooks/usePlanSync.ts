@@ -885,6 +885,21 @@ export function usePlanSync(): UsePlanSyncResult {
     void loadRemotePlan(true);
   }, [clearSensitiveStateOnSignOut, isLoaded, loadRemotePlan, userId]);
 
+  // Degrade to offline mode if sync takes more than 8 seconds on cold start.
+  // Incrementing loadSequenceRef cancels any in-progress loadRemotePlan so it
+  // cannot overwrite local state after the wizard has been shown.
+  useEffect(() => {
+    if (!isLoaded || !userId || isSyncReady) return;
+    const timeout = setTimeout(() => {
+      loadSequenceRef.current += 1;
+      syncEnabledRef.current = false;
+      setSaveStatus('local');
+      setSyncError(null);
+      setIsSyncReady(true);
+    }, 8000);
+    return () => clearTimeout(timeout);
+  }, [isLoaded, isSyncReady, userId]);
+
   useEffect(() => {
     if (!isLoaded || !userId || !isSyncReady) return;
     if (!syncEnabledRef.current) return;
