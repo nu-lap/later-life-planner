@@ -12,7 +12,9 @@ export default defineConfig({
     bypassCSP: true,
     trace: 'on',
     headless: false,
-    slowMo: 200,
+    launchOptions: {
+      slowMo: 200,
+    },
   },
   projects: [
     {
