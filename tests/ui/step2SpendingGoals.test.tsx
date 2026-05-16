@@ -132,3 +132,21 @@ describe('Step2SpendingGoals', () => {
     expect(screen.queryByRole('button', { name: /Reset to smart default/i })).toBeNull();
   });
 });
+
+// ─── BUG-015: null rlssStandard shows prompt instead of spend total ───────────
+
+describe('Step2SpendingGoals — null rlssStandard prompt (BUG-015)', () => {
+  test('shows "Choose a lifestyle" prompt when rlssStandard is null', () => {
+    const savedRlss = plannerState.rlssStandard;
+    plannerState.rlssStandard = null;
+    render(<Step2SpendingGoals onBack={vi.fn()} onNext={vi.fn()} />);
+    expect(screen.getByText(/Choose a lifestyle above to set your budget/i)).toBeInTheDocument();
+    plannerState.rlssStandard = savedRlss;
+  });
+
+  test('shows currency spend total when rlssStandard is set', () => {
+    plannerState.rlssStandard = 'moderate';
+    render(<Step2SpendingGoals onBack={vi.fn()} onNext={vi.fn()} />);
+    expect(screen.queryByText(/Choose a lifestyle above to set your budget/i)).not.toBeInTheDocument();
+  });
+});

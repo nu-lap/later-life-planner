@@ -886,6 +886,7 @@ export function calculateGamificationMetrics(state: PlannerState, projections?: 
 
 /** Format a number as £ currency. compact=true gives £12.3k / £1.9m style. */
 export function formatCurrency(value: number, compact = false): string {
+  if (!Number.isFinite(value)) return '£0';
   if (compact && Math.abs(value) >= 1_000_000) return '£' + (value / 1_000_000).toFixed(1) + 'm';
   if (compact && Math.abs(value) >= 1000) return '£' + (value / 1000).toFixed(1) + 'k';
   return '£' + Math.round(value).toLocaleString('en-GB');

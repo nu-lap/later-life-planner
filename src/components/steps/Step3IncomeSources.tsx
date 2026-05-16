@@ -467,7 +467,7 @@ function AssetsSection({ assets, set, mode, p1Label, p2Label, sharedGia, onShare
           <CurrencyInput value={generalInvestments.totalValue} onChange={(v) => set('generalInvestments', { totalValue: v })} max={2000000} step={1000} />
         </FieldRow>
         <FieldRow label="Purchase price / base cost" hint="Original cost — for CGT calculation" labelExtra={<InfoIcon term="CGT" tooltip={GLOSSARY.CGT} />}>
-          <CurrencyInput value={generalInvestments.baseCost} onChange={(v) => set('generalInvestments', { baseCost: v })} max={2000000} step={1000} />
+          <CurrencyInput data-testid="step3-p1-gia-basecost" value={generalInvestments.baseCost} onChange={(v) => set('generalInvestments', { baseCost: v })} max={2000000} step={1000} />
         </FieldRow>
         <FieldRow label="Annual growth rate">
           <PctInput value={generalInvestments.growthRate} onChange={(v) => set('generalInvestments', { growthRate: v })} />
@@ -475,7 +475,12 @@ function AssetsSection({ assets, set, mode, p1Label, p2Label, sharedGia, onShare
         <FieldRow label="Yearly contribution (pre-FI)" hint="In today's £. Added each year until your FI age.">
           <CurrencyInput value={generalInvestments.annualContribution ?? 0} onChange={(v) => set('generalInvestments', { annualContribution: v || undefined })} step={500} ariaLabel="GIA yearly contribution" />
         </FieldRow>
-        {giaGain > 0 && (
+        {generalInvestments.totalValue > 0 && generalInvestments.baseCost === 0 && (
+          <div className="py-2 text-xs text-amber-700 bg-amber-50 rounded-xl px-3 border-l-4 border-amber-600">
+            ⚠️ Enter your original purchase price above for accurate CGT calculations. If unsure, use the market value.
+          </div>
+        )}
+        {giaGain > 0 && generalInvestments.baseCost > 0 && (
           <div className="py-2 text-xs text-amber-700 bg-amber-50 rounded-xl px-3 border-l-4 border-amber-600">
             Unrealised gain: <strong>£{giaGain.toLocaleString('en-GB')}</strong> · CGT applies on gains above the £{CGT.ANNUAL_EXEMPT.toLocaleString('en-GB')} annual exempt amount.
           </div>
@@ -492,7 +497,7 @@ function AssetsSection({ assets, set, mode, p1Label, p2Label, sharedGia, onShare
             <CurrencyInput value={sharedGia.totalValue} onChange={(v) => onSharedGiaChange({ totalValue: v })} max={2000000} step={1000} />
           </FieldRow>
           <FieldRow label="Purchase price / base cost" hint="Original cost — for CGT calculation" labelExtra={<InfoIcon term="CGT" tooltip={GLOSSARY.CGT} />}>
-            <CurrencyInput value={sharedGia.baseCost} onChange={(v) => onSharedGiaChange({ baseCost: v })} max={2000000} step={1000} />
+            <CurrencyInput data-testid="step3-joint-gia-basecost" value={sharedGia.baseCost} onChange={(v) => onSharedGiaChange({ baseCost: v })} max={2000000} step={1000} />
           </FieldRow>
           <FieldRow label="Annual growth rate">
             <PctInput value={sharedGia.growthRate} onChange={(v) => onSharedGiaChange({ growthRate: v })} />
@@ -500,7 +505,12 @@ function AssetsSection({ assets, set, mode, p1Label, p2Label, sharedGia, onShare
           <FieldRow label="Yearly contribution (pre-FI)" hint="In today's £. Added each year until your FI age.">
             <CurrencyInput value={sharedGia.annualContribution ?? 0} onChange={(v) => onSharedGiaChange({ annualContribution: v || undefined })} step={500} ariaLabel="Joint GIA yearly contribution" />
           </FieldRow>
-          {jointGiaGain > 0 && (
+          {sharedGia.totalValue > 0 && sharedGia.baseCost === 0 && (
+            <div className="py-2 text-xs text-amber-700 bg-amber-50 rounded-xl px-3 border-l-4 border-amber-600">
+              ⚠️ Enter your original purchase price above for accurate CGT calculations. If unsure, use the market value.
+            </div>
+          )}
+          {jointGiaGain > 0 && sharedGia.baseCost > 0 && (
             <div className="py-2 text-xs text-amber-700 bg-amber-50 rounded-xl px-3 border-l-4 border-amber-600">
               Unrealised gain: <strong>£{jointGiaGain.toLocaleString('en-GB')}</strong> · Gains split equally across both persons&apos; CGT allowances.
             </div>

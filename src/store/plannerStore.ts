@@ -192,7 +192,7 @@ export const usePlannerStore = create<PlannerState & Actions>()(
           return {
             person1: {
               ...s.person1,
-              dateOfBirth: normalizedDob || dateOfBirth,
+              dateOfBirth: normalizedDob || s.person1.dateOfBirth,
               currentAge: normalized.currentAge,
             },
             fiAge: normalized.fiAge,
@@ -257,7 +257,7 @@ export const usePlannerStore = create<PlannerState & Actions>()(
           return {
             person2: {
               ...s.person2,
-              dateOfBirth: normalizedDob || dateOfBirth,
+              dateOfBirth: normalizedDob || s.person2.dateOfBirth,
               currentAge: normalized.secondaryCurrentAge,
             },
             fiAge: normalized.fiAge,

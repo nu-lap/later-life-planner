@@ -1,3 +1,11 @@
+# Coding Agent
+/.agents/*
+/.claude/*
+
+# Testing
+/coverage/*
+docs/exploratory-testing/sessions/*/screenshots/*
+
 # dependencies
 /node_modules
 /.pnp
@@ -39,6 +47,9 @@ codex-review*.md
 playwright-report/
 playwright/.clerk/
 test-results/
+# Exploratory test session scripts (ephemeral, written at runtime)
+tests/e2e/exploratory/
 
 optimizer-explain-requests.txt
 optimizer-dialog-layout.json
+
