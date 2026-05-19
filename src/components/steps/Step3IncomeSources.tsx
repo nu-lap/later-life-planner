@@ -303,7 +303,7 @@ function IncomeSection({ currentAge, fiAge, lifeExpectancy, src, assets, set }: 
             <PctInput value={src.dcPension.growthRate} onChange={(v) => set('dcPension', { growthRate: v })} />
           </FieldRow>
           <FieldRow
-            label="Workplace salary"
+            label="Salary"
             hint="Shared with Step 1. Also drives gap period spending calculations."
           >
             <CurrencyInput
