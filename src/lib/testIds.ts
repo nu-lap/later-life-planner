@@ -13,6 +13,8 @@ export const STEP1_IDS = {
   P1_DOB:            'step1-p1-dob',
   P2_NAME:           'step1-p2-name',
   P2_DOB:            'step1-p2-dob',
+  P1_SALARY:         'step1-p1-salary',
+  P2_SALARY:         'step1-p2-salary',
   P1_FI_AGE:         'step1-p1-fi-age',
   P2_FI_AGE:         'step1-p2-fi-age',
   LIFE_EXPECTANCY:   'step1-life-expectancy',

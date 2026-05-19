@@ -304,7 +304,7 @@ function IncomeSection({ currentAge, fiAge, lifeExpectancy, src, assets, set }: 
           </FieldRow>
           <FieldRow
             label="Workplace salary"
-            hint="Used only to project workplace pension contributions before your FI age."
+            hint="Pre-filled from Step 1. Used to project pension contributions and gap period spending."
           >
             <CurrencyInput
               value={src.dcPension.workplaceSalary ?? 0}

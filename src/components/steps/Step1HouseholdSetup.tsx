@@ -1,6 +1,7 @@
 'use client';
 
 import { usePlannerStore } from '@/store/plannerStore';
+import CurrencyInput from '@/components/ui/CurrencyInput';
 import {
   getFiAgeMax,
   getLifeExpectancyMin,
@@ -17,8 +18,8 @@ interface Props { onNext: () => void }
 export default function Step1HouseholdSetup({ onNext }: Props) {
   const {
     mode, setMode,
-    person1, setP1Name, setP1Dob,
-    person2, setP2Name, setP2Dob,
+    person1, setP1Name, setP1Dob, setP1Income,
+    person2, setP2Name, setP2Dob, setP2Income,
     fiAge, setFiAge,
     p2FiAge: p2FiAgeRaw, setP2FiAge,
     assumptions, updateAssumptions,
@@ -133,6 +134,20 @@ export default function Step1HouseholdSetup({ onNext }: Props) {
               <p className="text-xs text-orange-600 font-semibold mt-1.5">{ageLabel(person1.currentAge)}</p>
             )}
           </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-slate-600 mb-2">
+              Current gross salary <span className="text-slate-400 font-normal">(optional)</span>
+            </label>
+            <CurrencyInput
+              data-testid={STEP1_IDS.P1_SALARY}
+              value={person1.incomeSources.dcPension.workplaceSalary ?? 0}
+              onChange={(v) => setP1Income('dcPension', { workplaceSalary: v || undefined })}
+              max={500_000}
+              step={1000}
+            />
+            <p className="text-xs text-slate-400 mt-1.5">Before tax — used to estimate contributions and gap period spending</p>
+          </div>
         </div>
 
         {/* Person 2 */}
@@ -175,6 +190,20 @@ export default function Step1HouseholdSetup({ onNext }: Props) {
               {person2.currentAge > 0 && (
                 <p className="text-xs text-emerald-600 font-semibold mt-1.5">{ageLabel(person2.currentAge)}</p>
               )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-slate-600 mb-2">
+                Current gross salary <span className="text-slate-400 font-normal">(optional)</span>
+              </label>
+              <CurrencyInput
+                data-testid={STEP1_IDS.P2_SALARY}
+                value={person2.incomeSources.dcPension.workplaceSalary ?? 0}
+                onChange={(v) => setP2Income('dcPension', { workplaceSalary: v || undefined })}
+                max={500_000}
+                step={1000}
+              />
+              <p className="text-xs text-slate-400 mt-1.5">Before tax — used to estimate contributions and gap period spending</p>
             </div>
           </div>
         )}
