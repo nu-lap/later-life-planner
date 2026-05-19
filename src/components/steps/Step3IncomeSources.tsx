@@ -304,7 +304,7 @@ function IncomeSection({ currentAge, fiAge, lifeExpectancy, src, assets, set }: 
           </FieldRow>
           <FieldRow
             label="Salary"
-            hint="Shared with Step 1. Also drives gap period spending calculations."
+            hint="Entered in Step 1."
           >
             <CurrencyInput
               value={src.dcPension.workplaceSalary ?? 0}

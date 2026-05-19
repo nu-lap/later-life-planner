@@ -137,7 +137,7 @@ export default function Step1HouseholdSetup({ onNext }: Props) {
 
           <div>
             <label htmlFor={STEP1_IDS.P1_SALARY} className="block text-sm font-semibold text-slate-600 mb-2">
-              Salary <span className="text-slate-400 font-normal">(optional)</span>
+              Salary <span className="text-slate-400 font-normal">(before tax, optional)</span>
             </label>
             <CurrencyInput
               id={STEP1_IDS.P1_SALARY}
@@ -194,7 +194,7 @@ export default function Step1HouseholdSetup({ onNext }: Props) {
 
             <div>
               <label htmlFor={STEP1_IDS.P2_SALARY} className="block text-sm font-semibold text-slate-600 mb-2">
-                Salary <span className="text-slate-400 font-normal">(optional)</span>
+                Salary <span className="text-slate-400 font-normal">(before tax, optional)</span>
               </label>
               <CurrencyInput
                 id={STEP1_IDS.P2_SALARY}
