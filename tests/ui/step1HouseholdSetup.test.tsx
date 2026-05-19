@@ -12,6 +12,8 @@ const setP2DobMock = vi.fn();
 const setFiAgeMock = vi.fn();
 const setP2FiAgeMock = vi.fn();
 const updateAssumptionsMock = vi.fn();
+const setP1IncomeMock = vi.fn();
+const setP2IncomeMock = vi.fn();
 const onNextMock = vi.fn();
 
 const baseSingle = createDefaultState(57);
@@ -29,6 +31,8 @@ let plannerState: any = {
   setFiAge: setFiAgeMock,
   setP2FiAge: setP2FiAgeMock,
   updateAssumptions: updateAssumptionsMock,
+  setP1Income: setP1IncomeMock,
+  setP2Income: setP2IncomeMock,
   rlssStandard: undefined,
   applyRlssTemplate: vi.fn(),
 };
@@ -46,6 +50,8 @@ describe('Step1HouseholdSetup — single mode', () => {
     setP1DobMock.mockReset();
     setFiAgeMock.mockReset();
     updateAssumptionsMock.mockReset();
+    setP1IncomeMock.mockReset();
+    setP2IncomeMock.mockReset();
     onNextMock.mockReset();
     plannerState = { ...plannerState, mode: 'single', p2FiAge: undefined };
   });
@@ -136,6 +142,8 @@ describe('Step1HouseholdSetup — couple mode', () => {
       setFiAge: setFiAgeMock,
       setP2FiAge: setP2FiAgeMock,
       updateAssumptions: updateAssumptionsMock,
+      setP1Income: setP1IncomeMock,
+      setP2Income: setP2IncomeMock,
       rlssStandard: undefined,
       applyRlssTemplate: vi.fn(),
     };
@@ -164,5 +172,47 @@ describe('Step1HouseholdSetup — couple mode', () => {
     const slider = screen.getByTestId(STEP1_IDS.P2_FI_AGE);
     fireEvent.change(slider, { target: { value: '65' } });
     expect(setP2FiAgeMock).toHaveBeenCalledWith(65);
+  });
+
+  test('person 2 salary input is rendered in couple mode', () => {
+    render(<Step1HouseholdSetup onNext={onNextMock} />);
+    expect(screen.getByTestId(STEP1_IDS.P2_SALARY)).toBeInTheDocument();
+  });
+
+  test('person 2 salary input calls setP2Income on change', () => {
+    render(<Step1HouseholdSetup onNext={onNextMock} />);
+    const input = screen.getByTestId(STEP1_IDS.P2_SALARY);
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value: '55000' } });
+    fireEvent.blur(input);
+    expect(setP2IncomeMock).toHaveBeenCalledWith('dcPension', expect.objectContaining({ workplaceSalary: 55_000 }));
+  });
+});
+
+describe('Step1HouseholdSetup — salary fields', () => {
+  beforeEach(() => {
+    setP1IncomeMock.mockReset();
+    setP2IncomeMock.mockReset();
+    onNextMock.mockReset();
+    plannerState = { ...plannerState, mode: 'single' };
+  });
+
+  test('person 1 salary input is rendered', () => {
+    render(<Step1HouseholdSetup onNext={onNextMock} />);
+    expect(screen.getByTestId(STEP1_IDS.P1_SALARY)).toBeInTheDocument();
+  });
+
+  test('person 1 salary input calls setP1Income on change', () => {
+    render(<Step1HouseholdSetup onNext={onNextMock} />);
+    const input = screen.getByTestId(STEP1_IDS.P1_SALARY);
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value: '45000' } });
+    fireEvent.blur(input);
+    expect(setP1IncomeMock).toHaveBeenCalledWith('dcPension', expect.objectContaining({ workplaceSalary: 45_000 }));
+  });
+
+  test('person 2 salary input is absent in single mode', () => {
+    render(<Step1HouseholdSetup onNext={onNextMock} />);
+    expect(screen.queryByTestId(STEP1_IDS.P2_SALARY)).toBeNull();
   });
 });
