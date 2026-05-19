@@ -13,6 +13,7 @@ interface CurrencyInputProps {
   decimalScale?: number;
   ariaLabel?: string;
   id?: string;
+  'aria-describedby'?: string;
   'data-testid'?: string;
 }
 
@@ -27,6 +28,7 @@ export default function CurrencyInput({
   decimalScale = 0,
   ariaLabel,
   id,
+  'aria-describedby': ariaDescribedBy,
   'data-testid': testId,
 }: CurrencyInputProps) {
   const [draftValue, setDraftValue] = useState<string | null>(null);
@@ -79,6 +81,7 @@ export default function CurrencyInput({
         type="text"
         inputMode={decimalScale > 0 ? 'decimal' : 'numeric'}
         aria-label={ariaLabel}
+        aria-describedby={ariaDescribedBy}
         id={id}
         data-testid={testId}
         value={displayValue}

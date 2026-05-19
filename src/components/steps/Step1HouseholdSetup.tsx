@@ -137,17 +137,18 @@ export default function Step1HouseholdSetup({ onNext }: Props) {
 
           <div>
             <label htmlFor={STEP1_IDS.P1_SALARY} className="block text-sm font-semibold text-slate-600 mb-2">
-              Current gross salary <span className="text-slate-400 font-normal">(optional)</span>
+              Workplace salary <span className="text-slate-400 font-normal">(optional)</span>
             </label>
             <CurrencyInput
               id={STEP1_IDS.P1_SALARY}
               data-testid={STEP1_IDS.P1_SALARY}
+              aria-describedby={`${STEP1_IDS.P1_SALARY}-hint`}
               value={person1.incomeSources.dcPension.workplaceSalary ?? 0}
-              onChange={(v) => setP1Income('dcPension', { workplaceSalary: v || undefined })}
+              onChange={(v) => setP1Income('dcPension', { workplaceSalary: v > 0 ? v : undefined })}
               max={500_000}
               step={1000}
             />
-            <p className="text-xs text-slate-400 mt-1.5">Before tax — used to estimate contributions and gap period spending</p>
+            <p id={`${STEP1_IDS.P1_SALARY}-hint`} className="text-xs text-slate-400 mt-1.5">Before tax — used to estimate contributions and gap period spending</p>
           </div>
         </div>
 
@@ -195,17 +196,18 @@ export default function Step1HouseholdSetup({ onNext }: Props) {
 
             <div>
               <label htmlFor={STEP1_IDS.P2_SALARY} className="block text-sm font-semibold text-slate-600 mb-2">
-                Current gross salary <span className="text-slate-400 font-normal">(optional)</span>
+                Workplace salary <span className="text-slate-400 font-normal">(optional)</span>
               </label>
               <CurrencyInput
                 id={STEP1_IDS.P2_SALARY}
                 data-testid={STEP1_IDS.P2_SALARY}
+                aria-describedby={`${STEP1_IDS.P2_SALARY}-hint`}
                 value={person2.incomeSources.dcPension.workplaceSalary ?? 0}
-                onChange={(v) => setP2Income('dcPension', { workplaceSalary: v || undefined })}
+                onChange={(v) => setP2Income('dcPension', { workplaceSalary: v > 0 ? v : undefined })}
                 max={500_000}
                 step={1000}
               />
-              <p className="text-xs text-slate-400 mt-1.5">Before tax — used to estimate contributions and gap period spending</p>
+              <p id={`${STEP1_IDS.P2_SALARY}-hint`} className="text-xs text-slate-400 mt-1.5">Before tax — used to estimate contributions and gap period spending</p>
             </div>
           </div>
         )}
