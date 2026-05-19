@@ -12,6 +12,7 @@ interface CurrencyInputProps {
   compact?: boolean;
   decimalScale?: number;
   ariaLabel?: string;
+  id?: string;
   'data-testid'?: string;
 }
 
@@ -25,6 +26,7 @@ export default function CurrencyInput({
   compact = false,
   decimalScale = 0,
   ariaLabel,
+  id,
   'data-testid': testId,
 }: CurrencyInputProps) {
   const [draftValue, setDraftValue] = useState<string | null>(null);
@@ -77,6 +79,7 @@ export default function CurrencyInput({
         type="text"
         inputMode={decimalScale > 0 ? 'decimal' : 'numeric'}
         aria-label={ariaLabel}
+        id={id}
         data-testid={testId}
         value={displayValue}
         onFocus={() => setDraftValue(formatDraftValue(value))}
