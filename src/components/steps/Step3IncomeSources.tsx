@@ -602,6 +602,13 @@ export default function Step3IncomeSources({ onNext, onBack }: Props) {
   const [activePerson, setActivePerson] = useState<'person1' | 'person2'>('person1');
   const [activeTab, setActiveTab]       = useState<'income' | 'assets'>('income');
   const [showGuided, setShowGuided]     = useState(false);
+  const [showQuick, setShowQuick]       = useState(false);
+  const [quickP1PensionPot,  setQuickP1PensionPot]  = useState(0);
+  const [quickP1Isa,         setQuickP1Isa]         = useState(0);
+  const [quickP1Cash,        setQuickP1Cash]        = useState(0);
+  const [quickP2PensionPot,  setQuickP2PensionPot]  = useState(0);
+  const [quickP2Isa,         setQuickP2Isa]         = useState(0);
+  const [quickP2Cash,        setQuickP2Cash]        = useState(0);
 
   const p1Label = person1.name || 'You';
   const p2Label = person2.name || 'Partner';
@@ -634,8 +641,10 @@ export default function Step3IncomeSources({ onNext, onBack }: Props) {
             <div>
               <p className="font-bold text-slate-800 text-sm">First time here?</p>
               <p className="text-xs text-slate-500 mt-0.5">
-                Use our guided setup to add your pensions, ISAs and savings step by step.
-                {mode === 'couple' && ' We\'ll go through each person in turn.'}
+                Use our guided setup to add your pensions, ISAs and savings — skip any that don&apos;t apply.
+              </p>
+              <p className="text-xs text-orange-600 font-semibold mt-1">
+                {mode === 'couple' ? '~20 screens · about 10 minutes' : '~9 screens · about 5 minutes'}
               </p>
             </div>
           </div>
@@ -649,6 +658,79 @@ export default function Step3IncomeSources({ onNext, onBack }: Props) {
           <button onClick={() => setShowGuided(false)} className="text-xs text-slate-400 hover:text-slate-600 w-full text-center">
             Cancel and enter manually instead
           </button>
+        </div>
+      )}
+
+      {/* Quick entry */}
+      {!showGuided && (
+        <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
+          <button
+            onClick={() => setShowQuick(v => !v)}
+            className="w-full flex items-center justify-between px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
+          >
+            <span className="flex items-center gap-2">
+              <span className="text-base">⚡</span>
+              Quick entry — just the basics
+            </span>
+            <span className="text-slate-400 text-xs">{showQuick ? '▲ Hide' : '▼ Show'}</span>
+          </button>
+          {showQuick && (
+            <div className="px-4 pb-4 space-y-4 border-t border-slate-100">
+              <p className="text-xs text-slate-500 pt-3">Enter current values. You can add detail later using the tabs below.</p>
+              <div className="grid gap-3 sm:grid-cols-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1.5">
+                    {mode === 'couple' ? `${person1.name || 'Your'} pension pot` : 'Pension pot'}
+                  </label>
+                  <CurrencyInput value={quickP1PensionPot} onChange={setQuickP1PensionPot} max={5_000_000} step={5000} ariaLabel="Person 1 pension pot quick entry" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1.5">
+                    {mode === 'couple' ? `${person1.name || 'Your'} ISA` : 'ISA savings'}
+                  </label>
+                  <CurrencyInput value={quickP1Isa} onChange={setQuickP1Isa} max={2_000_000} step={1000} ariaLabel="Person 1 ISA quick entry" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1.5">
+                    {mode === 'couple' ? `${person1.name || 'Your'} cash savings` : 'Cash savings'}
+                  </label>
+                  <CurrencyInput value={quickP1Cash} onChange={setQuickP1Cash} max={2_000_000} step={1000} ariaLabel="Person 1 cash savings quick entry" />
+                </div>
+                {mode === 'couple' && (
+                  <>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-600 mb-1.5">{person2.name || "Partner's"} pension pot</label>
+                      <CurrencyInput value={quickP2PensionPot} onChange={setQuickP2PensionPot} max={5_000_000} step={5000} ariaLabel="Person 2 pension pot quick entry" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-600 mb-1.5">{person2.name || "Partner's"} ISA</label>
+                      <CurrencyInput value={quickP2Isa} onChange={setQuickP2Isa} max={2_000_000} step={1000} ariaLabel="Person 2 ISA quick entry" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-600 mb-1.5">{person2.name || "Partner's"} cash savings</label>
+                      <CurrencyInput value={quickP2Cash} onChange={setQuickP2Cash} max={2_000_000} step={1000} ariaLabel="Person 2 cash savings quick entry" />
+                    </div>
+                  </>
+                )}
+              </div>
+              <button
+                onClick={() => {
+                  if (quickP1PensionPot > 0) setP1Income('dcPension', { enabled: true, totalValue: quickP1PensionPot });
+                  if (quickP1Isa > 0)        setP1Asset('isaInvestments', { enabled: true, totalValue: quickP1Isa });
+                  if (quickP1Cash > 0)       setP1Asset('cashSavings', { enabled: true, totalValue: quickP1Cash });
+                  if (mode === 'couple') {
+                    if (quickP2PensionPot > 0) setP2Income('dcPension', { enabled: true, totalValue: quickP2PensionPot });
+                    if (quickP2Isa > 0)        setP2Asset('isaInvestments', { enabled: true, totalValue: quickP2Isa });
+                    if (quickP2Cash > 0)       setP2Asset('cashSavings', { enabled: true, totalValue: quickP2Cash });
+                  }
+                  setShowQuick(false);
+                }}
+                className="btn-primary text-sm"
+              >
+                Update plan →
+              </button>
+            </div>
+          )}
         </div>
       )}
 

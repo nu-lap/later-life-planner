@@ -355,9 +355,14 @@ export default function Step2LifeVision({ onNext, onBack }: Props) {
 
       <div className="flex justify-between pt-2">
         <button onClick={onBack} className="btn-secondary">← Back</button>
-        <button onClick={onNext} className="btn-primary px-10 text-base">
-          Set spending goals →
-        </button>
+        <div className="flex items-center gap-4">
+          <button onClick={onNext} className="text-sm text-slate-400 hover:text-slate-600 underline underline-offset-2">
+            Skip for now →
+          </button>
+          <button onClick={onNext} className="btn-primary px-10 text-base">
+            Set spending goals →
+          </button>
+        </div>
       </div>
     </div>
   );

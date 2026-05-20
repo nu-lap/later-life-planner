@@ -485,6 +485,9 @@ export default function Step4Dashboard({ onBack }: Props) {
   const [policyLoading, setPolicyLoading] = useState(false);
   const [proModalSource, setProModalSource] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<ActiveTab>('overview');
+  const [showWelcomeBanner, setShowWelcomeBanner] = useState(() =>
+    typeof window !== 'undefined' && !localStorage.getItem('llp-dashboard-welcomed')
+  );
 
   const rawAge = pclsAge ?? fiAge;
   const effectivePclsAge = resolvePclsAge(rawAge, person1.currentAge);
@@ -683,6 +686,33 @@ export default function Step4Dashboard({ onBack }: Props) {
           From age {fiAge} → {state.assumptions.lifeExpectancy} · nominal £
         </p>
       </div>
+
+      {/* First-visit orientation banner */}
+      {showWelcomeBanner && (
+        <div className="max-w-5xl mx-auto px-4 pt-4 no-print">
+          <div className="rounded-2xl bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-200 p-4 flex items-start gap-4">
+            <span className="text-2xl flex-shrink-0">👋</span>
+            <div className="flex-1 min-w-0">
+              <p className="font-bold text-slate-800 text-sm">Welcome to your plan</p>
+              <p className="text-xs text-slate-600 mt-1">
+                The key number to look for is <strong>when your assets run out</strong> — shown at the top of the Overview tab.
+                If it says <strong>&ldquo;Never&rdquo;</strong>, you&apos;re on track. Scroll down for your year-by-year picture.
+                Go back to earlier steps any time to refine your income sources and spending.
+              </p>
+            </div>
+            <button
+              onClick={() => {
+                localStorage.setItem('llp-dashboard-welcomed', '1');
+                setShowWelcomeBanner(false);
+              }}
+              className="flex-shrink-0 text-slate-400 hover:text-slate-600 text-lg leading-none"
+              aria-label="Dismiss welcome message"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Tab bar */}
       <div className="sticky top-0 z-20 bg-white border-b border-slate-200 shadow-sm no-print">
