@@ -5,6 +5,7 @@ import { paulAndLisaState } from '../fixtures/states';
 import { calculateProjections, formatCurrency } from '@/lib/calculations';
 import { optimizeWithdrawals } from '@/financialEngine/withdrawalOptimizer';
 import { PENSION_RULES, INCOME_TAX, CGT } from '@/config/financialConstants';
+import { DASHBOARD_WELCOMED_KEY } from '@/lib/browserStorageKeys';
 
 const setGoalRegistryMock = vi.fn();
 const setCareReserveMock = vi.fn();
@@ -488,23 +489,23 @@ describe('Step4Dashboard', () => {
 
   describe('first-visit welcome banner', () => {
     test('banner is visible when llp-dashboard-welcomed is not set in localStorage', () => {
-      localStorage.removeItem('llp-dashboard-welcomed');
+      localStorage.removeItem(DASHBOARD_WELCOMED_KEY);
       render(<Step4Dashboard onBack={vi.fn()} />);
       expect(screen.getByText(/Welcome to your plan/i)).toBeInTheDocument();
     });
 
     test('banner is hidden when llp-dashboard-welcomed is already set', () => {
-      localStorage.setItem('llp-dashboard-welcomed', '1');
+      localStorage.setItem(DASHBOARD_WELCOMED_KEY, '1');
       render(<Step4Dashboard onBack={vi.fn()} />);
       expect(screen.queryByText(/Welcome to your plan/i)).not.toBeInTheDocument();
     });
 
     test('clicking the dismiss button hides the banner and sets localStorage', () => {
-      localStorage.removeItem('llp-dashboard-welcomed');
+      localStorage.removeItem(DASHBOARD_WELCOMED_KEY);
       render(<Step4Dashboard onBack={vi.fn()} />);
       fireEvent.click(screen.getByRole('button', { name: /Dismiss welcome message/i }));
       expect(screen.queryByText(/Welcome to your plan/i)).not.toBeInTheDocument();
-      expect(localStorage.getItem('llp-dashboard-welcomed')).toBe('1');
+      expect(localStorage.getItem(DASHBOARD_WELCOMED_KEY)).toBe('1');
     });
   });
 

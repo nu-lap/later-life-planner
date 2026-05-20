@@ -31,6 +31,7 @@ import type { CareReserve, DrawdownStrategy, GoalConfig, GoalId } from '@/models
 import InfoIcon from '@/components/ui/InfoIcon';
 import { GLOSSARY } from '@/lib/glossary';
 import { STEP4_IDS } from '@/lib/testIds';
+import { DASHBOARD_WELCOMED_KEY } from '@/lib/browserStorageKeys';
 import clsx from 'clsx';
 
 interface Props { onBack: () => void }
@@ -485,8 +486,8 @@ export default function Step4Dashboard({ onBack }: Props) {
   const [policyLoading, setPolicyLoading] = useState(false);
   const [proModalSource, setProModalSource] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<ActiveTab>('overview');
-  const [showWelcomeBanner, setShowWelcomeBanner] = useState(() =>
-    typeof window !== 'undefined' && !localStorage.getItem('llp-dashboard-welcomed')
+  const [showWelcomeBanner, setShowWelcomeBanner] = useState(
+    () => !localStorage.getItem(DASHBOARD_WELCOMED_KEY)
   );
 
   const rawAge = pclsAge ?? fiAge;
@@ -702,7 +703,7 @@ export default function Step4Dashboard({ onBack }: Props) {
             </div>
             <button
               onClick={() => {
-                localStorage.setItem('llp-dashboard-welcomed', '1');
+                localStorage.setItem(DASHBOARD_WELCOMED_KEY, '1');
                 setShowWelcomeBanner(false);
               }}
               className="flex-shrink-0 text-slate-400 hover:text-slate-600 text-lg leading-none"
