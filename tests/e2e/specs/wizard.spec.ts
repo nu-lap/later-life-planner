@@ -1,6 +1,6 @@
 import { test, expect } from '../fixtures/localTest';
 import { mockApiRoutes } from '../fixtures/apiMocks';
-import { COUPLE_PLAN, DISCLAIMER_KEY, STORAGE_KEY } from '../fixtures/planFixtures';
+import { COUPLE_PLAN, DISCLAIMER_KEY, INCOME_WIZARD_DONE_KEY, STORAGE_KEY } from '../fixtures/planFixtures';
 
 test.beforeEach(async ({ page }) => {
   await mockApiRoutes(page);
@@ -41,11 +41,12 @@ test('couple mode — P2 fields are visible after switching mode', async ({ page
 // Inject directly at step 3 (Income & Assets) to avoid Turnstile on Life Vision.
 test('step 3 assets tab toggle works', async ({ page, step3 }) => {
   await page.addInitScript(
-    ({ disclaimerKey, storageKey, state }) => {
+    ({ disclaimerKey, storageKey, wizardKey, state }) => {
       localStorage.setItem(disclaimerKey, '1');
+      localStorage.setItem(wizardKey, '1');
       localStorage.setItem(storageKey, JSON.stringify({ state, version: 0 }));
     },
-    { disclaimerKey: DISCLAIMER_KEY, storageKey: STORAGE_KEY, state: { ...COUPLE_PLAN, currentStep: 3 } },
+    { disclaimerKey: DISCLAIMER_KEY, storageKey: STORAGE_KEY, wizardKey: INCOME_WIZARD_DONE_KEY, state: { ...COUPLE_PLAN, currentStep: 3 } },
   );
 
   await page.goto('/');

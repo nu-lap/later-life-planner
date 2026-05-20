@@ -9,6 +9,7 @@ import { CGT, STATE_PENSION, ISA_ANNUAL_ALLOWANCE_BASE } from '@/config/financia
 import type { PersonIncomeSources, PersonAssets, AssetOwner } from '@/lib/types';
 import type { PrimaryResidenceAsset } from '@/models/types';
 import { STEP3_IDS } from '@/lib/testIds';
+import { INCOME_WIZARD_DONE_KEY } from '@/lib/browserStorageKeys';
 import clsx from 'clsx';
 
 interface Props { onNext: () => void; onBack: () => void }
@@ -601,7 +602,9 @@ export default function Step3IncomeSources({ onNext, onBack }: Props) {
 
   const [activePerson, setActivePerson] = useState<'person1' | 'person2'>('person1');
   const [activeTab, setActiveTab]       = useState<'income' | 'assets'>('income');
-  const [showGuided, setShowGuided]     = useState(true);
+  const [showGuided, setShowGuided]     = useState(
+    () => !localStorage.getItem(INCOME_WIZARD_DONE_KEY)
+  );
   const [showQuick, setShowQuick]       = useState(false);
 
   const QUICK_INITIAL = { p1Pension: 0, p1Isa: 0, p1Cash: 0, p2Pension: 0, p2Isa: 0, p2Cash: 0 };
@@ -633,10 +636,10 @@ export default function Step3IncomeSources({ onNext, onBack }: Props) {
       {/* Guided setup */}
       {showGuided ? (
         <div className="space-y-3">
-          <GuidedSetupWizard onDone={() => setShowGuided(false)} />
+          <GuidedSetupWizard onDone={() => { localStorage.setItem(INCOME_WIZARD_DONE_KEY, '1'); setShowGuided(false); }} />
           <p className="text-xs text-slate-400 text-center">
             Prefer to fill in the detail yourself?{' '}
-            <button onClick={() => setShowGuided(false)} className="underline underline-offset-2 hover:text-slate-600">
+            <button onClick={() => { localStorage.setItem(INCOME_WIZARD_DONE_KEY, '1'); setShowGuided(false); }} className="underline underline-offset-2 hover:text-slate-600">
               Skip the wizard and enter manually
             </button>{' '}
             — all fields are available in the tabs below.
@@ -660,7 +663,7 @@ export default function Step3IncomeSources({ onNext, onBack }: Props) {
           >
             <span className="flex items-center gap-2">
               <span className="text-base">⚡</span>
-              Quick entry — just the basics
+              <span>Quick entry — just the basics</span>
             </span>
             <span className="text-slate-400 text-xs">{showQuick ? '▲ Hide' : '▼ Show'}</span>
           </button>
