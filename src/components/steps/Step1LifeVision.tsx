@@ -19,8 +19,6 @@ const ASPIRATIONS: { tag: AspirationTag; label: string; icon: string }[] = [
   { tag: 'social',       label: 'Friends & Social', icon: '🥂' },
 ];
 
-const STAGE_COLORS = { 'go-go': '#f97316', 'slo-go': '#10b981', 'no-go': '#8b5cf6' } as const;
-
 interface Props { onNext: () => void; onBack: () => void }
 
 export default function Step2LifeVision({ onNext, onBack }: Props) {
