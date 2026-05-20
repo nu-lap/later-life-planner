@@ -27,7 +27,7 @@ export default function Step2LifeVision({ onNext, onBack }: Props) {
     lifeVision, setLifeVision,
     aspirations, toggleAspiration,
     lifeStages, updateLifeStage,
-    assumptions, updateAssumptions,
+    assumptions,
   } = usePlannerStore();
 
   const [isGenerating, setIsGenerating] = useLocalState(false);
