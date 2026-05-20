@@ -24,7 +24,6 @@ interface Props { onNext: () => void; onBack: () => void }
 export default function Step2LifeVision({ onNext, onBack }: Props) {
   const {
     mode,
-    person1,
     lifeVision, setLifeVision,
     aspirations, toggleAspiration,
     lifeStages, updateLifeStage,
