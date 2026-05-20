@@ -635,16 +635,10 @@ export default function Step3IncomeSources({ onNext, onBack }: Props) {
 
       {/* Guided setup */}
       {showGuided ? (
-        <div className="space-y-3">
-          <GuidedSetupWizard onDone={() => { localStorage.setItem(INCOME_WIZARD_DONE_KEY, '1'); setShowGuided(false); }} />
-          <p className="text-xs text-slate-400 text-center">
-            Prefer to fill in the detail yourself?{' '}
-            <button onClick={() => { localStorage.setItem(INCOME_WIZARD_DONE_KEY, '1'); setShowGuided(false); }} className="underline underline-offset-2 hover:text-slate-600">
-              Skip the wizard and enter manually
-            </button>{' '}
-            — all fields are available in the tabs below.
-          </p>
-        </div>
+        <GuidedSetupWizard
+          onDone={() => { localStorage.setItem(INCOME_WIZARD_DONE_KEY, '1'); setShowGuided(false); }}
+          onSkip={() => { localStorage.setItem(INCOME_WIZARD_DONE_KEY, '1'); setShowGuided(false); }}
+        />
       ) : (
         <button
           onClick={() => setShowGuided(true)}

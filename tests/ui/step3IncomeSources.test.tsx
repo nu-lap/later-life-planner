@@ -132,13 +132,13 @@ describe('Step3IncomeSources — guided wizard default behaviour', () => {
 
   test('guided wizard is shown by default when the component first renders', () => {
     render(<Step3IncomeSources onBack={vi.fn()} onNext={vi.fn()} />);
-    expect(screen.getByText(/Prefer to fill in the detail yourself/i)).toBeInTheDocument();
+    expect(screen.getByText(/Skip the wizard and enter manually/i)).toBeInTheDocument();
   });
 
   test('"Skip the wizard and enter manually" link dismisses the wizard', () => {
     render(<Step3IncomeSources onBack={vi.fn()} onNext={vi.fn()} />);
     fireEvent.click(screen.getByText(/Skip the wizard and enter manually/i));
-    expect(screen.queryByText(/Prefer to fill in the detail yourself/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Skip the wizard and enter manually/i)).not.toBeInTheDocument();
     expect(screen.getByText(/Re-open guided setup/i)).toBeInTheDocument();
   });
 
@@ -146,7 +146,7 @@ describe('Step3IncomeSources — guided wizard default behaviour', () => {
     render(<Step3IncomeSources onBack={vi.fn()} onNext={vi.fn()} />);
     fireEvent.click(screen.getByText(/Skip the wizard and enter manually/i));
     fireEvent.click(screen.getByText(/Re-open guided setup/i));
-    expect(screen.getByText(/Prefer to fill in the detail yourself/i)).toBeInTheDocument();
+    expect(screen.getByText(/Skip the wizard and enter manually/i)).toBeInTheDocument();
   });
 });
 

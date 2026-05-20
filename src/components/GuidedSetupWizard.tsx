@@ -657,9 +657,9 @@ export function applyPersonDraft(
 
 // ─── Main wizard ──────────────────────────────────────────────────────────────
 
-interface Props { onDone: () => void }
+interface Props { onDone: () => void; onSkip?: () => void }
 
-export default function GuidedSetupWizard({ onDone }: Props) {
+export default function GuidedSetupWizard({ onDone, onSkip }: Props) {
   const { mode, person1, person2, assumptions, setP1Income, setP1Asset, setP2Income, setP2Asset, setJointGia } = usePlannerStore();
 
   const p1Label = person1.name || 'You';
@@ -815,6 +815,14 @@ export default function GuidedSetupWizard({ onDone }: Props) {
             {isLast ? 'Save →' : 'Next →'}
           </button>
         </div>
+
+        {onSkip && (
+          <div className="flex-shrink-0 px-6 pb-4 text-center">
+            <button onClick={onSkip} className="text-xs text-slate-400 underline underline-offset-2 hover:text-slate-600">
+              Skip the wizard and enter manually
+            </button>
+          </div>
+        )}
 
       </div>
     </div>
