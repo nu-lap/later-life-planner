@@ -73,6 +73,8 @@ test('plan survives full encrypt → save → reload → decrypt cycle', async (
   await step2.rlssButton('moderate').click();
   await step2.nextButton.click();
 
+  // Guided setup wizard opens by default on first visit — dismiss it before navigating.
+  await page.getByText('Skip the wizard and enter manually').click();
   await step3.nextButton.click();
 
   await expect(step4.kpiCards).toBeVisible();
