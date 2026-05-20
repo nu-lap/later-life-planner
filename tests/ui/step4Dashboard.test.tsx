@@ -486,6 +486,28 @@ describe('Step4Dashboard', () => {
     expect((fetchOptions as RequestInit).headers).not.toHaveProperty('Authorization');
   });
 
+  describe('first-visit welcome banner', () => {
+    test('banner is visible when llp-dashboard-welcomed is not set in localStorage', () => {
+      localStorage.removeItem('llp-dashboard-welcomed');
+      render(<Step4Dashboard onBack={vi.fn()} />);
+      expect(screen.getByText(/Welcome to your plan/i)).toBeInTheDocument();
+    });
+
+    test('banner is hidden when llp-dashboard-welcomed is already set', () => {
+      localStorage.setItem('llp-dashboard-welcomed', '1');
+      render(<Step4Dashboard onBack={vi.fn()} />);
+      expect(screen.queryByText(/Welcome to your plan/i)).not.toBeInTheDocument();
+    });
+
+    test('clicking the dismiss button hides the banner and sets localStorage', () => {
+      localStorage.removeItem('llp-dashboard-welcomed');
+      render(<Step4Dashboard onBack={vi.fn()} />);
+      fireEvent.click(screen.getByRole('button', { name: /Dismiss welcome message/i }));
+      expect(screen.queryByText(/Welcome to your plan/i)).not.toBeInTheDocument();
+      expect(localStorage.getItem('llp-dashboard-welcomed')).toBe('1');
+    });
+  });
+
   test('maps optimiser ending balances into chart projections', () => {
     const state = paulAndLisaState();
     const optimizerResult = optimizeWithdrawals(state);

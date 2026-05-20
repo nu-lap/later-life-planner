@@ -123,6 +123,80 @@ describe('Step3IncomeSources — GIA base cost callout (BUG-017)', () => {
   });
 });
 
+describe('Step3IncomeSources — guided wizard default behaviour', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    usePlannerStore.getState().resetPlan();
+    usePlannerStore.persist.clearStorage();
+  });
+
+  test('guided wizard is shown by default when the component first renders', () => {
+    render(<Step3IncomeSources onBack={vi.fn()} onNext={vi.fn()} />);
+    expect(screen.getByText(/Prefer to fill in the detail yourself/i)).toBeInTheDocument();
+  });
+
+  test('"Skip the wizard and enter manually" link dismisses the wizard', () => {
+    render(<Step3IncomeSources onBack={vi.fn()} onNext={vi.fn()} />);
+    fireEvent.click(screen.getByText(/Skip the wizard and enter manually/i));
+    expect(screen.queryByText(/Prefer to fill in the detail yourself/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/Re-open guided setup/i)).toBeInTheDocument();
+  });
+
+  test('"Re-open guided setup" link shows the wizard again after dismissal', () => {
+    render(<Step3IncomeSources onBack={vi.fn()} onNext={vi.fn()} />);
+    fireEvent.click(screen.getByText(/Skip the wizard and enter manually/i));
+    fireEvent.click(screen.getByText(/Re-open guided setup/i));
+    expect(screen.getByText(/Prefer to fill in the detail yourself/i)).toBeInTheDocument();
+  });
+});
+
+describe('Step3IncomeSources — quick entry card', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    usePlannerStore.getState().resetPlan();
+    usePlannerStore.persist.clearStorage();
+  });
+
+  function dismissWizard() {
+    fireEvent.click(screen.getByText(/Skip the wizard and enter manually/i));
+  }
+
+  test('quick entry card is visible after dismissing the wizard', () => {
+    render(<Step3IncomeSources onBack={vi.fn()} onNext={vi.fn()} />);
+    dismissWizard();
+    expect(screen.getByText(/Quick entry/i)).toBeInTheDocument();
+  });
+
+  test('quick entry expands on toggle and shows pension pot field', async () => {
+    render(<Step3IncomeSources onBack={vi.fn()} onNext={vi.fn()} />);
+    dismissWizard();
+    fireEvent.click(screen.getByText(/Quick entry — just the basics/i));
+    expect(await screen.findByLabelText('Person 1 pension pot quick entry')).toBeInTheDocument();
+  });
+
+  test('"Update plan →" writes pension pot and ISA to store', async () => {
+    render(<Step3IncomeSources onBack={vi.fn()} onNext={vi.fn()} />);
+    dismissWizard();
+    fireEvent.click(screen.getByText(/Quick entry — just the basics/i));
+
+    const pensionInput = await screen.findByLabelText('Person 1 pension pot quick entry');
+    fireEvent.focus(pensionInput);
+    fireEvent.change(pensionInput, { target: { value: '150000' } });
+    fireEvent.blur(pensionInput);
+
+    const isaInput = screen.getByLabelText('Person 1 ISA quick entry');
+    fireEvent.focus(isaInput);
+    fireEvent.change(isaInput, { target: { value: '50000' } });
+    fireEvent.blur(isaInput);
+
+    fireEvent.click(screen.getByText(/Update plan/i));
+
+    const state = usePlannerStore.getState();
+    expect(state.person1.incomeSources.dcPension.totalValue).toBe(150_000);
+    expect(state.person1.assets.isaInvestments.totalValue).toBe(50_000);
+  });
+});
+
 describe('Step3IncomeSources primary residence card', () => {
   beforeEach(() => {
     localStorage.clear();
