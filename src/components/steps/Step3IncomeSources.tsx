@@ -601,7 +601,7 @@ export default function Step3IncomeSources({ onNext, onBack }: Props) {
 
   const [activePerson, setActivePerson] = useState<'person1' | 'person2'>('person1');
   const [activeTab, setActiveTab]       = useState<'income' | 'assets'>('income');
-  const [showGuided, setShowGuided]     = useState(false);
+  const [showGuided, setShowGuided]     = useState(true);
   const [showQuick, setShowQuick]       = useState(false);
   const [quickP1PensionPot,  setQuickP1PensionPot]  = useState(0);
   const [quickP1Isa,         setQuickP1Isa]         = useState(0);
@@ -633,32 +633,25 @@ export default function Step3IncomeSources({ onNext, onBack }: Props) {
         <p className="text-slate-500">Capture all income streams and assets. Guaranteed sources first.</p>
       </div>
 
-      {/* Guided setup entry point */}
-      {!showGuided ? (
-        <div className="rounded-2xl border-2 border-dashed border-orange-200 bg-orange-50/50 p-4 flex items-center justify-between gap-4">
-          <div className="flex items-start gap-3">
-            <span className="text-2xl flex-shrink-0">✨</span>
-            <div>
-              <p className="font-bold text-slate-800 text-sm">First time here?</p>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Use our guided setup to add your pensions, ISAs and savings — skip any that don&apos;t apply.
-              </p>
-              <p className="text-xs text-orange-600 font-semibold mt-1">
-                {mode === 'couple' ? '~20 screens · about 10 minutes' : '~9 screens · about 5 minutes'}
-              </p>
-            </div>
-          </div>
-          <button onClick={() => setShowGuided(true)} className="btn-primary text-sm flex-shrink-0 whitespace-nowrap">
-            Get started →
-          </button>
-        </div>
-      ) : (
+      {/* Guided setup */}
+      {showGuided ? (
         <div className="space-y-3">
           <GuidedSetupWizard onDone={() => setShowGuided(false)} />
-          <button onClick={() => setShowGuided(false)} className="text-xs text-slate-400 hover:text-slate-600 w-full text-center">
-            Cancel and enter manually instead
-          </button>
+          <p className="text-xs text-slate-400 text-center">
+            Prefer to fill in the detail yourself?{' '}
+            <button onClick={() => setShowGuided(false)} className="underline underline-offset-2 hover:text-slate-600">
+              Skip the wizard and enter manually
+            </button>{' '}
+            — all fields are available in the tabs below.
+          </p>
         </div>
+      ) : (
+        <button
+          onClick={() => setShowGuided(true)}
+          className="w-full text-xs text-slate-400 hover:text-slate-600 underline underline-offset-2 text-center"
+        >
+          Re-open guided setup
+        </button>
       )}
 
       {/* Quick entry */}
