@@ -19,18 +19,15 @@ const ASPIRATIONS: { tag: AspirationTag; label: string; icon: string }[] = [
   { tag: 'social',       label: 'Friends & Social', icon: '🥂' },
 ];
 
-const STAGE_COLORS = { 'go-go': '#f97316', 'slo-go': '#10b981', 'no-go': '#8b5cf6' } as const;
-
 interface Props { onNext: () => void; onBack: () => void }
 
 export default function Step2LifeVision({ onNext, onBack }: Props) {
   const {
     mode,
-    person1,
     lifeVision, setLifeVision,
     aspirations, toggleAspiration,
     lifeStages, updateLifeStage,
-    assumptions, updateAssumptions,
+    assumptions,
   } = usePlannerStore();
 
   const [isGenerating, setIsGenerating] = useLocalState(false);
@@ -355,9 +352,14 @@ export default function Step2LifeVision({ onNext, onBack }: Props) {
 
       <div className="flex justify-between pt-2">
         <button onClick={onBack} className="btn-secondary">← Back</button>
-        <button onClick={onNext} className="btn-primary px-10 text-base">
-          Set spending goals →
-        </button>
+        <div className="flex items-center gap-4">
+          <button onClick={onNext} className="text-sm text-slate-400 hover:text-slate-600 underline underline-offset-2">
+            Skip for now →
+          </button>
+          <button onClick={onNext} className="btn-primary px-10 text-base">
+            Set spending goals →
+          </button>
+        </div>
       </div>
     </div>
   );

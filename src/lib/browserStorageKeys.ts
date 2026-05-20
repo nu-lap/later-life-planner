@@ -1,4 +1,6 @@
 export const DISCLAIMER_KEY = 'llp-disclaimer-accepted';
+export const DASHBOARD_WELCOMED_KEY = 'llp-dashboard-welcomed';
+export const INCOME_WIZARD_DONE_KEY = 'llp-income-wizard-done';
 export const LEGACY_PLANNER_STORAGE_KEY = 'life-planner-v6';
 export const SYNC_KEY_STORAGE_PREFIX = 'llp-sync-key-v1:';
 export const SYNC_MIGRATION_DECISION_PREFIX = 'llp-sync-migration-v1:';
