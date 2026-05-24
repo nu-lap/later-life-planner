@@ -31,6 +31,8 @@ permissions:
 env:
   ACR_NAME: acrsharedresourcesuks
   ACR_LOGIN_SERVER: acrsharedresourcesuks.azurecr.io
+  APP_NAME: ca-later-life-planner
+  APP_RESOURCE_GROUP: rg-later-life-planner
 
 jobs:
   # Detect whether container-affecting files changed.
@@ -136,6 +138,9 @@ jobs:
       contents: read
       id-token: write
       deployments: write
+    outputs:
+      latest_tag: ${{ steps.tags.outputs.latest_tag }}
+      safe_branch: ${{ steps.tags.outputs.safe_branch }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
@@ -231,4 +236,66 @@ jobs:
           \`\`\`
 
           > The \`:latest\` production tag is unaffected by this build.
+          EOF
+
+  # Update the shared Container App to run the new preview image.
+  deploy-preview:
+    runs-on: ubuntu-latest
+    needs: [changes, preview-build-push]
+    if: needs.changes.outputs.container == 'true' && needs.preview-build-push.result == 'success'
+    environment: preview
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Login to Azure
+        uses: azure/login@a457da9ea143d694b1b9c7c869ebb04ebe844ef5 # v2.3.0
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Update Container App image
+        env:
+          LATEST_TAG: ${{ needs.preview-build-push.outputs.latest_tag }}
+        run: |
+          az containerapp update \
+            --name "$APP_NAME" \
+            --resource-group "$APP_RESOURCE_GROUP" \
+            --image "$LATEST_TAG" \
+            --only-show-errors \
+            --query properties.latestRevisionName \
+            -o tsv >/dev/null
+
+      - name: Restart revision
+        run: |
+          REVISION=$(az containerapp show \
+            --name "$APP_NAME" \
+            --resource-group "$APP_RESOURCE_GROUP" \
+            --query properties.latestRevisionName \
+            -o tsv)
+          az containerapp revision restart \
+            --name "$APP_NAME" \
+            --resource-group "$APP_RESOURCE_GROUP" \
+            --revision "$REVISION"
+          echo "Restarted revision: $REVISION"
+
+      - name: Show preview URL
+        env:
+          BRANCH: ${{ github.ref_name }}
+          LATEST_TAG: ${{ needs.preview-build-push.outputs.latest_tag }}
+        run: |
+          FQDN=$(az containerapp show \
+            --name "$APP_NAME" \
+            --resource-group "$APP_RESOURCE_GROUP" \
+            --query properties.configuration.ingress.fqdn \
+            -o tsv)
+          echo "Preview live at: https://${FQDN}"
+          cat >> "$GITHUB_STEP_SUMMARY" <<EOF
+          ## Preview deployed — ${BRANCH}
+
+          | | |
+          |---|---|
+          | **URL** | https://${FQDN} |
+          | **Image** | \`${LATEST_TAG}\` |
           EOF
