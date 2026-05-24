@@ -300,7 +300,7 @@ export default function Step2LifeVision({ onNext, onBack }: Props) {
             >
               {isGenerating ? (
                 <>
-                  <span className="animate-spin inline-block w-3 h-3 border-2 border-navy/40 border-t-navy rounded-full" />
+                  <span aria-hidden="true" className="animate-spin inline-block w-3 h-3 border-2 border-navy/40 border-t-navy rounded-full"></span>
                   Writing…
                 </>
               ) : captchaEnabled && showCaptcha && !captchaToken ? (

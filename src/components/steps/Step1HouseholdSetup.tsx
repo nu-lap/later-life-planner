@@ -106,7 +106,7 @@ export default function Step1HouseholdSetup({ onNext }: Props) {
         {/* Person 1 */}
         <div className="game-card space-y-4">
           <h3 className="text-base font-semibold text-navy border-b border-surface-high pb-3">
-            {mode === 'couple' ? 'Your Details' : 'Your Details'}
+            Your Details
           </h3>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -120,15 +120,16 @@ export default function Step1HouseholdSetup({ onNext }: Props) {
                 data-testid={STEP1_IDS.P1_NAME}
                 value={person1.name}
                 onChange={(e) => setP1Name(e.target.value)}
-                placeholder={mode === 'couple' ? 'e.g. Alex' : 'e.g. Alex'}
+                placeholder="e.g. Alex"
                 className="input-base"
               />
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-semibold text-ink-muted">Date of Birth</label>
+              <label htmlFor="p1-dob" className="text-xs font-semibold text-ink-muted">Date of Birth</label>
               <input
                 type="date"
+                id="p1-dob"
                 data-testid={STEP1_IDS.P1_DOB}
                 value={person1.dateOfBirth}
                 onChange={(e) => setP1Dob(e.target.value)}
@@ -166,11 +167,12 @@ export default function Step1HouseholdSetup({ onNext }: Props) {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-semibold text-ink-muted">
+                <label htmlFor="p2-name" className="text-xs font-semibold text-ink-muted">
                   First Name <span className="font-normal text-border-strong">(optional)</span>
                 </label>
                 <input
                   type="text"
+                  id="p2-name"
                   data-testid={STEP1_IDS.P2_NAME}
                   value={person2.name}
                   onChange={(e) => setP2Name(e.target.value)}
@@ -180,9 +182,10 @@ export default function Step1HouseholdSetup({ onNext }: Props) {
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-semibold text-ink-muted">Date of Birth</label>
+                <label htmlFor="p2-dob" className="text-xs font-semibold text-ink-muted">Date of Birth</label>
                 <input
                   type="date"
+                  id="p2-dob"
                   data-testid={STEP1_IDS.P2_DOB}
                   value={person2.dateOfBirth}
                   onChange={(e) => setP2Dob(e.target.value)}
@@ -280,7 +283,7 @@ export default function Step1HouseholdSetup({ onNext }: Props) {
           {/* Planning horizon */}
           <div className="space-y-2">
             <div className="flex justify-between items-center">
-              <label className="text-sm font-semibold text-navy flex items-center gap-1.5">
+              <label htmlFor="life-expectancy" className="text-sm font-semibold text-navy flex items-center gap-1.5">
                 <svg className="w-4 h-4 text-ink-muted" viewBox="0 0 20 20" fill="currentColor">
                   <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm.75-13a.75.75 0 00-1.5 0v5c0 .414.336.75.75.75h4a.75.75 0 000-1.5h-3.25V5z" clipRule="evenodd" />
                 </svg>
@@ -290,6 +293,7 @@ export default function Step1HouseholdSetup({ onNext }: Props) {
             </div>
             <input
               type="range"
+              id="life-expectancy"
               data-testid={STEP1_IDS.LIFE_EXPECTANCY}
               min={planningHorizonMin}
               max={MAX_PLANNING_HORIZON}
@@ -298,6 +302,7 @@ export default function Step1HouseholdSetup({ onNext }: Props) {
               onChange={(e) => updateAssumptions({ lifeExpectancy: parseInt(e.target.value) })}
               className="w-full"
               disabled={planningHorizonMin === MAX_PLANNING_HORIZON}
+              aria-label="Planning horizon (life expectancy)"
               style={{ background: `linear-gradient(to right, #F57C00 ${planningHorizonProgress}%, #e4e2dd ${planningHorizonProgress}%)` }}
             />
             <div className="flex justify-between text-xs text-ink-muted">
