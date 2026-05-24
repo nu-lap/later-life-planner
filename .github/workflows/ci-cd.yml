@@ -1,7 +1,8 @@
 # CI/CD for later-life-planner
 # Test on every push/PR to master when app, test, or workflow files change.
 # Build + deploy only when container-affecting files change on master.
-# Manual trigger via workflow_dispatch always runs CI, but deploy still stays gated to master.
+# Manual trigger via workflow_dispatch runs full CI on master only.
+# For branch preview containers (build + push without deploy) use preview.yml.
 name: CI/CD
 
 on:
@@ -278,7 +279,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [changes, test]
     if: |
-      (github.ref == 'refs/heads/master' || github.event_name == 'workflow_dispatch') &&
+      github.ref == 'refs/heads/master' &&
       needs.changes.outputs.container == 'true'
     permissions:
       contents: read
