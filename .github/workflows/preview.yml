@@ -259,26 +259,16 @@ jobs:
         env:
           LATEST_TAG: ${{ needs.preview-build-push.outputs.latest_tag }}
         run: |
-          az containerapp update \
+          # Single-revision mode: update creates and activates a new revision automatically.
+          # No restart needed — the new revision starts fresh with the updated image.
+          REVISION=$(az containerapp update \
             --name "$APP_NAME" \
             --resource-group "$APP_RESOURCE_GROUP" \
             --image "$LATEST_TAG" \
             --only-show-errors \
             --query properties.latestRevisionName \
-            -o tsv >/dev/null
-
-      - name: Restart revision
-        run: |
-          REVISION=$(az containerapp show \
-            --name "$APP_NAME" \
-            --resource-group "$APP_RESOURCE_GROUP" \
-            --query properties.latestRevisionName \
             -o tsv)
-          az containerapp revision restart \
-            --name "$APP_NAME" \
-            --resource-group "$APP_RESOURCE_GROUP" \
-            --revision "$REVISION"
-          echo "Restarted revision: $REVISION"
+          echo "New revision: $REVISION"
 
       - name: Show preview URL
         env:
