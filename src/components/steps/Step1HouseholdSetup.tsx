@@ -26,10 +26,7 @@ export default function Step1HouseholdSetup({ onNext }: Props) {
     rlssStandard, applyRlssTemplate,
   } = usePlannerStore();
 
-  // In couple mode, p2FiAge defaults to fiAge if not explicitly set
   const p2FiAge = mode === 'couple' ? (p2FiAgeRaw ?? fiAge) : fiAge;
-
-  // Format a date value for display (age label)
   const ageLabel = (age: number) => `${age} years old`;
   const minSupportedDob = getMinSupportedDob();
   const maxSupportedDob = getMaxSupportedDob();
@@ -52,41 +49,53 @@ export default function Step1HouseholdSetup({ onNext }: Props) {
   return (
     <div className="space-y-6 pb-24">
 
-      {/* Hero */}
-      <div className="text-center py-10">
-        <div className="inline-flex items-center gap-2 bg-orange-100 text-orange-700 text-xs font-bold px-4 py-1.5 rounded-full mb-4">
-          👋 Step 1 of 5 — Household Setup
-        </div>
-        <h2 className="text-4xl sm:text-5xl font-black text-slate-900 mb-4 leading-tight tracking-tight">
-          Who are we<br />
-          <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-500 to-amber-400">
-            planning for?
-          </span>
-        </h2>
-        <p className="text-lg text-slate-500 max-w-xl mx-auto">
+      {/* Page header */}
+      <div className="text-center pt-8 pb-4">
+        <h1 className="text-3xl md:text-4xl font-bold text-navy mb-3 tracking-tight">
+          Who are we planning for?
+        </h1>
+        <p className="text-base text-ink-muted max-w-lg mx-auto leading-relaxed">
           Tell us about your household so we can build a plan around your life stages.
         </p>
       </div>
 
-      {/* Planning mode */}
+      {/* Planning mode selection */}
       <div className="game-card">
         <h3 className="section-heading">Household type</h3>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-4 mt-4">
           {(['single', 'couple'] as const).map((m) => (
-            <button
-              key={m}
-              data-testid={m === 'single' ? STEP1_IDS.MODE_SINGLE : STEP1_IDS.MODE_COUPLE}
-              onClick={() => { setMode(m); if (rlssStandard) applyRlssTemplate(rlssStandard); }}
-              className={clsx(
-                'flex flex-col items-center gap-2 p-5 rounded-2xl border-2 font-semibold transition-all',
-                mode === m
-                  ? 'border-orange-400 bg-orange-50 text-orange-700 shadow-sm'
-                  : 'border-slate-200 bg-slate-50 text-slate-600 hover:border-slate-300'
-              )}
-            >
-              <span className="text-3xl">{m === 'single' ? '🙋' : '👫'}</span>
-              <span className="text-base">{m === 'single' ? 'Just me' : 'Me & my partner'}</span>
-            </button>
+            <label key={m} className="cursor-pointer group relative">
+              <input
+                type="radio"
+                name="household_type"
+                value={m}
+                checked={mode === m}
+                onChange={() => { setMode(m); if (rlssStandard) applyRlssTemplate(rlssStandard); }}
+                className="sr-only"
+              />
+              <button
+                data-testid={m === 'single' ? STEP1_IDS.MODE_SINGLE : STEP1_IDS.MODE_COUPLE}
+                onClick={() => { setMode(m); if (rlssStandard) applyRlssTemplate(rlssStandard); }}
+                className={clsx(
+                  'w-full flex flex-col items-center gap-3 p-5 rounded-lg border-2 font-medium transition-all shadow-card',
+                  mode === m
+                    ? 'border-navy bg-surface text-navy'
+                    : 'border-border bg-surface-white text-ink-muted hover:border-navy/50 hover:bg-surface-low'
+                )}
+              >
+                <span className="text-4xl" role="img" aria-label={m === 'single' ? 'person' : 'group'}>
+                  {m === 'single' ? '🙋' : '👫'}
+                </span>
+                <span className="text-sm font-semibold">
+                  {m === 'single' ? 'Just me' : 'Me & my partner'}
+                </span>
+                <span className="text-xs text-ink-muted font-normal text-center leading-snug">
+                  {m === 'single'
+                    ? "I'm planning for my own retirement."
+                    : 'We are planning our future together.'}
+                </span>
+              </button>
+            </label>
           ))}
         </div>
       </div>
@@ -96,48 +105,46 @@ export default function Step1HouseholdSetup({ onNext }: Props) {
 
         {/* Person 1 */}
         <div className="game-card space-y-4">
-          <div className="flex items-center gap-2 mb-1">
-            <div className="w-8 h-8 rounded-full bg-orange-500 text-white flex items-center justify-center font-black text-sm">
-              {mode === 'couple' ? '1' : 'Me'}
+          <h3 className="text-base font-semibold text-navy border-b border-surface-high pb-3">
+            {mode === 'couple' ? 'Your Details' : 'Your Details'}
+          </h3>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-semibold text-ink-muted" htmlFor={`p1-name-${STEP1_IDS.P1_NAME}`}>
+                First Name <span className="font-normal text-border-strong">(optional)</span>
+              </label>
+              <input
+                type="text"
+                id={`p1-name-${STEP1_IDS.P1_NAME}`}
+                data-testid={STEP1_IDS.P1_NAME}
+                value={person1.name}
+                onChange={(e) => setP1Name(e.target.value)}
+                placeholder={mode === 'couple' ? 'e.g. Alex' : 'e.g. Alex'}
+                className="input-base"
+              />
             </div>
-            <h3 className="font-black text-slate-800">{person1.name || (mode === 'couple' ? 'Person 1' : 'Your details')}</h3>
+
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-semibold text-ink-muted">Date of Birth</label>
+              <input
+                type="date"
+                data-testid={STEP1_IDS.P1_DOB}
+                value={person1.dateOfBirth}
+                onChange={(e) => setP1Dob(e.target.value)}
+                min={minSupportedDob}
+                max={maxSupportedDob}
+                className="input-base"
+              />
+              {person1.currentAge > 0 && (
+                <p className="text-xs text-tangerine font-semibold">{ageLabel(person1.currentAge)}</p>
+              )}
+            </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-semibold text-slate-600 mb-2">
-              {mode === 'couple' ? 'Your name' : 'Your name'} <span className="text-slate-400 font-normal">(optional)</span>
-            </label>
-            <input
-              type="text"
-              data-testid={STEP1_IDS.P1_NAME}
-              value={person1.name}
-              onChange={(e) => setP1Name(e.target.value)}
-              placeholder={mode === 'couple' ? 'e.g. Alex' : 'e.g. Alex'}
-              className="input-base"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-semibold text-slate-600 mb-2">
-              Date of birth
-            </label>
-            <input
-              type="date"
-              data-testid={STEP1_IDS.P1_DOB}
-              value={person1.dateOfBirth}
-              onChange={(e) => setP1Dob(e.target.value)}
-              min={minSupportedDob}
-              max={maxSupportedDob}
-              className="input-base"
-            />
-            {person1.currentAge > 0 && (
-              <p className="text-xs text-orange-600 font-semibold mt-1.5">{ageLabel(person1.currentAge)}</p>
-            )}
-          </div>
-
-          <div>
-            <label htmlFor={STEP1_IDS.P1_SALARY} className="block text-sm font-semibold text-slate-600 mb-2">
-              Salary <span className="text-slate-400 font-normal">(before tax, optional)</span>
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor={STEP1_IDS.P1_SALARY} className="text-xs font-semibold text-ink-muted">
+              Salary <span className="font-normal text-border-strong">(before tax, optional)</span>
             </label>
             <CurrencyInput
               id={STEP1_IDS.P1_SALARY}
@@ -153,48 +160,45 @@ export default function Step1HouseholdSetup({ onNext }: Props) {
         {/* Person 2 */}
         {mode === 'couple' && (
           <div className="game-card space-y-4">
-            <div className="flex items-center gap-2 mb-1">
-              <div className="w-8 h-8 rounded-full bg-emerald-500 text-white flex items-center justify-center font-black text-sm">
-                2
+            <h3 className="text-base font-semibold text-navy border-b border-surface-high pb-3">
+              {person2.name ? `${person2.name}'s Details` : "Partner's Details"}
+            </h3>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-semibold text-ink-muted">
+                  First Name <span className="font-normal text-border-strong">(optional)</span>
+                </label>
+                <input
+                  type="text"
+                  data-testid={STEP1_IDS.P2_NAME}
+                  value={person2.name}
+                  onChange={(e) => setP2Name(e.target.value)}
+                  placeholder="e.g. Sam"
+                  className="input-base"
+                />
               </div>
-              <h3 className="font-black text-slate-800">{person2.name || 'Person 2'}</h3>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-semibold text-ink-muted">Date of Birth</label>
+                <input
+                  type="date"
+                  data-testid={STEP1_IDS.P2_DOB}
+                  value={person2.dateOfBirth}
+                  onChange={(e) => setP2Dob(e.target.value)}
+                  min={minSupportedDob}
+                  max={maxSupportedDob}
+                  className="input-base"
+                />
+                {person2.currentAge > 0 && (
+                  <p className="text-xs text-tangerine font-semibold">{ageLabel(person2.currentAge)}</p>
+                )}
+              </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-semibold text-slate-600 mb-2">
-                Partner&apos;s name <span className="text-slate-400 font-normal">(optional)</span>
-              </label>
-              <input
-                type="text"
-                data-testid={STEP1_IDS.P2_NAME}
-                value={person2.name}
-                onChange={(e) => setP2Name(e.target.value)}
-                placeholder="e.g. Sam"
-                className="input-base"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-semibold text-slate-600 mb-2">
-                Date of birth
-              </label>
-              <input
-                type="date"
-                data-testid={STEP1_IDS.P2_DOB}
-                value={person2.dateOfBirth}
-                onChange={(e) => setP2Dob(e.target.value)}
-                min={minSupportedDob}
-                max={maxSupportedDob}
-                className="input-base"
-              />
-              {person2.currentAge > 0 && (
-                <p className="text-xs text-emerald-600 font-semibold mt-1.5">{ageLabel(person2.currentAge)}</p>
-              )}
-            </div>
-
-            <div>
-              <label htmlFor={STEP1_IDS.P2_SALARY} className="block text-sm font-semibold text-slate-600 mb-2">
-                Salary <span className="text-slate-400 font-normal">(before tax, optional)</span>
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor={STEP1_IDS.P2_SALARY} className="text-xs font-semibold text-ink-muted">
+                Salary <span className="font-normal text-border-strong">(before tax, optional)</span>
               </label>
               <CurrencyInput
                 id={STEP1_IDS.P2_SALARY}
@@ -209,25 +213,22 @@ export default function Step1HouseholdSetup({ onNext }: Props) {
         )}
       </div>
 
-      {/* Financial independence age */}
-      <div className="game-card">
-        <h3 className="section-heading">
-          Financial independence age
-          <span className="font-normal text-slate-400 text-sm ml-2">— when work becomes a choice</span>
-        </h3>
-        <p className="section-subheading">
-          The age from which work becomes a choice, not a necessity. Life stages — Go-Go Years, Slo-Go Years,
-          No-Go Years — begin here. You can still work beyond this age if you want to — this is about having options.
-        </p>
+      {/* Sliders */}
+      <div className="game-card space-y-6">
+        <div className="bg-surface-low rounded-lg p-4 border border-surface-high space-y-6">
 
-        {/* Person 1 (or solo) slider */}
-        <div className={mode === 'couple' ? 'mb-5' : ''}>
-          {mode === 'couple' && (
-            <p className="text-sm font-semibold text-slate-700 mb-2">
-              {person1.name || 'Person 1'}
-            </p>
-          )}
-          <div className="flex items-center gap-4">
+          {/* FI age — Person 1 */}
+          <div className="space-y-2">
+            <div className="flex justify-between items-center">
+              <label className="text-sm font-semibold text-navy flex items-center gap-1.5">
+                <svg className="w-4 h-4 text-ink-muted" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M3 6a3 3 0 013-3h10a1 1 0 01.8 1.6L14.25 8l2.55 3.4A1 1 0 0116 13H6a1 1 0 00-1 1v3a1 1 0 11-2 0V6z" clipRule="evenodd" />
+                </svg>
+                {mode === 'couple' ? `${person1.name || 'Person 1'} — financial independence age` : 'Financial independence age'}
+                <span className="font-normal text-ink-muted text-xs hidden md:inline">— when work becomes a choice</span>
+              </label>
+              <span className="text-lg font-bold text-tangerine tabular-nums">{fiAge}</span>
+            </div>
             <input
               type="range"
               data-testid={STEP1_IDS.P1_FI_AGE}
@@ -236,31 +237,26 @@ export default function Step1HouseholdSetup({ onNext }: Props) {
               step={1}
               value={fiAge}
               onChange={(e) => setFiAge(parseInt(e.target.value))}
-              className="flex-1"
+              className="w-full"
               disabled={fiAgeMin === fiAgeMax}
               aria-label={`${person1.name || 'Person 1'} financial independence age`}
-              style={{ background: `linear-gradient(to right, #f97316 ${fiProgress}%, #e2e8f0 ${fiProgress}%)` }}
+              style={{ background: `linear-gradient(to right, #F57C00 ${fiProgress}%, #e4e2dd ${fiProgress}%)` }}
             />
-            <div className="w-16 h-14 bg-orange-500 text-white font-black text-xl rounded-2xl flex items-center justify-center flex-shrink-0">
-              {fiAge}
+            <div className="flex justify-between text-xs text-ink-muted">
+              <span>{fiAgeMin}</span>
+              <span>{fiAgeMax}</span>
             </div>
           </div>
-          <div className="mt-3 flex items-center justify-between text-xs text-slate-400">
-            {fiAge > person1.currentAge
-              ? <span>Building phase: age {person1.currentAge} → {fiAge - 1}{fiAge - person1.currentAge >= 7 ? ' · Drag left to explore early retirement' : ''}</span>
-              : <span>Freedom phase starts now</span>
-            }
-            <span>Freedom phase starts: age {fiAge}</span>
-          </div>
-        </div>
 
-        {/* Person 2 slider — couple mode only */}
-        {mode === 'couple' && (
-          <div>
-            <p className="text-sm font-semibold text-slate-700 mb-2">
-              {person2.name || 'Person 2'}
-            </p>
-            <div className="flex items-center gap-4">
+          {/* FI age — Person 2 (couple mode) */}
+          {mode === 'couple' && (
+            <div className="space-y-2">
+              <div className="flex justify-between items-center">
+                <label className="text-sm font-semibold text-navy">
+                  {person2.name || 'Person 2'} — financial independence age
+                </label>
+                <span className="text-lg font-bold text-tangerine tabular-nums">{p2FiAge}</span>
+              </div>
               <input
                 type="range"
                 data-testid={STEP1_IDS.P2_FI_AGE}
@@ -269,52 +265,56 @@ export default function Step1HouseholdSetup({ onNext }: Props) {
                 step={1}
                 value={p2FiAge}
                 onChange={(e) => setP2FiAge(parseInt(e.target.value))}
-                className="flex-1"
+                className="w-full"
                 disabled={p2FiAgeMin === p2FiAgeMax}
                 aria-label={`${person2.name || 'Person 2'} financial independence age`}
-                style={{ background: `linear-gradient(to right, #f97316 ${p2FiProgress}%, #e2e8f0 ${p2FiProgress}%)` }}
+                style={{ background: `linear-gradient(to right, #F57C00 ${p2FiProgress}%, #e4e2dd ${p2FiProgress}%)` }}
               />
-              <div className="w-16 h-14 bg-orange-500 text-white font-black text-xl rounded-2xl flex items-center justify-center flex-shrink-0">
-                {p2FiAge}
+              <div className="flex justify-between text-xs text-ink-muted">
+                <span>{p2FiAgeMin}</span>
+                <span>{p2FiAgeMax}</span>
               </div>
             </div>
-            <div className="mt-3 flex items-center justify-between text-xs text-slate-400">
-              {p2FiAge > person2.currentAge
-                ? <span>Building phase: age {person2.currentAge} → {p2FiAge - 1}</span>
-                : <span>Freedom phase starts now</span>
-              }
-              <span>Freedom phase starts: age {p2FiAge}</span>
-            </div>
-          </div>
-        )}
-      </div>
+          )}
 
-      {/* Planning horizon */}
-      <div className="game-card">
-        <h3 className="section-heading">Planning horizon</h3>
-        <p className="section-subheading">We&apos;ll model your plan to this age. Being optimistic is wise.</p>
-        <div className="flex items-center gap-4">
-          <input
-            type="range"
-            data-testid={STEP1_IDS.LIFE_EXPECTANCY}
-            min={planningHorizonMin}
-            max={MAX_PLANNING_HORIZON}
-            step={1}
-            value={assumptions.lifeExpectancy}
-            onChange={(e) => updateAssumptions({ lifeExpectancy: parseInt(e.target.value) })}
-            className="flex-1"
-            disabled={planningHorizonMin === MAX_PLANNING_HORIZON}
-            style={{ background: `linear-gradient(to right, #8b5cf6 ${planningHorizonProgress}%, #e2e8f0 ${planningHorizonProgress}%)` }}
-          />
-          <div className="w-16 h-14 bg-violet-500 text-white font-black text-xl rounded-2xl flex items-center justify-center flex-shrink-0">
-            {assumptions.lifeExpectancy}
+          {/* Planning horizon */}
+          <div className="space-y-2">
+            <div className="flex justify-between items-center">
+              <label className="text-sm font-semibold text-navy flex items-center gap-1.5">
+                <svg className="w-4 h-4 text-ink-muted" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm.75-13a.75.75 0 00-1.5 0v5c0 .414.336.75.75.75h4a.75.75 0 000-1.5h-3.25V5z" clipRule="evenodd" />
+                </svg>
+                Planning horizon (life expectancy)
+              </label>
+              <span className="text-lg font-bold text-tangerine tabular-nums">{assumptions.lifeExpectancy}</span>
+            </div>
+            <input
+              type="range"
+              data-testid={STEP1_IDS.LIFE_EXPECTANCY}
+              min={planningHorizonMin}
+              max={MAX_PLANNING_HORIZON}
+              step={1}
+              value={assumptions.lifeExpectancy}
+              onChange={(e) => updateAssumptions({ lifeExpectancy: parseInt(e.target.value) })}
+              className="w-full"
+              disabled={planningHorizonMin === MAX_PLANNING_HORIZON}
+              style={{ background: `linear-gradient(to right, #F57C00 ${planningHorizonProgress}%, #e4e2dd ${planningHorizonProgress}%)` }}
+            />
+            <div className="flex justify-between text-xs text-ink-muted">
+              <span>{planningHorizonMin}</span>
+              <span>{MAX_PLANNING_HORIZON}</span>
+            </div>
           </div>
         </div>
       </div>
 
+      {/* Navigation */}
       <div className="flex justify-end pt-2">
-        <button data-testid={STEP1_IDS.NEXT} onClick={onNext} className="btn-primary px-12 text-lg">
-          Set your life vision →
+        <button data-testid={STEP1_IDS.NEXT} onClick={onNext} className="btn-primary px-10 text-sm flex items-center gap-2">
+          Set your life vision
+          <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
+            <path fillRule="evenodd" d="M3 10a.75.75 0 01.75-.75h10.638L10.23 5.29a.75.75 0 111.04-1.08l5.5 5.25a.75.75 0 010 1.08l-5.5 5.25a.75.75 0 11-1.04-1.08l4.158-3.96H3.75A.75.75 0 013 10z" clipRule="evenodd" />
+          </svg>
         </button>
       </div>
     </div>

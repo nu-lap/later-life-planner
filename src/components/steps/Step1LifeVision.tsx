@@ -53,10 +53,7 @@ export default function Step2LifeVision({ onNext, onBack }: Props) {
     try {
       widgetIdRef.current = window.turnstile.render(captchaRef.current, {
         sitekey: siteKey!,
-        callback: (token: string) => {
-          setCaptchaToken(token);
-          setCaptchaError(null);
-        },
+        callback: (token: string) => { setCaptchaToken(token); setCaptchaError(null); },
         'error-callback': () => setCaptchaError('Captcha failed. Please try again.'),
         'expired-callback': () => setCaptchaToken(null),
         theme: 'light',
@@ -88,10 +85,7 @@ export default function Step2LifeVision({ onNext, onBack }: Props) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ aspirations, mode, turnstileToken: token }),
       });
-      if (!res.ok || !res.body) {
-        resetCaptcha();
-        throw new Error('Request failed');
-      }
+      if (!res.ok || !res.body) { resetCaptcha(); throw new Error('Request failed'); }
       setLifeVision('');
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
@@ -103,14 +97,11 @@ export default function Step2LifeVision({ onNext, onBack }: Props) {
         setLifeVision(text);
       }
     } catch {
-      // silently fail — user can just type manually
+      // silently fail — user can type manually
     } finally {
       setIsGenerating(false);
       setPendingGenerate(false);
-      if (captchaEnabled) {
-        resetCaptcha();
-        setShowCaptcha(false);
-      }
+      if (captchaEnabled) { resetCaptcha(); setShowCaptcha(false); }
     }
   }, [aspirations, mode, setLifeVision, setIsGenerating, setPendingGenerate, resetCaptcha, captchaEnabled, setShowCaptcha]);
 
@@ -125,13 +116,10 @@ export default function Step2LifeVision({ onNext, onBack }: Props) {
   }
 
   useEffect(() => {
-    if (!captchaEnabled) return;
-    if (!pendingGenerate) return;
-    if (!captchaToken) return;
+    if (!captchaEnabled || !pendingGenerate || !captchaToken) return;
     startGenerate(captchaToken);
   }, [captchaEnabled, pendingGenerate, captchaToken, startGenerate]);
 
-  // Max endAge for a non-last stage: must leave 1 year for every stage that follows.
   function maxEndAge(stageIndex: number): number {
     return assumptions.lifeExpectancy - (lifeStages.length - 1 - stageIndex);
   }
@@ -140,21 +128,15 @@ export default function Step2LifeVision({ onNext, onBack }: Props) {
     const stage = lifeStages[stageIndex];
     if (newEndAge <= stage.startAge) return;
     if (newEndAge > maxEndAge(stageIndex)) return;
-
-    // Apply the change and cascade through every downstream stage so all
-    // startAge/endAge values stay consistent with each other.
     updateLifeStage(stage.id, { endAge: newEndAge });
-
     let prevEnd = newEndAge;
     for (let j = stageIndex + 1; j < lifeStages.length; j++) {
       const s = lifeStages[j];
       const newStart = prevEnd + 1;
       const isLast = j === lifeStages.length - 1;
       if (isLast) {
-        // Last stage: endAge is fixed (= lifeExpectancy); only startAge moves.
         updateLifeStage(s.id, { startAge: newStart });
       } else {
-        // Non-last: if the push compresses this stage, extend its end (capped at its max).
         const newEnd = Math.max(s.endAge, Math.min(newStart, maxEndAge(j)));
         updateLifeStage(s.id, { startAge: newStart, endAge: newEnd });
         prevEnd = newEnd;
@@ -165,31 +147,25 @@ export default function Step2LifeVision({ onNext, onBack }: Props) {
   return (
     <div className="space-y-6 pb-24">
 
-      {/* Hero */}
-      <div className="text-center py-10">
-        <div className="inline-flex items-center gap-2 bg-orange-100 text-orange-700 text-xs font-bold px-4 py-1.5 rounded-full mb-4">
-          ✨ Step 2 of 5 — Life Vision
-        </div>
-        <h2 className="text-4xl sm:text-5xl font-black text-slate-900 mb-4 leading-tight tracking-tight">
-          What does your<br />
-          <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-500 to-amber-400">
-            ideal life look like?
-          </span>
-        </h2>
-        <p className="text-lg text-slate-500 max-w-xl mx-auto">
-          The best plan starts with knowing what you want. Design your life first — then figure out how to fund it.
+      {/* Page header */}
+      <div className="text-center pt-8 pb-4">
+        <h1 className="text-3xl md:text-4xl font-bold text-navy mb-3 tracking-tight">
+          What does your ideal life look like?
+        </h1>
+        <p className="text-base text-ink-muted max-w-xl mx-auto leading-relaxed">
+          Defining your vision helps us build a plan that truly matters to you. Think about the different stages of your retirement.
         </p>
       </div>
 
-      {/* Life stage visual timeline */}
-      <div className="game-card">
-        <h3 className="section-heading">Your life stages</h3>
+      {/* Retirement phases timeline */}
+      <section className="game-card">
+        <h2 className="section-heading">Your life stages</h2>
         <p className="section-subheading">
-          We divide your plan into three stages. Adjust the boundaries to match your vision.
+          Visualize how your energy and activity levels might change over time. Adjust the boundaries to match your vision.
         </p>
 
-        {/* Visual timeline bar — always 100% wide; each segment is its share of all stage years */}
-        <div className="flex rounded-2xl overflow-hidden mb-5 h-12 shadow-inner-soft">
+        {/* Segmented bar */}
+        <div className="flex h-12 rounded-full overflow-hidden w-full shadow-card border border-border/40 mb-4">
           {(() => {
             const totalSpan = lifeStages.reduce((s, st) => s + (st.endAge - st.startAge + 1), 0);
             return lifeStages.map((stage) => {
@@ -202,7 +178,7 @@ export default function Step2LifeVision({ onNext, onBack }: Props) {
                   style={{ width: `${pct}%`, backgroundColor: stage.color }}
                 >
                   {pct >= 20 ? (
-                    <span className="truncate px-1">{stage.startAge} — {stage.label}</span>
+                    <span className="truncate px-2">{stage.startAge} — {stage.label}</span>
                   ) : pct >= 10 ? (
                     <span className="truncate px-1">{stage.startAge}</span>
                   ) : null}
@@ -212,44 +188,50 @@ export default function Step2LifeVision({ onNext, onBack }: Props) {
           })()}
         </div>
 
+        {/* Stage descriptors */}
+        <div className="flex justify-between text-xs text-ink-muted px-1 mb-5">
+          <span>High Activity / Higher Spending</span>
+          <span className="text-center hidden md:block">Moderate Activity</span>
+          <span className="text-right">Lower Activity / Healthcare</span>
+        </div>
+
+        {/* Stage controls */}
         <div className="space-y-3">
           {lifeStages.map((stage, i) => {
             const isLast = i === lifeStages.length - 1;
             return (
-              <div key={stage.id} className="p-3 rounded-2xl bg-slate-50 border border-slate-100">
-                {/* Label row */}
+              <div key={stage.id} className="p-3 rounded-lg bg-surface-low border border-surface-high">
                 <div className="flex items-center gap-3 mb-2">
-                  <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: stage.color }} />
+                  <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: stage.color }} />
                   <input
                     type="text"
                     value={stage.label}
                     onChange={(e) => updateLifeStage(stage.id, { label: e.target.value })}
-                    className="flex-1 font-semibold text-slate-800 bg-transparent border-0 border-b border-dashed border-slate-300 focus:outline-none focus:border-orange-400 text-sm"
+                    className="flex-1 font-semibold text-navy bg-transparent border-0 border-b border-dashed border-border focus:outline-none focus:border-tangerine text-sm"
                   />
-                  <span className="text-xs text-slate-400 flex-shrink-0">
+                  <span className="text-xs text-ink-muted flex-shrink-0">
                     {stage.endAge - stage.startAge + 1}yr
                   </span>
                 </div>
-                {/* Age controls row */}
-                <div className="flex items-center justify-between pl-6">
-                  <span className="text-sm text-slate-500">
-                    Ages <span className="font-bold text-slate-700">{stage.startAge}</span> – <span className="font-bold text-slate-700">{stage.endAge}</span>
+                <div className="flex items-center justify-between pl-5">
+                  <span className="text-sm text-ink-muted">
+                    Ages <span className="font-bold text-ink">{stage.startAge}</span> – <span className="font-bold text-ink">{stage.endAge}</span>
                   </span>
                   {!isLast && (
                     <div className="flex items-center gap-2">
-                      <span className="text-xs text-slate-400">End at</span>
+                      <span className="text-xs text-ink-muted">End at</span>
                       <button
                         type="button"
                         onClick={() => handleEndAge(i, stage.endAge - 1)}
                         disabled={stage.endAge <= stage.startAge + 1}
-                        className="w-9 h-9 rounded-xl bg-slate-200 hover:bg-slate-300 active:bg-slate-400 disabled:opacity-30 disabled:cursor-not-allowed font-bold text-lg leading-none flex items-center justify-center transition-colors select-none"
+                        className="w-8 h-8 rounded-lg bg-surface-high hover:bg-surface-highest disabled:opacity-30 disabled:cursor-not-allowed font-bold text-base flex items-center justify-center transition-colors"
                       >−</button>
-                      <span className="w-8 text-center font-black text-slate-800 tabular-nums">{stage.endAge}</span>
+                      <span className="w-8 text-center font-bold text-navy tabular-nums text-sm">{stage.endAge}</span>
                       <button
                         type="button"
                         onClick={() => handleEndAge(i, stage.endAge + 1)}
                         disabled={stage.endAge >= maxEndAge(i)}
-                        className="w-9 h-9 rounded-xl bg-slate-200 hover:bg-slate-300 active:bg-slate-400 disabled:opacity-30 disabled:cursor-not-allowed font-bold text-lg leading-none flex items-center justify-center transition-colors select-none"
+                        className="w-8 h-8 rounded-lg bg-surface-high hover:bg-surface-highest disabled:opacity-30 disabled:cursor-not-allowed font-bold text-base flex items-center justify-center transition-colors"
                       >+</button>
                     </div>
                   )}
@@ -258,13 +240,13 @@ export default function Step2LifeVision({ onNext, onBack }: Props) {
             );
           })}
         </div>
-      </div>
+      </section>
 
-      {/* Life goals */}
-      <div className="game-card">
-        <h3 className="section-heading">What matters most to you?</h3>
-        <p className="section-subheading">Pick everything you want your later life to include.</p>
-        <div className="grid grid-cols-3 sm:grid-cols-5 gap-2.5">
+      {/* What matters most */}
+      <section className="game-card">
+        <h2 className="section-heading">What matters most to you?</h2>
+        <p className="section-subheading">Select the core themes of your ideal retirement.</p>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {ASPIRATIONS.map(({ tag, label, icon }) => {
             const on = aspirations.includes(tag);
             return (
@@ -272,40 +254,53 @@ export default function Step2LifeVision({ onNext, onBack }: Props) {
                 key={tag}
                 onClick={() => toggleAspiration(tag)}
                 className={clsx(
-                  'flex flex-col items-center gap-2 p-3 rounded-2xl border-2 transition-all text-center',
+                  'flex flex-col items-center justify-center p-4 rounded-lg border-2 transition-all text-center',
                   on
-                    ? 'border-orange-400 bg-orange-50 text-orange-700'
-                    : 'border-slate-200 bg-white text-slate-600 hover:border-orange-200 hover:bg-orange-50/50'
+                    ? 'border-tangerine bg-surface shadow-card-lg'
+                    : 'border-border bg-surface-white hover:bg-surface-low hover:border-navy/40'
                 )}
               >
-                <span className="text-2xl">{icon}</span>
-                <span className="font-semibold text-xs leading-tight">{label}</span>
+                <div className={clsx(
+                  'w-11 h-11 rounded-full flex items-center justify-center mb-2',
+                  on ? 'bg-tangerine/20' : 'bg-surface-container'
+                )}>
+                  <span className="text-xl">{icon}</span>
+                </div>
+                <span className={clsx(
+                  'text-xs font-semibold leading-tight',
+                  on ? 'text-navy' : 'text-ink-muted'
+                )}>
+                  {label}
+                </span>
               </button>
             );
           })}
         </div>
-      </div>
+      </section>
 
       {/* Life vision text */}
-      <div className="game-card">
-        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-1">
-          <h3 className="section-heading mb-0">
-            {mode === 'couple' ? '💬 Your shared life vision' : '💬 Your life vision'}
-          </h3>
-          <div className="flex flex-col sm:items-end gap-2">
+      <section className="game-card">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-3">
+          <div>
+            <h2 className="section-heading mb-0">
+              {mode === 'couple' ? 'Your shared life vision' : 'Your life vision'}
+            </h2>
+            <p className="section-subheading mt-1 mb-0">Describe your ideal day in retirement or overarching goals.</p>
+          </div>
+          <div className="flex flex-col sm:items-end gap-2 flex-shrink-0">
             <button
               onClick={handleGenerateVision}
               disabled={isGenerating}
               className={clsx(
-                'flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-xl transition-all flex-shrink-0',
+                'flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full transition-all border',
                 isGenerating
-                  ? 'bg-violet-100 text-violet-400 cursor-not-allowed'
-                  : 'bg-violet-100 text-violet-700 hover:bg-violet-200'
+                  ? 'bg-surface-container text-ink-muted cursor-not-allowed border-border'
+                  : 'bg-surface-container text-navy hover:bg-surface-high border-border hover:border-navy/50'
               )}
             >
               {isGenerating ? (
                 <>
-                  <span className="animate-spin inline-block w-3 h-3 border-2 border-violet-400 border-t-transparent rounded-full" />
+                  <span className="animate-spin inline-block w-3 h-3 border-2 border-navy/40 border-t-navy rounded-full" />
                   Writing…
                 </>
               ) : captchaEnabled && showCaptcha && !captchaToken ? (
@@ -316,16 +311,14 @@ export default function Step2LifeVision({ onNext, onBack }: Props) {
             </button>
             {captchaEnabled && (
               <div className={clsx('text-left sm:text-right', !showCaptcha && 'hidden')}>
-                <p className="text-xs text-slate-500 mb-2">Quick check before we generate your vision:</p>
+                <p className="text-xs text-ink-muted mb-2">Quick check before we generate your vision:</p>
                 <div ref={captchaRef} />
                 {captchaError && <p className="text-xs text-rose-600 mt-2">{captchaError}</p>}
               </div>
             )}
           </div>
         </div>
-        <p className="section-subheading">
-          In your own words — what does a great week, month or year look like?
-        </p>
+
         <textarea
           ref={textareaRef}
           value={lifeVision}
@@ -333,13 +326,13 @@ export default function Step2LifeVision({ onNext, onBack }: Props) {
           placeholder={mode === 'couple'
             ? 'e.g. We want to travel widely while we have the energy, spend time with grandchildren, pursue photography and sailing…'
             : 'e.g. I want to winter in Southeast Asia, spend summers in my garden, help my grandchildren with their education…'}
-          rows={6}
-          className="input-base resize-none leading-relaxed text-base whitespace-pre-wrap overflow-hidden"
+          rows={5}
+          className="w-full bg-surface-white border border-border rounded-lg p-3 text-sm text-ink focus:border-navy focus:ring-2 focus:ring-navy/10 focus:outline-none transition-all resize-y"
         />
-        <p className="text-xs text-slate-400 mt-2 text-right">
+        <p className="text-xs text-ink-muted mt-2 text-right">
           {lifeVision.length > 0 ? `${lifeVision.length} characters` : 'Optional — but powerful for clarity'}
         </p>
-      </div>
+      </section>
 
       {captchaEnabled && (
         <Script
@@ -350,14 +343,18 @@ export default function Step2LifeVision({ onNext, onBack }: Props) {
         />
       )}
 
-      <div className="flex justify-between pt-2">
+      {/* Navigation */}
+      <div className="flex justify-between items-center pt-2">
         <button onClick={onBack} className="btn-secondary">← Back</button>
         <div className="flex items-center gap-4">
-          <button onClick={onNext} className="text-sm text-slate-400 hover:text-slate-600 underline underline-offset-2">
-            Skip for now →
+          <button onClick={onNext} className="text-sm text-ink-muted hover:text-navy underline underline-offset-2">
+            Skip for now
           </button>
-          <button onClick={onNext} className="btn-primary px-10 text-base">
-            Set spending goals →
+          <button onClick={onNext} className="btn-primary flex items-center gap-2">
+            Set spending goals
+            <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M3 10a.75.75 0 01.75-.75h10.638L10.23 5.29a.75.75 0 111.04-1.08l5.5 5.25a.75.75 0 010 1.08l-5.5 5.25a.75.75 0 11-1.04-1.08l4.158-3.96H3.75A.75.75 0 013 10z" clipRule="evenodd" />
+            </svg>
           </button>
         </div>
       </div>
