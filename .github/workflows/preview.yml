@@ -94,16 +94,19 @@ jobs:
 
       - name: Compute preview tags
         id: tags
+        env:
+          REF_NAME: ${{ github.ref_name }}
+          COMMIT_SHA: ${{ github.sha }}
         run: |
           # Sanitise branch name: lowercase, replace non-alphanumeric with hyphens,
           # collapse repeated hyphens, cap at 40 chars, strip trailing hyphen.
-          SAFE_BRANCH=$(echo "${{ github.ref_name }}" \
+          SAFE_BRANCH=$(echo "$REF_NAME" \
             | tr '[:upper:]' '[:lower:]' \
             | sed 's/[^a-z0-9-]/-/g' \
             | sed 's/-\+/-/g' \
             | cut -c1-40 \
             | sed 's/-$//')
-          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+          SHORT_SHA=$(echo "$COMMIT_SHA" | cut -c1-7)
           IMAGE="${ACR_LOGIN_SERVER}/later-life-planner"
           {
             echo "safe_branch=${SAFE_BRANCH}"
@@ -140,11 +143,12 @@ jobs:
             .
 
       - name: Write job summary
+        env:
+          BRANCH: ${{ github.ref_name }}
+          SHORT_SHA: ${{ steps.tags.outputs.short_sha }}
+          IMMUTABLE: ${{ steps.tags.outputs.immutable_tag }}
+          LATEST: ${{ steps.tags.outputs.latest_tag }}
         run: |
-          BRANCH="${{ github.ref_name }}"
-          SHORT_SHA="${{ steps.tags.outputs.short_sha }}"
-          IMMUTABLE="${{ steps.tags.outputs.immutable_tag }}"
-          LATEST="${{ steps.tags.outputs.latest_tag }}"
           cat >> "$GITHUB_STEP_SUMMARY" <<EOF
           ## Preview image ready — ${BRANCH} @ ${SHORT_SHA}
 
