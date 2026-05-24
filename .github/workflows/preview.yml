@@ -1,0 +1,171 @@
+# Preview container build for branch validation.
+# Triggers automatically on push to preview/** branches, and manually via workflow_dispatch.
+# Pushes branch-tagged images to ACR — never overwrites :latest (production only).
+# Use this to validate UI designs without touching the production pipeline.
+name: Preview Build
+
+on:
+  push:
+    branches: ['preview/**']
+  workflow_dispatch:
+
+concurrency:
+  group: preview-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  ACR_NAME: acrsharedresourcesuks
+  ACR_LOGIN_SERVER: acrsharedresourcesuks.azurecr.io
+
+jobs:
+  # Detect whether container-affecting files changed.
+  # workflow_dispatch always sets container=true so manual runs always build.
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      container: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.container }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - uses: dorny/paths-filter@9d7afb8d214ad99e78fbd4247752c4caed2b6e4c # v4.0.0
+        id: filter
+        with:
+          filters: |
+            container:
+              - 'src/**'
+              - 'public/**'
+              - 'package.json'
+              - 'package-lock.json'
+              - 'next.config.mjs'
+              - 'tsconfig.json'
+              - 'tailwind.config.*'
+              - 'postcss.config.*'
+              - 'Dockerfile'
+              - '.eslintrc.*'
+
+  # Run unit tests before pushing — don't push a broken image.
+  test:
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.container == 'true'
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
+        with:
+          node-version: '25'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - run: npm run lint
+
+      - run: npm run test
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+
+  # Build and push branch-tagged preview image to ACR.
+  preview-build-push:
+    runs-on: ubuntu-latest
+    needs: [changes, test]
+    if: needs.changes.outputs.container == 'true' && needs.test.result == 'success'
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Login to Azure
+        uses: azure/login@a457da9ea143d694b1b9c7c869ebb04ebe844ef5 # v2.3.0
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Login to ACR
+        run: az acr login --name "$ACR_NAME"
+
+      - name: Set up Docker Buildx
+        run: |
+          docker buildx create --name preview-builder --driver docker-container --use || \
+          docker buildx use preview-builder
+          docker buildx inspect --bootstrap
+
+      - name: Compute preview tags
+        id: tags
+        env:
+          REF_NAME: ${{ github.ref_name }}
+          COMMIT_SHA: ${{ github.sha }}
+        run: |
+          # Sanitise branch name: lowercase, replace non-alphanumeric with hyphens,
+          # collapse repeated hyphens, cap at 40 chars, strip trailing hyphen.
+          SAFE_BRANCH=$(echo "$REF_NAME" \
+            | tr '[:upper:]' '[:lower:]' \
+            | sed 's/[^a-z0-9-]/-/g' \
+            | sed 's/-\+/-/g' \
+            | cut -c1-40 \
+            | sed 's/-$//')
+          SHORT_SHA=$(echo "$COMMIT_SHA" | cut -c1-7)
+          IMAGE="${ACR_LOGIN_SERVER}/later-life-planner"
+          {
+            echo "safe_branch=${SAFE_BRANCH}"
+            echo "short_sha=${SHORT_SHA}"
+            echo "immutable_tag=${IMAGE}:preview-${SAFE_BRANCH}-${SHORT_SHA}"
+            echo "latest_tag=${IMAGE}:preview-${SAFE_BRANCH}-latest"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Build and push preview image
+        env:
+          IMMUTABLE_TAG: ${{ steps.tags.outputs.immutable_tag }}
+          LATEST_TAG: ${{ steps.tags.outputs.latest_tag }}
+          BUILD_ARG_TURNSTILE_SITE_KEY: ${{ secrets.NEXT_PUBLIC_TURNSTILE_SITE_KEY }}
+          BUILD_ARG_CLERK_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}
+          BUILD_ARG_OPTIMIZER_ENABLED: ${{ secrets.NEXT_PUBLIC_OPTIMIZER_ENABLED || 'true' }}
+          BUILD_ARG_PRO_ENABLED: ${{ secrets.NEXT_PUBLIC_PRO_ENABLED || 'false' }}
+        run: |
+          docker buildx build \
+            --file Dockerfile \
+            --push \
+            --tag "${IMMUTABLE_TAG}" \
+            --tag "${LATEST_TAG}" \
+            --cache-from "type=gha" \
+            --cache-to "type=gha,mode=max" \
+            --build-arg "NEXT_PUBLIC_TURNSTILE_SITE_KEY=${BUILD_ARG_TURNSTILE_SITE_KEY}" \
+            --build-arg "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=${BUILD_ARG_CLERK_PUBLISHABLE_KEY}" \
+            --build-arg "NEXT_PUBLIC_OPTIMIZER_ENABLED=${BUILD_ARG_OPTIMIZER_ENABLED}" \
+            --build-arg "NEXT_PUBLIC_PRO_ENABLED=${BUILD_ARG_PRO_ENABLED}" \
+            --build-arg "NEXT_PUBLIC_LLM_PROVIDER=azure-openai" \
+            --build-arg "NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in" \
+            --build-arg "NEXT_PUBLIC_CLERK_SIGN_UP_URL=/sign-up" \
+            --build-arg "NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL=/" \
+            --build-arg "NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL=/" \
+            .
+
+      - name: Write job summary
+        env:
+          BRANCH: ${{ github.ref_name }}
+          SHORT_SHA: ${{ steps.tags.outputs.short_sha }}
+          IMMUTABLE: ${{ steps.tags.outputs.immutable_tag }}
+          LATEST: ${{ steps.tags.outputs.latest_tag }}
+        run: |
+          cat >> "$GITHUB_STEP_SUMMARY" <<EOF
+          ## Preview image ready — ${BRANCH} @ ${SHORT_SHA}
+
+          | | |
+          |---|---|
+          | **Branch** | \`${BRANCH}\` |
+          | **SHA** | \`${SHORT_SHA}\` |
+          | **Immutable tag** | \`${IMMUTABLE}\` |
+          | **Latest for branch** | \`${LATEST}\` |
+
+          ### Pull and run locally
+
+          \`\`\`bash
+          az acr login --name ${ACR_NAME}
+          docker pull ${LATEST}
+          docker run -p 3000:3000 --env-file .env.local ${LATEST}
+          \`\`\`
+
+          > The \`:latest\` production tag is unaffected by this build.
+          EOF
