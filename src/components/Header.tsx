@@ -44,9 +44,12 @@ export default function Header({
         <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between gap-4">
 
           {/* Brand */}
-          <div className="flex items-center gap-2 min-w-0">
-            <Image src="/images/victorylap_icon.svg" alt="LaterLifePlan icon" width={32} height={32} className="rounded-[10px] flex-shrink-0" />
-            <span className="text-base font-bold text-navy tracking-tight">LaterLifePlan</span>
+          <div className="flex items-center gap-2.5 min-w-0">
+            <Image src="/images/victorylap_icon.svg" alt="LaterLifePlan icon" width={40} height={40} className="rounded-[14px] flex-shrink-0" />
+            <div className="min-w-0">
+              <div className="text-base font-bold text-navy tracking-tight leading-tight">LaterLifePlan</div>
+              <div className="text-xs text-ink-muted leading-tight hidden sm:block">Design the life you want</div>
+            </div>
           </div>
 
           {/* Right controls */}
