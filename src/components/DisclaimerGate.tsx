@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 
 interface Props { onAccept: () => void }
 
@@ -13,9 +14,7 @@ export default function DisclaimerGate({ onAccept }: Props) {
       {/* Brand mark */}
       <header className="mb-10 text-center">
         <div className="inline-flex items-center gap-2 mb-2">
-          <div className="w-8 h-8 rounded-md bg-navy flex items-center justify-center">
-            <span className="text-white font-bold text-sm leading-none">L</span>
-          </div>
+          <Image src="/images/victorylap_icon.svg" alt="LaterLifePlan icon" width={32} height={32} className="rounded-[10px]" />
           <span className="text-xl font-bold text-navy tracking-tight">LaterLifePlan</span>
         </div>
       </header>

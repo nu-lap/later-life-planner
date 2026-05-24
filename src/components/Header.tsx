@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import { usePlannerStore } from '@/store/plannerStore';
 import ConfirmModal from '@/components/ui/ConfirmModal';
 import { ACCOUNT_IDS, HEADER_IDS } from '@/lib/testIds';
@@ -44,9 +45,7 @@ export default function Header({
 
           {/* Brand */}
           <div className="flex items-center gap-2 min-w-0">
-            <div className="w-7 h-7 rounded-md bg-navy flex items-center justify-center flex-shrink-0">
-              <span className="text-white font-bold text-xs leading-none">L</span>
-            </div>
+            <Image src="/images/victorylap_icon.svg" alt="LaterLifePlan icon" width={32} height={32} className="rounded-[10px] flex-shrink-0" />
             <span className="text-base font-bold text-navy tracking-tight">LaterLifePlan</span>
           </div>
 
