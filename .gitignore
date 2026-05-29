@@ -4,9 +4,23 @@
 !/.claude/agents/
 !/.claude/agents/**
 
+# Ruflo / claude-flow working state
+/.claude-flow/
+.swarm/
+ruvector.db
+skills-lock.json
+docs/.claude-flow/
+docs/.claude/
+docs/.swarm/
+docs/ruvector.db
+
 # Testing
 /coverage/*
 docs/exploratory-testing/sessions/*/screenshots/*
+docs/exploratory-testing/sessions/*/
+
+# UI reference screenshots (local working files)
+docs/ui-reference-images/
 
 # dependencies
 /node_modules
