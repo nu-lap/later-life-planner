@@ -1,6 +1,8 @@
 # Coding Agent
 /.agents/*
 /.claude/*
+!/.claude/agents/
+!/.claude/agents/**
 
 # Testing
 /coverage/*

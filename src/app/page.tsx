@@ -83,7 +83,7 @@ function PlannerShell({
 
   if (!isSyncReady) {
     return (
-      <div className="min-h-screen flex flex-col bg-cream-100">
+      <div className="min-h-screen flex flex-col bg-surface">
         <Header
           onReset={handleReset}
           saveStatus={saveStatus}
@@ -92,9 +92,9 @@ function PlannerShell({
         />
         <main className="flex-1 max-w-5xl mx-auto w-full px-4 py-12">
           <section className="game-card text-center">
-            <p className="text-xs font-bold uppercase tracking-[0.2em] text-orange-500">Secure Sync</p>
-            <h2 className="mt-2 text-2xl font-black text-slate-900">Loading your encrypted plan</h2>
-            <p className="mt-2 text-sm text-slate-500">
+            <p className="text-xs font-bold uppercase tracking-[0.2em] text-tangerine">Secure Sync</p>
+            <h2 className="mt-2 text-2xl font-bold text-navy">Loading your encrypted plan</h2>
+            <p className="mt-2 text-sm text-ink-muted">
               Your account data is being fetched and decrypted in this browser.
             </p>
           </section>
@@ -104,7 +104,7 @@ function PlannerShell({
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-cream-100">
+    <div className="min-h-screen flex flex-col bg-surface">
       <Header
         onReset={handleReset}
         saveStatus={saveStatus}
@@ -113,8 +113,8 @@ function PlannerShell({
       />
 
       {/* Step navigation bar */}
-      <div className="sticky top-[56px] z-10 bg-white/80 backdrop-blur-sm border-b border-orange-100/60 no-print">
-        <div className="max-w-5xl mx-auto px-4 py-2.5">
+      <div className="sticky top-14 z-10 bg-surface-white/90 backdrop-blur-sm border-b border-border/40 no-print">
+        <div className="max-w-5xl mx-auto px-4 py-3">
           <StepIndicator steps={STEPS} currentStep={currentStep} maxVisitedStep={maxVisitedStep} onStepClick={setCurrentStep} />
         </div>
       </div>
@@ -131,7 +131,7 @@ function PlannerShell({
 
       {/* Live summary bar */}
       {currentStep < 4 && (
-        <div className="sticky bottom-0 bg-white/90 backdrop-blur-sm border-t border-orange-100/60 shadow-game no-print">
+        <div className="sticky bottom-0 bg-surface-white/90 backdrop-blur-sm border-t border-border/40 shadow-card no-print">
           <SummaryBar />
         </div>
       )}

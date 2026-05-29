@@ -2,6 +2,17 @@
 # Triggers automatically on push to preview/** branches, and manually via workflow_dispatch.
 # Pushes branch-tagged images to ACR — never overwrites :latest (production only).
 # Use this to validate UI designs without touching the production pipeline.
+#
+# AZURE OIDC SETUP (one-time):
+#   The preview-build-push job uses the GitHub environment "preview" so that the
+#   OIDC subject is the stable string:
+#     repo:durbs182/later-life-planner:environment:preview
+#   rather than a per-branch value.
+#   Add ONE federated credential in the Azure App Registration
+#   (Portal → App Registrations → <app> → Certificates & Secrets → Federated Credentials):
+#     Issuer:  https://token.actions.githubusercontent.com
+#     Subject: repo:durbs182/later-life-planner:environment:preview
+#     Name:    github-preview-environment
 name: Preview Build
 
 on:
@@ -20,6 +31,8 @@ permissions:
 env:
   ACR_NAME: acrsharedresourcesuks
   ACR_LOGIN_SERVER: acrsharedresourcesuks.azurecr.io
+  APP_NAME: ca-later-life-planner
+  APP_RESOURCE_GROUP: rg-later-life-planner
 
 jobs:
   # Detect whether container-affecting files changed.
@@ -68,11 +81,66 @@ jobs:
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
 
-  # Build and push branch-tagged preview image to ACR.
-  preview-build-push:
+  # Wait for all other CI checks on this commit to complete (Semgrep, CodeQL,
+  # SonarCloud, etc. from ci-cd.yml) before pushing an image.
+  # This prevents publishing an image that is known to be broken or insecure.
+  wait-for-checks:
     runs-on: ubuntu-latest
     needs: [changes, test]
     if: needs.changes.outputs.container == 'true' && needs.test.result == 'success'
+    permissions:
+      checks: read
+    steps:
+      - name: Wait for all external CI checks to pass
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.sha }}
+          REPO: ${{ github.repository }}
+        run: |
+          echo "Polling check-runs for ${SHA} (excluding preview workflow jobs)..."
+
+          # Jobs that belong to *this* workflow — we don't wait for ourselves
+          OWN_JOBS="changes|test|wait-for-checks|preview-build-push"
+
+          for i in $(seq 1 40); do
+            RUNS=$(gh api "repos/${REPO}/commits/${SHA}/check-runs" \
+              --jq ".check_runs[] | select(.name | test(\"${OWN_JOBS}\") | not)")
+
+            PENDING=$(echo "$RUNS" | jq -s '[.[] | select(.status != "completed")] | length')
+            FAILED=$(echo "$RUNS" | jq -s '[.[] | select(.status == "completed") |
+              select(.conclusion != "success" and .conclusion != "skipped" and .conclusion != "neutral")] | length')
+
+            echo "  [${i}/40] external checks — pending=${PENDING} failed=${FAILED}"
+
+            if [ "$FAILED" -gt 0 ]; then
+              echo "One or more external checks failed — aborting preview build."
+              exit 1
+            fi
+            if [ "$PENDING" -eq 0 ]; then
+              echo "All external checks passed."
+              exit 0
+            fi
+
+            sleep 45
+          done
+
+          echo "Timed out waiting for checks (30 min). Aborting."
+          exit 1
+
+  # Build and push branch-tagged preview image to ACR.
+  # Uses the GitHub environment "preview" so OIDC subject is stable across branches.
+  preview-build-push:
+    runs-on: ubuntu-latest
+    needs: [changes, test, wait-for-checks]
+    if: needs.changes.outputs.container == 'true' && needs.test.result == 'success' && needs.wait-for-checks.result == 'success'
+    environment: preview
+    permissions:
+      contents: read
+      id-token: write
+      deployments: write
+    outputs:
+      latest_tag: ${{ steps.tags.outputs.latest_tag }}
+      safe_branch: ${{ steps.tags.outputs.safe_branch }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
@@ -168,4 +236,56 @@ jobs:
           \`\`\`
 
           > The \`:latest\` production tag is unaffected by this build.
+          EOF
+
+  # Update the shared Container App to run the new preview image.
+  deploy-preview:
+    runs-on: ubuntu-latest
+    needs: [changes, preview-build-push]
+    if: needs.changes.outputs.container == 'true' && needs.preview-build-push.result == 'success'
+    environment: preview
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Login to Azure
+        uses: azure/login@a457da9ea143d694b1b9c7c869ebb04ebe844ef5 # v2.3.0
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Update Container App image
+        env:
+          LATEST_TAG: ${{ needs.preview-build-push.outputs.latest_tag }}
+        run: |
+          # Single-revision mode: update creates and activates a new revision automatically.
+          # No restart needed — the new revision starts fresh with the updated image.
+          REVISION=$(az containerapp update \
+            --name "$APP_NAME" \
+            --resource-group "$APP_RESOURCE_GROUP" \
+            --image "$LATEST_TAG" \
+            --only-show-errors \
+            --query properties.latestRevisionName \
+            -o tsv)
+          echo "New revision: $REVISION"
+
+      - name: Show preview URL
+        env:
+          BRANCH: ${{ github.ref_name }}
+          LATEST_TAG: ${{ needs.preview-build-push.outputs.latest_tag }}
+        run: |
+          FQDN=$(az containerapp show \
+            --name "$APP_NAME" \
+            --resource-group "$APP_RESOURCE_GROUP" \
+            --query properties.configuration.ingress.fqdn \
+            -o tsv)
+          echo "Preview live at: https://${FQDN}"
+          cat >> "$GITHUB_STEP_SUMMARY" <<EOF
+          ## Preview deployed — ${BRANCH}
+
+          | | |
+          |---|---|
+          | **URL** | https://${FQDN} |
+          | **Image** | \`${LATEST_TAG}\` |
           EOF

@@ -12,46 +12,63 @@ interface Props {
 }
 
 export default function StepIndicator({ steps, currentStep, maxVisitedStep, onStepClick }: Props) {
+  const progressPct = (currentStep / (steps.length - 1)) * 100;
+
   return (
-    <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5">
-      {steps.map((step, i) => {
-        const done   = i < currentStep;
-        const active = i === currentStep;
-        const locked = i > maxVisitedStep;
-        return (
-          <button
-            key={i}
-            onClick={() => !locked && onStepClick(i)}
-            disabled={locked}
-            aria-disabled={locked}
-            className={clsx(
-              'flex items-center gap-2 px-4 py-2 rounded-2xl text-sm font-semibold transition-all duration-200 flex-shrink-0',
-              active  && 'bg-orange-500 text-white shadow-sm',
-              done    && 'bg-orange-100 text-orange-700 hover:bg-orange-200',
-              locked  && 'bg-slate-100 text-slate-400 cursor-not-allowed opacity-60',
-            )}
-          >
-            <span className={clsx(
-              'w-5 h-5 rounded-full flex items-center justify-center text-xs font-black flex-shrink-0',
-              active && 'bg-white/30 text-white',
-              done   && 'bg-orange-500 text-white',
-              locked && 'bg-slate-200 text-slate-400',
-            )}>
-              {done ? '✓' : i + 1}
-            </span>
-            <span className="hidden sm:inline">{step.label}</span>
-          </button>
-        );
-      })}
+    <div className="space-y-2">
+      {/* Step bubbles */}
+      <div className="flex items-center justify-between relative">
+        {/* Connecting line */}
+        <div className="absolute top-4 left-0 right-0 h-px bg-border/60 -z-10" />
+
+        {steps.map((step, i) => {
+          const done   = i < currentStep;
+          const active = i === currentStep;
+          const locked = i > maxVisitedStep;
+
+          return (
+            <button
+              key={i}
+              onClick={() => !locked && onStepClick(i)}
+              disabled={locked}
+              aria-disabled={locked}
+              className="flex flex-col items-center gap-1.5 flex-shrink-0"
+            >
+              <div className={clsx(
+                'w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-200 border-2',
+                active && 'bg-tangerine text-white border-tangerine shadow-card-lg',
+                done   && 'bg-navy text-white border-navy',
+                locked && 'bg-surface-high text-ink-muted border-border cursor-not-allowed',
+                !active && !done && !locked && 'bg-surface-white text-ink-muted border-border hover:border-navy',
+              )}>
+                {done ? (
+                  <svg className="w-4 h-4" viewBox="0 0 16 16" fill="none">
+                    <path d="M3 8l3.5 3.5L13 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                ) : (
+                  i + 1
+                )}
+              </div>
+              <span className={clsx(
+                'hidden sm:block text-[10px] font-semibold tracking-wide transition-colors',
+                active && 'text-tangerine',
+                done   && 'text-navy',
+                locked && 'text-ink-muted',
+                !active && !done && !locked && 'text-ink-muted',
+              )}>
+                {step.label}
+              </span>
+            </button>
+          );
+        })}
+      </div>
 
       {/* Progress bar */}
-      <div className="flex-1 min-w-8 mx-1 hidden md:block">
-        <div className="h-1.5 bg-slate-200 rounded-full overflow-hidden">
-          <div
-            className="h-full bg-orange-400 rounded-full transition-all duration-500"
-            style={{ width: `${(currentStep / (steps.length - 1)) * 100}%` }}
-          />
-        </div>
+      <div className="h-1 bg-surface-high rounded-full overflow-hidden">
+        <div
+          className="h-full bg-tangerine rounded-full transition-all duration-500"
+          style={{ width: `${progressPct}%` }}
+        />
       </div>
     </div>
   );

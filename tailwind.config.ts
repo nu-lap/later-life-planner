@@ -9,27 +9,55 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif'],
+        sans: ['var(--font-plus-jakarta-sans)', 'Plus Jakarta Sans', 'Inter', 'system-ui', 'sans-serif'],
       },
       colors: {
-        // Warm cream app background
+        // ── Stitch "Modern Design Refresh" design system ───────────────────
+        navy: {
+          DEFAULT: '#041632',   // primary — headings, primary text
+          mid:     '#1b2b48',   // primary-container — card accents, dark fills
+          muted:   '#4f5e7e',   // surface-tint — subtle treatment
+          light:   '#b7c7eb',   // primary-fixed-dim — hover highlights
+        },
+        tangerine: {
+          DEFAULT: '#fc820c',   // secondary-container — CTA fills
+          dark:    '#964900',   // secondary — hover/active
+          light:   '#ffdcc6',   // secondary-fixed — tinted backgrounds
+        },
+        surface: {
+          DEFAULT:   '#fbf9f4',   // page background
+          container: '#f0eee9',   // card backgrounds
+          low:       '#f5f3ee',   // subtle fills
+          high:      '#eae8e3',   // dividers
+          highest:   '#e4e2dd',   // strong dividers
+          white:     '#ffffff',   // card faces
+          dim:       '#dbdad5',   // disabled
+        },
+        border: {
+          DEFAULT: '#c5c6ce',   // outline-variant
+          strong:  '#75777e',   // outline
+        },
+        ink: {
+          DEFAULT: '#1b1c19',   // on-surface — primary text
+          muted:   '#44474d',   // on-surface-variant — secondary text
+        },
+        success: '#55a454',
+        // ── Legacy palette (kept for backward compat) ─────────────────────
         cream: {
           50:  '#fefcf8',
-          100: '#fdf8f0',
-          200: '#faf1e1',
+          100: '#fbf9f4',
+          200: '#f0eee9',
         },
-        // Life stage colours
         stage: {
-          active:  '#f97316',   // Orange — energy, activity
-          gradual: '#10b981',   // Emerald — balance, growth
-          later:   '#8b5cf6',   // Violet — calm, wisdom
+          active:  '#f97316',
+          gradual: '#10b981',
+          later:   '#8b5cf6',
         },
-        // Lifestyle level colours
         lifestyle: {
-          minimum:     '#64748b',  // Slate
-          moderate:    '#0ea5e9',  // Sky
-          comfortable: '#10b981',  // Emerald
-          beyond:      '#f97316',  // Orange
+          minimum:     '#64748b',
+          moderate:    '#0ea5e9',
+          comfortable: '#10b981',
+          beyond:      '#f97316',
         },
       },
       borderRadius: {
@@ -37,8 +65,11 @@ const config: Config = {
         '5xl': '2.5rem',
       },
       boxShadow: {
-        'game':    '0 4px 24px -4px rgba(0,0,0,0.08), 0 1px 4px -1px rgba(0,0,0,0.04)',
-        'game-lg': '0 8px 40px -8px rgba(0,0,0,0.12), 0 2px 8px -2px rgba(0,0,0,0.06)',
+        'card':       '0px 4px 20px rgba(27, 43, 72, 0.04)',
+        'card-lg':    '0px 12px 32px rgba(27, 43, 72, 0.08)',
+        // Legacy
+        'game':       '0 4px 24px -4px rgba(0,0,0,0.08), 0 1px 4px -1px rgba(0,0,0,0.04)',
+        'game-lg':    '0 8px 40px -8px rgba(0,0,0,0.12), 0 2px 8px -2px rgba(0,0,0,0.06)',
         'inner-soft': 'inset 0 2px 8px rgba(0,0,0,0.06)',
       },
       backgroundImage: {

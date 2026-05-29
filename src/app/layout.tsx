@@ -1,7 +1,15 @@
 import type { Metadata } from 'next';
 import { ClerkProvider } from '@clerk/nextjs';
+import { Plus_Jakarta_Sans } from 'next/font/google';
 import AuthStateSync from '@/components/AuthStateSync';
 import './globals.css';
+
+const plusJakartaSans = Plus_Jakarta_Sans({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
+  display: 'swap',
+  variable: '--font-plus-jakarta-sans',
+});
 
 export const metadata: Metadata = {
   title: 'LaterLifePlan — Design the life you want',
@@ -22,8 +30,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
   if (!hasClerkPublishableKey) {
     return (
-      <html lang="en">
-        <body className="min-h-screen bg-cream-100">
+      <html lang="en" className={plusJakartaSans.variable}>
+        <body className="min-h-screen bg-surface">
           {body}
         </body>
       </html>
@@ -32,8 +40,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
   return (
     <ClerkProvider>
-      <html lang="en">
-        <body className="min-h-screen bg-cream-100">{body}</body>
+      <html lang="en" className={plusJakartaSans.variable}>
+        <body className="min-h-screen bg-surface">{body}</body>
       </html>
     </ClerkProvider>
   );

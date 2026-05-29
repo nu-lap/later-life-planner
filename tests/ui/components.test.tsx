@@ -259,7 +259,7 @@ describe('StepIndicator', () => {
     expect(screen.getAllByText('Income').length).toBeGreaterThan(0);
   });
 
-  test('active step button has orange background class', () => {
+  test('active step button has tangerine background class', () => {
     render(
       <StepIndicator
         steps={STEPS}
@@ -269,11 +269,11 @@ describe('StepIndicator', () => {
       />,
     );
     const buttons = screen.getAllByRole('button');
-    // Step 1 (index 1) is active
-    expect(buttons[1].className).toContain('bg-orange-500');
+    // The active step circle div inside button[1] carries bg-tangerine
+    expect(buttons[1].innerHTML).toContain('bg-tangerine');
   });
 
-  test('done step shows checkmark ✓', () => {
+  test('done step shows a checkmark indicator', () => {
     render(
       <StepIndicator
         steps={STEPS}
@@ -282,10 +282,10 @@ describe('StepIndicator', () => {
         onStepClick={vi.fn()}
       />,
     );
-    // Steps 0 and 1 are done (i < currentStep=2)
+    // Steps 0 and 1 are done — each button contains an SVG checkmark
     const buttons = screen.getAllByRole('button');
-    expect(buttons[0].textContent).toContain('✓');
-    expect(buttons[1].textContent).toContain('✓');
+    expect(buttons[0].querySelector('svg')).not.toBeNull();
+    expect(buttons[1].querySelector('svg')).not.toBeNull();
   });
 
   test('locked step has disabled attribute', () => {

@@ -1,5 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,400&display=swap');
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -8,69 +6,68 @@
 
 @layer base {
   html {
-    font-family: 'Inter', system-ui, sans-serif;
+    font-family: var(--font-plus-jakarta-sans), 'Plus Jakarta Sans', system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
 
   body {
-    @apply bg-cream-100 text-slate-800;
+    @apply bg-surface text-ink;
     min-height: 100dvh;
   }
 
   * { box-sizing: border-box; }
 }
 
-/* ─── Game-style component classes ──────────────────────────────────────────── */
+/* ─── Design-system component classes ───────────────────────────────────────── */
 
 @layer components {
 
-  /* The main card — soft white, very rounded, gentle shadow */
+  /* Card — clean white face, subtle navy shadow */
   .game-card {
-    @apply bg-white rounded-3xl shadow-game border border-white/60 p-6;
+    @apply bg-surface-white rounded-lg shadow-card border border-border/40 p-6;
   }
 
   .game-card-sm {
-    @apply bg-white rounded-2xl shadow-game border border-white/60 p-4;
+    @apply bg-surface-white rounded-lg shadow-card border border-border/40 p-4;
   }
 
-  /* Backward compat alias */
   .card { @apply game-card; }
 
-  /* Primary action button — warm orange, pill shape */
+  /* Primary CTA — tangerine pill */
   .btn-primary {
-    @apply bg-orange-500 hover:bg-orange-600 active:scale-95
-           text-white font-bold py-3 px-7 rounded-2xl
-           transition-all duration-150 text-base shadow-sm hover:shadow-md;
+    @apply bg-tangerine hover:bg-tangerine-dark active:scale-95
+           text-white font-bold py-3 px-7 rounded-full
+           transition-all duration-150 text-sm shadow-card hover:shadow-card-lg;
   }
 
   /* Secondary button */
   .btn-secondary {
-    @apply bg-white hover:bg-slate-50 active:scale-95
-           text-slate-700 font-semibold py-3 px-6 rounded-2xl
-           transition-all duration-150 text-base
-           border border-slate-200 shadow-sm;
+    @apply bg-surface-white hover:bg-surface-low active:scale-95
+           text-navy font-semibold py-3 px-6 rounded-full
+           transition-all duration-150 text-sm
+           border-2 border-navy shadow-card;
   }
 
   .btn-ghost {
-    @apply text-slate-600 hover:text-slate-800 font-medium
-           py-2 px-4 rounded-xl transition-colors duration-150 text-sm;
+    @apply text-ink-muted hover:text-navy font-medium
+           py-2 px-4 rounded-lg transition-colors duration-150 text-sm;
   }
 
   /* Input fields */
   .input-base {
-    @apply w-full border border-slate-200 rounded-xl px-4 py-2.5 text-base
-           text-slate-800 bg-white focus:outline-none focus:ring-2
-           focus:ring-orange-400 focus:border-transparent transition-all duration-150;
+    @apply w-full border border-border rounded-lg px-4 py-2.5 text-sm
+           text-ink bg-surface-white focus:outline-none focus:ring-2
+           focus:ring-navy/20 focus:border-navy transition-all duration-150;
   }
 
   /* Section headings */
   .section-heading {
-    @apply text-xl font-bold text-slate-800 mb-1;
+    @apply text-xl font-bold text-navy mb-1;
   }
 
   .section-subheading {
-    @apply text-slate-500 text-sm mb-5;
+    @apply text-ink-muted text-sm mb-5;
   }
 
   /* Life stage coloured pill */
@@ -78,9 +75,9 @@
     @apply inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold text-white;
   }
 
-  .stage-pill-active  { @apply stage-pill bg-orange-500; }
-  .stage-pill-gradual { @apply stage-pill bg-emerald-500; }
-  .stage-pill-later   { @apply stage-pill bg-violet-500; }
+  .stage-pill-active  { @apply stage-pill bg-stage-active; }
+  .stage-pill-gradual { @apply stage-pill bg-stage-gradual; }
+  .stage-pill-later   { @apply stage-pill bg-stage-later; }
 
   /* Lifestyle level badge */
   .lifestyle-badge {
@@ -93,26 +90,26 @@
   .tier-aspirational { @apply bg-violet-50 border-violet-100; }
   .tier-variable     { @apply bg-amber-50 border-amber-100; }
 
-  /* Stat card — game HUD metric box */
+  /* Stat card */
   .stat-card {
-    @apply rounded-2xl p-5 text-white;
+    @apply rounded-lg p-5 text-white;
   }
 
   /* Priority group number circle */
   .priority-circle {
-    @apply w-8 h-8 rounded-full bg-slate-800 text-white text-sm font-bold
+    @apply w-8 h-8 rounded-full bg-navy text-white text-sm font-bold
            flex items-center justify-center flex-shrink-0;
   }
 }
 
-/* ─── Custom range slider — large, orange, game-style ───────────────────────── */
+/* ─── Custom range slider ─────────────────────────────────────────────────── */
 
 input[type='range'] {
   -webkit-appearance: none;
   appearance: none;
   height: 8px;
   border-radius: 999px;
-  background: #e2e8f0;
+  background: #e4e2dd;
   outline: none;
   cursor: pointer;
 }
@@ -120,29 +117,29 @@ input[type='range'] {
 input[type='range']::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 26px;
-  height: 26px;
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
-  background: #f97316;
+  background: #F57C00;
   cursor: pointer;
-  border: 3px solid #fff;
-  box-shadow: 0 2px 8px rgba(249, 115, 22, 0.35);
+  border: 2px solid #fff;
+  box-shadow: 0 2px 6px rgba(27, 43, 72, 0.2);
   transition: background 0.15s, transform 0.1s;
 }
 
 input[type='range']::-webkit-slider-thumb:hover {
-  background: #ea6b0a;
-  transform: scale(1.15);
+  background: #E65100;
+  transform: scale(1.1);
 }
 
 input[type='range']::-moz-range-thumb {
-  width: 26px;
-  height: 26px;
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
-  background: #f97316;
+  background: #F57C00;
   cursor: pointer;
-  border: 3px solid #fff;
-  box-shadow: 0 2px 8px rgba(249, 115, 22, 0.35);
+  border: 2px solid #fff;
+  box-shadow: 0 2px 6px rgba(27, 43, 72, 0.2);
 }
 
 /* ─── Smooth transitions ───────────────────────────────────────────────────── */
@@ -163,7 +160,7 @@ input[type='range']::-moz-range-thumb {
   body { background: white; }
   .game-card, .card {
     box-shadow: none;
-    border: 1px solid #e2e8f0;
-    border-radius: 12px;
+    border: 1px solid #e4e2dd;
+    border-radius: 8px;
   }
 }
